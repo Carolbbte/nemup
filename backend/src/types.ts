@@ -1,0 +1,76 @@
+/**
+ * Backend-local type definitions for session generation.
+ */
+
+export type SessionFormat = 'quizzes' | 'flashcards' | 'summary' | 'mindmap';
+
+export type DifficultyLevel = 'easy' | 'adaptive' | 'hard';
+
+export interface SessionConfig {
+  documentId: string;
+  format: SessionFormat[];
+  difficulty: DifficultyLevel;
+  estimatedDuration: number;
+  subject?: string;
+  topic?: string;
+}
+
+export interface MultipleChoiceOption {
+  id: string;
+  text: string;
+}
+
+export interface MultipleChoiceQuestion {
+  id: string;
+  text: string;
+  options: MultipleChoiceOption[];
+  correctOptionId: string;
+  explanation: string;
+  sourceQuote: string;
+  difficulty: DifficultyLevel;
+}
+
+export interface Flashcard {
+  id: string;
+  front: string;
+  back: string;
+  sourceQuote: string;
+  difficulty: DifficultyLevel;
+}
+
+export interface SummarySection {
+  heading: string;
+  content: string;
+  keyPoints: string[];
+}
+
+export interface Summary {
+  id: string;
+  title: string;
+  sections: SummarySection[];
+  sourceQuotes: string[];
+}
+
+export interface GeneratedSession {
+  id: string;
+  userId: string;
+  documentId: string;
+  subject: string;
+  topic: string;
+  wordCount: number;
+  difficulty: DifficultyLevel;
+  format: SessionFormat[];
+  estimatedDuration: number;
+  transcription: string;
+  questions: MultipleChoiceQuestion[];
+  flashcards: Flashcard[];
+  summary: Summary;
+  metadata: {
+    createdAt: string;
+    processedAt: string;
+    groundingValidated: boolean;
+    groundingScore: number;
+  };
+  xpReward: number;
+  gemReward: number;
+}

@@ -19,13 +19,11 @@ export const ONBOARDING_STEPS = [
   { id: 0, name: 'Welcome' },
   { id: 1, name: 'Name & Curso' },
   { id: 2, name: 'Goal' },
-  { id: 3, name: 'Subjects' },
-  { id: 4, name: 'Goal Type' },
-  { id: 5, name: 'Commitment' },
-  { id: 6, name: 'Complete' },
+  { id: 3, name: 'Commitment' },
+  { id: 4, name: 'Complete' },
 ];
 
-export const CURSOS = ['7º Básico', '8º Básico', '1º Medio', '2º Medio', '3º Medio', '4º Medio'];
+export const CURSOS = ['1º Medio', '2º Medio', '3º Medio', '4º Medio'];
 
 export const SUBJECTS = [
   { id: 'math', name: 'Matemáticas', emoji: '🔢' },
@@ -59,6 +57,6 @@ export const DEFAULT_ONBOARDING_DATA: OnboardingData = {
   goal: 5,
   subjects: [],
   goalType: '',
-  dailyCommitment: '15min',
+  dailyCommitment: '',
   completed: false,
 };

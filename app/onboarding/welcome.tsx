@@ -1,19 +1,29 @@
 import React from 'react';
-import { View, Text, Pressable, StyleSheet, ImageBackground } from 'react-native';
+import { Text, Pressable, StyleSheet, View } from 'react-native';
 import { useOnboarding } from '@/contexts/OnboardingContext';
 import { Colors } from '@/constants/Colors';
+import ScreenContainer from '@/components/ScreenContainer';
+import { LinearGradient } from 'expo-linear-gradient';
+
+const FEATURES = [
+  { emoji: '⚡', label: 'Sesiones desde tus apuntes' },
+  { emoji: '🤖', label: 'Tutor IA disponible 24/7' },
+  { emoji: '🏆', label: 'Compite con tu curso' },
+];
 
 export default function WelcomeScreen() {
   const { nextStep } = useOnboarding();
 
   return (
-    <View style={styles.container}>
-      <ImageBackground
-        source={{ uri: 'https://via.placeholder.com/400x800/5B3DF5/5B3DF5' }}
+    <ScreenContainer style={styles.container}>
+      <LinearGradient
+        colors={['#080712', '#140F32', '#361E7C']}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
         style={styles.background}
       >
+        <View style={styles.overlay} />
         <View style={styles.content}>
-          {/* Logo */}
           <View style={styles.logoContainer}>
             <View style={styles.logoBadge}>
               <Text style={styles.logoText}>N</Text>
@@ -21,187 +31,209 @@ export default function WelcomeScreen() {
             <Text style={styles.logoLabel}>NemUp</Text>
           </View>
 
-          {/* Hero Section */}
           <View style={styles.hero}>
-            <Text style={styles.emoji}>🚀</Text>
+            <View style={styles.heroIconWrapper}>
+              <View style={styles.heroIconBackground} />
+              <Text style={styles.heroIcon}>📈</Text>
+            </View>
             <Text style={styles.title}>
-              Aprende<Text style={styles.titleGradient}> mejor</Text>
+              Sube tu <Text style={styles.titleAccent}>NEM.</Text>{'\n'}
+              <Text style={styles.titleGradient}>Cambia tu futuro.</Text>
             </Text>
             <Text style={styles.subtitle}>
-              Sube tus apuntes y genera sesiones de estudio con IA
+              La app de estudio con IA hecha para estudiantes chilenos.
             </Text>
 
-            {/* Features */}
             <View style={styles.features}>
-              <View style={styles.featureItem}>
-                <View style={styles.featureBadge}>
-                  <Text style={styles.featureEmoji}>📱</Text>
+              {FEATURES.map((feature) => (
+                <View key={feature.label} style={styles.featureItem}>
+                  <View style={styles.featureBadge}>
+                    <Text style={styles.featureEmoji}>{feature.emoji}</Text>
+                  </View>
+                  <Text style={styles.featureText}>{feature.label}</Text>
                 </View>
-                <Text style={styles.featureText}>Estudio personalizado</Text>
-              </View>
-              <View style={styles.featureItem}>
-                <View style={styles.featureBadge}>
-                  <Text style={styles.featureEmoji}>✨</Text>
-                </View>
-                <Text style={styles.featureText}>Con inteligencia artificial</Text>
-              </View>
-              <View style={styles.featureItem}>
-                <View style={styles.featureBadge}>
-                  <Text style={styles.featureEmoji}>📈</Text>
-                </View>
-                <Text style={styles.featureText}>Mejora tus notas</Text>
-              </View>
+              ))}
             </View>
           </View>
 
-          {/* CTA Button */}
           <View style={styles.buttonContainer}>
             <Pressable
               style={({ pressed }) => [styles.ctaButton, pressed && styles.ctaButtonPressed]}
               onPress={nextStep}
             >
-              <Text style={styles.ctaButtonText}>Comenzar</Text>
+              <Text style={styles.ctaButtonText}>Empezar gratis</Text>
               <Text style={styles.ctaButtonArrow}>→</Text>
             </Pressable>
-            <Text style={styles.loginText}>
-              ¿Ya tienes cuenta? <Text style={styles.loginLink}>Inicia sesión</Text>
-            </Text>
           </View>
         </View>
-      </ImageBackground>
-    </View>
+      </LinearGradient>
+    </ScreenContainer>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: '#080712',
   },
   background: {
     flex: 1,
-    justifyContent: 'space-between',
+    justifyContent: 'center',
+  },
+  overlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(255,255,255,0.04)',
   },
   content: {
     flex: 1,
-    paddingHorizontal: 20,
-    paddingTop: 40,
-    paddingBottom: 40,
+    paddingHorizontal: 24,
+    paddingTop: 44,
+    paddingBottom: 36,
     justifyContent: 'space-between',
   },
   logoContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-    marginBottom: 40,
+    gap: 10,
   },
   logoBadge: {
-    width: 32,
-    height: 32,
-    borderRadius: 8,
-    backgroundColor: 'white',
+    width: 40,
+    height: 40,
+    borderRadius: 14,
+    backgroundColor: 'rgba(255,255,255,0.1)',
     justifyContent: 'center',
     alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 12 },
+    shadowOpacity: 0.12,
+    shadowRadius: 20,
+    elevation: 8,
   },
   logoText: {
     fontSize: 18,
     fontWeight: '800',
-    color: Colors.brand,
+    color: '#5B7AFF',
   },
   logoLabel: {
+    marginLeft: 10,
     fontSize: 16,
-    fontWeight: '700',
-    color: 'white',
+    fontWeight: '800',
+    color: '#FFFFFF',
   },
   hero: {
     alignItems: 'center',
   },
-  emoji: {
-    fontSize: 56,
-    marginBottom: 16,
+  heroIconWrapper: {
+    width: 112,
+    height: 112,
+    borderRadius: 32,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 24,
+  },
+  heroIconBackground: {
+    ...StyleSheet.absoluteFillObject,
+    borderRadius: 32,
+    backgroundColor: 'rgba(255,255,255,0.08)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.12)',
+  },
+  heroIcon: {
+    fontSize: 44,
   },
   title: {
-    fontSize: 36,
-    fontWeight: '800',
-    color: 'white',
+    fontSize: 34,
+    fontWeight: '900',
+    color: '#FFFFFF',
     textAlign: 'center',
-    marginBottom: 12,
     lineHeight: 42,
+    marginBottom: 16,
+  },
+  titleAccent: {
+    color: '#C4F852',
   },
   titleGradient: {
-    color: Colors.lime,
+    color: '#F0B678',
   },
   subtitle: {
-    fontSize: 16,
-    color: 'rgba(255,255,255,0.8)',
+    fontSize: 15,
+    color: 'rgba(255,255,255,0.78)',
     textAlign: 'center',
+    lineHeight: 22,
     marginBottom: 32,
-    lineHeight: 24,
+    maxWidth: 340,
   },
   features: {
-    gap: 12,
     width: '100%',
+    gap: 12,
   },
   featureItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
-    backgroundColor: 'rgba(255,255,255,0.12)',
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    borderRadius: 12,
+    backgroundColor: 'rgba(255,255,255,0.1)',
+    borderRadius: 20,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.15)',
+    borderColor: 'rgba(255,255,255,0.14)',
   },
   featureBadge: {
-    width: 28,
-    height: 28,
-    borderRadius: 6,
-    backgroundColor: 'rgba(255,255,255,0.15)',
+    width: 36,
+    height: 36,
+    borderRadius: 14,
+    backgroundColor: 'rgba(255,255,255,0.12)',
     justifyContent: 'center',
     alignItems: 'center',
+    marginRight: 12,
   },
   featureEmoji: {
-    fontSize: 14,
+    fontSize: 18,
   },
   featureText: {
-    fontSize: 12,
-    fontWeight: '500',
-    color: 'white',
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#F9FBFF',
     flex: 1,
   },
   buttonContainer: {
-    gap: 12,
+    width: '100%',
   },
   ctaButton: {
     width: '100%',
-    backgroundColor: 'white',
-    paddingVertical: 14,
-    borderRadius: 14,
-    flexDirection: 'row',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 28,
+    paddingVertical: 16,
     justifyContent: 'center',
     alignItems: 'center',
-    gap: 6,
+    flexDirection: 'row',
+    gap: 10,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 14 },
+    shadowOpacity: 0.16,
+    shadowRadius: 28,
+    elevation: 8,
   },
   ctaButtonPressed: {
-    opacity: 0.9,
+    opacity: 0.92,
   },
   ctaButtonText: {
     fontSize: 16,
-    fontWeight: '700',
-    color: Colors.ink,
+    fontWeight: '900',
+    color: '#0B0B18',
   },
   ctaButtonArrow: {
     fontSize: 16,
-    fontWeight: '700',
-    color: Colors.ink,
+    fontWeight: '900',
+    color: '#0B0B18',
   },
   loginText: {
     textAlign: 'center',
     fontSize: 13,
-    color: 'rgba(255,255,255,0.7)',
+    color: 'rgba(255,255,255,0.72)',
+    marginTop: 14,
   },
   loginLink: {
-    color: Colors.lime,
-    fontWeight: '600',
+    color: '#C4F852',
+    fontWeight: '700',
   },
 });

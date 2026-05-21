@@ -1,6 +1,6 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import { DEFAULT_ONBOARDING_DATA, OnboardingData, OnboardingState } from '@/types/onboarding';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { OnboardingData, OnboardingState, DEFAULT_ONBOARDING_DATA } from '@/types/onboarding';
+import React, { createContext, useContext, useEffect, useState } from 'react';
 
 interface OnboardingContextType {
   state: OnboardingState;
@@ -19,57 +19,42 @@ interface OnboardingContextType {
 
 export const OnboardingContext = createContext<OnboardingContextType | undefined>(undefined);
 
+const ONBOARDING_STORAGE_KEY = 'nemup_onboarding_data';
+
 export const OnboardingProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [state, setState] = useState<OnboardingState>({
     data: DEFAULT_ONBOARDING_DATA,
     currentStep: 0,
-    isLoading: true,
+    isLoading: false,
     error: null,
   });
 
-  // Load onboarding data from AsyncStorage
+  // Load onboarding data from storage on mount
   useEffect(() => {
-    const loadData = async () => {
+    const loadOnboardingData = async () => {
       try {
-        const stored = await AsyncStorage.getItem('onboarding_data');
-        const completed = await AsyncStorage.getItem('onboarding_completed');
-
-        if (stored && completed === 'true') {
+        const savedData = await AsyncStorage.getItem(ONBOARDING_STORAGE_KEY);
+        if (savedData) {
+          const parsedData = JSON.parse(savedData);
           setState(prev => ({
             ...prev,
-            isLoading: false,
-            data: { ...JSON.parse(stored), completed: true },
-          }));
-        } else {
-          setState(prev => ({
-            ...prev,
-            isLoading: false,
+            data: parsedData,
           }));
         }
       } catch (error) {
-        console.error('Error loading onboarding data:', error);
-        setState(prev => ({
-          ...prev,
-          isLoading: false,
-          error: 'Error loading data',
-        }));
+        console.warn('Failed to load onboarding data from storage:', error);
       }
     };
 
-    loadData();
+    loadOnboardingData();
   }, []);
 
-  const updateData = async (updates: Partial<OnboardingData>) => {
+  const updateData = (updates: Partial<OnboardingData>) => {
     const newData = { ...state.data, ...updates };
     setState(prev => ({
       ...prev,
       data: newData,
     }));
-    try {
-      await AsyncStorage.setItem('onboarding_data', JSON.stringify(newData));
-    } catch (error) {
-      console.error('Error saving onboarding data:', error);
-    }
   };
 
   const setName = (name: string) => {
@@ -99,7 +84,7 @@ export const OnboardingProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   const nextStep = () => {
     setState(prev => ({
       ...prev,
-      currentStep: Math.min(prev.currentStep + 1, 6),
+      currentStep: Math.min(prev.currentStep + 1, 4),
     }));
   };
 
@@ -125,12 +110,18 @@ export const OnboardingProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         throw new Error('Please fill in all required fields');
       }
 
-      await AsyncStorage.setItem('onboarding_completed', 'true');
-      await AsyncStorage.setItem('onboarding_data', JSON.stringify(state.data));
+      const completedData = { ...state.data, completed: true };
+      
+      // Save to AsyncStorage
+      try {
+        await AsyncStorage.setItem(ONBOARDING_STORAGE_KEY, JSON.stringify(completedData));
+      } catch (storageError) {
+        console.warn('Failed to save onboarding data to storage:', storageError);
+      }
 
       setState(prev => ({
         ...prev,
-        data: { ...prev.data, completed: true },
+        data: completedData,
         isLoading: false,
       }));
     } catch (error) {
@@ -143,19 +134,13 @@ export const OnboardingProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     }
   };
 
-  const resetOnboarding = async () => {
-    try {
-      await AsyncStorage.removeItem('onboarding_data');
-      await AsyncStorage.removeItem('onboarding_completed');
-      setState({
-        data: DEFAULT_ONBOARDING_DATA,
-        currentStep: 0,
-        isLoading: false,
-        error: null,
-      });
-    } catch (error) {
-      console.error('Error resetting onboarding:', error);
-    }
+  const resetOnboarding = () => {
+    setState({
+      data: DEFAULT_ONBOARDING_DATA,
+      currentStep: 0,
+      isLoading: false,
+      error: null,
+    });
   };
 
   return (
