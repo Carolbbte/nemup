@@ -1,10 +1,10 @@
+import ScreenContainer from '@/components/ScreenContainer';
 import { Colors } from '@/constants/Colors';
 import * as DocumentPicker from 'expo-document-picker';
 import * as ImagePicker from 'expo-image-picker';
 import { useRouter } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Alert, Platform, Pressable, ScrollView, StatusBar, StyleSheet, Text, View } from 'react-native';
-import ScreenContainer from '@/components/ScreenContainer';
 
 type UploadedFile = {
   uri: string;
@@ -21,11 +21,7 @@ type SessionProgress = {
   message: string;
 };
 
-const BACKEND_BASE_URL = Platform.select({
-  android: 'http://10.0.2.2:3000',
-  ios: 'http://localhost:3000',
-  default: 'http://localhost:3000',
-});
+const BACKEND_BASE_URL =  'https://nemup-production.up.railway.app';
 
 const METHOD_OPTIONS = [
   {

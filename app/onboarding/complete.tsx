@@ -1,5 +1,6 @@
 import { Colors } from '@/constants/Colors';
 import { useOnboarding } from '@/contexts/OnboardingContext';
+import { useRouter } from 'expo-router';
 import React from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import ScreenContainer from '@/components/ScreenContainer';
@@ -7,15 +8,21 @@ import ScreenContainer from '@/components/ScreenContainer';
 export default function CompleteScreen() {
   const { state, completeOnboarding } = useOnboarding();
   const [isLoading, setIsLoading] = React.useState(false);
+  const router = useRouter();
+
+  // Monitor completion and navigate when done
+  React.useEffect(() => {
+    if (state.data.completed) {
+      router.replace('/(main)');
+    }
+  }, [state.data.completed, router]);
 
   const handleComplete = async () => {
     try {
       setIsLoading(true);
       await completeOnboarding();
-      // Navigate to home screen - this would be handled by navigation setup
     } catch (error) {
       console.error('Error completing onboarding:', error);
-    } finally {
       setIsLoading(false);
     }
   };
