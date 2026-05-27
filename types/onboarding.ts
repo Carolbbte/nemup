@@ -10,7 +10,7 @@ export interface OnboardingData {
 
 export interface OnboardingState {
   data: OnboardingData;
-  currentStep: number; // 0-6 (7 pasos totales)
+  currentStep: number; // 0-4 (5 pasos totales)
   isLoading: boolean;
   error: string | null;
 }

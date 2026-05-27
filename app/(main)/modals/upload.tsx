@@ -419,7 +419,11 @@ export default function UploadFlowScreen() {
   };
 
   const handleStartSession = () => {
-    router.push('/home');
+    if (!completedSession) return;
+    router.push({
+      pathname: '/modals/session' as any,
+      params: { data: JSON.stringify(completedSession) },
+    });
   };
 
   return (

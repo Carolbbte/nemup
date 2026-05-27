@@ -98,7 +98,7 @@ export const OnboardingProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   const goToStep = (step: number) => {
     setState(prev => ({
       ...prev,
-      currentStep: Math.max(0, Math.min(step, 6)),
+      currentStep: Math.max(0, Math.min(step, 4)),
     }));
   };
 
@@ -106,7 +106,7 @@ export const OnboardingProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     try {
       setState(prev => ({ ...prev, isLoading: true }));
       // Validate data
-      if (!state.data.name || !state.data.curso || state.data.subjects.length === 0) {
+      if (!state.data.name || !state.data.curso || !state.data.dailyCommitment) {
         throw new Error('Please fill in all required fields');
       }
 

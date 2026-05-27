@@ -72,6 +72,8 @@ export default function MainTabs() {
           ),
         }}
       />
+      <Tabs.Screen name="modals/upload" options={{ href: null }} />
+      <Tabs.Screen name="modals/session" options={{ href: null }} />
     </Tabs>
   );
 }

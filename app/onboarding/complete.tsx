@@ -13,7 +13,7 @@ export default function CompleteScreen() {
   // Monitor completion and navigate when done
   React.useEffect(() => {
     if (state.data.completed) {
-      router.replace('/(main)');
+      router.replace('/home');
     }
   }, [state.data.completed, router]);
 
@@ -73,15 +73,14 @@ export default function CompleteScreen() {
         </View>
 
         <View style={styles.summaryRow}>
-          <Text style={styles.summaryKey}>Ramos</Text>
-          <Text style={styles.summaryValue}>{state.data.subjects.length} asignatura(s)</Text>
-        </View>
-
-        <View style={styles.summaryRow}>
           <Text style={styles.summaryKey}>Tiempo diario</Text>
           <Text style={styles.summaryValue}>{state.data.dailyCommitment}</Text>
         </View>
       </View>
+
+      {state.error ? (
+        <Text style={styles.errorText}>{state.error}</Text>
+      ) : null}
 
       {/* CTA */}
       <View style={styles.ctaContainer}>
@@ -227,6 +226,13 @@ const styles = StyleSheet.create({
   },
   summaryValueHighlight: {
     color: Colors.brand,
+  },
+  errorText: {
+    width: '100%',
+    color: Colors.red,
+    textAlign: 'center',
+    marginBottom: 16,
+    fontWeight: '600',
   },
   ctaContainer: {
     width: '100%',
