@@ -464,7 +464,7 @@ export default function UploadFlowScreen() {
           </Pressable>
         </View>
 
-        <ScrollView contentContainerStyle={styles.readyScroll} showsVerticalScrollIndicator={false}>
+        <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.readyScroll} showsVerticalScrollIndicator={false}>
           {/* Hero card */}
           <LinearGradient colors={['#1A1033', '#2A1060', '#1C0B56']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.readyHeroCard}>
             <View style={styles.readyCheckCircle}>
@@ -1707,11 +1707,11 @@ const styles = StyleSheet.create({
 
   // STEP 3 — Sesión lista (full-screen)
   readyPage: { flex: 1, backgroundColor: Colors.paper },
-  readyHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: Colors.line },
+  readyHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: Colors.line },
   readyHeaderBtn: { width: 38, height: 38, borderRadius: 12, backgroundColor: Colors.bgSoft, alignItems: 'center', justifyContent: 'center' },
   readyHeaderBtnText: { fontSize: 18, color: Colors.ink, fontWeight: '700' },
   readyHeaderTitle: { fontSize: 17, fontWeight: '800', color: Colors.ink },
-  readyScroll: { padding: 20, paddingBottom: 16 },
+  readyScroll: { padding: 16, paddingBottom: 12 },
   readyHeroCard: { borderRadius: 24, paddingVertical: 32, paddingHorizontal: 24, alignItems: 'center', marginBottom: 16 },
   readyCheckCircle: { width: 72, height: 72, borderRadius: 36, backgroundColor: Colors.lime, alignItems: 'center', justifyContent: 'center', marginBottom: 18, shadowColor: Colors.lime, shadowOffset: { width: 0, height: 0 }, shadowOpacity: 0.5, shadowRadius: 20, elevation: 8 },
   readyCheckText: { fontSize: 36, color: Colors.ink, fontWeight: '900' },
@@ -1737,7 +1737,7 @@ const styles = StyleSheet.create({
   readyStatVal: { fontSize: 15, fontWeight: '800', color: Colors.ink, marginBottom: 3 },
   readyStatLbl: { fontSize: 9, fontWeight: '700', color: Colors.muted, letterSpacing: 0.5 },
   readyStatDiv: { width: 1, height: 32, backgroundColor: Colors.line },
-  readyActions: { padding: 20, paddingBottom: 28, gap: 10, borderTopWidth: 1, borderTopColor: Colors.line, backgroundColor: Colors.paper },
+  readyActions: { padding: 16, paddingBottom: 20, gap: 10, borderTopWidth: 1, borderTopColor: Colors.line, backgroundColor: Colors.paper },
   readyMainCta: { borderRadius: 18, paddingVertical: 17, alignItems: 'center' },
   readyMainCtaText: { color: Colors.paper, fontWeight: '800', fontSize: 17, letterSpacing: -0.2 },
   readySecRow: { flexDirection: 'row', gap: 10 },
