@@ -206,11 +206,14 @@ export async function updateUserRewards(
   gemGain: number
 ): Promise<void> {
   const userRef = db.collection('users').doc(userId);
-  await userRef.update({
-    xp: admin.firestore.FieldValue.increment(xpGain),
-    gems: admin.firestore.FieldValue.increment(gemGain),
-    updatedAt: admin.firestore.FieldValue.serverTimestamp(),
-  });
+  await userRef.set(
+    {
+      xp: admin.firestore.FieldValue.increment(xpGain),
+      gems: admin.firestore.FieldValue.increment(gemGain),
+      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+    },
+    { merge: true }
+  );
 }
 
 // ============================================================================

@@ -1,6 +1,7 @@
 import ScreenContainer from '@/components/ScreenContainer';
 import { Colors } from '@/constants/Colors';
 import * as DocumentPicker from 'expo-document-picker';
+import * as FileSystem from 'expo-file-system';
 import * as ImagePicker from 'expo-image-picker';
 import { useRouter } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -143,13 +144,13 @@ export default function UploadFlowScreen() {
   const [uploadError, setUploadError] = useState('');
   const [sessionType, setSessionType] = useState('practice');
   const [duration, setDuration] = useState(18);
-  const [isGenerating, setIsGenerating] = useState(false);
   const [generationError, setGenerationError] = useState<string | null>(null);
   const [progressEvents, setProgressEvents] = useState<SessionProgress[]>([]);
   const [sessionResult, setSessionResult] = useState<any | null>(null);
   const sseBufferRef = useRef('');
   const lastResponseLengthRef = useRef(0);
   const xhrRef = useRef<XMLHttpRequest | null>(null);
+  const generationStartedRef = useRef(false);
 
   const pushProgressEvent = useCallback((event: SessionProgress) => {
     setProgressEvents((previous) => [...previous, event]);
@@ -157,51 +158,86 @@ export default function UploadFlowScreen() {
 
   const handleDocumentPick = async () => {
     try {
+      console.log('[Upload] Abriendo document picker...');
       const result = await DocumentPicker.getDocumentAsync({
         type: ['application/pdf', 'image/*'],
         copyToCacheDirectory: true,
       });
 
-      if (result.type === 'success') {
-        setSelectedFile({
-          uri: result.uri,
-          name: result.name,
-          mimeType: result.mimeType ?? 'application/octet-stream',
-          sizeText: result.size ? `${(result.size / 1024).toFixed(1)} KB` : 'N/A',
-          sizeBytes: result.size ?? 0,
-        });
+      console.log('[Upload] Resultado del picker:', JSON.stringify(result, null, 2));
+
+      if (result.canceled || !result.assets || result.assets.length === 0) {
+        console.log('[Upload] Selección cancelada por el usuario');
         setUploadError('');
+        return;
       }
+
+      const asset = result.assets[0];
+      const { uri, name = 'archivo', size = 0 } = asset;
+      let { mimeType = 'application/octet-stream' } = asset;
+
+      if (!mimeType || mimeType === 'application/octet-stream') {
+        if (name.toLowerCase().endsWith('.pdf')) {
+          mimeType = 'application/pdf';
+        } else if (name.toLowerCase().match(/\.(jpg|jpeg|png|gif)$/i)) {
+          mimeType = 'image/jpeg';
+        }
+      }
+
+      console.log('[Upload] Archivo seleccionado:', { uri, name, mimeType, size });
+
+      setSelectedFile({
+        uri,
+        name,
+        mimeType,
+        sizeText: size ? `${(size / 1024).toFixed(1)} KB` : 'N/A',
+        sizeBytes: size,
+      });
+      setUploadError('');
     } catch (error) {
-      setUploadError('No se pudo seleccionar el archivo. Intenta nuevamente.');
+      console.error('[Upload] Error al seleccionar documento:', error);
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      setUploadError(`No se pudo seleccionar el archivo: ${errorMsg}`);
     }
   };
 
   const handleCameraPick = async () => {
     try {
+      console.log('[Upload] Abriendo image picker...');
+      
       if (Platform.OS === 'web') {
         const result = await ImagePicker.launchImageLibraryAsync({
           mediaTypes: ImagePicker.MediaTypeOptions.Images,
           quality: 0.8,
         });
 
-        if (!result.canceled && result.assets.length > 0) {
+        console.log('[Upload] Resultado de image picker (web):', JSON.stringify(result, null, 2));
+
+        if (!result.canceled && result.assets && result.assets.length > 0) {
           const asset = result.assets[0];
+          const fileName = asset.fileName ?? `Foto-${Date.now()}.jpg`;
+          console.log('[Upload] Imagen seleccionada (web):', fileName);
           setSelectedFile({
             uri: asset.uri,
-            name: asset.fileName ?? `Foto-${Date.now()}.jpg`,
+            name: fileName,
             mimeType: asset.type ?? 'image/jpeg',
             sizeText: asset.fileSize ? `${Math.round(asset.fileSize / 1024)} KB` : 'N/A',
             sizeBytes: asset.fileSize ?? 0,
           });
+          setUploadError('');
+        } else {
+          console.log('[Upload] Selección cancelada (web)');
           setUploadError('');
         }
         return;
       }
 
       const permission = await ImagePicker.requestCameraPermissionsAsync();
+      console.log('[Upload] Permiso de cámara:', permission.status);
+      
       if (permission.status !== 'granted') {
         Alert.alert('Permiso denegado', 'Necesitamos acceso a la cámara para tomar una foto.');
+        setUploadError('Permiso de cámara denegado');
         return;
       }
 
@@ -210,19 +246,28 @@ export default function UploadFlowScreen() {
         quality: 0.8,
       });
 
-      if (!result.canceled && result.assets.length > 0) {
+      console.log('[Upload] Resultado de cámara:', JSON.stringify(result, null, 2));
+
+      if (!result.canceled && result.assets && result.assets.length > 0) {
         const asset = result.assets[0];
+        const fileName = asset.fileName ?? `Foto-${Date.now()}.jpg`;
+        console.log('[Upload] Foto capturada exitosamente:', fileName);
         setSelectedFile({
           uri: asset.uri,
-          name: asset.fileName ?? `Foto-${Date.now()}.jpg`,
+          name: fileName,
           mimeType: asset.type ?? 'image/jpeg',
           sizeText: asset.fileSize ? `${Math.round(asset.fileSize / 1024)} KB` : 'N/A',
           sizeBytes: asset.fileSize ?? 0,
         });
         setUploadError('');
+      } else {
+        console.log('[Upload] Selección de cámara cancelada');
+        setUploadError('');
       }
     } catch (error) {
-      setUploadError('No se pudo usar la cámara. Intenta nuevamente.');
+      console.error('[Upload] Error al seleccionar imagen:', error);
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      setUploadError(`No se pudo usar la cámara: ${errorMsg}`);
     }
   };
 
@@ -232,79 +277,91 @@ export default function UploadFlowScreen() {
   };
 
   const startSseGeneration = useCallback(async () => {
-    if (!selectedFile) return;
+    if (!selectedFile) {
+      console.warn('[Upload] No file selected');
+      return;
+    }
 
-    setIsGenerating(true);
     setGenerationError(null);
     setProgressEvents([]);
     sseBufferRef.current = '';
     lastResponseLengthRef.current = 0;
 
-    const formData = new FormData();
-    formData.append('config', JSON.stringify({
-      documentId: selectedFile.name,
-      format:
-        sessionType === 'practice'
-          ? ['quizzes', 'flashcards']
-          : sessionType === 'exam'
-          ? ['quizzes', 'summary']
-          : ['summary', 'flashcards'],
-      difficulty:
-        sessionType === 'review'
-          ? 'easy'
-          : sessionType === 'exam'
-          ? 'hard'
-          : 'adaptive',
-      estimatedDuration: duration,
-      subject: 'Biología',
-      topic: 'Mitosis y meiosis',
-    }));
-    formData.append('userId', 'demo-user');
-    formData.append('document', {
-      uri: selectedFile.uri,
-      name: selectedFile.name,
-      type: selectedFile.mimeType,
-    } as any);
+    try {
+      console.log('[Upload] Iniciando generación de sesión con archivo:', selectedFile.name);
 
-    const xhr = new XMLHttpRequest();
-    xhrRef.current = xhr;
-    xhr.open('POST', `${getBackendBaseUrl()}/sessions/generate`, true);
-    xhr.setRequestHeader('Accept', 'text/event-stream');
+      const formData = new FormData();
+      formData.append('config', JSON.stringify({
+        documentId: selectedFile.name,
+        format:
+          sessionType === 'practice'
+            ? ['quizzes', 'flashcards']
+            : sessionType === 'exam'
+            ? ['quizzes', 'summary']
+            : ['summary', 'flashcards'],
+        difficulty:
+          sessionType === 'review'
+            ? 'easy'
+            : sessionType === 'exam'
+            ? 'hard'
+            : 'adaptive',
+        estimatedDuration: duration,
+        subject: 'Biología',
+        topic: 'Mitosis y meiosis',
+      }));
+      formData.append('userId', 'demo-user');
+      formData.append('document', { uri: selectedFile.uri, type: selectedFile.mimeType, name: selectedFile.name } as any);
+      
+      console.log('[Upload] FormData preparado, enviando a:', `${getBackendBaseUrl()}/sessions/generate`);
 
-    xhr.onprogress = () => {
-      const incoming = xhr.responseText.substring(lastResponseLengthRef.current);
-      lastResponseLengthRef.current = xhr.responseText.length;
-      const unprocessed = `${sseBufferRef.current}${incoming}`;
-      sseBufferRef.current = parseSseEvents(unprocessed, (event, payload) => {
-        if (event === 'progress') {
-          pushProgressEvent(payload as SessionProgress);
+      const xhr = new XMLHttpRequest();
+      xhrRef.current = xhr;
+      xhr.open('POST', `${getBackendBaseUrl()}/sessions/generate`, true);
+      xhr.setRequestHeader('Accept', 'text/event-stream');
+
+      xhr.onprogress = () => {
+        const incoming = xhr.responseText.substring(lastResponseLengthRef.current);
+        lastResponseLengthRef.current = xhr.responseText.length;
+        const unprocessed = `${sseBufferRef.current}${incoming}`;
+        sseBufferRef.current = parseSseEvents(unprocessed, (event, payload) => {
+          console.log('[Upload] SSE Event:', event, payload);
+          if (event === 'progress') {
+            pushProgressEvent(payload as SessionProgress);
+          }
+          if (event === 'complete') {
+            console.log('[Upload] Generación completada:', payload);
+            setSessionResult(payload);
+          }
+          if (event === 'error') {
+            console.error('[Upload] Error en generación:', payload);
+            setGenerationError(payload?.message ?? 'Error inesperado.');
+          }
+        });
+      };
+
+      xhr.onload = () => {
+        console.log('[Upload] XHR onload, status:', xhr.status);
+        if (xhr.status >= 400) {
+          console.error('[Upload] HTTP Error:', xhr.status, xhr.statusText);
+          setGenerationError('No se pudo generar la sesión. Verifica tu conexión.');
         }
-        if (event === 'complete') {
-          setSessionResult(payload);
-        }
-        if (event === 'error') {
-          setGenerationError(payload?.message ?? 'Error inesperado.');
-          setIsGenerating(false);
-        }
-      });
-    };
+      };
 
-    xhr.onload = () => {
-      if (xhr.status >= 400) {
-        setGenerationError('No se pudo generar la sesión. Verifica tu conexión.');
-        setIsGenerating(false);
-      }
-    };
+      xhr.onerror = () => {
+        console.error('[Upload] XHR error');
+        setGenerationError('Error de red durante la generación. Intenta nuevamente.');
+      };
 
-    xhr.onerror = () => {
-      setGenerationError('Error de red durante la generación. Intenta nuevamente.');
-      setIsGenerating(false);
-    };
-
-    xhr.send(formData);
+      console.log('[Upload] Enviando request XHR');
+      xhr.send(formData);
+    } catch (error) {
+      console.error('[Upload] Error preparando archivo:', error);
+      setGenerationError(`Error al procesar el archivo: ${error instanceof Error ? error.message : 'Error desconocido'}`);
+    }
   }, [duration, pushProgressEvent, selectedFile, sessionType]);
 
   const handleOpenPicker = () => {
+    console.log('[Upload] Abriendo picker para método:', selectedMethod);
     if (selectedMethod === 'photo') {
       handleCameraPick();
     } else {
@@ -313,17 +370,21 @@ export default function UploadFlowScreen() {
   };
 
   useEffect(() => {
-    if (step !== 2 || isGenerating || !selectedFile) return;
+    if (step !== 2) {
+      generationStartedRef.current = false;
+      return;
+    }
+    if (generationStartedRef.current || !selectedFile) return;
+    generationStartedRef.current = true;
     startSseGeneration();
     return () => {
       xhrRef.current?.abort();
     };
-  }, [isGenerating, selectedFile, startSseGeneration, step]);
+  }, [selectedFile, startSseGeneration, step]);
 
   useEffect(() => {
     if (sessionResult && step === 2) {
       setStep(3);
-      setIsGenerating(false);
     }
   }, [sessionResult, step]);
 
@@ -342,10 +403,12 @@ export default function UploadFlowScreen() {
 
   const handleContinue = () => {
     if (step === 0 && !selectedFile) {
+      console.warn('[Upload] Intento de continuar sin archivo seleccionado');
       setUploadError('Selecciona un archivo o toma una foto para continuar.');
       return;
     }
 
+    console.log('[Upload] Continuando desde step', step, 'a', step + 1);
     if (step < 3) {
       setStep(step + 1);
     }

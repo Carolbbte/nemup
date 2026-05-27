@@ -5,7 +5,6 @@
 
 import OpenAI from 'openai';
 import pdfParse from 'pdf-parse';
-import { getStorage } from './firebaseAdmin.js';
 import { config } from '../config.js';
 
 const openai = new OpenAI({ apiKey: config.openai_api_key });
@@ -22,58 +21,26 @@ async function extractTextFromPDF(buffer: Buffer): Promise<string> {
   return normalizeText(data.text || '');
 }
 
-function getStorageFilePath(gsUri: string): string {
-  return gsUri.replace(/^gs:\/\/[^/]+\//, '');
-}
-
-async function createSignedReadUrl(gsUri: string): Promise<string> {
-  const bucket = getStorage().bucket();
-  const filePath = getStorageFilePath(gsUri);
-  const file = bucket.file(filePath);
-  const [signedUrl] = await file.getSignedUrl({
-    action: 'read',
-    expires: Date.now() + 5 * 60 * 1000,
-  });
-  return signedUrl;
-}
-
-async function extractTextFromImage(gsUri: string): Promise<string> {
-  const signedUrl = await createSignedReadUrl(gsUri);
+async function extractTextFromImageBuffer(buffer: Buffer, mimeType: string): Promise<string> {
+  const base64 = buffer.toString('base64');
+  const dataUrl = `data:${mimeType};base64,${base64}`;
   const prompt = `Extrae todo el texto legible de esta imagen. Responde solo con el texto extraído, sin explicaciones, sin numeración adicional y sin formato extra.`;
 
-  const response = await openai.responses.create({
+  const response = await openai.chat.completions.create({
     model: config.openai_model,
-    input: [
+    messages: [
       {
         role: 'user',
         content: [
-          { type: 'input_text', text: prompt },
-          { type: 'input_image', image_url: signedUrl, detail: 'auto' },
+          { type: 'text', text: prompt },
+          { type: 'image_url', image_url: { url: dataUrl, detail: 'auto' } },
         ],
       },
     ],
+    max_tokens: 2000,
   });
 
-  if (!response.output || response.output.length === 0) {
-    throw new Error('OpenAI no devolvió texto de la imagen.');
-  }
-
-  const textResult = response.output
-    .map((chunk: any) => {
-      if (typeof chunk === 'string') return chunk;
-      if (chunk?.content) {
-        return chunk.content
-          .map((piece: any) => {
-            if (typeof piece === 'string') return piece;
-            return piece?.text ?? '';
-          })
-          .join('');
-      }
-      return '';
-    })
-    .join('');
-
-  return normalizeText(textResult || '');
+  return normalizeText(response.choices?.[0]?.message?.content ?? '');
 }
 
 export interface TranscriptionResult {
@@ -81,30 +48,26 @@ export interface TranscriptionResult {
   wordCount: number;
 }
 
-export async function transcribeDocument(
-  storagePath: string,
+export async function transcribeDocumentFromBuffer(
+  buffer: Buffer,
   mimeType: string,
   fileName: string
 ): Promise<TranscriptionResult> {
-  const bucket = getStorage().bucket();
-  const file = bucket.file(getStorageFilePath(storagePath));
-  const [buffer] = await file.download();
-
   let transcription = '';
 
   if (mimeType === 'application/pdf' || fileName.toLowerCase().endsWith('.pdf')) {
     transcription = await extractTextFromPDF(buffer);
   } else if (mimeType.startsWith('text/') || fileName.toLowerCase().endsWith('.txt')) {
     transcription = normalizeText(buffer.toString('utf-8'));
-  } else if (mimeType.startsWith('image/') || ['.jpg', '.jpeg', '.png', '.heic', '.webp'].some((ext) => fileName.toLowerCase().endsWith(ext))) {
-    transcription = await extractTextFromImage(storagePath);
+  } else if (
+    mimeType.startsWith('image/') ||
+    ['.jpg', '.jpeg', '.png', '.heic', '.webp'].some((ext) => fileName.toLowerCase().endsWith(ext))
+  ) {
+    transcription = await extractTextFromImageBuffer(buffer, mimeType);
   } else {
     throw new Error('Formato de documento no soportado para transcripción.');
   }
 
   const words = transcription.split(/\s+/).filter(Boolean);
-  return {
-    transcription,
-    wordCount: words.length,
-  };
+  return { transcription, wordCount: words.length };
 }

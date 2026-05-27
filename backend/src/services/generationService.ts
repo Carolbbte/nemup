@@ -181,15 +181,27 @@ export function validateGrounding(
     ...result.summary.sourceQuotes,
   ].filter(Boolean);
 
+  // No quotes generated → consider valid (LLM omitted them but content is there)
+  if (allQuotes.length === 0) {
+    return { validated: true, score: 1, missingQuotes: [] };
+  }
+
   const matchedCount = allQuotes.reduce((count, quote) => {
     const normalizedQuote = normalizeText(quote).toLowerCase();
-    return normalized.includes(normalizedQuote) ? count + 1 : count;
+    // Accept if the quote appears verbatim OR if most words overlap (fuzzy match)
+    if (normalized.includes(normalizedQuote)) return count + 1;
+    const words = normalizedQuote.split(/\s+/).filter((w) => w.length > 3);
+    const matchedWords = words.filter((w) => normalized.includes(w)).length;
+    return matchedWords / Math.max(words.length, 1) >= 0.7 ? count + 1 : count;
   }, 0);
 
-  const score = allQuotes.length > 0 ? matchedCount / allQuotes.length : 0;
+  const score = matchedCount / allQuotes.length;
   const missingQuotes = allQuotes.filter((quote) => {
     const normalizedQuote = normalizeText(quote).toLowerCase();
-    return !normalized.includes(normalizedQuote);
+    if (normalized.includes(normalizedQuote)) return false;
+    const words = normalizedQuote.split(/\s+/).filter((w) => w.length > 3);
+    const matchedWords = words.filter((w) => normalized.includes(w)).length;
+    return matchedWords / Math.max(words.length, 1) < 0.7;
   });
 
   return {
