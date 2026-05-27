@@ -3,6 +3,7 @@ import { Colors } from '@/constants/Colors';
 import * as DocumentPicker from 'expo-document-picker';
 import * as FileSystem from 'expo-file-system';
 import * as ImagePicker from 'expo-image-picker';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Alert, Platform, Pressable, ScrollView, StatusBar, StyleSheet, Text, View } from 'react-native';
@@ -89,6 +90,20 @@ const STEP_TITLES = [
 
 function getBackendBaseUrl() {
   return BACKEND_BASE_URL || 'http://localhost:3000';
+}
+
+const SUBJECT_EMOJI: Record<string, string> = {
+  biología: '🧬', biologia: '🧬', matemática: '📐', matematica: '📐',
+  historia: '📜', física: '⚗️', fisica: '⚗️', química: '🔬', quimica: '🔬',
+  lenguaje: '📝', inglés: '🌐', ingles: '🌐',
+};
+function subjectEmoji(subject: string) {
+  const key = subject?.toLowerCase() ?? '';
+  return Object.entries(SUBJECT_EMOJI).find(([k]) => key.includes(k))?.[1] ?? '📘';
+}
+function difficultyLabel(d?: string) {
+  const map: Record<string, string> = { adaptive: 'Adaptativa', easy: 'Fácil', hard: 'Difícil', medium: 'Media' };
+  return d ? (map[d] ?? d.charAt(0).toUpperCase() + d.slice(1)) : 'Adaptativa';
 }
 
 function parseSseEvents(rawChunk: string, handleEvent: (event: string, payload: any) => void) {
@@ -425,6 +440,108 @@ export default function UploadFlowScreen() {
       params: { data: JSON.stringify(completedSession) },
     });
   };
+
+  /* ── Step 3: Sesión lista (full-screen redesign) ── */
+  if (step === 3) {
+    const s = completedSession;
+    const items = [
+      { icon: '❓', label: 'Preguntas de selección', count: s?.questions?.length ?? 0 },
+      { icon: '🃏', label: 'Flashcards', count: s?.flashcards?.length ?? 0 },
+      { icon: '📋', label: 'Resumen ejecutivo', count: s?.summary?.sections?.length ?? 1 },
+    ];
+    return (
+      <ScreenContainer style={styles.readyPage}>
+        <StatusBar barStyle="dark-content" backgroundColor={Colors.paper} />
+
+        {/* Header */}
+        <View style={styles.readyHeader}>
+          <Pressable onPress={handleBack} style={styles.readyHeaderBtn}>
+            <Text style={styles.readyHeaderBtnText}>←</Text>
+          </Pressable>
+          <Text style={styles.readyHeaderTitle}>¡Sesión lista!</Text>
+          <Pressable style={styles.readyHeaderBtn}>
+            <Text style={styles.readyHeaderBtnText}>↗</Text>
+          </Pressable>
+        </View>
+
+        <ScrollView contentContainerStyle={styles.readyScroll} showsVerticalScrollIndicator={false}>
+          {/* Hero card */}
+          <LinearGradient colors={['#1A1033', '#2A1060', '#1C0B56']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.readyHeroCard}>
+            <View style={styles.readyCheckCircle}>
+              <Text style={styles.readyCheckText}>✓</Text>
+            </View>
+            <Text style={styles.readyHeroTitle}>¡Generación completa!</Text>
+            <Text style={styles.readyHeroSub}>Tu sesión personalizada está lista{'\n'}para empezar a estudiar</Text>
+          </LinearGradient>
+
+          {/* Session info card */}
+          <View style={styles.readyInfoCard}>
+            {/* Subject row */}
+            <View style={styles.readySubjectRow}>
+              <View style={styles.readySubjectIcon}>
+                <Text style={styles.readySubjectEmoji}>{subjectEmoji(s?.subject ?? '')}</Text>
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.readySubjectName}>{s?.subject ?? 'Sesión generada'}</Text>
+                <Text style={styles.readyTopicText} numberOfLines={2}>{s?.topic?.toUpperCase() ?? ''}</Text>
+              </View>
+              <View style={styles.readyDiffBadge}>
+                <Text style={styles.readyDiffText}>⚡ {difficultyLabel(s?.difficulty)}</Text>
+              </View>
+            </View>
+
+            <View style={styles.readyDivider} />
+
+            {/* Items list */}
+            {items.map(({ icon, label, count }) => (
+              <View key={label} style={styles.readyItem}>
+                <View style={styles.readyItemIcon}><Text style={styles.readyItemIconText}>{icon}</Text></View>
+                <Text style={styles.readyItemLabel}>{label}</Text>
+                <View style={styles.readyItemCount}><Text style={styles.readyItemCountText}>{count}</Text></View>
+              </View>
+            ))}
+
+            <View style={styles.readyDivider} />
+
+            {/* Stats row */}
+            <View style={styles.readyStatsRow}>
+              <View style={styles.readyStat}>
+                <Text style={styles.readyStatVal}>{s?.estimatedDuration ?? duration} min</Text>
+                <Text style={styles.readyStatLbl}>DURACIÓN</Text>
+              </View>
+              <View style={styles.readyStatDiv} />
+              <View style={styles.readyStat}>
+                <Text style={styles.readyStatVal}>+{s?.xpReward ?? 0} XP</Text>
+                <Text style={styles.readyStatLbl}>RECOMPENSA</Text>
+              </View>
+              <View style={styles.readyStatDiv} />
+              <View style={styles.readyStat}>
+                <Text style={styles.readyStatVal}>+{s?.gemReward ?? 10} 💎</Text>
+                <Text style={styles.readyStatLbl}>GEMAS</Text>
+              </View>
+            </View>
+          </View>
+        </ScrollView>
+
+        {/* Bottom actions */}
+        <View style={styles.readyActions}>
+          <Pressable onPress={handleStartSession} style={{ width: '100%' }}>
+            <LinearGradient colors={[Colors.brand, Colors.accent]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={styles.readyMainCta}>
+              <Text style={styles.readyMainCtaText}>⚡  Empezar sesión ahora</Text>
+            </LinearGradient>
+          </Pressable>
+          <View style={styles.readySecRow}>
+            <Pressable style={styles.readySecBtn}>
+              <Text style={styles.readySecBtnText}>📅 Agendar después</Text>
+            </Pressable>
+            <Pressable style={styles.readySecBtn}>
+              <Text style={styles.readySecBtnText}>↗ Compartir</Text>
+            </Pressable>
+          </View>
+        </View>
+      </ScreenContainer>
+    );
+  }
 
   return (
     <ScreenContainer style={styles.page}>
@@ -1587,4 +1704,43 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     fontSize: 14,
   },
+
+  // STEP 3 — Sesión lista (full-screen)
+  readyPage: { flex: 1, backgroundColor: Colors.paper },
+  readyHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: Colors.line },
+  readyHeaderBtn: { width: 38, height: 38, borderRadius: 12, backgroundColor: Colors.bgSoft, alignItems: 'center', justifyContent: 'center' },
+  readyHeaderBtnText: { fontSize: 18, color: Colors.ink, fontWeight: '700' },
+  readyHeaderTitle: { fontSize: 17, fontWeight: '800', color: Colors.ink },
+  readyScroll: { padding: 20, paddingBottom: 16 },
+  readyHeroCard: { borderRadius: 24, paddingVertical: 32, paddingHorizontal: 24, alignItems: 'center', marginBottom: 16 },
+  readyCheckCircle: { width: 72, height: 72, borderRadius: 36, backgroundColor: Colors.lime, alignItems: 'center', justifyContent: 'center', marginBottom: 18, shadowColor: Colors.lime, shadowOffset: { width: 0, height: 0 }, shadowOpacity: 0.5, shadowRadius: 20, elevation: 8 },
+  readyCheckText: { fontSize: 36, color: Colors.ink, fontWeight: '900' },
+  readyHeroTitle: { fontSize: 24, fontWeight: '900', color: Colors.paper, textAlign: 'center', letterSpacing: -0.5, marginBottom: 10 },
+  readyHeroSub: { fontSize: 14, color: 'rgba(255,255,255,0.75)', textAlign: 'center', lineHeight: 21 },
+  readyInfoCard: { backgroundColor: Colors.paper, borderRadius: 20, borderWidth: 1, borderColor: Colors.line, padding: 18, shadowColor: Colors.ink, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.06, shadowRadius: 16, elevation: 3 },
+  readySubjectRow: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 16 },
+  readySubjectIcon: { width: 52, height: 52, borderRadius: 14, backgroundColor: '#DBFCE7', alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
+  readySubjectEmoji: { fontSize: 26 },
+  readySubjectName: { fontSize: 16, fontWeight: '800', color: Colors.ink, marginBottom: 2 },
+  readyTopicText: { fontSize: 11, color: Colors.muted, fontWeight: '600', letterSpacing: 0.3 },
+  readyDiffBadge: { backgroundColor: Colors.bgSoft, borderRadius: 100, paddingVertical: 5, paddingHorizontal: 10, borderWidth: 1, borderColor: Colors.line },
+  readyDiffText: { fontSize: 11, fontWeight: '700', color: Colors.ink2 },
+  readyDivider: { height: 1, backgroundColor: Colors.line, marginVertical: 14 },
+  readyItem: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 12 },
+  readyItemIcon: { width: 32, height: 32, borderRadius: 9, backgroundColor: Colors.brandSoft, alignItems: 'center', justifyContent: 'center' },
+  readyItemIconText: { fontSize: 16 },
+  readyItemLabel: { flex: 1, fontSize: 14, color: Colors.ink2, fontWeight: '500' },
+  readyItemCount: { backgroundColor: Colors.bgSoft, borderRadius: 8, paddingVertical: 3, paddingHorizontal: 10 },
+  readyItemCountText: { fontSize: 13, fontWeight: '700', color: Colors.ink },
+  readyStatsRow: { flexDirection: 'row', alignItems: 'center' },
+  readyStat: { flex: 1, alignItems: 'center' },
+  readyStatVal: { fontSize: 15, fontWeight: '800', color: Colors.ink, marginBottom: 3 },
+  readyStatLbl: { fontSize: 9, fontWeight: '700', color: Colors.muted, letterSpacing: 0.5 },
+  readyStatDiv: { width: 1, height: 32, backgroundColor: Colors.line },
+  readyActions: { padding: 20, paddingBottom: 28, gap: 10, borderTopWidth: 1, borderTopColor: Colors.line, backgroundColor: Colors.paper },
+  readyMainCta: { borderRadius: 18, paddingVertical: 17, alignItems: 'center' },
+  readyMainCtaText: { color: Colors.paper, fontWeight: '800', fontSize: 17, letterSpacing: -0.2 },
+  readySecRow: { flexDirection: 'row', gap: 10 },
+  readySecBtn: { flex: 1, borderWidth: 1, borderColor: Colors.line, borderRadius: 14, paddingVertical: 13, alignItems: 'center', backgroundColor: Colors.paper },
+  readySecBtnText: { fontSize: 13, fontWeight: '700', color: Colors.ink2 },
 });
