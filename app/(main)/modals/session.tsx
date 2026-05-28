@@ -4,6 +4,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import {
   Animated,
+  Dimensions,
   Pressable,
   SafeAreaView,
   ScrollView,
@@ -12,6 +13,9 @@ import {
   Text,
   View,
 } from 'react-native';
+
+const { height: SCREEN_H } = Dimensions.get('window');
+const SM = SCREEN_H < 740;
 
 type Option = { id: string; text: string };
 type Question = { id: string; text: string; options: Option[]; correctOptionId: string; explanation: string; sourceQuote: string };
@@ -663,7 +667,7 @@ const styles = StyleSheet.create({
   quizScroll: { padding: 16, paddingBottom: 8 },
   qInstruction: { fontSize: 10, fontWeight: '800', color: Colors.brand, letterSpacing: 1.5, marginBottom: 4 },
   qCounter: { fontSize: 12, color: Colors.muted, fontWeight: '600', marginBottom: 10 },
-  qText: { fontSize: 18, fontWeight: '800', color: Colors.ink, lineHeight: 24, letterSpacing: -0.3, marginBottom: 10 },
+  qText: { fontSize: SM ? 15 : 18, fontWeight: '800', color: Colors.ink, lineHeight: SM ? 21 : 24, letterSpacing: -0.3, marginBottom: 10 },
   sourceChip: { flexDirection: 'row', alignSelf: 'flex-start', backgroundColor: Colors.bgSoft, borderWidth: 1, borderColor: Colors.line, borderRadius: 100, paddingVertical: 4, paddingHorizontal: 10, marginBottom: 12 },
   sourceChipText: { fontSize: 11, fontWeight: '600', color: Colors.ink3 },
   optionsWrap: { gap: 9, marginBottom: 12 },
@@ -720,7 +724,7 @@ const styles = StyleSheet.create({
   fcGlow1: { position: 'absolute', width: 180, height: 180, borderRadius: 90, backgroundColor: 'rgba(255,255,255,0.15)', top: -50, right: -50 },
   fcGlow2: { position: 'absolute', width: 130, height: 130, borderRadius: 65, backgroundColor: 'rgba(255,255,255,0.1)', bottom: -40, left: -30 },
   fcSideLabel: { fontSize: 10, fontWeight: '700', color: 'rgba(255,255,255,0.7)', letterSpacing: 2, marginBottom: 14, textTransform: 'uppercase' },
-  fcQuestion: { fontSize: 18, fontWeight: '800', color: Colors.paper, textAlign: 'center', lineHeight: 26, letterSpacing: -0.3 },
+  fcQuestion: { fontSize: SM ? 15 : 18, fontWeight: '800', color: Colors.paper, textAlign: 'center', lineHeight: SM ? 22 : 26, letterSpacing: -0.3 },
   fcHint: { fontSize: 12, color: 'rgba(255,255,255,0.7)', marginTop: 20 },
   srsRow: { flexDirection: 'row', gap: 8, padding: 14, paddingBottom: 20 },
   srsBtn: { flex: 1, borderRadius: 12, overflow: 'hidden' },
@@ -731,8 +735,8 @@ const styles = StyleSheet.create({
   // COMPLETE
   completeSafe: { flex: 1, padding: 24, alignItems: 'center' },
   trophyCircle: { width: 90, height: 90, borderRadius: 45, backgroundColor: Colors.lime, alignItems: 'center', justifyContent: 'center', marginBottom: 16, shadowColor: Colors.lime, shadowOffset: { width: 0, height: 0 }, shadowOpacity: 0.4, shadowRadius: 20, elevation: 8 },
-  trophyEmoji: { fontSize: 48 },
-  completeTitle: { fontSize: 34, fontWeight: '900', color: Colors.paper, textAlign: 'center', letterSpacing: -1, lineHeight: 38, marginBottom: 8 },
+  trophyEmoji: { fontSize: SM ? 38 : 48 },
+  completeTitle: { fontSize: SM ? 26 : 34, fontWeight: '900', color: Colors.paper, textAlign: 'center', letterSpacing: -1, lineHeight: SM ? 32 : 38, marginBottom: 8 },
   completeSub: { fontSize: 14, color: 'rgba(255,255,255,0.85)', textAlign: 'center', lineHeight: 22, marginBottom: 20 },
   statsGrid: { flexDirection: 'row', gap: 10, marginBottom: 14, width: '100%' },
   statCell: { flex: 1, backgroundColor: 'rgba(255,255,255,0.12)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)', borderRadius: 16, padding: 12, alignItems: 'center' },

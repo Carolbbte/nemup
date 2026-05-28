@@ -1,7 +1,10 @@
 import React from 'react';
-import { Text, StyleSheet } from 'react-native';
+import { Dimensions, Text, StyleSheet } from 'react-native';
 import { Colors } from '@/constants/Colors';
 import ScreenContainer from '@/components/ScreenContainer';
+
+const { height: SCREEN_H } = Dimensions.get('window');
+const SM = SCREEN_H < 740;
 
 export default function LigaScreen() {
   return (
@@ -20,7 +23,7 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.paper,
   },
   placeholder: {
-    fontSize: 48,
+    fontSize: SM ? 36 : 48,
     marginBottom: 12,
   },
   text: {

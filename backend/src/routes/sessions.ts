@@ -85,6 +85,17 @@ router.post('/generate', upload.single('document'), async (req, res) => {
     return res.end();
   }
 
+  // Emit transcript chunks — real data, no simulation
+  const transcriptWords = transcription.split(' ');
+  const CHUNK_SIZE = 35;
+  for (let i = 0; i < transcriptWords.length; i += CHUNK_SIZE) {
+    sendSse(res, 'transcript_chunk', {
+      text: transcriptWords.slice(i, i + CHUNK_SIZE).join(' '),
+      index: Math.floor(i / CHUNK_SIZE),
+      total: Math.ceil(transcriptWords.length / CHUNK_SIZE),
+    });
+  }
+
   // Step 3: Generate content with OpenAI
   sendSse(res, 'progress', createProgressPayload('extracting', 45, 'Analizando conceptos clave...'));
   let generation: Awaited<ReturnType<typeof generateSessionContent>>;
@@ -97,6 +108,11 @@ router.post('/generate', upload.single('document'), async (req, res) => {
   }
 
   sendSse(res, 'progress', createProgressPayload('generating', 70, 'Generando preguntas y flashcards...'));
+
+  // Emit each question as it's added — real data, sequential delivery
+  generation.questions.forEach((question, index) => {
+    sendSse(res, 'question_generated', { question, index, total: generation.questions.length });
+  });
 
   // Step 4: Validate grounding
   sendSse(res, 'progress', createProgressPayload('validating_grounding', 85, 'Validando anclaje al documento...'));
