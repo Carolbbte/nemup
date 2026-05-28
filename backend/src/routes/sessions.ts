@@ -36,17 +36,19 @@ function createProgressPayload(stage: string, progress: number, message: string)
   };
 }
 
-router.post('/generate', upload.single('document'), async (req, res) => {
+router.post('/generate', upload.array('documents', 10), async (req, res) => {
   res.setHeader('Content-Type', 'text/event-stream');
   res.setHeader('Cache-Control', 'no-cache');
   res.setHeader('Connection', 'keep-alive');
   res.flushHeaders();
 
-  const file = (req as express.Request & { file?: Express.Multer.File }).file;
-  if (!file) {
+  const files = (req as express.Request & { files?: Express.Multer.File[] }).files as Express.Multer.File[] | undefined;
+  if (!files || files.length === 0) {
     sendSse(res, 'error', { code: 'UPLOAD_FAILED', message: 'No se recibió ningún archivo.' });
     return res.end();
   }
+  // Use first file as the primary document reference
+  const file = files[0];
 
   const configJson = req.body.config;
   if (!configJson) {
@@ -65,12 +67,16 @@ router.post('/generate', upload.single('document'), async (req, res) => {
   uploadFileToStorage(userId, documentId, file.buffer, file.mimetype, file.originalname)
     .catch((err) => console.warn('[Sessions] Storage upload failed (non-fatal):', err?.message));
 
-  // Step 2: Transcribe from buffer directly
+  // Step 2: Transcribe all files and combine
   sendSse(res, 'progress', createProgressPayload('transcribing', 25, 'Transcribiendo contenido...'));
   let transcription: string;
   let wordCount: number;
   try {
-    ({ transcription, wordCount } = await transcribeDocumentFromBuffer(file.buffer, file.mimetype, file.originalname));
+    const results = await Promise.all(
+      files.map(f => transcribeDocumentFromBuffer(f.buffer, f.mimetype, f.originalname))
+    );
+    transcription = results.map(r => r.transcription).filter(Boolean).join('\n\n');
+    wordCount = results.reduce((sum, r) => sum + r.wordCount, 0);
   } catch (err: any) {
     console.error('[Sessions] Transcription error:', err?.message);
     sendSse(res, 'error', { code: 'TRANSCRIPTION_FAILED', message: `Error al leer el documento: ${err?.message}` });

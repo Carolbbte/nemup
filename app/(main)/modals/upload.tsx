@@ -2,7 +2,6 @@ import ScreenContainer from '@/components/ScreenContainer';
 import { Colors } from '@/constants/Colors';
 import * as DocumentPicker from 'expo-document-picker';
 import { Image } from 'expo-image';
-import * as FileSystem from 'expo-file-system';
 import * as ImagePicker from 'expo-image-picker';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
@@ -14,12 +13,13 @@ import {
   ChevronRight,
   Clock,
   FileText,
-  Gem,
+  Plus,
   Sparkles,
   Target,
+  X,
   Zap,
 } from 'lucide-react-native';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Alert,
   Dimensions,
@@ -33,8 +33,6 @@ import {
 } from 'react-native';
 import Animated, {
   Easing,
-  runOnJS,
-  useAnimatedReaction,
   useAnimatedStyle,
   useSharedValue,
   withDelay,
@@ -78,7 +76,7 @@ type GeneratedQuestion = {
   difficulty: string;
 };
 
-// ── Constants (logic-critical — unchanged) ──────────────────────
+// ── Constants ─────────────────────────────────────────────────────
 const BACKEND_BASE_URL = 'https://nemup-production.up.railway.app';
 
 const RECENT_FILES: UploadedFile[] = [
@@ -86,14 +84,8 @@ const RECENT_FILES: UploadedFile[] = [
   { uri: 'file:///FichaQuimica.png', name: 'Ficha Química.png', mimeType: 'image/png', sizeText: '780 KB', sizeBytes: 780000 },
 ];
 
-const STAGE_ORDER: SessionProgress['stage'][] = [
-  'uploading', 'transcribing', 'extracting', 'generating', 'validating_grounding', 'done',
-];
-
-// ── Utilities (unchanged) ────────────────────────────────────────
-function getBackendBaseUrl() {
-  return BACKEND_BASE_URL || 'http://localhost:3000';
-}
+// ── Utilities ──────────────────────────────────────────────────────
+function getBackendBaseUrl() { return BACKEND_BASE_URL || 'http://localhost:3000'; }
 
 const SUBJECT_EMOJI: Record<string, string> = {
   biología: '🧬', biologia: '🧬', matemática: '📐', matematica: '📐',
@@ -107,6 +99,13 @@ function subjectEmoji(subject: string) {
 function difficultyLabel(d?: string) {
   const map: Record<string, string> = { adaptive: 'Adaptativa', easy: 'Fácil', hard: 'Difícil', medium: 'Media' };
   return d ? (map[d] ?? d.charAt(0).toUpperCase() + d.slice(1)) : 'Adaptativa';
+}
+function normalizeMime(name: string, mimeType: string) {
+  if (!mimeType || mimeType === 'application/octet-stream') {
+    if (name.toLowerCase().endsWith('.pdf')) return 'application/pdf';
+    if (name.toLowerCase().match(/\.(jpg|jpeg|png|gif|heic|webp)$/i)) return 'image/jpeg';
+  }
+  return mimeType;
 }
 
 function parseSseEvents(rawChunk: string, handleEvent: (event: string, payload: any) => void) {
@@ -123,7 +122,7 @@ function parseSseEvents(rawChunk: string, handleEvent: (event: string, payload: 
     }
     if (dataText) {
       try { handleEvent(eventName, JSON.parse(dataText)); }
-      catch (error) { console.warn('[SSE] parse error:', dataText, error); }
+      catch (e) { console.warn('[SSE] parse error:', dataText, e); }
     }
   }
   return leftover;
@@ -131,64 +130,49 @@ function parseSseEvents(rawChunk: string, handleEvent: (event: string, payload: 
 
 // ── Slim progress bar ─────────────────────────────────────────────
 function SlimProgress({ step }: { step: number }) {
-  const pct = (step / 3) * 100;
-  const fillAnim = useSharedValue((step / 3) * 100);
-
+  const fill = useSharedValue(0);
   useEffect(() => {
-    fillAnim.value = withTiming((step / 3) * 100, { duration: 400, easing: Easing.out(Easing.cubic) });
+    fill.value = withTiming((step / 3) * 100, { duration: 400, easing: Easing.out(Easing.cubic) });
   }, [step]);
-
-  const fillStyle = useAnimatedStyle(() => ({
-    width: `${fillAnim.value}%` as any,
-  }));
-
+  const fillStyle = useAnimatedStyle(() => ({ width: `${fill.value}%` as any }));
   return (
     <View style={prog.track}>
       <Animated.View style={[prog.fill, fillStyle]} />
     </View>
   );
 }
-
 const prog = StyleSheet.create({
   track: { flex: 1, height: 3, backgroundColor: Colors.line, borderRadius: 99, overflow: 'hidden', marginHorizontal: 12 },
   fill: { height: '100%', backgroundColor: BRAND, borderRadius: 99 },
 });
 
-// ── FadeIn card (for question_generated) ─────────────────────────
+// ── FadeIn card ───────────────────────────────────────────────────
 function FadeInCard({ children, delay = 0 }: { children: React.ReactNode; delay?: number }) {
   const op = useSharedValue(0);
   const ty = useSharedValue(12);
   const anim = useAnimatedStyle(() => ({ opacity: op.value, transform: [{ translateY: ty.value }] }));
-
   useEffect(() => {
     op.value = withDelay(delay, withTiming(1, { duration: 300 }));
     ty.value = withDelay(delay, withTiming(0, { duration: 300 }));
   }, []);
-
   return <Animated.View style={anim}>{children}</Animated.View>;
 }
 
-// ── Pulsing dot (loader honesto) ──────────────────────────────────
+// ── Pulsing dots loader ───────────────────────────────────────────
 function PulsingDots() {
   const d1 = useSharedValue(0.3);
   const d2 = useSharedValue(0.3);
   const d3 = useSharedValue(0.3);
-
   useEffect(() => {
-    const pulse = (sv: any, delay: number) =>
+    const p = (sv: any, delay: number) =>
       (sv.value = withDelay(delay, withRepeat(
-        withSequence(withTiming(1, { duration: 500 }), withTiming(0.3, { duration: 500 })),
-        -1, false,
+        withSequence(withTiming(1, { duration: 500 }), withTiming(0.3, { duration: 500 })), -1, false,
       )));
-    pulse(d1, 0);
-    pulse(d2, 180);
-    pulse(d3, 360);
+    p(d1, 0); p(d2, 180); p(d3, 360);
   }, []);
-
   const a1 = useAnimatedStyle(() => ({ opacity: d1.value }));
   const a2 = useAnimatedStyle(() => ({ opacity: d2.value }));
   const a3 = useAnimatedStyle(() => ({ opacity: d3.value }));
-
   return (
     <View style={{ flexDirection: 'row', gap: 7, alignItems: 'center' }}>
       <Animated.View style={[pd.dot, a1]} />
@@ -197,10 +181,7 @@ function PulsingDots() {
     </View>
   );
 }
-
-const pd = StyleSheet.create({
-  dot: { width: 10, height: 10, borderRadius: 5, backgroundColor: BRAND },
-});
+const pd = StyleSheet.create({ dot: { width: 10, height: 10, borderRadius: 5, backgroundColor: BRAND } });
 
 // ── Main component ─────────────────────────────────────────────────
 export default function UploadFlowScreen() {
@@ -209,8 +190,7 @@ export default function UploadFlowScreen() {
 
   // ── State ──
   const [step, setStep] = useState(0);
-  const [fileExpanded, setFileExpanded] = useState(false);
-  const [selectedFile, setSelectedFile] = useState<UploadedFile | null>(null);
+  const [selectedFiles, setSelectedFiles] = useState<UploadedFile[]>([]);
   const [uploadError, setUploadError] = useState('');
   const [sessionType, setSessionType] = useState('practice');
   const [sessionTypeExpanded, setSessionTypeExpanded] = useState(false);
@@ -232,9 +212,7 @@ export default function UploadFlowScreen() {
   const ctaPulse = useSharedValue(0);
   const laserY = useSharedValue(0);
 
-  const checkScaleAnim = useAnimatedStyle(() => ({
-    transform: [{ scale: checkScale.value }],
-  }));
+  const checkScaleAnim = useAnimatedStyle(() => ({ transform: [{ scale: checkScale.value }] }));
   const checkPulseAnim = useAnimatedStyle(() => ({
     transform: [{ scale: checkPulse.value }],
     shadowOpacity: 0.3 + checkPulse.value * 0.25,
@@ -243,11 +221,8 @@ export default function UploadFlowScreen() {
     transform: [{ scale: 1 + ctaPulse.value * 0.012 }],
     shadowOpacity: 0.22 + ctaPulse.value * 0.18,
   }));
-  const laserAnim = useAnimatedStyle(() => ({
-    top: 18 + laserY.value * 152,
-  }));
+  const laserAnim = useAnimatedStyle(() => ({ top: 18 + laserY.value * 152 }));
 
-  // ── Animation effects ──
   useEffect(() => {
     if (step !== 1) { laserY.value = 0; return; }
     laserY.value = withRepeat(withTiming(1, { duration: 2400, easing: Easing.linear }), -1, false);
@@ -255,38 +230,48 @@ export default function UploadFlowScreen() {
 
   useEffect(() => {
     if (step !== 3) return;
-    // Bounce-in check
     checkScale.value = withSpring(1, { damping: 12, stiffness: 200 });
-    // Subtle pulse every 4s
     checkPulse.value = withDelay(800, withRepeat(
       withSequence(withTiming(1.08, { duration: 400 }), withTiming(1.0, { duration: 400 }), withDelay(3200, withTiming(1.0, { duration: 0 }))),
       -1, false,
     ));
     ctaPulse.value = withRepeat(
-      withSequence(withTiming(1, { duration: 2000 }), withTiming(0, { duration: 2000 })),
-      -1, false,
+      withSequence(withTiming(1, { duration: 2000 }), withTiming(0, { duration: 2000 })), -1, false,
     );
   }, [step]);
 
-  // ── Original handlers (unchanged logic) ──
+  // ── File helpers ──
+  const addFiles = (incoming: UploadedFile[]) => {
+    setSelectedFiles(prev => {
+      const existingUris = new Set(prev.map(f => f.uri));
+      const deduped = incoming.filter(f => !existingUris.has(f.uri));
+      return [...prev, ...deduped];
+    });
+    setUploadError('');
+  };
+  const removeFile = (uri: string) => setSelectedFiles(prev => prev.filter(f => f.uri !== uri));
+
+  // ── Handlers ──
   const pushProgressEvent = useCallback((event: SessionProgress) => {
     setProgressEvents(prev => [...prev, event]);
   }, []);
 
   const handleDocumentPick = async () => {
     try {
-      const result = await DocumentPicker.getDocumentAsync({ type: ['application/pdf', 'image/*'], copyToCacheDirectory: true });
-      if (result.canceled || !result.assets || result.assets.length === 0) { setUploadError(''); return; }
-      const asset = result.assets[0];
-      const { uri, name = 'archivo', size = 0 } = asset;
-      let { mimeType = 'application/octet-stream' } = asset;
-      if (!mimeType || mimeType === 'application/octet-stream') {
-        if (name.toLowerCase().endsWith('.pdf')) mimeType = 'application/pdf';
-        else if (name.toLowerCase().match(/\.(jpg|jpeg|png|gif)$/i)) mimeType = 'image/jpeg';
-      }
-      setSelectedFile({ uri, name, mimeType, sizeText: size ? `${(size / 1024).toFixed(1)} KB` : 'N/A', sizeBytes: size });
-      setUploadError('');
-      setFileExpanded(false);
+      const result = await DocumentPicker.getDocumentAsync({
+        type: ['application/pdf', 'image/*'],
+        copyToCacheDirectory: true,
+        multiple: true,
+      });
+      if (result.canceled || !result.assets?.length) return;
+      const picked: UploadedFile[] = result.assets.map(asset => ({
+        uri: asset.uri,
+        name: asset.name ?? 'archivo',
+        mimeType: normalizeMime(asset.name ?? '', asset.mimeType ?? ''),
+        sizeText: asset.size ? `${(asset.size / 1024).toFixed(1)} KB` : 'N/A',
+        sizeBytes: asset.size ?? 0,
+      }));
+      addFiles(picked);
     } catch (error) {
       setUploadError(`No se pudo seleccionar el archivo: ${error instanceof Error ? error.message : String(error)}`);
     }
@@ -295,31 +280,47 @@ export default function UploadFlowScreen() {
   const handleCameraPick = async () => {
     try {
       if (Platform.OS === 'web') {
-        const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ImagePicker.MediaTypeOptions.Images, quality: 0.8 });
+        const result = await ImagePicker.launchImageLibraryAsync({
+          mediaTypes: ImagePicker.MediaTypeOptions.Images,
+          quality: 0.8,
+          allowsMultipleSelection: true,
+        });
         if (!result.canceled && result.assets?.length) {
-          const asset = result.assets[0];
-          setSelectedFile({ uri: asset.uri, name: asset.fileName ?? `Foto-${Date.now()}.jpg`, mimeType: asset.type ?? 'image/jpeg', sizeText: asset.fileSize ? `${Math.round(asset.fileSize / 1024)} KB` : 'N/A', sizeBytes: asset.fileSize ?? 0 });
-          setUploadError('');
+          addFiles(result.assets.map(a => ({
+            uri: a.uri,
+            name: a.fileName ?? `Foto-${Date.now()}.jpg`,
+            mimeType: a.type ?? 'image/jpeg',
+            sizeText: a.fileSize ? `${Math.round(a.fileSize / 1024)} KB` : 'N/A',
+            sizeBytes: a.fileSize ?? 0,
+          })));
         }
         return;
       }
       const permission = await ImagePicker.requestCameraPermissionsAsync();
-      if (permission.status !== 'granted') { Alert.alert('Permiso denegado', 'Necesitamos acceso a la cámara para tomar una foto.'); return; }
+      if (permission.status !== 'granted') {
+        Alert.alert('Permiso denegado', 'Necesitamos acceso a la cámara para tomar una foto.');
+        return;
+      }
       const result = await ImagePicker.launchCameraAsync({ mediaTypes: ImagePicker.MediaTypeOptions.Images, quality: 0.8 });
       if (!result.canceled && result.assets?.length) {
-        const asset = result.assets[0];
-        setSelectedFile({ uri: asset.uri, name: asset.fileName ?? `Foto-${Date.now()}.jpg`, mimeType: asset.type ?? 'image/jpeg', sizeText: asset.fileSize ? `${Math.round(asset.fileSize / 1024)} KB` : 'N/A', sizeBytes: asset.fileSize ?? 0 });
-        setUploadError('');
+        const a = result.assets[0];
+        addFiles([{
+          uri: a.uri,
+          name: a.fileName ?? `Foto-${Date.now()}.jpg`,
+          mimeType: a.type ?? 'image/jpeg',
+          sizeText: a.fileSize ? `${Math.round(a.fileSize / 1024)} KB` : 'N/A',
+          sizeBytes: a.fileSize ?? 0,
+        }]);
       }
     } catch (error) {
       setUploadError(`No se pudo usar la cámara: ${error instanceof Error ? error.message : String(error)}`);
     }
   };
 
-  const handleUseRecent = (file: UploadedFile) => { setSelectedFile(file); setUploadError(''); };
+  const handleUseRecent = (file: UploadedFile) => addFiles([file]);
 
   const startSseGeneration = useCallback(async () => {
-    if (!selectedFile) return;
+    if (selectedFiles.length === 0) return;
     setGenerationError(null);
     setProgressEvents([]);
     setTranscriptChunks([]);
@@ -327,9 +328,10 @@ export default function UploadFlowScreen() {
     sseBufferRef.current = '';
     lastResponseLengthRef.current = 0;
     try {
+      const primary = selectedFiles[0];
       const formData = new FormData();
       formData.append('config', JSON.stringify({
-        documentId: selectedFile.name,
+        documentId: primary.name,
         format: sessionType === 'practice' ? ['quizzes', 'flashcards'] : sessionType === 'exam' ? ['quizzes', 'summary'] : ['summary', 'flashcards'],
         difficulty: sessionType === 'review' ? 'easy' : sessionType === 'exam' ? 'hard' : 'adaptive',
         estimatedDuration: duration,
@@ -337,7 +339,9 @@ export default function UploadFlowScreen() {
         topic: 'Mitosis y meiosis',
       }));
       formData.append('userId', 'demo-user');
-      formData.append('document', { uri: selectedFile.uri, type: selectedFile.mimeType, name: selectedFile.name } as any);
+      selectedFiles.forEach(f => {
+        formData.append('documents', { uri: f.uri, type: f.mimeType, name: f.name } as any);
+      });
       const xhr = new XMLHttpRequest();
       xhrRef.current = xhr;
       xhr.open('POST', `${getBackendBaseUrl()}/sessions/generate`, true);
@@ -355,21 +359,20 @@ export default function UploadFlowScreen() {
         });
       };
       xhr.onload = () => { if (xhr.status >= 400) setGenerationError('No se pudo generar la sesión. Verifica tu conexión.'); };
-      xhr.onerror = () => { setGenerationError('Error de red durante la generación. Intenta nuevamente.'); };
+      xhr.onerror = () => setGenerationError('Error de red durante la generación. Intenta nuevamente.');
       xhr.send(formData);
     } catch (error) {
       setGenerationError(`Error al procesar el archivo: ${error instanceof Error ? error.message : 'Error desconocido'}`);
     }
-  }, [duration, pushProgressEvent, selectedFile, sessionType]);
+  }, [duration, pushProgressEvent, selectedFiles, sessionType]);
 
-  // ── Original effects (unchanged) ──
   useEffect(() => {
     if (step !== 2) { generationStartedRef.current = false; return; }
-    if (generationStartedRef.current || !selectedFile) return;
+    if (generationStartedRef.current || selectedFiles.length === 0) return;
     generationStartedRef.current = true;
     startSseGeneration();
     return () => { xhrRef.current?.abort(); };
-  }, [selectedFile, startSseGeneration, step]);
+  }, [selectedFiles, startSseGeneration, step]);
 
   useEffect(() => {
     if (sessionResult && step === 2) {
@@ -378,11 +381,10 @@ export default function UploadFlowScreen() {
     }
   }, [sessionResult, step]);
 
-  const lastProgress = progressEvents[progressEvents.length - 1];
   const completedSession = sessionResult?.session;
 
   const handleContinue = () => {
-    if (step === 0 && !selectedFile) { setUploadError('Selecciona un archivo o toma una foto para continuar.'); return; }
+    if (step === 0 && selectedFiles.length === 0) { setUploadError('Selecciona al menos un archivo o toma una foto para continuar.'); return; }
     if (step < 3) setStep(step + 1);
   };
   const handleBack = () => { if (step > 0) setStep(step - 1); };
@@ -399,8 +401,6 @@ export default function UploadFlowScreen() {
     return (
       <ScreenContainer style={s4.page}>
         <StatusBar barStyle="dark-content" backgroundColor={Colors.paper} />
-
-        {/* Header — solo back, sin share icon */}
         <View style={s4.header}>
           <Pressable onPress={handleBack} style={s4.backBtn} hitSlop={10}>
             <Text style={s4.backBtnText}>←</Text>
@@ -408,26 +408,17 @@ export default function UploadFlowScreen() {
           <Text style={s4.headerTitle}>Sesión lista</Text>
           <View style={{ width: 38 }} />
         </View>
-
         <ScrollView style={{ flex: 1 }} contentContainerStyle={s4.scroll} showsVerticalScrollIndicator={false}>
-
-          {/* Hero dark card */}
           <LinearGradient colors={['#1A1033', '#2A1060', '#1C0B56']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={s4.hero}>
-            {/* Animated check */}
             <Animated.View style={[s4.checkWrap, checkScaleAnim]}>
               <Animated.View style={[s4.checkCircle, checkPulseAnim]}>
                 <Text style={s4.checkText}>✓</Text>
               </Animated.View>
             </Animated.View>
-
-            {/* Hero copy — 2× XP es el mensaje principal */}
             <Text style={s4.xpHero}>Esta sesión vale 2× XP</Text>
             <Text style={s4.heroSub}>¡Generación completa! Creado desde tus apuntes.</Text>
           </LinearGradient>
-
-          {/* Session card */}
           <View style={s4.card}>
-            {/* Subject row */}
             <View style={s4.subjectRow}>
               <View style={s4.subjectIcon}>
                 <Text style={{ fontSize: 24 }}>{subjectEmoji(s?.subject ?? '')}</Text>
@@ -440,10 +431,7 @@ export default function UploadFlowScreen() {
                 <Text style={s4.diffText}>{difficultyLabel(s?.difficulty)}</Text>
               </View>
             </View>
-
             <View style={s4.divider} />
-
-            {/* 2×2 stats grid */}
             <View style={s4.statsGrid}>
               <View style={s4.statCell}>
                 <Text style={s4.statVal}>{s?.questions?.length ?? 0}</Text>
@@ -462,10 +450,7 @@ export default function UploadFlowScreen() {
                 <Text style={s4.statLbl}>GEMAS</Text>
               </View>
             </View>
-
             <View style={s4.divider} />
-
-            {/* Content breakdown */}
             {[
               { icon: '❓', label: 'Preguntas', count: s?.questions?.length ?? 0 },
               { icon: '🃏', label: 'Flashcards', count: s?.flashcards?.length ?? 0 },
@@ -479,8 +464,6 @@ export default function UploadFlowScreen() {
             ))}
           </View>
         </ScrollView>
-
-        {/* CTA primario dominante + text links secundarios */}
         <View style={[s4.actions, { paddingBottom: insets.bottom + 12 }]}>
           <Pressable onPress={handleStartSession} style={{ width: '100%' }}>
             <Animated.View style={[s4.ctaShadow, ctaPulseAnim]}>
@@ -493,13 +476,9 @@ export default function UploadFlowScreen() {
             </Animated.View>
           </Pressable>
           <View style={s4.textLinks}>
-            <Pressable hitSlop={10}>
-              <Text style={s4.textLink}>Agendar después</Text>
-            </Pressable>
+            <Pressable hitSlop={10}><Text style={s4.textLink}>Agendar después</Text></Pressable>
             <Text style={s4.textLinkDot}>·</Text>
-            <Pressable hitSlop={10}>
-              <Text style={s4.textLink}>Compartir</Text>
-            </Pressable>
+            <Pressable hitSlop={10}><Text style={s4.textLink}>Compartir</Text></Pressable>
           </View>
         </View>
       </ScreenContainer>
@@ -507,20 +486,17 @@ export default function UploadFlowScreen() {
   }
 
   // ─────────────────────────────────────────────────────────────────
-  // PANTALLA 3 — Creando tu sesión (Vista previa en vivo)
+  // PANTALLA 3 — Creando tu sesión
   // ─────────────────────────────────────────────────────────────────
   if (step === 2) {
     const transcript = transcriptChunks.join(' ');
     return (
       <SafeAreaView style={s3.page} edges={['top', 'bottom']}>
         <StatusBar barStyle="dark-content" backgroundColor={BG} />
-
-        {/* Header minimalista */}
         <View style={s3.header}>
           <Text style={s3.headerTitle}>Creando tu sesión...</Text>
           <PulsingDots />
         </View>
-
         {generationError ? (
           <View style={s3.errorWrap}>
             <View style={s3.errorBanner}>
@@ -533,14 +509,9 @@ export default function UploadFlowScreen() {
           </View>
         ) : (
           <View style={s3.body}>
-            {/* Top 50% — transcripción */}
             <View style={s3.half}>
               <Text style={s3.sectionLabel}>TUS APUNTES</Text>
-              <ScrollView
-                style={s3.transcriptScroll}
-                contentContainerStyle={s3.transcriptContent}
-                showsVerticalScrollIndicator={false}
-              >
+              <ScrollView style={s3.transcriptScroll} contentContainerStyle={s3.transcriptContent} showsVerticalScrollIndicator={false}>
                 {transcript ? (
                   <Text style={s3.transcriptText}>
                     {transcript}
@@ -551,10 +522,7 @@ export default function UploadFlowScreen() {
                 )}
               </ScrollView>
             </View>
-
             <View style={s3.divider} />
-
-            {/* Bottom 50% — preguntas generadas */}
             <View style={s3.half}>
               <Text style={s3.sectionLabel}>PREGUNTAS GENERADAS</Text>
               <ScrollView style={s3.questionsScroll} showsVerticalScrollIndicator={false}>
@@ -583,19 +551,16 @@ export default function UploadFlowScreen() {
   }
 
   // ─────────────────────────────────────────────────────────────────
-  // PANTALLAS 1 y 2 — layout base compartido
+  // PANTALLAS 1 y 2
   // ─────────────────────────────────────────────────────────────────
+  const hasFiles = selectedFiles.length > 0;
+  const previewFile = selectedFiles[0] ?? null;
+
   return (
     <SafeAreaView style={styles.page} edges={['top']}>
       <StatusBar barStyle="dark-content" backgroundColor={BG} />
-
-      {/* Header: back/close + slim progress bar */}
       <View style={styles.pageHeader}>
-        <Pressable
-          onPress={step === 0 ? () => router.back() : handleBack}
-          style={styles.closeBtn}
-          hitSlop={8}
-        >
+        <Pressable onPress={step === 0 ? () => router.back() : handleBack} style={styles.closeBtn} hitSlop={8}>
           <Text style={styles.closeBtnText}>{step === 0 ? '✕' : '←'}</Text>
         </Pressable>
         <SlimProgress step={step} />
@@ -608,128 +573,140 @@ export default function UploadFlowScreen() {
         showsVerticalScrollIndicator={false}
       >
 
-        {/* ── PANTALLA 1 — ¿Qué vamos a estudiar hoy? ── */}
+        {/* ── PANTALLA 1 ── */}
         {step === 0 && (
           <View>
             <View style={styles.titleWrap}>
               <Text style={styles.titleText}>¿Qué vamos a estudiar hoy?</Text>
-              <Text style={styles.titleSub}>Toma una foto o sube tu archivo.</Text>
+              <Text style={styles.titleSub}>
+                {hasFiles
+                  ? `${selectedFiles.length} archivo${selectedFiles.length > 1 ? 's' : ''} seleccionado${selectedFiles.length > 1 ? 's' : ''}`
+                  : 'Toma una foto o sube tu archivo.'}
+              </Text>
             </View>
 
-            {/* Archivo seleccionado: preview */}
-            {selectedFile ? (
-              <Pressable onPress={handleCameraPick} style={styles.selectedCard}>
-                <Image
-                  source={{ uri: selectedFile.uri }}
-                  style={styles.selectedThumb}
-                  contentFit="cover"
-                />
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.selectedName} numberOfLines={1}>{selectedFile.name}</Text>
-                  <Text style={styles.selectedMeta}>
-                    {selectedFile.mimeType.includes('pdf') ? 'PDF' : 'Imagen'} · {selectedFile.sizeText}
-                  </Text>
-                  <Text style={styles.selectedReplace}>Toca para reemplazar</Text>
-                </View>
-                <View style={styles.selectedCheck}>
-                  <CheckCircle size={20} color={Colors.teal} strokeWidth={2} />
-                </View>
-              </Pressable>
-            ) : (
-              <>
-                {/* Opción primaria: Foto rápida */}
-                <Pressable style={styles.primaryOption} onPress={handleCameraPick}>
-                  <LinearGradient colors={[BRAND, BRAND2]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={styles.primaryOptionGrad}>
-                    <Camera size={28} color="white" strokeWidth={2} />
-                    <View style={{ flex: 1, marginLeft: 14 }}>
-                      <Text style={styles.primaryOptionTitle}>Foto rápida</Text>
-                      <Text style={styles.primaryOptionSub}>Escanea tu cuaderno en segundos</Text>
+            {/* ── Lista de archivos seleccionados ── */}
+            {hasFiles && (
+              <View style={styles.fileList}>
+                {selectedFiles.map((file, idx) => (
+                  <View key={file.uri} style={styles.fileRow}>
+                    <Image source={{ uri: file.uri }} style={styles.fileThumb} contentFit="cover" />
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.fileName} numberOfLines={1}>{file.name}</Text>
+                      <Text style={styles.fileMeta}>
+                        {file.mimeType.includes('pdf') ? 'PDF' : 'Imagen'} · {file.sizeText}
+                      </Text>
                     </View>
-                    <ChevronRight size={18} color="rgba(255,255,255,0.7)" strokeWidth={2} />
-                  </LinearGradient>
-                </Pressable>
-
-                {/* Opción secundaria: Subir archivo — expandible */}
-                <Pressable style={styles.secondaryOption} onPress={() => setFileExpanded(e => !e)}>
-                  <FileText size={16} color={Colors.ink3} strokeWidth={2} />
-                  <Text style={styles.secondaryOptionText}>Subir archivo</Text>
-                  <ChevronDown
-                    size={14}
-                    color={Colors.muted}
-                    strokeWidth={2}
-                    style={{ transform: [{ rotate: fileExpanded ? '180deg' : '0deg' }] }}
-                  />
-                </Pressable>
-
-                {fileExpanded && (
-                  <Pressable style={styles.dropZone} onPress={handleDocumentPick}>
-                    <FileText size={28} color={BRAND} strokeWidth={1.5} />
-                    <Text style={styles.dropTitle}>Toca para seleccionar</Text>
-                    <Text style={styles.dropSub}>PDF · Imagen · JPG · hasta 20 páginas</Text>
-                  </Pressable>
-                )}
-              </>
+                    <Pressable onPress={() => removeFile(file.uri)} style={styles.removeBtn} hitSlop={8}>
+                      <X size={14} color={Colors.muted} strokeWidth={2.5} />
+                    </Pressable>
+                  </View>
+                ))}
+              </View>
             )}
+
+            {/* ── Opciones de carga ── */}
+            {/* Siempre visibles; cuando hay archivos se muestran como "Añadir más" */}
+            <View style={styles.optionsRow}>
+              {/* Foto rápida — primario */}
+              <Pressable style={styles.optionCardPrimary} onPress={handleCameraPick}>
+                <LinearGradient colors={[BRAND, BRAND2]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.optionCardGrad}>
+                  <Camera size={26} color="white" strokeWidth={2} />
+                  <Text style={styles.optionCardTitlePrimary}>
+                    {hasFiles ? 'Añadir foto' : 'Foto rápida'}
+                  </Text>
+                  <Text style={styles.optionCardSubPrimary}>
+                    {hasFiles ? 'Otra foto de tus apuntes' : 'Escanea tu cuaderno'}
+                  </Text>
+                </LinearGradient>
+              </Pressable>
+
+              {/* Subir archivo — secundario, igual de visible */}
+              <Pressable style={styles.optionCardSecondary} onPress={handleDocumentPick}>
+                <FileText size={26} color={BRAND} strokeWidth={1.8} />
+                <Text style={styles.optionCardTitleSecondary}>
+                  {hasFiles ? 'Añadir archivo' : 'Subir archivo'}
+                </Text>
+                <Text style={styles.optionCardSubSecondary}>
+                  {hasFiles ? 'PDF o imagen adicional' : 'PDF · Imagen · JPG'}
+                </Text>
+              </Pressable>
+            </View>
 
             {uploadError ? <Text style={styles.uploadError}>{uploadError}</Text> : null}
 
             {/* Recientes */}
             <Text style={styles.recentLabel}>RECIENTES</Text>
-            {RECENT_FILES.map(file => (
-              <View key={file.name} style={styles.recentItem}>
-                <Image
-                  source={{ uri: file.uri }}
-                  style={styles.recentThumb}
-                  contentFit="cover"
-                />
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.recentName} numberOfLines={1}>{file.name}</Text>
-                  <Text style={styles.recentMeta}>{file.sizeText} · {file.mimeType.includes('pdf') ? 'PDF' : 'Imagen'}</Text>
+            {RECENT_FILES.map(file => {
+              const alreadyAdded = selectedFiles.some(f => f.uri === file.uri);
+              return (
+                <View key={file.name} style={styles.recentItem}>
+                  <Image source={{ uri: file.uri }} style={styles.recentThumb} contentFit="cover" />
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.recentName} numberOfLines={1}>{file.name}</Text>
+                    <Text style={styles.recentMeta}>{file.sizeText} · {file.mimeType.includes('pdf') ? 'PDF' : 'Imagen'}</Text>
+                  </View>
+                  {alreadyAdded ? (
+                    <View style={styles.addedBadge}>
+                      <CheckCircle size={14} color={Colors.teal} strokeWidth={2} />
+                      <Text style={styles.addedText}>Añadido</Text>
+                    </View>
+                  ) : (
+                    <Pressable onPress={() => handleUseRecent(file)} style={styles.useBtn}>
+                      <Text style={styles.useBtnText}>Usar</Text>
+                    </Pressable>
+                  )}
                 </View>
-                <Pressable onPress={() => handleUseRecent(file)} style={styles.useBtn}>
-                  <Text style={styles.useBtnText}>Usar</Text>
-                </Pressable>
-              </View>
-            ))}
+              );
+            })}
           </View>
         )}
 
-        {/* ── PANTALLA 2 — Revisa tu sesión ── */}
+        {/* ── PANTALLA 2 ── */}
         {step === 1 && (
           <View>
             <View style={styles.titleWrap}>
               <Text style={styles.titleText}>Revisa tu sesión</Text>
-              <Text style={styles.titleSub}>Así quedó tu material.</Text>
+              <Text style={styles.titleSub}>
+                {selectedFiles.length > 1
+                  ? `${selectedFiles.length} archivos combinados`
+                  : 'Así quedó tu material.'}
+              </Text>
             </View>
 
-            {/* Preview real del archivo con viewfinder */}
+            {/* Preview real + viewfinder */}
             <View style={s2.previewWrap}>
-              {selectedFile ? (
-                <Image source={{ uri: selectedFile.uri }} style={s2.previewImg} contentFit="cover" />
+              {previewFile ? (
+                <Image source={{ uri: previewFile.uri }} style={s2.previewImg} contentFit="cover" />
               ) : (
                 <View style={s2.previewFallback}>
                   <FileText size={40} color={Colors.muted} strokeWidth={1.5} />
                 </View>
               )}
-              {/* Viewfinder corners */}
               <View style={[s2.corner, s2.cTL]} />
               <View style={[s2.corner, s2.cTR]} />
               <View style={[s2.corner, s2.cBL]} />
               <View style={[s2.corner, s2.cBR]} />
-              {/* Laser scan */}
               <Animated.View style={[s2.laser, laserAnim]} />
-              {/* Badge Listo */}
               <View style={s2.readyBadge}>
                 <View style={s2.readyDot} />
                 <Text style={s2.readyText}>Listo</Text>
               </View>
+              {/* Badge de múltiples archivos */}
+              {selectedFiles.length > 1 && (
+                <View style={s2.multiFileBadge}>
+                  <Text style={s2.multiFileText}>+{selectedFiles.length - 1} más</Text>
+                </View>
+              )}
             </View>
 
-            {/* Chips informativos horizontales */}
+            {/* Chips horizontales */}
             <View style={s2.chipsRow}>
               <View style={s2.chip}>
                 <FileText size={11} color={Colors.ink3} strokeWidth={2} />
-                <Text style={s2.chipText}>5 págs</Text>
+                <Text style={s2.chipText}>
+                  {selectedFiles.length > 1 ? `${selectedFiles.length} archivos` : '5 págs'}
+                </Text>
               </View>
               <Text style={s2.chipSep}>·</Text>
               <View style={s2.chip}>
@@ -758,8 +735,6 @@ export default function UploadFlowScreen() {
             {/* Tipo de sesión */}
             <View style={s2.sessionSection}>
               <Text style={s2.sectionLabel}>TIPO DE SESIÓN</Text>
-
-              {/* Adaptativa — opción default visible */}
               <Pressable
                 style={[s2.sessionCard, sessionType === 'practice' && s2.sessionCardActive]}
                 onPress={() => setSessionType('practice')}
@@ -775,18 +750,11 @@ export default function UploadFlowScreen() {
                   </View>
                 )}
               </Pressable>
-
-              {/* Personalizar — colapsable */}
               <Pressable style={s2.personalizeBtn} onPress={() => setSessionTypeExpanded(e => !e)}>
                 <Text style={s2.personalizeBtnText}>Personalizar</Text>
-                <ChevronDown
-                  size={13}
-                  color={BRAND}
-                  strokeWidth={2}
-                  style={{ transform: [{ rotate: sessionTypeExpanded ? '180deg' : '0deg' }] }}
-                />
+                <ChevronDown size={13} color={BRAND} strokeWidth={2}
+                  style={{ transform: [{ rotate: sessionTypeExpanded ? '180deg' : '0deg' }] }} />
               </Pressable>
-
               {sessionTypeExpanded && (
                 <View style={s2.altOptions}>
                   {[
@@ -833,15 +801,18 @@ export default function UploadFlowScreen() {
         )}
       </ScrollView>
 
-      {/* Sticky bottom CTA */}
+      {/* Sticky bottom */}
       <View style={[styles.stickyBottom, { paddingBottom: insets.bottom + 12 }]}>
         {step > 0 && (
           <Pressable hitSlop={12} onPress={handleBack}>
             <Text style={styles.backLink}>Volver</Text>
           </Pressable>
         )}
-        {(step === 1 || selectedFile) && (
-          <Pressable style={[styles.continueBtn, { flex: step === 1 ? 1 : undefined, marginLeft: step === 1 ? 0 : 'auto' as any }]} onPress={handleContinue}>
+        {(step === 1 || hasFiles) && (
+          <Pressable
+            style={[styles.continueBtn, { flex: step === 1 ? 1 : undefined, marginLeft: step === 1 ? 0 : 'auto' as any }]}
+            onPress={handleContinue}
+          >
             <LinearGradient colors={[BRAND, BRAND2]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={styles.continueBtnGrad}>
               <Text style={styles.continueBtnText}>Continuar</Text>
               <ChevronRight size={16} color="white" strokeWidth={2.5} />
@@ -860,45 +831,41 @@ const styles = StyleSheet.create({
   closeBtn: { width: 36, height: 36, borderRadius: 11, backgroundColor: 'white', borderWidth: 1, borderColor: Colors.line, alignItems: 'center', justifyContent: 'center', shadowColor: '#0B0B1A', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.06, shadowRadius: 6, elevation: 2 },
   closeBtnText: { fontSize: 16, color: Colors.ink, fontWeight: '700' },
   scrollArea: { flex: 1 },
-  scrollContent: { paddingHorizontal: 20, paddingTop: 0 },
-
+  scrollContent: { paddingHorizontal: 20 },
   titleWrap: { paddingTop: 4, paddingBottom: 20 },
   titleText: { fontSize: SM ? 22 : 26, fontWeight: '800', color: Colors.ink, letterSpacing: -0.4, marginBottom: 5 },
   titleSub: { fontSize: 14, color: Colors.ink3, lineHeight: 20 },
 
-  // Selected file card
-  selectedCard: { flexDirection: 'row', alignItems: 'center', backgroundColor: 'white', borderRadius: 18, borderWidth: 1, borderColor: Colors.teal, padding: 14, gap: 12, marginBottom: 16, shadowColor: '#0B0B1A', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.06, shadowRadius: 8, elevation: 2 },
-  selectedThumb: { width: 52, height: 52, borderRadius: 10, backgroundColor: Colors.bgSoft },
-  selectedName: { fontSize: 14, fontWeight: '700', color: Colors.ink, marginBottom: 3 },
-  selectedMeta: { fontSize: 12, color: Colors.muted, marginBottom: 3 },
-  selectedReplace: { fontSize: 12, color: BRAND, fontWeight: '600' },
-  selectedCheck: { marginLeft: 4 },
+  // File list (selected)
+  fileList: { marginBottom: 14, gap: 8 },
+  fileRow: { flexDirection: 'row', alignItems: 'center', backgroundColor: 'white', borderRadius: 16, borderWidth: 1, borderColor: Colors.line, padding: 12, gap: 12 },
+  fileThumb: { width: 44, height: 44, borderRadius: 10, backgroundColor: Colors.bgSoft },
+  fileName: { fontSize: 13, fontWeight: '700', color: Colors.ink, marginBottom: 2 },
+  fileMeta: { fontSize: 11, color: Colors.muted },
+  removeBtn: { width: 28, height: 28, borderRadius: 8, backgroundColor: Colors.bgSoft, alignItems: 'center', justifyContent: 'center' },
 
-  // Primary option (Foto rápida)
-  primaryOption: { borderRadius: 20, overflow: 'hidden', marginBottom: 12, shadowColor: BRAND, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.22, shadowRadius: 12, elevation: 6 },
-  primaryOptionGrad: { flexDirection: 'row', alignItems: 'center', paddingVertical: 20, paddingHorizontal: 20 },
-  primaryOptionTitle: { fontSize: 16, fontWeight: '800', color: 'white', marginBottom: 3 },
-  primaryOptionSub: { fontSize: 12, color: 'rgba(255,255,255,0.8)' },
-
-  // Secondary option (Subir archivo)
-  secondaryOption: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 12, paddingHorizontal: 4, marginBottom: 4 },
-  secondaryOptionText: { fontSize: 14, color: Colors.ink3, fontWeight: '600', flex: 1 },
-
-  // Drop zone (expanded)
-  dropZone: { borderWidth: 1.5, borderStyle: 'dashed', borderColor: 'rgba(91,61,245,0.3)', borderRadius: 18, padding: 28, alignItems: 'center', gap: 8, backgroundColor: 'rgba(91,61,245,0.02)', marginBottom: 16 },
-  dropTitle: { fontSize: 15, fontWeight: '700', color: Colors.ink },
-  dropSub: { fontSize: 12, color: Colors.muted },
+  // Two-column option cards
+  optionsRow: { flexDirection: 'row', gap: 10, marginBottom: 16 },
+  optionCardPrimary: { flex: 1, borderRadius: 20, overflow: 'hidden', shadowColor: BRAND, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.22, shadowRadius: 12, elevation: 6 },
+  optionCardGrad: { paddingVertical: 22, paddingHorizontal: 16, alignItems: 'center', gap: 8 },
+  optionCardTitlePrimary: { fontSize: 14, fontWeight: '800', color: 'white', textAlign: 'center' },
+  optionCardSubPrimary: { fontSize: 11, color: 'rgba(255,255,255,0.8)', textAlign: 'center', lineHeight: 15 },
+  optionCardSecondary: { flex: 1, borderRadius: 20, backgroundColor: 'white', borderWidth: 1.5, borderColor: Colors.line2, paddingVertical: 22, paddingHorizontal: 16, alignItems: 'center', gap: 8, shadowColor: '#0B0B1A', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.06, shadowRadius: 8, elevation: 2 },
+  optionCardTitleSecondary: { fontSize: 14, fontWeight: '800', color: Colors.ink, textAlign: 'center' },
+  optionCardSubSecondary: { fontSize: 11, color: Colors.ink3, textAlign: 'center', lineHeight: 15 },
 
   uploadError: { color: Colors.rose, fontSize: 12, fontWeight: '700', marginBottom: 12 },
 
   // Recent files
-  recentLabel: { fontSize: 10, fontWeight: '700', color: Colors.muted, letterSpacing: 0.7, marginBottom: 10, marginTop: 8 },
+  recentLabel: { fontSize: 10, fontWeight: '700', color: Colors.muted, letterSpacing: 0.7, marginBottom: 10, marginTop: 4 },
   recentItem: { flexDirection: 'row', alignItems: 'center', backgroundColor: 'white', borderRadius: 16, borderWidth: 1, borderColor: Colors.line, padding: 12, marginBottom: 8, gap: 12 },
   recentThumb: { width: 44, height: 44, borderRadius: 9, backgroundColor: Colors.bgSoft },
   recentName: { fontSize: 13, fontWeight: '700', color: Colors.ink, marginBottom: 2 },
   recentMeta: { fontSize: 11, color: Colors.muted },
   useBtn: { backgroundColor: 'rgba(91,61,245,0.08)', borderRadius: 10, paddingVertical: 7, paddingHorizontal: 12 },
   useBtnText: { fontSize: 12, fontWeight: '700', color: BRAND },
+  addedBadge: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  addedText: { fontSize: 12, fontWeight: '600', color: Colors.teal },
 
   // Sticky bottom
   stickyBottom: { paddingHorizontal: 20, paddingTop: 12, borderTopWidth: 1, borderTopColor: Colors.line, backgroundColor: BG, flexDirection: 'row', alignItems: 'center', gap: 16 },
@@ -908,7 +875,7 @@ const styles = StyleSheet.create({
   continueBtnText: { fontSize: 15, fontWeight: '800', color: 'white' },
 });
 
-// ── Pantalla 2 styles ────────────────────────────────────────────
+// ── Pantalla 2 styles ─────────────────────────────────────────────
 const s2 = StyleSheet.create({
   previewWrap: { height: 210, borderRadius: 20, overflow: 'hidden', backgroundColor: '#1A1A2E', marginBottom: 14, position: 'relative' },
   previewImg: { position: 'absolute', inset: 0 } as any,
@@ -922,18 +889,17 @@ const s2 = StyleSheet.create({
   readyBadge: { position: 'absolute', top: 10, right: 10, backgroundColor: 'rgba(0,194,168,0.85)', paddingVertical: 4, paddingHorizontal: 10, borderRadius: 20, flexDirection: 'row', alignItems: 'center', gap: 5 },
   readyDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: 'white' },
   readyText: { color: 'white', fontSize: 11, fontWeight: '700' },
-
+  multiFileBadge: { position: 'absolute', bottom: 10, right: 10, backgroundColor: 'rgba(0,0,0,0.55)', paddingVertical: 4, paddingHorizontal: 9, borderRadius: 20 },
+  multiFileText: { color: 'white', fontSize: 11, fontWeight: '700' },
   chipsRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 20, gap: 6 },
   chip: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   chipText: { fontSize: 12, color: Colors.ink3, fontWeight: '600' },
   chipSep: { fontSize: 14, color: Colors.line2 },
-
   conceptsSection: { marginBottom: 20 },
   sectionLabel: { fontSize: 10, fontWeight: '700', color: Colors.muted, letterSpacing: 0.7, marginBottom: 10 },
   conceptsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   conceptChip: { backgroundColor: Colors.brandSoft, borderRadius: 20, paddingVertical: 6, paddingHorizontal: 12 },
   conceptText: { fontSize: 12, fontWeight: '700', color: BRAND },
-
   sessionSection: { marginBottom: 16 },
   sessionCard: { flexDirection: 'row', alignItems: 'center', backgroundColor: 'white', borderRadius: 18, borderWidth: 1, borderColor: Colors.line, padding: 16, marginBottom: 8, shadowColor: '#0B0B1A', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.04, shadowRadius: 6, elevation: 1 },
   sessionCardActive: { borderColor: BRAND, backgroundColor: 'rgba(91,61,245,0.04)' },
@@ -946,7 +912,6 @@ const s2 = StyleSheet.create({
   altOptions: { gap: 8, marginTop: 4 },
   altCard: { flexDirection: 'row', alignItems: 'center', backgroundColor: 'white', borderRadius: 14, borderWidth: 1, borderColor: Colors.line, padding: 14 },
   altTitle: { fontSize: 13, fontWeight: '700', color: Colors.ink, marginBottom: 2 },
-
   durationCard: { backgroundColor: 'white', borderRadius: 16, borderWidth: 1, borderColor: Colors.line, padding: 16, marginBottom: 8 },
   durationLabel: { fontSize: 13, fontWeight: '700', color: Colors.ink2 },
   durationBadge: { backgroundColor: Colors.brandSoft, borderRadius: 12, paddingVertical: 4, paddingHorizontal: 12 },
@@ -957,7 +922,7 @@ const s2 = StyleSheet.create({
   sliderThumb: { position: 'absolute', width: 20, height: 20, borderRadius: 10, borderWidth: 3, borderColor: BRAND, backgroundColor: 'white', top: -6 },
 });
 
-// ── Pantalla 3 styles ────────────────────────────────────────────
+// ── Pantalla 3 styles ─────────────────────────────────────────────
 const s3 = StyleSheet.create({
   page: { flex: 1, backgroundColor: BG },
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, paddingVertical: 16, borderBottomWidth: 1, borderBottomColor: Colors.line },
@@ -984,7 +949,7 @@ const s3 = StyleSheet.create({
   retryText: { fontSize: 14, fontWeight: '700', color: 'white' },
 });
 
-// ── Pantalla 4 styles ────────────────────────────────────────────
+// ── Pantalla 4 styles ─────────────────────────────────────────────
 const s4 = StyleSheet.create({
   page: { flex: 1, backgroundColor: Colors.paper },
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: Colors.line },
@@ -992,14 +957,12 @@ const s4 = StyleSheet.create({
   backBtnText: { fontSize: 18, color: Colors.ink, fontWeight: '700' },
   headerTitle: { fontSize: 17, fontWeight: '800', color: Colors.ink },
   scroll: { padding: 16, paddingBottom: 8 },
-
   hero: { borderRadius: 24, paddingVertical: 32, paddingHorizontal: 24, alignItems: 'center', marginBottom: 16 },
   checkWrap: { marginBottom: 20 },
   checkCircle: { width: 72, height: 72, borderRadius: 36, backgroundColor: Colors.lime, alignItems: 'center', justifyContent: 'center', shadowColor: Colors.lime, shadowOffset: { width: 0, height: 0 }, shadowRadius: 20, elevation: 8 },
   checkText: { fontSize: 36, color: Colors.ink, fontWeight: '900' },
   xpHero: { fontSize: 24, fontWeight: '900', color: Colors.lime, textAlign: 'center', letterSpacing: -0.5, marginBottom: 10 },
   heroSub: { fontSize: 14, color: 'rgba(255,255,255,0.7)', textAlign: 'center' },
-
   card: { backgroundColor: Colors.paper, borderRadius: 20, borderWidth: 1, borderColor: Colors.line, padding: 18, shadowColor: Colors.ink, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.06, shadowRadius: 16, elevation: 3, marginBottom: 8 },
   subjectRow: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 16 },
   subjectIcon: { width: 52, height: 52, borderRadius: 14, backgroundColor: '#DBFCE7', alignItems: 'center', justifyContent: 'center' },
@@ -1008,18 +971,15 @@ const s4 = StyleSheet.create({
   diffBadge: { backgroundColor: Colors.bgSoft, borderRadius: 100, paddingVertical: 5, paddingHorizontal: 10, borderWidth: 1, borderColor: Colors.line },
   diffText: { fontSize: 11, fontWeight: '700', color: Colors.ink2 },
   divider: { height: 1, backgroundColor: Colors.line, marginVertical: 14 },
-
   statsGrid: { flexDirection: 'row', flexWrap: 'wrap' },
   statCell: { width: '50%', alignItems: 'center', paddingVertical: 12 },
   statVal: { fontSize: 17, fontWeight: '900', color: Colors.ink, marginBottom: 3 },
   statLbl: { fontSize: 9, fontWeight: '700', color: Colors.muted, letterSpacing: 0.6 },
-
   contentRow: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 10 },
   contentIcon: { fontSize: 18, width: 24 },
   contentLabel: { flex: 1, fontSize: 14, color: Colors.ink2, fontWeight: '500' },
   contentCount: { backgroundColor: Colors.bgSoft, borderRadius: 8, paddingVertical: 3, paddingHorizontal: 10 },
   contentCountText: { fontSize: 13, fontWeight: '700', color: Colors.ink },
-
   actions: { padding: 16, gap: 0, borderTopWidth: 1, borderTopColor: Colors.line, backgroundColor: Colors.paper },
   ctaShadow: { borderRadius: 18, shadowColor: BRAND, shadowOffset: { width: 0, height: 6 }, shadowRadius: 16, elevation: 10 },
   ctaOverflow: { borderRadius: 18, overflow: 'hidden' },
