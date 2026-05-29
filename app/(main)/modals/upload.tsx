@@ -1,4 +1,3 @@
-import ScreenContainer from '@/components/ScreenContainer';
 import { Colors } from '@/constants/Colors';
 import * as DocumentPicker from 'expo-document-picker';
 import { Image } from 'expo-image';
@@ -402,7 +401,7 @@ export default function UploadFlowScreen() {
   if (step === 2) {
     const s = completedSession;
     return (
-      <ScreenContainer style={s2.page} edges={['top']}>
+      <SafeAreaView style={s2.page} edges={['top']}>
         <StatusBar barStyle="dark-content" backgroundColor={BG} />
 
         {/* Confetti overlay */}
@@ -465,7 +464,7 @@ export default function UploadFlowScreen() {
             <Text style={s2.saveLink}>Guardar para después</Text>
           </Pressable>
         </View>
-      </ScreenContainer>
+      </SafeAreaView>
     );
   }
 
