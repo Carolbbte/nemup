@@ -411,7 +411,7 @@ export default function UploadFlowScreen() {
         </View>
 
         {/* Header */}
-        <View style={[shared.header, { paddingTop: insets.top + 4 }]}>
+        <View style={shared.header}>
           <Pressable onPress={handleBack} style={shared.iconBtn} hitSlop={10}>
             <Text style={shared.iconBtnText}>←</Text>
           </Pressable>
