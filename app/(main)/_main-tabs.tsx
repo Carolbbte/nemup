@@ -26,14 +26,14 @@ const TAB_LABELS: Record<string, string> = {
 };
 
 const VISIBLE = new Set(['home', 'ramos', 'tutor', 'liga', 'perfil']);
+const HIDE_BAR = new Set(['modals/first-session']);
 
 // ── Floating tab bar ─────────────────────────────────────────────
 function FloatingTabBar({ state, navigation }: BottomTabBarProps) {
   const insets = useSafeAreaInsets();
   const current = state.routes[state.index];
 
-  // Disappear entirely for modal screens
-  if (!VISIBLE.has(current.name)) return null;
+  if (HIDE_BAR.has(current.name)) return null;
 
   return (
     <View style={[tabStyles.wrapper, { paddingBottom: insets.bottom + 8 }]}>
