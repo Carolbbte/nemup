@@ -52,10 +52,11 @@ type Question = { id: string; text: string; options: Option[]; correctOptionId: 
 type Flashcard = { id: string; front: string; back: string };
 type SummarySlideType = 'concept' | 'key_fact' | 'important' | 'remember' | 'example' | 'curiosity';
 type BackendSlide = { type: SummarySlideType; emoji: string; title: string; content: string };
+type LegacySection = { heading: string; content: string; keyPoints: string[] };
 type Session = {
   subject: string; topic: string; estimatedDuration: number; difficulty: string;
   xpReward: number; gemReward: number; questions: Question[]; flashcards: Flashcard[];
-  summary: { title: string; slides: BackendSlide[] };
+  summary: { title: string; slides?: BackendSlide[]; sections?: LegacySection[] };
 };
 type Phase     = 'lobby' | 'mode-select' | 'summary' | 'quiz' | 'flashcards' | 'celebration' | 'complete';
 type QuizStep  = 'answering' | 'correct' | 'wrong';
@@ -276,7 +277,16 @@ export default function SessionPlayerScreen() {
 
   const questions     = session?.questions  ?? [];
   const flashcards    = session?.flashcards ?? [];
-  const summarySlides = session?.summary?.slides ?? [];
+  const summarySlides: BackendSlide[] = session?.summary?.slides?.length
+    ? session.summary.slides
+    : (session?.summary?.sections ?? []).flatMap((sec) => {
+        const out: BackendSlide[] = [];
+        if (sec.content) out.push({ type: 'concept', emoji: '📚', title: sec.heading, content: sec.content });
+        for (const kp of (sec.keyPoints ?? [])) {
+          out.push({ type: 'key_fact', emoji: '💡', title: sec.heading, content: kp });
+        }
+        return out;
+      });
   const question      = questions[quizIdx];
   const card          = flashcards[cardIdx];
 
