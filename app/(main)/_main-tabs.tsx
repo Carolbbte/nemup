@@ -26,7 +26,7 @@ const TAB_LABELS: Record<string, string> = {
 };
 
 const VISIBLE = new Set(['home', 'ramos', 'tutor', 'liga', 'perfil']);
-const HIDE_BAR = new Set(['modals/first-session']);
+const HIDE_BAR = new Set(['modals/first-session', 'modals/upload', 'modals/session']);
 
 // ── Floating tab bar ─────────────────────────────────────────────
 function FloatingTabBar({ state, navigation }: BottomTabBarProps) {

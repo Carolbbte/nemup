@@ -402,7 +402,7 @@ export default function UploadFlowScreen() {
   if (step === 2) {
     const s = completedSession;
     return (
-      <ScreenContainer style={s2.page}>
+      <ScreenContainer style={s2.page} edges={['top']}>
         <StatusBar barStyle="dark-content" backgroundColor={BG} />
 
         {/* Confetti overlay */}
@@ -474,7 +474,7 @@ export default function UploadFlowScreen() {
   // ══════════════════════════════════════════════════════════════
   if (step === 1) {
     return (
-      <SafeAreaView style={s1.page} edges={['top', 'bottom']}>
+      <SafeAreaView style={s1.page} edges={['top']}>
         <StatusBar barStyle="dark-content" backgroundColor={BG} />
 
         <View style={shared.header}>
