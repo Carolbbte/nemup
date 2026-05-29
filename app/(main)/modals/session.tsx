@@ -50,8 +50,8 @@ const LIME  = '#C4F852';
 type Option  = { id: string; text: string };
 type Question = { id: string; text: string; options: Option[]; correctOptionId: string; explanation: string; sourceQuote: string };
 type Flashcard = { id: string; front: string; back: string };
-type SummarySlideType = 'concept' | 'key_fact' | 'important' | 'remember' | 'example' | 'curiosity';
-type BackendSlide = { type: SummarySlideType; emoji: string; title: string; content: string };
+type SummarySlideType = 'concept' | 'key_fact' | 'important' | 'remember' | 'example' | 'curiosity' | 'wow_fact';
+type BackendSlide = { type: SummarySlideType; emoji: string; title: string; definition: string; example: string };
 type LegacySection = { heading: string; content: string; keyPoints: string[] };
 type Session = {
   subject: string; topic: string; estimatedDuration: number; difficulty: string;
@@ -201,11 +201,12 @@ const SLIDE_STYLE: Record<string, { accent: string; bg: string; label: string }>
   remember:  { accent: '#00C2A8', bg: 'rgba(0,194,168,0.08)',  label: '🎯 Recuerda' },
   example:   { accent: '#3B82F6', bg: 'rgba(59,130,246,0.08)', label: '📘 Ejemplo' },
   curiosity: { accent: '#FFB547', bg: 'rgba(255,181,71,0.08)', label: '✨ Curiosidad' },
+  wow_fact:  { accent: '#FF4D6D', bg: 'rgba(255,77,109,0.08)', label: '🤯 ¿Sabías que?' },
 };
 
 // ── Summary slide builder ─────────────────────────────────────────
 type SummarySlide =
-  | { type: SummarySlideType; emoji: string; title: string; content: string }
+  | { type: SummarySlideType; emoji: string; title: string; definition: string; example: string }
   | { type: 'milestone'; emoji: string; message: string };
 
 const MILESTONES = [
@@ -224,7 +225,7 @@ function buildSummarySlides(backendSlides: BackendSlide[]): SummarySlide[] {
       result.push({ type: 'milestone', ...MILESTONES[mileIdx++] });
     }
   }
-  return result.length ? result : [{ type: 'concept', emoji: '📚', title: 'Resumen', content: '' }];
+  return result.length ? result : [{ type: 'concept', emoji: '📚', title: 'Resumen', definition: '', example: '' }];
 }
 
 // ══════════════════════════════════════════════════════════════════
@@ -281,9 +282,9 @@ export default function SessionPlayerScreen() {
     ? session.summary.slides
     : (session?.summary?.sections ?? []).flatMap((sec) => {
         const out: BackendSlide[] = [];
-        if (sec.content) out.push({ type: 'concept', emoji: '📚', title: sec.heading, content: sec.content });
+        if (sec.content) out.push({ type: 'concept', emoji: '📚', title: sec.heading, definition: sec.content, example: '' });
         for (const kp of (sec.keyPoints ?? [])) {
-          out.push({ type: 'key_fact', emoji: '💡', title: sec.heading, content: kp });
+          out.push({ type: 'key_fact', emoji: '💡', title: sec.heading, definition: kp, example: '' });
         }
         return out;
       });
@@ -589,14 +590,32 @@ export default function SessionPlayerScreen() {
               <View style={sum.introCard}>
                 <Text style={sum.slideEmoji}>{slide.emoji}</Text>
                 <Text style={sum.introHeading}>{slide.title}</Text>
-                {!!slide.content && <Text style={sum.introBody}>{slide.content}</Text>}
+                {!!slide.definition && <Text style={sum.introDef}>{slide.definition}</Text>}
+                {!!slide.example && (
+                  <View style={sum.exampleBox}>
+                    <Text style={sum.exampleLabel}>📌 Ejemplo</Text>
+                    <Text style={sum.exampleText}>{slide.example}</Text>
+                  </View>
+                )}
+              </View>
+            ) : slide?.type === 'wow_fact' ? (
+              <View style={sum.wowCard}>
+                <Text style={sum.wowEmoji}>🤯</Text>
+                <Text style={sum.wowLabel}>¿SABÍAS QUE?</Text>
+                <Text style={sum.wowText}>{slide.definition}</Text>
               </View>
             ) : (
               <View style={[sum.kpCard, { backgroundColor: SLIDE_STYLE[slide?.type]?.bg, borderLeftColor: SLIDE_STYLE[slide?.type]?.accent }]}>
                 <Text style={sum.kpEmoji}>{slide?.emoji}</Text>
                 <Text style={[sum.kpLabel, { color: SLIDE_STYLE[slide?.type]?.accent }]}>{SLIDE_STYLE[slide?.type]?.label}</Text>
                 <Text style={sum.kpTitle}>{slide?.title}</Text>
-                <Text style={sum.kpText}>{slide?.content}</Text>
+                {!!slide?.definition && <Text style={sum.kpDef}>{slide.definition}</Text>}
+                {!!slide?.example && (
+                  <View style={sum.exampleBox}>
+                    <Text style={sum.exampleLabel}>📌 Ejemplo</Text>
+                    <Text style={sum.exampleText}>{slide.example}</Text>
+                  </View>
+                )}
               </View>
             )}
           </Animated.View>
@@ -1041,17 +1060,31 @@ const sum = StyleSheet.create({
   slideCounter: { fontSize: 11, color: Colors.muted, fontWeight: '600', marginTop: 1 },
   slideArea:    { flex: 1, paddingHorizontal: 20, justifyContent: 'center' },
 
-  introCard:    { backgroundColor: 'white', borderRadius: 24, padding: SM ? 22 : 28, shadowColor: '#0B0B1A', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.09, shadowRadius: 20, elevation: 5 },
-  slideEmoji:   { fontSize: SM ? 44 : 52, marginBottom: 14 },
-  introHeading: { fontSize: SM ? 22 : 26, fontWeight: '900', color: Colors.ink, letterSpacing: -0.5, lineHeight: SM ? 28 : 34, marginBottom: 12 },
-  introBody:    { fontSize: SM ? 15 : 16, color: Colors.ink2, lineHeight: SM ? 24 : 27, fontWeight: '500' },
+  // Concept card (white)
+  introCard:    { backgroundColor: 'white', borderRadius: 24, padding: SM ? 18 : 22, shadowColor: '#0B0B1A', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.09, shadowRadius: 20, elevation: 5 },
+  slideEmoji:   { fontSize: SM ? 38 : 44, marginBottom: 10 },
+  introHeading: { fontSize: SM ? 20 : 23, fontWeight: '900', color: Colors.ink, letterSpacing: -0.4, lineHeight: SM ? 26 : 30, marginBottom: 8 },
+  introDef:     { fontSize: SM ? 14 : 15, color: Colors.ink2, lineHeight: SM ? 21 : 23, fontWeight: '500', marginBottom: 2 },
 
-  kpCard:       { borderRadius: 20, borderLeftWidth: 4, padding: SM ? 20 : 24, shadowColor: '#0B0B1A', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.06, shadowRadius: 12, elevation: 3 },
-  kpEmoji:      { fontSize: 40, marginBottom: 10 },
-  kpLabel:      { fontSize: 10, fontWeight: '800', letterSpacing: 0.8, marginBottom: 8, textTransform: 'uppercase' },
-  kpTitle:      { fontSize: SM ? 17 : 19, fontWeight: '900', color: Colors.ink, marginBottom: 8, letterSpacing: -0.3 },
-  kpText:       { fontSize: SM ? 14 : 15, color: Colors.ink2, lineHeight: SM ? 22 : 24, fontWeight: '500' },
+  // Accent card (key_fact, important, etc.)
+  kpCard:       { borderRadius: 20, borderLeftWidth: 4, padding: SM ? 16 : 20, shadowColor: '#0B0B1A', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.06, shadowRadius: 12, elevation: 3 },
+  kpEmoji:      { fontSize: SM ? 32 : 36, marginBottom: 6 },
+  kpLabel:      { fontSize: 10, fontWeight: '800', letterSpacing: 0.8, marginBottom: 6, textTransform: 'uppercase' },
+  kpTitle:      { fontSize: SM ? 16 : 18, fontWeight: '900', color: Colors.ink, marginBottom: 6, letterSpacing: -0.3 },
+  kpDef:        { fontSize: SM ? 13 : 14, color: Colors.ink2, lineHeight: SM ? 20 : 22, fontWeight: '500' },
 
+  // Shared example block
+  exampleBox:   { marginTop: SM ? 10 : 14, paddingTop: SM ? 10 : 12, borderTopWidth: 1, borderTopColor: Colors.line },
+  exampleLabel: { fontSize: 10, fontWeight: '800', color: Colors.muted, letterSpacing: 0.6, marginBottom: 4, textTransform: 'uppercase' },
+  exampleText:  { fontSize: SM ? 13 : 14, color: Colors.ink, lineHeight: SM ? 20 : 22, fontWeight: '600' },
+
+  // Wow fact card
+  wowCard:      { backgroundColor: 'white', borderRadius: 24, padding: SM ? 28 : 34, alignItems: 'center', shadowColor: '#0B0B1A', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.09, shadowRadius: 20, elevation: 5 },
+  wowEmoji:     { fontSize: SM ? 56 : 68, marginBottom: 16 },
+  wowLabel:     { fontSize: 11, fontWeight: '900', color: '#FF4D6D', letterSpacing: 1.5, marginBottom: 14, textTransform: 'uppercase' },
+  wowText:      { fontSize: SM ? 17 : 20, fontWeight: '700', color: Colors.ink, textAlign: 'center', lineHeight: SM ? 26 : 30, letterSpacing: -0.3 },
+
+  // Milestone
   milestone:      { alignItems: 'center', justifyContent: 'center', paddingVertical: 40 },
   milestoneEmoji: { fontSize: 80, marginBottom: 20 },
   milestoneMsg:   { fontSize: SM ? 22 : 26, fontWeight: '900', color: Colors.ink, textAlign: 'center', letterSpacing: -0.5 },

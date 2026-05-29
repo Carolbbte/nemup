@@ -44,13 +44,17 @@ Rules:
 - Use the provided difficulty and duration values from the configuration.
 
 SUMMARY RULES (critical — mobile app for teenagers):
-- Each slide must represent ONE single idea only.
-- Maximum 30-40 words per slide content.
-- If an idea needs more words, split it into multiple slides.
-- Never generate long paragraphs or chapter-style text.
-- Prioritize: clarity, simplicity, quick comprehension.
+- Each slide = ONE single idea. Never group multiple ideas in one slide.
+- "definition": max 20-25 words. Clear, direct, no filler phrases.
+- "example": max 25-30 words. Must be concrete, visual, and memorable.
+  Use real-world cases, analogies, or surprising comparisons.
+  If no practical example exists, create a simple analogy that aids understanding.
+  Never leave example empty for concept/key_fact/important/remember/curiosity types.
+- "wow_fact": surprising standalone fact, max 15 words. No example needed.
 - Choose an appropriate emoji for each slide.
-- Use these slide types: concept (neutral idea), key_fact (important data), important (critical info), remember (must memorize), example (concrete case), curiosity (interesting detail).
+- Slide types: concept (neutral idea), key_fact (important data), important (critical info),
+  remember (must memorize), example (concrete application), curiosity (interesting detail),
+  wow_fact (surprising fact — use sparingly, 1-2 per topic).
 
 JSON schema:
 {
@@ -81,10 +85,11 @@ JSON schema:
     "title": string,
     "slides": [
       {
-        "type": "concept" | "key_fact" | "important" | "remember" | "example" | "curiosity",
+        "type": "concept" | "key_fact" | "important" | "remember" | "example" | "curiosity" | "wow_fact",
         "emoji": string,
         "title": string,
-        "content": string
+        "definition": string,
+        "example": string
       }
     ],
     "sourceQuotes": [string]
@@ -145,7 +150,7 @@ ${normalizeText(transcription)}
     difficulty: card.difficulty || 'easy',
   })) as Flashcard[];
 
-  const VALID_SLIDE_TYPES: SummarySlideType[] = ['concept', 'key_fact', 'important', 'remember', 'example', 'curiosity'];
+  const VALID_SLIDE_TYPES: SummarySlideType[] = ['concept', 'key_fact', 'important', 'remember', 'example', 'curiosity', 'wow_fact'];
 
   const summary: Summary = {
     id: parsed.summary?.id || 'summary-1',
@@ -154,7 +159,8 @@ ${normalizeText(transcription)}
       type: VALID_SLIDE_TYPES.includes(slide.type) ? slide.type : 'concept',
       emoji: slide.emoji || '📚',
       title: slide.title || `Concepto ${i + 1}`,
-      content: slide.content || '',
+      definition: slide.definition || slide.content || '',
+      example: slide.example || '',
     })),
     sourceQuotes: parsed.summary?.sourceQuotes || parsed.summary?.citas || [],
   };

@@ -38,13 +38,14 @@ export interface Flashcard {
   difficulty: DifficultyLevel;
 }
 
-export type SummarySlideType = 'concept' | 'key_fact' | 'important' | 'remember' | 'example' | 'curiosity';
+export type SummarySlideType = 'concept' | 'key_fact' | 'important' | 'remember' | 'example' | 'curiosity' | 'wow_fact';
 
 export interface SummarySlide {
   type: SummarySlideType;
   emoji: string;
   title: string;
-  content: string;
+  definition: string;
+  example: string;
 }
 
 export interface Summary {
