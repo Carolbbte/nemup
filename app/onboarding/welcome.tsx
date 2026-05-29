@@ -1,6 +1,7 @@
 import ScreenContainer from '@/components/ScreenContainer';
 import { useOnboarding } from '@/contexts/OnboardingContext';
 import { LinearGradient } from 'expo-linear-gradient';
+import { ArrowRight, Bot, TrendingUp, Trophy, Zap } from 'lucide-react-native';
 import { useEffect } from 'react';
 import { Dimensions, Pressable, StatusBar, StyleSheet, Text, View } from 'react-native';
 import Animated, {
@@ -20,11 +21,13 @@ const LIME = '#C4F852';
 const { height: SCREEN_H } = Dimensions.get('window');
 const SM = SCREEN_H < 740;
 
-const FEATURES = [
-  { emoji: '⚡', label: 'Sesiones desde tus apuntes' },
-  { emoji: '🤖', label: 'Tutor IA disponible 24/7' },
-  { emoji: '🏆', label: 'Compite con tu curso' },
-] as const;
+type LucideIcon = React.ComponentType<{ size?: number; color?: string; strokeWidth?: number }>;
+
+const FEATURES: { Icon: LucideIcon; label: string }[] = [
+  { Icon: Zap,    label: 'Sesiones desde tus apuntes' },
+  { Icon: Bot,    label: 'Tutor IA disponible 24/7' },
+  { Icon: Trophy, label: 'Compite con tu curso' },
+];
 
 // Twinkling background dots
 const SPARKS = [
@@ -71,7 +74,7 @@ function SparkDot({ spark, index }: { spark: SparkItem; index: number }) {
   );
 }
 
-function FeatureCard({ item, index }: { item: (typeof FEATURES)[number]; index: number }) {
+function FeatureCard({ item, index }: { item: { Icon: LucideIcon; label: string }; index: number }) {
   const opacity = useSharedValue(0);
   const ty = useSharedValue(16);
 
@@ -86,7 +89,7 @@ function FeatureCard({ item, index }: { item: (typeof FEATURES)[number]; index: 
   return (
     <Animated.View style={[styles.featureCard, style]}>
       <LinearGradient colors={['rgba(124,90,255,0.35)', 'rgba(124,90,255,0.15)']} style={styles.featureIconWrap}>
-        <Text style={styles.featureEmoji}>{item.emoji}</Text>
+        <item.Icon size={20} color="rgba(255,255,255,0.92)" strokeWidth={1.8} />
       </LinearGradient>
       <Text style={styles.featureText}>{item.label}</Text>
     </Animated.View>
@@ -181,7 +184,7 @@ export default function WelcomeScreen() {
             <Animated.View style={[styles.ring2, ringStyle]} />
             <View style={styles.ring1} />
             <LinearGradient colors={['rgba(91,61,245,0.65)', 'rgba(155,77,255,0.55)']} style={styles.heroCircle}>
-              <Text style={styles.heroEmoji}>📈</Text>
+              <TrendingUp size={SM ? 36 : 48} color="white" strokeWidth={1.5} />
             </LinearGradient>
           </Animated.View>
 
@@ -211,7 +214,7 @@ export default function WelcomeScreen() {
               >
                 <Animated.View style={[styles.ctaShine, shineStyle]} />
                 <Text style={styles.ctaText}>Empezar gratis</Text>
-                <Text style={styles.ctaArrow}>→</Text>
+                <ArrowRight size={17} color="#FFF" strokeWidth={2.5} />
               </LinearGradient>
             </Pressable>
           </Animated.View>

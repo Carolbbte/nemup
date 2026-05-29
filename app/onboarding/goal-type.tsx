@@ -1,8 +1,20 @@
+import ScreenContainer from '@/components/ScreenContainer';
 import { Colors } from '@/constants/Colors';
 import { useOnboarding } from '@/contexts/OnboardingContext';
 import { GOAL_TYPES } from '@/types/onboarding';
+import {
+  ArrowRight, ChevronLeft, ClipboardList, Lightbulb, Rocket, Star, TrendingUp,
+} from 'lucide-react-native';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
-import ScreenContainer from '@/components/ScreenContainer';
+
+type LucideIcon = React.ComponentType<{ size?: number; color?: string; strokeWidth?: number }>;
+
+const GOAL_TYPE_ICON: Record<string, LucideIcon> = {
+  exam:     ClipboardList,
+  improve:  TrendingUp,
+  catchup:  Rocket,
+  maintain: Star,
+};
 
 export default function GoalTypeScreen() {
   const { state, setGoalType, nextStep, prevStep } = useOnboarding();
@@ -18,7 +30,7 @@ export default function GoalTypeScreen() {
       <View style={styles.screenTop}>
         <Pressable onPress={prevStep}>
           <View style={styles.backBtn}>
-            <Text style={styles.backBtnText}>‹</Text>
+            <ChevronLeft size={20} color={Colors.ink} strokeWidth={2.5} />
           </View>
         </Pressable>
       </View>
@@ -39,7 +51,9 @@ export default function GoalTypeScreen() {
 
       {/* Body */}
       <View style={styles.body}>
-        <Text style={styles.emoji}>💡</Text>
+        <View style={{ alignItems: 'center', marginBottom: 12, marginTop: 16 }}>
+          <Lightbulb size={48} color={Colors.brand} strokeWidth={1.5} />
+        </View>
         <Text style={styles.title}>¿Por qué estudias?</Text>
         <Text style={styles.subtitle}>Selecciona tu motivación principal</Text>
 
@@ -54,7 +68,10 @@ export default function GoalTypeScreen() {
                 state.data.goalType === reason.id && styles.reasonCardActive,
               ]}
             >
-              <Text style={styles.reasonEmoji}>{reason.emoji}</Text>
+              {(() => {
+                const GoalIcon = GOAL_TYPE_ICON[reason.id] ?? ClipboardList;
+                return <GoalIcon size={24} color={state.data.goalType === reason.id ? Colors.brand : Colors.ink3} strokeWidth={1.8} />;
+              })()}
               <View style={styles.reasonContent}>
                 <Text style={styles.reasonTitle}>{reason.title}</Text>
                 <Text style={styles.reasonDesc}>{reason.description}</Text>
@@ -82,7 +99,7 @@ export default function GoalTypeScreen() {
           disabled={!state.data.goalType}
         >
           <Text style={styles.continueBtnText}>Siguiente</Text>
-          <Text style={styles.continueBtnArrow}>→</Text>
+          <ArrowRight size={16} color="white" strokeWidth={2.5} />
         </Pressable>
       </View>
     </ScreenContainer>

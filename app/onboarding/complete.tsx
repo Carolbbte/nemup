@@ -2,8 +2,14 @@ import ScreenContainer from '@/components/ScreenContainer';
 import { useOnboarding } from '@/contexts/OnboardingContext';
 import * as Haptics from 'expo-haptics';
 import { LinearGradient } from 'expo-linear-gradient';
+import {
+  ArrowRight, Award, BookOpen, Clock, Lightbulb,
+  Sparkles, Star, Target, User,
+} from 'lucide-react-native';
 import React, { useEffect } from 'react';
 import { Dimensions, Pressable, StatusBar, StyleSheet, Text, View } from 'react-native';
+
+type LucideIcon = React.ComponentType<{ size?: number; color?: string; strokeWidth?: number }>;
 import Animated, {
   Easing,
   useAnimatedStyle,
@@ -139,12 +145,12 @@ function SparkDot({ spark, index }: { spark: SparkItem; index: number }) {
 
 type ValueType = 'plain' | 'chip' | 'highlight' | 'subtle';
 
-function StatRow({ emoji, label, value, valueType = 'plain' }: {
-  emoji: string; label: string; value: string; valueType?: ValueType;
+function StatRow({ Icon, label, value, valueType = 'plain' }: {
+  Icon: LucideIcon; label: string; value: string; valueType?: ValueType;
 }) {
   return (
     <View style={styles.statRow}>
-      <Text style={styles.statEmoji}>{emoji}</Text>
+      <Icon size={SM ? 11 : 13} color="rgba(255,255,255,0.55)" strokeWidth={1.8} />
       <Text style={styles.statLabel}>{label}</Text>
       {valueType === 'chip' ? (
         <View style={styles.statChip}><Text style={styles.statChipText}>{value}</Text></View>
@@ -334,12 +340,20 @@ export default function CompleteScreen() {
             <View style={styles.circleOuter}>
               <LinearGradient colors={[LIME, '#9BCC14']} style={[StyleSheet.absoluteFill, { borderRadius: T_R }]} />
               <Animated.View style={[StyleSheet.absoluteFill, sparkleStyle]}>
-                <Text style={[styles.sparkleGlyph, { top: 2, left: 0, right: 0, textAlign: 'center' }]}>✨</Text>
-                <Text style={[styles.sparkleGlyph, { bottom: 2, left: 0, right: 0, textAlign: 'center' }]}>⭐</Text>
-                <Text style={[styles.sparkleSmall, { top: '38%', left: 2 }]}>✦</Text>
+                <View style={{ position: 'absolute', top: 2, left: 0, right: 0, alignItems: 'center' }}>
+                  <Sparkles size={SM ? 8 : 10} color="rgba(255,255,255,0.9)" strokeWidth={1.5} />
+                </View>
+                <View style={{ position: 'absolute', bottom: 2, left: 0, right: 0, alignItems: 'center' }}>
+                  <Star size={SM ? 8 : 10} color="rgba(255,255,255,0.9)" strokeWidth={1.5} />
+                </View>
+                <View style={{ position: 'absolute', top: '38%', left: 2 }}>
+                  <Star size={7} color="rgba(255,255,255,0.9)" strokeWidth={1.5} />
+                </View>
               </Animated.View>
               <View style={styles.circleHighlight} />
-              <Text style={styles.medalEmoji}>🏅</Text>
+              <View style={{ zIndex: 1 }}>
+                <Award size={SM ? 34 : 40} color={BG} strokeWidth={1.5} />
+              </View>
             </View>
           </Animated.View>
 
@@ -354,7 +368,7 @@ export default function CompleteScreen() {
               Eres la estudiante{' '}
               <Text style={styles.subtitleAccent}>#{TOTAL_STUDENTS}</Text>
               {' '}en empezar tu NEM con NemUp,{' '}
-              <Text style={styles.subtitleName}>{firstName} 🚀</Text>
+              <Text style={styles.subtitleName}>{firstName}</Text>
             </Text>
           </Animated.View>
         </View>
@@ -362,7 +376,7 @@ export default function CompleteScreen() {
         {/* ── ZONE 2: badge + character card ── */}
         <View style={styles.middle}>
           <Animated.View style={[styles.achieveBadge, badgeStyle]}>
-            <Text style={styles.achieveIcon}>🏅</Text>
+            <Award size={SM ? 16 : 18} color={LIME} strokeWidth={1.8} />
             <View style={styles.achieveBody}>
               <Text style={styles.achieveTitle}>¡Primera medalla desbloqueada!</Text>
               <Text style={styles.achieveSub}>Pionero NEM</Text>
@@ -378,11 +392,11 @@ export default function CompleteScreen() {
               <LinearGradient colors={[NEON, '#C44EFF']} style={styles.summaryDot} />
               <Text style={styles.summaryTitle}>TU PERSONAJE</Text>
             </View>
-            <StatRow emoji="✨" label="Nivel"         value="1 · Aprendiz"             valueType="chip"      />
-            <StatRow emoji="👤" label="Nombre"        value={state.data.name}                                 />
-            <StatRow emoji="📚" label="Curso"         value={state.data.curso}                                />
-            <StatRow emoji="🎯" label="Meta NEM"      value={state.data.goal.toFixed(1)} valueType="highlight" />
-            <StatRow emoji="⏱"  label="Entrenamiento" value={commitmentLabel}            valueType="subtle"    />
+            <StatRow Icon={Sparkles} label="Nivel"         value="1 · Aprendiz"             valueType="chip"      />
+            <StatRow Icon={User}     label="Nombre"        value={state.data.name}                                 />
+            <StatRow Icon={BookOpen} label="Curso"         value={state.data.curso}                                />
+            <StatRow Icon={Target}   label="Meta NEM"      value={state.data.goal.toFixed(1)} valueType="highlight" />
+            <StatRow Icon={Clock}    label="Entrenamiento" value={commitmentLabel}            valueType="subtle"    />
           </Animated.View>
         </View>
 
@@ -409,7 +423,7 @@ export default function CompleteScreen() {
                   <View style={styles.ctaContent}>
                     <View style={styles.ctaMainRow}>
                       <Text style={styles.ctaText}>{isLoading ? 'Cargando...' : 'Comenzar a estudiar'}</Text>
-                      {!isLoading && <Text style={styles.ctaArrow}>→</Text>}
+                      {!isLoading && <ArrowRight size={17} color="#FFF" strokeWidth={2.5} />}
                     </View>
                     {!isLoading && <Text style={styles.ctaXp}>+10 XP por empezar</Text>}
                   </View>
@@ -420,7 +434,10 @@ export default function CompleteScreen() {
           </Animated.View>
 
           <Animated.View style={tipStyle}>
-            <Text style={styles.tip}>💡 Sube cualquier apunte para tu primera sesión.</Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 4 }}>
+              <Lightbulb size={SM ? 10 : 11} color="rgba(255,255,255,0.42)" strokeWidth={2} />
+              <Text style={styles.tip}>Sube cualquier apunte para tu primera sesión.</Text>
+            </View>
           </Animated.View>
         </View>
 

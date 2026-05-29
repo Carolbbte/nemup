@@ -2,6 +2,7 @@ import ScreenContainer from '@/components/ScreenContainer';
 import { useOnboarding } from '@/contexts/OnboardingContext';
 import { TIME_COMMITMENTS } from '@/types/onboarding';
 import { LinearGradient } from 'expo-linear-gradient';
+import { ArrowRight, Check, ChevronLeft, Flame, Gem, Lightbulb, Target, Zap } from 'lucide-react-native';
 import { useEffect, useRef } from 'react';
 import { Pressable, ScrollView, StatusBar, StyleSheet, Text, View } from 'react-native';
 import Animated, {
@@ -24,7 +25,9 @@ const TOTAL_STEPS = 4;
 // Only show 4 options — "2+ horas" removed so layout fits without scroll
 const DISPLAY_COMMITMENTS = TIME_COMMITMENTS.filter((t) => t.id !== '2hours');
 
-const TIME_ICONS = ['⚡', '🎯', '🔥', '💎'] as const;
+type LucideIcon = React.ComponentType<{ size?: number; color?: string; strokeWidth?: number }>;
+
+const TIME_ICONS: LucideIcon[] = [Zap, Target, Flame, Gem];
 const TIME_ICON_COLORS: [string, string][] = [
   ['#5B3DF5', '#9340FF'],
   ['#FF5B9F', '#FF3D8A'],
@@ -34,12 +37,12 @@ const TIME_ICON_COLORS: [string, string][] = [
 
 // Individual card component so Reanimated hooks are per-instance, not in a loop
 function TimeCard({
-  time, isActive, onPress, icon, iconColors, enterDelay,
+  time, isActive, onPress, Icon, iconColors, enterDelay,
 }: {
   time: (typeof DISPLAY_COMMITMENTS)[number];
   isActive: boolean;
   onPress: () => void;
-  icon: string;
+  Icon: LucideIcon;
   iconColors: [string, string];
   enterDelay: number;
 }) {
@@ -83,7 +86,7 @@ function TimeCard({
           />
         )}
         <LinearGradient colors={iconColors} style={styles.timeIconCircle}>
-          <Text style={styles.timeIconEmoji}>{icon}</Text>
+          <Icon size={20} color="rgba(255,255,255,0.92)" strokeWidth={1.8} />
         </LinearGradient>
         <View style={styles.timeInfo}>
           <View style={styles.timeTopRow}>
@@ -98,7 +101,7 @@ function TimeCard({
         </View>
         {isActive && (
           <View style={styles.timeCheck}>
-            <Text style={styles.timeCheckText}>✓</Text>
+            <Check size={14} color="#09051A" strokeWidth={3} />
           </View>
         )}
       </Pressable>
@@ -152,7 +155,7 @@ export default function CommitmentScreen() {
       {/* Top bar */}
       <View style={styles.topBar}>
         <Pressable onPress={prevStep} style={styles.backBtn}>
-          <Text style={styles.backBtnText}>‹</Text>
+          <ChevronLeft size={22} color="rgba(255,255,255,0.8)" strokeWidth={2.2} />
         </Pressable>
         <View style={styles.progressWrap}>
           {Array.from({ length: TOTAL_STEPS }).map((_, i) => {
@@ -172,7 +175,9 @@ export default function CommitmentScreen() {
       <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false} bounces={false}>
         {/* Header */}
         <Animated.View style={[styles.header, headerStyle]}>
-          <Text style={styles.emoji}>⚡</Text>
+          <View style={{ alignItems: 'center', marginBottom: 8 }}>
+            <Zap size={44} color={LIME} strokeWidth={1.6} />
+          </View>
           <Text style={styles.title}>Elige tu <Text style={styles.lime}>modo</Text></Text>
           <Text style={styles.subtitle}>¿Cuánto tiempo puedes entrenar cada día?</Text>
         </Animated.View>
@@ -185,7 +190,7 @@ export default function CommitmentScreen() {
               time={time}
               isActive={state.data.dailyCommitment === time.id}
               onPress={() => setDailyCommitment(time.id)}
-              icon={TIME_ICONS[i]}
+              Icon={TIME_ICONS[i]}
               iconColors={TIME_ICON_COLORS[i]}
               enterDelay={200 + i * 110}
             />
@@ -194,7 +199,9 @@ export default function CommitmentScreen() {
 
         {/* Tip */}
         <Animated.View style={[styles.tip, tipStyle]}>
-          <Text style={styles.tipEmoji}>💡</Text>
+          <View style={{ marginTop: 1 }}>
+            <Lightbulb size={16} color={LIME} strokeWidth={1.8} />
+          </View>
           <Text style={styles.tipText}>
             <Text style={styles.tipBold}>Consejo: </Text>
             15 min diarios superan a 2 horas el domingo.
@@ -221,7 +228,7 @@ export default function CommitmentScreen() {
           >
             {canContinue && <Animated.View style={[styles.ctaShine, ctaShineStyle]} />}
             <Text style={[styles.ctaText, !canContinue && styles.ctaTextOff]}>Siguiente</Text>
-            <Text style={[styles.ctaArrow, !canContinue && styles.ctaTextOff]}>→</Text>
+            <ArrowRight size={17} color={canContinue ? '#FFF' : 'rgba(255,255,255,0.35)'} strokeWidth={2.5} />
           </LinearGradient>
         </Pressable>
       </View>

@@ -23,11 +23,24 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useRouter } from 'expo-router';
 import { Colors } from '@/constants/Colors';
 import { useOnboarding } from '@/contexts/OnboardingContext';
+import {
+  Calculator,
+  ChevronRight,
+  Clock,
+  Dna,
+  FlaskConical,
+  Flame,
+  Gem,
+  Scroll,
+  Sparkles,
+  Trophy,
+  Zap,
+} from 'lucide-react-native';
 
 const { height: SCREEN_H } = Dimensions.get('window');
 const SM = SCREEN_H < 740;
 
-const BG = '#F7F8FC';
+const BG    = '#F7F8FC';
 const BRAND = '#5B3DF5';
 const BRAND2 = '#7C5AFF';
 
@@ -42,11 +55,11 @@ function FadeUp({
   style?: object;
 }) {
   const opacity = useSharedValue(0);
-  const ty = useSharedValue(20);
+  const ty      = useSharedValue(20);
 
   useEffect(() => {
     opacity.value = withDelay(delay, withTiming(1, { duration: 360 }));
-    ty.value = withDelay(delay, withSpring(0, { damping: 22, stiffness: 175 }));
+    ty.value      = withDelay(delay, withSpring(0, { damping: 22, stiffness: 175 }));
   }, []);
 
   const anim = useAnimatedStyle(() => ({
@@ -63,7 +76,7 @@ function AnimatedNemValue({ from, to }: { from: number; to: number }) {
   const [displayed, setDisplayed] = useState(from.toFixed(1));
 
   const fromInt = Math.round(from * 10);
-  const range = Math.round(to * 10) - fromInt;
+  const range   = Math.round(to * 10) - fromInt;
 
   useAnimatedReaction(
     () => Math.round(fromInt + progress.value * range),
@@ -103,7 +116,7 @@ function Sparkline() {
 // ── Mission card (horizontal carousel) ──────────────────────────
 type Difficulty = 'Fácil' | 'Medio' | 'Difícil';
 type Mission = {
-  emoji: string;
+  Icon: React.ComponentType<{ color?: string; size?: number; strokeWidth?: number }>;
   subject: string;
   topic: string;
   xp: number;
@@ -115,7 +128,7 @@ type Mission = {
 
 const MISSIONS: Mission[] = [
   {
-    emoji: '📐',
+    Icon: Calculator,
     subject: 'Matemáticas',
     topic: 'Funciones cuadráticas',
     xp: 80,
@@ -125,7 +138,7 @@ const MISSIONS: Mission[] = [
     tint: 'rgba(91,61,245,0.06)',
   },
   {
-    emoji: '🧬',
+    Icon: Dna,
     subject: 'Biología',
     topic: 'Genética y herencia',
     xp: 60,
@@ -135,7 +148,7 @@ const MISSIONS: Mission[] = [
     tint: 'rgba(0,194,168,0.06)',
   },
   {
-    emoji: '📜',
+    Icon: Scroll,
     subject: 'Historia',
     topic: 'Chile siglo XX',
     xp: 90,
@@ -145,7 +158,7 @@ const MISSIONS: Mission[] = [
     tint: 'rgba(255,122,43,0.06)',
   },
   {
-    emoji: '⚗️',
+    Icon: FlaskConical,
     subject: 'Química',
     topic: 'Tabla periódica',
     xp: 70,
@@ -157,13 +170,13 @@ const MISSIONS: Mission[] = [
 ];
 
 const DIFF_COLOR: Record<Difficulty, string> = {
-  Fácil: Colors.teal,
-  Medio: Colors.amber,
+  Fácil:   Colors.teal,
+  Medio:   Colors.amber,
   Difícil: Colors.rose,
 };
 
 function MissionCard({ m, onPress }: { m: Mission; onPress: () => void }) {
-  const scale = useSharedValue(1);
+  const scale    = useSharedValue(1);
   const scaleAnim = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
 
   return (
@@ -180,7 +193,7 @@ function MissionCard({ m, onPress }: { m: Mission; onPress: () => void }) {
         ]}
       >
         <View style={[styles.missionIconWrap, { backgroundColor: m.color + '18' }]}>
-          <Text style={styles.missionEmoji}>{m.emoji}</Text>
+          <m.Icon color={m.color} size={22} strokeWidth={1.8} />
         </View>
         <Text style={[styles.missionSubject, { color: m.color }]}>{m.subject}</Text>
         <Text style={styles.missionTopic} numberOfLines={2}>
@@ -194,8 +207,14 @@ function MissionCard({ m, onPress }: { m: Mission; onPress: () => void }) {
           </View>
         </View>
         <View style={styles.missionFooter}>
-          <Text style={[styles.missionXp, { color: m.color }]}>⚡ +{m.xp} XP</Text>
-          <Text style={styles.missionTime}>⏱ {m.time} min</Text>
+          <View style={styles.missionXpRow}>
+            <Zap size={11} color={m.color} strokeWidth={2.5} />
+            <Text style={[styles.missionXp, { color: m.color }]}>+{m.xp} XP</Text>
+          </View>
+          <View style={styles.missionTimeRow}>
+            <Clock size={10} color={Colors.ink3} strokeWidth={2} />
+            <Text style={styles.missionTime}>{m.time} min</Text>
+          </View>
         </View>
       </Animated.View>
     </Pressable>
@@ -206,13 +225,13 @@ function MissionCard({ m, onPress }: { m: Mission; onPress: () => void }) {
 export default function HomeScreen() {
   const router = useRouter();
   const { state } = useOnboarding();
-  const insets = useSafeAreaInsets();
+  const insets    = useSafeAreaInsets();
 
   const name = state.data.name ?? 'estudiante';
   const goal = state.data.goal ?? 6;
 
   const ctaScale = useSharedValue(1);
-  const ctaAnim = useAnimatedStyle(() => ({ transform: [{ scale: ctaScale.value }] }));
+  const ctaAnim  = useAnimatedStyle(() => ({ transform: [{ scale: ctaScale.value }] }));
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
@@ -228,9 +247,10 @@ export default function HomeScreen() {
           <View style={styles.header}>
             <View style={styles.headerLeft}>
               <View style={styles.streakPill}>
-                <Text style={styles.streakText}>🔥 14 días seguidos</Text>
+                <Flame size={13} color={Colors.orange} strokeWidth={2.5} />
+                <Text style={styles.streakText}>14 días seguidos</Text>
               </View>
-              <Text style={styles.greeting}>Hola, {name} 👋</Text>
+              <Text style={styles.greeting}>Hola, {name}</Text>
               <Text style={styles.subGreeting}>Tu NEM sigue subiendo.</Text>
             </View>
             <View style={styles.avatar}>
@@ -281,7 +301,7 @@ export default function HomeScreen() {
                 style={styles.ctaGradient}
               >
                 <View style={styles.ctaIconBox}>
-                  <Text style={styles.ctaIconText}>✨</Text>
+                  <Sparkles size={26} color="white" strokeWidth={1.8} />
                 </View>
                 <View style={styles.ctaBody}>
                   <Text style={styles.ctaTitle}>
@@ -291,7 +311,7 @@ export default function HomeScreen() {
                     La IA convierte tu materia en práctica interactiva
                   </Text>
                 </View>
-                <Text style={styles.ctaChevron}>→</Text>
+                <ChevronRight size={20} color="white" strokeWidth={2.5} />
               </LinearGradient>
             </Animated.View>
           </Pressable>
@@ -307,18 +327,26 @@ export default function HomeScreen() {
             ]}
           >
             <View style={styles.continueRow}>
-              <Text style={styles.continueEmoji}>🧬</Text>
+              <View style={styles.continueIconWrap}>
+                <Dna size={28} color={Colors.teal} strokeWidth={1.8} />
+              </View>
               <View style={styles.continueInfo}>
                 <Text style={styles.continueSubject}>Biología</Text>
                 <Text style={styles.continueTopic}>División Celular</Text>
-                <Text style={styles.continueMeta}>⚡ +60 XP · ⏱ 5 min restantes</Text>
+                <View style={styles.continueMetaRow}>
+                  <Zap size={11} color={Colors.ink3} strokeWidth={2.5} />
+                  <Text style={styles.continueMeta}>+60 XP</Text>
+                  <Text style={styles.continueMeta}> · </Text>
+                  <Clock size={11} color={Colors.ink3} strokeWidth={2} />
+                  <Text style={styles.continueMeta}>5 min restantes</Text>
+                </View>
               </View>
               <View style={styles.continueRight}>
                 <View style={styles.progressTrack}>
                   <View style={[styles.progressFill, { width: '60%' }]} />
                 </View>
                 <Text style={styles.progressPct}>60%</Text>
-                <Text style={styles.continueChevron}>›</Text>
+                <ChevronRight size={18} color={Colors.muted} strokeWidth={2} />
               </View>
             </View>
           </Pressable>
@@ -333,7 +361,7 @@ export default function HomeScreen() {
                 { backgroundColor: 'rgba(91,61,245,0.07)', borderColor: 'rgba(91,61,245,0.13)' },
               ]}
             >
-              <Text style={styles.statIcon}>⚡</Text>
+              <Zap size={20} color={BRAND} strokeWidth={2} style={{ marginBottom: 6 }} />
               <Text style={[styles.statValue, { color: BRAND }]}>2.480</Text>
               <Text style={styles.statLabel}>XP TOTAL</Text>
             </View>
@@ -343,7 +371,7 @@ export default function HomeScreen() {
                 { backgroundColor: 'rgba(0,194,168,0.07)', borderColor: 'rgba(0,194,168,0.13)' },
               ]}
             >
-              <Text style={styles.statIcon}>💎</Text>
+              <Gem size={20} color={Colors.teal} strokeWidth={2} style={{ marginBottom: 6 }} />
               <Text style={[styles.statValue, { color: Colors.teal }]}>340</Text>
               <Text style={styles.statLabel}>GEMAS</Text>
             </View>
@@ -356,7 +384,7 @@ export default function HomeScreen() {
                 },
               ]}
             >
-              <Text style={styles.statIcon}>🏆</Text>
+              <Trophy size={20} color={Colors.amber} strokeWidth={2} style={{ marginBottom: 6 }} />
               <Text style={[styles.statValue, { color: Colors.amber }]}>#3</Text>
               <Text style={styles.statLabel}>EN TU LIGA</Text>
             </View>
@@ -367,8 +395,9 @@ export default function HomeScreen() {
         <FadeUp delay={320}>
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>Misiones de hoy</Text>
-            <Pressable>
-              <Text style={styles.seeAll}>Ver todas →</Text>
+            <Pressable style={styles.seeAllBtn}>
+              <Text style={styles.seeAll}>Ver todas</Text>
+              <ChevronRight size={12} color={BRAND} strokeWidth={2.5} />
             </Pressable>
           </View>
         </FadeUp>
@@ -396,8 +425,8 @@ export default function HomeScreen() {
 // ── Styles ───────────────────────────────────────────────────────
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: BG },
-  scroll: { flex: 1 },
-  content: { paddingHorizontal: 20, paddingTop: 12 },
+  scroll:    { flex: 1 },
+  content:   { paddingHorizontal: 20, paddingTop: 12 },
 
   // Header
   header: {
@@ -408,6 +437,9 @@ const styles = StyleSheet.create({
   },
   headerLeft: { flex: 1, paddingRight: 12 },
   streakPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
     alignSelf: 'flex-start',
     backgroundColor: 'rgba(255,122,43,0.1)',
     paddingHorizontal: 12,
@@ -467,7 +499,7 @@ const styles = StyleSheet.create({
     color: 'rgba(255,255,255,0.55)',
   },
   sparkWrap: { flexDirection: 'row', alignItems: 'flex-end', gap: 3 },
-  sparkBar: { width: 5, backgroundColor: Colors.lime, borderRadius: 2 },
+  sparkBar:  { width: 5, backgroundColor: Colors.lime, borderRadius: 2 },
   nemValue: {
     fontSize: SM ? 50 : 62,
     fontWeight: '900',
@@ -476,9 +508,9 @@ const styles = StyleSheet.create({
     marginBottom: 6,
     letterSpacing: -1,
   },
-  nemSub: { fontSize: 12, color: 'rgba(255,255,255,0.65)', marginBottom: 14 },
+  nemSub:    { fontSize: 12, color: 'rgba(255,255,255,0.65)', marginBottom: 14 },
   nemBadges: { flexDirection: 'row', gap: 8 },
-  nemBadge: {
+  nemBadge:  {
     backgroundColor: 'rgba(196,248,82,0.18)',
     paddingVertical: 7,
     paddingHorizontal: 12,
@@ -487,7 +519,7 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(196,248,82,0.32)',
   },
   nemBadgeGreenText: { fontSize: 12, fontWeight: '700', color: Colors.lime },
-  nemBadgeWhite: {
+  nemBadgeWhite:     {
     backgroundColor: 'rgba(255,255,255,0.12)',
     borderColor: 'rgba(255,255,255,0.22)',
   },
@@ -519,8 +551,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  ctaIconText: { fontSize: 28 },
-  ctaBody: { flex: 1 },
+  ctaBody:  { flex: 1 },
   ctaTitle: {
     fontSize: 15,
     fontWeight: '800',
@@ -530,18 +561,18 @@ const styles = StyleSheet.create({
     letterSpacing: -0.2,
   },
   ctaSub: { fontSize: 12, color: 'rgba(255,255,255,0.74)', lineHeight: 17 },
-  ctaChevron: { fontSize: 22, fontWeight: '700', color: 'white' },
 
   // Continue section
-  section: { marginBottom: 22 },
-  sectionTitle: { fontSize: 17, fontWeight: '800', color: Colors.ink, marginBottom: 12 },
+  section:       { marginBottom: 22 },
+  sectionTitle:  { fontSize: 17, fontWeight: '800', color: Colors.ink, marginBottom: 12 },
   sectionHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 12,
   },
-  seeAll: { fontSize: 13, fontWeight: '600', color: BRAND },
+  seeAllBtn: { flexDirection: 'row', alignItems: 'center', gap: 2 },
+  seeAll:    { fontSize: 13, fontWeight: '600', color: BRAND },
   continueCard: {
     backgroundColor: 'white',
     borderRadius: 18,
@@ -555,9 +586,16 @@ const styles = StyleSheet.create({
     elevation: 3,
   },
   continueCardPressed: { opacity: 0.82 },
-  continueRow: { flexDirection: 'row', alignItems: 'center', gap: 14 },
-  continueEmoji: { fontSize: 34 },
-  continueInfo: { flex: 1 },
+  continueRow:    { flexDirection: 'row', alignItems: 'center', gap: 14 },
+  continueIconWrap: {
+    width: 52,
+    height: 52,
+    borderRadius: 14,
+    backgroundColor: 'rgba(0,194,168,0.1)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  continueInfo:   { flex: 1 },
   continueSubject: {
     fontSize: 11,
     fontWeight: '700',
@@ -573,8 +611,9 @@ const styles = StyleSheet.create({
     marginBottom: 4,
     letterSpacing: -0.2,
   },
-  continueMeta: { fontSize: 12, color: Colors.ink3, fontWeight: '500' },
-  continueRight: { alignItems: 'flex-end', gap: 5 },
+  continueMetaRow: { flexDirection: 'row', alignItems: 'center', gap: 3 },
+  continueMeta:    { fontSize: 12, color: Colors.ink3, fontWeight: '500' },
+  continueRight:   { alignItems: 'flex-end', gap: 5 },
   progressTrack: {
     width: 52,
     height: 4,
@@ -582,9 +621,8 @@ const styles = StyleSheet.create({
     borderRadius: 2,
     overflow: 'hidden',
   },
-  progressFill: { height: 4, backgroundColor: Colors.teal, borderRadius: 2 },
-  progressPct: { fontSize: 11, fontWeight: '700', color: Colors.teal },
-  continueChevron: { fontSize: 24, color: Colors.muted, lineHeight: 24 },
+  progressFill:  { height: 4, backgroundColor: Colors.teal, borderRadius: 2 },
+  progressPct:   { fontSize: 11, fontWeight: '700', color: Colors.teal },
 
   // Stats
   statsRow: { flexDirection: 'row', gap: 10, marginBottom: 22 },
@@ -596,7 +634,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     borderWidth: 1,
   },
-  statIcon: { fontSize: 20, marginBottom: 6 },
   statValue: { fontSize: 15, fontWeight: '800', marginBottom: 3 },
   statLabel: {
     fontSize: 8,
@@ -608,7 +645,7 @@ const styles = StyleSheet.create({
   },
 
   // Missions
-  missionsScroll: { marginHorizontal: -20 },
+  missionsScroll:  { marginHorizontal: -20 },
   missionsContent: { paddingHorizontal: 20, gap: 12 },
   missionCard: {
     width: 184,
@@ -624,7 +661,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 10,
   },
-  missionEmoji: { fontSize: 24 },
   missionSubject: {
     fontSize: 10,
     fontWeight: '800',
@@ -639,7 +675,7 @@ const styles = StyleSheet.create({
     marginBottom: 10,
     lineHeight: 19,
   },
-  missionMeta: { marginBottom: 12 },
+  missionMeta:   { marginBottom: 12 },
   diffPill: {
     alignSelf: 'flex-start',
     paddingHorizontal: 9,
@@ -652,6 +688,8 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
   },
-  missionXp: { fontSize: 13, fontWeight: '800' },
-  missionTime: { fontSize: 11, fontWeight: '500', color: Colors.ink3 },
+  missionXpRow:   { flexDirection: 'row', alignItems: 'center', gap: 3 },
+  missionXp:      { fontSize: 13, fontWeight: '800' },
+  missionTimeRow: { flexDirection: 'row', alignItems: 'center', gap: 3 },
+  missionTime:    { fontSize: 11, fontWeight: '500', color: Colors.ink3 },
 });

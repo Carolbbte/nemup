@@ -2,6 +2,7 @@ import ScreenContainer from '@/components/ScreenContainer';
 import { useOnboarding } from '@/contexts/OnboardingContext';
 import { CURSOS } from '@/types/onboarding';
 import { LinearGradient } from 'expo-linear-gradient';
+import { ArrowRight, BookOpen, Check, ChevronLeft, Smile, User } from 'lucide-react-native';
 import { useEffect, useRef, useState } from 'react';
 import { Pressable, ScrollView, StatusBar, StyleSheet, Text, TextInput, View } from 'react-native';
 import Animated, {
@@ -52,7 +53,7 @@ function CursoCard({ curso, active, onPress }: { curso: string; active: boolean;
           />
         )}
         <Text style={[styles.cursoText, active && styles.cursoTextActive]}>{curso}</Text>
-        {active && <Text style={styles.cursoCheck}>✓</Text>}
+        {active && <Check size={13} color={LIME} strokeWidth={2.5} />}
       </Pressable>
     </Animated.View>
   );
@@ -108,7 +109,7 @@ export default function NameCursoScreen() {
       {/* Top bar */}
       <View style={styles.topBar}>
         <Pressable onPress={prevStep} style={styles.backBtn}>
-          <Text style={styles.backBtnText}>‹</Text>
+          <ChevronLeft size={22} color="rgba(255,255,255,0.8)" strokeWidth={2.2} />
         </Pressable>
         <View style={styles.progressWrap}>
           {Array.from({ length: TOTAL_STEPS }).map((_, i) => {
@@ -127,13 +128,15 @@ export default function NameCursoScreen() {
 
       <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false} bounces={false}>
         <Animated.View style={[styles.body, bodyStyle]}>
-          <Text style={styles.emoji}>👋</Text>
+          <View style={{ alignItems: 'center', marginBottom: 10 }}>
+            <Smile size={48} color={LIME} strokeWidth={1.5} />
+          </View>
           <Text style={styles.title}>¿Cuál es{'\n'}<Text style={styles.neon}>tu nombre?</Text></Text>
           <Text style={styles.subtitle}>Personalizaremos tu experiencia de estudio</Text>
 
           <Animated.View style={[styles.inputWrap, nameFocused && styles.inputWrapFocused, inputScStyle]}>
             <View style={styles.inputIconWrap}>
-              <Text style={styles.inputIconEmoji}>👤</Text>
+              <User size={16} color="rgba(255,255,255,0.7)" strokeWidth={2} />
             </View>
             <TextInput
               style={styles.input}
@@ -149,7 +152,10 @@ export default function NameCursoScreen() {
             />
           </Animated.View>
 
-          <Text style={styles.sectionLabel}>📚  SELECCIONA TU CURSO</Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 10 }}>
+            <BookOpen size={12} color={LIME} strokeWidth={2.5} />
+            <Text style={[styles.sectionLabel, { marginBottom: 0 }]}>SELECCIONA TU CURSO</Text>
+          </View>
           <View style={styles.cursoGrid}>
             {CURSOS.map((curso) => (
               <CursoCard
@@ -177,7 +183,7 @@ export default function NameCursoScreen() {
           >
             {canContinue && <Animated.View style={[styles.ctaShine, ctaShineStyle]} />}
             <Text style={[styles.ctaText, !canContinue && styles.ctaTextOff]}>Siguiente</Text>
-            <Text style={[styles.ctaArrow, !canContinue && styles.ctaTextOff]}>→</Text>
+            <ArrowRight size={17} color={canContinue ? '#FFF' : 'rgba(255,255,255,0.35)'} strokeWidth={2.5} />
           </LinearGradient>
         </Pressable>
       </View>

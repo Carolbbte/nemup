@@ -1,8 +1,25 @@
 import { Colors } from '@/constants/Colors';
 import { useOnboarding } from '@/contexts/OnboardingContext';
 import { SUBJECTS } from '@/types/onboarding';
+import {
+  ArrowRight, BookOpen, BookText, Calculator, Check, ChevronLeft,
+  Dna, FlaskConical, Languages, Microscope, Scroll, Zap,
+} from 'lucide-react-native';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import ScreenContainer from '@/components/ScreenContainer';
+
+type LucideIcon = React.ComponentType<{ size?: number; color?: string; strokeWidth?: number }>;
+
+const SUBJECT_ICON_MAP: Record<string, LucideIcon> = {
+  math:      Calculator,
+  spanish:   BookText,
+  english:   Languages,
+  science:   Microscope,
+  history:   Scroll,
+  biology:   Dna,
+  chemistry: FlaskConical,
+  physics:   Zap,
+};
 
 export default function SubjectsScreen() {
   const { state, setSubjects, nextStep, prevStep } = useOnboarding();
@@ -27,7 +44,7 @@ export default function SubjectsScreen() {
       <View style={styles.screenTop}>
         <Pressable onPress={prevStep}>
           <View style={styles.backBtn}>
-            <Text style={styles.backBtnText}>‹</Text>
+            <ChevronLeft size={20} color={Colors.ink} strokeWidth={2.5} />
           </View>
         </Pressable>
       </View>
@@ -48,37 +65,35 @@ export default function SubjectsScreen() {
 
       {/* Body */}
       <View style={styles.body}>
-        <Text style={styles.emoji}>📚</Text>
+        <View style={{ alignItems: 'center', marginTop: 16, marginBottom: 12 }}>
+          <BookOpen size={48} color={Colors.brand} strokeWidth={1.5} />
+        </View>
         <Text style={styles.title}>¿Qué ramos estudias?</Text>
         <Text style={styles.subtitle}>Selecciona tus asignaturas</Text>
 
         {/* Subject Grid */}
         <View style={styles.grid}>
-          {SUBJECTS.map((subject) => (
-            <Pressable
-              key={subject.id}
-              onPress={() => toggleSubject(subject.id)}
-              style={[
-                styles.subjectCard,
-                state.data.subjects.includes(subject.id) && styles.subjectCardActive,
-              ]}
-            >
-              <View
-                style={[
-                  styles.subjectEmoji,
-                  state.data.subjects.includes(subject.id) && styles.subjectEmojiActive,
-                ]}
+          {SUBJECTS.map((subject) => {
+            const active  = state.data.subjects.includes(subject.id);
+            const SubIcon = SUBJECT_ICON_MAP[subject.id] ?? BookOpen;
+            return (
+              <Pressable
+                key={subject.id}
+                onPress={() => toggleSubject(subject.id)}
+                style={[styles.subjectCard, active && styles.subjectCardActive]}
               >
-                <Text style={styles.subjectEmojiText}>{subject.emoji}</Text>
-              </View>
-              <Text style={styles.subjectName}>{subject.name}</Text>
-              {state.data.subjects.includes(subject.id) && (
-                <View style={styles.checkmark}>
-                  <Text style={styles.checkmarkText}>✓</Text>
+                <View style={[styles.subjectEmoji, active && styles.subjectEmojiActive]}>
+                  <SubIcon size={14} color={active ? Colors.brand : Colors.ink3} strokeWidth={2} />
                 </View>
-              )}
-            </Pressable>
-          ))}
+                <Text style={styles.subjectName}>{subject.name}</Text>
+                {active && (
+                  <View style={styles.checkmark}>
+                    <Check size={10} color="white" strokeWidth={3} />
+                  </View>
+                )}
+              </Pressable>
+            );
+          })}
         </View>
 
         {/* Counter */}
@@ -101,7 +116,7 @@ export default function SubjectsScreen() {
           disabled={!canContinue}
         >
           <Text style={styles.continueBtnText}>Siguiente</Text>
-          <Text style={styles.continueBtnArrow}>→</Text>
+          <ArrowRight size={16} color="white" strokeWidth={2.5} />
         </Pressable>
       </View>
     </ScreenContainer>

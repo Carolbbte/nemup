@@ -5,11 +5,16 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Haptics from 'expo-haptics';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
+import {
+  ArrowRight, BookOpen, BookText, Brain, Calculator, Camera,
+  Check, Dna, Flag, Flame, FlaskConical, Languages, Lightbulb,
+  Loader, Scroll, Target, Trophy, X, Zap,
+} from 'lucide-react-native';
 import React, { useEffect, useMemo, useState } from 'react';
 import { Dimensions, Pressable, ScrollView, StatusBar, StyleSheet, Text, View } from 'react-native';
 import Animated, {
   Easing, runOnJS, useAnimatedReaction, useAnimatedStyle, useSharedValue,
-  withDelay, withRepeat, withSequence, withSpring, withTiming,
+  withDelay, withSequence, withSpring, withTiming,
 } from 'react-native-reanimated';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -27,6 +32,25 @@ const PROGRESS_KEY  = 'nemup_first_session_progress';
 
 type Phase = 'loading' | 'intro' | 'answering' | 'answered' | 'result';
 interface SavedProgress { qIndex: number; correctCount: number; xpEarned: number; lives: number; streak: number }
+
+type LucideIcon = React.ComponentType<{ size?: number; color?: string; strokeWidth?: number }>;
+
+const SUBJECT_ICON_MAP: [string, LucideIcon][] = [
+  ['matemática', Calculator],
+  ['física',     Zap],
+  ['química',    FlaskConical],
+  ['biología',   Dna],
+  ['historia',   Scroll],
+  ['lengua',     BookText],
+  ['inglés',     Languages],
+  ['filosofía',  Brain],
+];
+
+function SubjectIcon({ subject, size, color }: { subject: string; size: number; color: string }) {
+  const k    = subject?.toLowerCase() ?? '';
+  const Icon = SUBJECT_ICON_MAP.find(([key]) => k.includes(key))?.[1] ?? BookOpen;
+  return <Icon size={size} color={color} strokeWidth={1.4} />;
+}
 
 // ─── Animated count-up ────────────────────────────────────────────────────────
 function AnimatedNumber({ to, delay = 0, style }: { to: number; delay?: number; style?: any }) {
@@ -187,8 +211,12 @@ function QuizOption({ opt, selected, revealed, isCorrectOpt, onPress }: {
           ]}>
             {opt.text}
           </Text>
-          {revealed && isCorrectOpt && <Animated.Text style={[{ fontSize: 16 }, checkStyle]}>✓</Animated.Text>}
-          {revealed && isWrong      && <Text style={{ fontSize: 16 }}>✕</Text>}
+          {revealed && isCorrectOpt && (
+            <Animated.View style={checkStyle}>
+              <Check size={16} color={CORRECT_CLR} strokeWidth={2.5} />
+            </Animated.View>
+          )}
+          {revealed && isWrong && <X size={16} color={Colors.rose} strokeWidth={2.5} />}
         </View>
       </Pressable>
     </Animated.View>
@@ -276,7 +304,7 @@ export default function FirstSessionScreen() {
   if (phase === 'loading') {
     return (
       <View style={{ flex: 1, backgroundColor: BG, alignItems: 'center', justifyContent: 'center' }}>
-        <Text style={{ fontSize: 32 }}>⏳</Text>
+        <Loader size={40} color={Colors.brand} strokeWidth={1.8} />
       </View>
     );
   }
@@ -291,7 +319,7 @@ export default function FirstSessionScreen() {
           showsVerticalScrollIndicator={false}
         >
           <View style={styles.introEmojiWrap}>
-            <Text style={styles.introEmoji}>{session.subjectEmoji}</Text>
+            <SubjectIcon subject={session.subjectName} size={SM ? 72 : 88} color={Colors.brand} />
           </View>
 
           <Text style={styles.introTitle}>
@@ -316,7 +344,7 @@ export default function FirstSessionScreen() {
           </LinearGradient>
 
           <Text style={styles.introSub}>
-            Después podrás subir tus propios apuntes y NemUp generará sesiones personalizadas con tu material 📚
+            Después podrás subir tus propios apuntes y NemUp generará sesiones personalizadas con tu material.
           </Text>
 
           <Pressable onPress={() => setPhase('answering')}>
@@ -325,7 +353,8 @@ export default function FirstSessionScreen() {
               start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
               style={styles.ctaBtn}
             >
-              <Text style={styles.ctaBtnText}>¡Vamos! →</Text>
+              <Text style={styles.ctaBtnText}>¡Vamos!</Text>
+              <ArrowRight size={18} color="white" strokeWidth={2.5} />
             </LinearGradient>
           </Pressable>
         </ScrollView>
@@ -342,7 +371,9 @@ export default function FirstSessionScreen() {
         <LinearGradient colors={[Colors.brand, Colors.accent]} style={{ flex: 1 }}>
           {FALL_CONF.map((c, i) => <FallingPiece key={i} c={c} />)}
           <SafeAreaView style={[styles.resultSafe, { paddingBottom: insets.bottom + 20 }]}>
-            <Text style={styles.trophyEmoji}>🏆</Text>
+            <View style={styles.trophyWrap}>
+              <Trophy size={SM ? 56 : 72} color={LIME} strokeWidth={1.5} />
+            </View>
             <Text style={styles.resultTitle}>
               ¡Sesión{' '}<Text style={{ color: LIME }}>completada!</Text>
             </Text>
@@ -350,9 +381,9 @@ export default function FirstSessionScreen() {
 
             <View style={styles.statsRow}>
               {[
-                { to: xpEarned, label: 'XP ganados', delay: 280 },
-                { to: Math.round(xpEarned / 5), label: '💎 Gemas', delay: 380 },
-                { to: accuracy, label: '% Aciertos', delay: 480 },
+                { to: xpEarned,                        label: 'XP ganados', delay: 280 },
+                { to: Math.round(xpEarned / 5),        label: 'Gemas',      delay: 380 },
+                { to: accuracy,                        label: '% Aciertos', delay: 480 },
               ].map(({ to, label, delay }) => (
                 <View key={label} style={styles.statBox}>
                   <AnimatedNumber to={to} delay={delay} style={styles.statValue} />
@@ -363,13 +394,19 @@ export default function FirstSessionScreen() {
 
             <View style={styles.nextCard}>
               <LinearGradient colors={[LIME + '1A', LIME + '06']} style={StyleSheet.absoluteFill} />
-              <Text style={styles.nextCardTitle}>🎯 Próximo paso</Text>
+              <View style={styles.nextCardTitleRow}>
+                <Target size={15} color={LIME} strokeWidth={2} />
+                <Text style={styles.nextCardTitle}>Próximo paso</Text>
+              </View>
               <Text style={styles.nextCardBody}>
                 Sube tus apuntes de{' '}
                 <Text style={{ color: LIME, fontWeight: '800' }}>{session.subjectName}</Text>
                 {' '}y NemUp generará sesiones con tu material.
               </Text>
-              <Text style={styles.nextCardSub}>⚡ Las sesiones con tus apuntes valen el doble de XP</Text>
+              <View style={styles.nextCardSubRow}>
+                <Zap size={12} color="rgba(255,255,255,0.45)" strokeWidth={2} />
+                <Text style={styles.nextCardSub}>Las sesiones con tus apuntes valen el doble de XP</Text>
+              </View>
             </View>
 
             <View style={{ gap: 10, width: '100%' }}>
@@ -379,7 +416,8 @@ export default function FirstSessionScreen() {
                   start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
                   style={[styles.ctaBtn, { borderRadius: 18 }]}
                 >
-                  <Text style={[styles.ctaBtnText, { color: Colors.ink }]}>📸 Subir mis apuntes</Text>
+                  <Camera size={18} color={Colors.ink} strokeWidth={2} />
+                  <Text style={[styles.ctaBtnText, { color: Colors.ink }]}>Subir mis apuntes</Text>
                 </LinearGradient>
               </Pressable>
               <Pressable onPress={() => router.replace('/home')} style={styles.ghostBtn}>
@@ -416,17 +454,17 @@ export default function FirstSessionScreen() {
         {/* White content area */}
         <View style={{ flex: 1, backgroundColor: BG }}>
 
-          {/* Stats row — 🔥 streak | ⚡ XP */}
+          {/* Stats row */}
           <View style={styles.quizStats}>
             <View style={styles.quizStatBox}>
-              <Text style={{ fontSize: 20 }}>🔥</Text>
+              <Flame size={22} color="#FF6B00" strokeWidth={1.8} />
               <View>
                 <Text style={styles.quizStatVal}>{streak}</Text>
                 <Text style={styles.quizStatLbl}>Racha</Text>
               </View>
             </View>
             <View style={styles.quizStatBox}>
-              <Text style={{ fontSize: 20 }}>⚡</Text>
+              <Zap size={22} color={Colors.brand} strokeWidth={1.8} />
               <View>
                 <Text style={styles.quizStatVal}>{xpEarned}</Text>
                 <Text style={styles.quizStatLbl}>XP</Text>
@@ -436,8 +474,9 @@ export default function FirstSessionScreen() {
 
           <ScrollView contentContainerStyle={[styles.quizScroll, { paddingBottom: 8 }]} showsVerticalScrollIndicator={false}>
             {/* Source chip */}
-            <View style={styles.sourceChip}>
-              <Text style={styles.sourceChipText}>📖 Apunte demo · Pág. {question?.sourcePage}</Text>
+            <View style={[styles.sourceChip, { flexDirection: 'row', alignItems: 'center', gap: 5 }]}>
+              <BookOpen size={11} color={Colors.brand} strokeWidth={2.2} />
+              <Text style={styles.sourceChipText}>Apunte demo · Pág. {question?.sourcePage}</Text>
             </View>
 
             {/* Question */}
@@ -455,11 +494,10 @@ export default function FirstSessionScreen() {
                   onPress={() => handleOptionSelect(opt.id)}
                 />
               ))}
-              {/* Burst confetti on correct answer */}
               {revealed && isCorrect && <ConfettiBurst count={10} />}
             </View>
 
-            {/* Inline feedback — same as real session */}
+            {/* Inline feedback */}
             {revealed && question?.explanation ? (
               <View style={[styles.feedbackCallout, {
                 borderLeftColor: isCorrect ? CORRECT_CLR : Colors.rose,
@@ -470,17 +508,24 @@ export default function FirstSessionScreen() {
                 </Text>
                 <Text style={styles.feedbackText}>{question.explanation}</Text>
                 {question.sourceQuote ? (
-                  <Text style={styles.feedbackSource} numberOfLines={2}>
-                    📖 "{question.sourceQuote.slice(0, 90)}{question.sourceQuote.length > 90 ? '…' : ''}"
-                  </Text>
+                  <View style={{ flexDirection: 'row', gap: 5, alignItems: 'flex-start' }}>
+                    <View style={{ marginTop: 2 }}>
+                      <BookOpen size={11} color={Colors.muted} strokeWidth={2} />
+                    </View>
+                    <Text style={[styles.feedbackSource, { flex: 1 }]} numberOfLines={2}>
+                      "{question.sourceQuote.slice(0, 90)}{question.sourceQuote.length > 90 ? '…' : ''}"
+                    </Text>
+                  </View>
                 ) : null}
               </View>
             ) : null}
           </ScrollView>
 
-          {/* Bottom bar — 💡 | Siguiente | 🚩 */}
+          {/* Bottom bar */}
           <View style={[styles.bottomBar, { paddingBottom: insets.bottom + 12 }]}>
-            <Pressable style={styles.sideBtn}><Text style={{ fontSize: 20 }}>💡</Text></Pressable>
+            <Pressable style={styles.sideBtn}>
+              <Lightbulb size={20} color={Colors.ink2} strokeWidth={1.8} />
+            </Pressable>
             {revealed ? (
               <Pressable onPress={handleContinue} style={{ flex: 1 }}>
                 <LinearGradient
@@ -498,7 +543,9 @@ export default function FirstSessionScreen() {
                 <Text style={{ color: Colors.muted, fontWeight: '700', fontSize: 15 }}>Selecciona</Text>
               </View>
             )}
-            <Pressable style={styles.sideBtn}><Text style={{ fontSize: 20 }}>🚩</Text></Pressable>
+            <Pressable style={styles.sideBtn}>
+              <Flag size={20} color={Colors.ink2} strokeWidth={1.8} />
+            </Pressable>
           </View>
 
         </View>
@@ -510,24 +557,23 @@ export default function FirstSessionScreen() {
 // ─── Styles ───────────────────────────────────────────────────────────────────
 const styles = StyleSheet.create({
   // Intro
-  introPad:       { padding: 24, paddingTop: SM ? 20 : 32, gap: 20 },
-  introEmojiWrap: { alignItems: 'center' },
-  introEmoji:     { fontSize: SM ? 68 : 84, textAlign: 'center' },
-  introTitle:     { fontSize: SM ? 20 : 23, fontWeight: '800', color: Colors.ink, textAlign: 'center', lineHeight: SM ? 28 : 32 },
-  introTopicCard: { borderRadius: 22, padding: 22, overflow: 'hidden' },
-  introTopicLabel:{ fontSize: 9, fontWeight: '800', color: 'rgba(255,255,255,0.65)', letterSpacing: 1.6, marginBottom: 6 },
-  introTopic:     { fontSize: SM ? 17 : 19, fontWeight: '800', color: 'white', lineHeight: SM ? 24 : 28 },
-  introChip:      { backgroundColor: 'rgba(255,255,255,0.15)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.25)', borderRadius: 100, paddingVertical: 3, paddingHorizontal: 10 },
-  introChipText:  { color: 'white', fontSize: 11, fontWeight: '600' },
-  introSub:       { fontSize: SM ? 12 : 13, color: Colors.muted, textAlign: 'center', lineHeight: 19 },
-  ctaBtn:         { paddingVertical: 16, borderRadius: 30, alignItems: 'center', justifyContent: 'center' },
-  ctaBtnText:     { fontSize: 16, fontWeight: '800', color: 'white' },
+  introPad:        { padding: 24, paddingTop: SM ? 20 : 32, gap: 20 },
+  introEmojiWrap:  { alignItems: 'center' },
+  introTitle:      { fontSize: SM ? 20 : 23, fontWeight: '800', color: Colors.ink, textAlign: 'center', lineHeight: SM ? 28 : 32 },
+  introTopicCard:  { borderRadius: 22, padding: 22, overflow: 'hidden' },
+  introTopicLabel: { fontSize: 9, fontWeight: '800', color: 'rgba(255,255,255,0.65)', letterSpacing: 1.6, marginBottom: 6 },
+  introTopic:      { fontSize: SM ? 17 : 19, fontWeight: '800', color: 'white', lineHeight: SM ? 24 : 28 },
+  introChip:       { backgroundColor: 'rgba(255,255,255,0.15)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.25)', borderRadius: 100, paddingVertical: 3, paddingHorizontal: 10 },
+  introChipText:   { color: 'white', fontSize: 11, fontWeight: '600' },
+  introSub:        { fontSize: SM ? 12 : 13, color: Colors.muted, textAlign: 'center', lineHeight: 19 },
+  ctaBtn:          { paddingVertical: 16, borderRadius: 30, alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: 8 },
+  ctaBtnText:      { fontSize: 16, fontWeight: '800', color: 'white' },
 
   // Quiz header
-  headerRow:  { flexDirection: 'row', alignItems: 'center', paddingVertical: 8 },
-  headerTitle:{ flex: 1, textAlign: 'center', fontSize: 15, fontWeight: '800', color: 'white', letterSpacing: -0.2 },
-  progressRow:{ flexDirection: 'row', alignItems: 'center', gap: 10 },
-  counter:    { fontSize: 12, fontWeight: '700', color: 'rgba(255,255,255,0.85)', minWidth: 36, textAlign: 'right' },
+  headerRow:   { flexDirection: 'row', alignItems: 'center', paddingVertical: 8 },
+  headerTitle: { flex: 1, textAlign: 'center', fontSize: 15, fontWeight: '800', color: 'white', letterSpacing: -0.2 },
+  progressRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  counter:     { fontSize: 12, fontWeight: '700', color: 'rgba(255,255,255,0.85)', minWidth: 36, textAlign: 'right' },
 
   // Quiz stats
   quizStats:   { flexDirection: 'row', paddingHorizontal: 16, paddingVertical: 12, gap: 12 },
@@ -548,30 +594,32 @@ const styles = StyleSheet.create({
   optText:       { flex: 1, fontSize: 14, color: Colors.ink, fontWeight: '600', lineHeight: 20 },
 
   // Feedback callout
-  feedbackCallout:{ borderRadius: 14, borderLeftWidth: 3, padding: 14, marginTop: 4, marginBottom: 4 },
-  feedbackTitle:  { fontSize: 12, fontWeight: '800', marginBottom: 4, letterSpacing: 0.2 },
-  feedbackText:   { fontSize: 14, color: Colors.ink2, lineHeight: 21, marginBottom: 6 },
-  feedbackSource: { fontSize: 11, color: Colors.muted, fontStyle: 'italic', lineHeight: 16 },
+  feedbackCallout: { borderRadius: 14, borderLeftWidth: 3, padding: 14, marginTop: 4, marginBottom: 4 },
+  feedbackTitle:   { fontSize: 12, fontWeight: '800', marginBottom: 4, letterSpacing: 0.2 },
+  feedbackText:    { fontSize: 14, color: Colors.ink2, lineHeight: 21, marginBottom: 6 },
+  feedbackSource:  { fontSize: 11, color: Colors.muted, fontStyle: 'italic', lineHeight: 16 },
 
   // Bottom bar
-  bottomBar: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 16, paddingTop: 12, borderTopWidth: 1, borderTopColor: Colors.line, backgroundColor: BG },
-  sideBtn:   { width: 44, height: 44, borderRadius: 22, backgroundColor: 'white', borderWidth: 1, borderColor: Colors.line, alignItems: 'center', justifyContent: 'center' },
-  nextBtn:   { borderRadius: 18, paddingVertical: 14, alignItems: 'center', justifyContent: 'center' },
+  bottomBar:   { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 16, paddingTop: 12, borderTopWidth: 1, borderTopColor: Colors.line, backgroundColor: BG },
+  sideBtn:     { width: 44, height: 44, borderRadius: 22, backgroundColor: 'white', borderWidth: 1, borderColor: Colors.line, alignItems: 'center', justifyContent: 'center' },
+  nextBtn:     { borderRadius: 18, paddingVertical: 14, alignItems: 'center', justifyContent: 'center' },
   nextBtnText: { color: 'white', fontWeight: '800', fontSize: 15 },
 
   // Result
-  resultSafe:    { flex: 1, paddingHorizontal: 24, paddingTop: SM ? 16 : 24, gap: SM ? 16 : 20, alignItems: 'center', justifyContent: 'center' },
-  trophyEmoji:   { fontSize: SM ? 64 : 80 },
-  resultTitle:   { fontSize: SM ? 24 : 28, fontWeight: '900', color: 'white', textAlign: 'center' },
-  resultSub:     { fontSize: SM ? 12 : 13, color: 'rgba(255,255,255,0.55)', textAlign: 'center' },
-  statsRow:      { flexDirection: 'row', backgroundColor: 'rgba(255,255,255,0.1)', borderRadius: 16, padding: SM ? 14 : 16, width: '100%' },
-  statBox:       { flex: 1, alignItems: 'center', gap: 4 },
-  statValue:     { fontSize: SM ? 22 : 26, fontWeight: '900', color: LIME },
-  statLabel:     { fontSize: 10, color: 'rgba(255,255,255,0.5)', fontWeight: '600' },
-  nextCard:      { borderRadius: 16, borderWidth: 1.5, borderColor: LIME + '50', padding: 14, overflow: 'hidden', gap: 6, width: '100%' },
-  nextCardTitle: { fontSize: SM ? 13 : 14, fontWeight: '900', color: LIME },
-  nextCardBody:  { fontSize: SM ? 12 : 13, color: 'rgba(255,255,255,0.8)', lineHeight: SM ? 18 : 20 },
-  nextCardSub:   { fontSize: 11, color: 'rgba(255,255,255,0.45)' },
-  ghostBtn:      { alignItems: 'center', paddingVertical: 14, width: '100%' },
-  ghostBtnText:  { fontSize: 14, fontWeight: '700', color: 'rgba(255,255,255,0.45)' },
+  resultSafe:       { flex: 1, paddingHorizontal: 24, paddingTop: SM ? 16 : 24, gap: SM ? 16 : 20, alignItems: 'center', justifyContent: 'center' },
+  trophyWrap:       { alignItems: 'center' },
+  resultTitle:      { fontSize: SM ? 24 : 28, fontWeight: '900', color: 'white', textAlign: 'center' },
+  resultSub:        { fontSize: SM ? 12 : 13, color: 'rgba(255,255,255,0.55)', textAlign: 'center' },
+  statsRow:         { flexDirection: 'row', backgroundColor: 'rgba(255,255,255,0.1)', borderRadius: 16, padding: SM ? 14 : 16, width: '100%' },
+  statBox:          { flex: 1, alignItems: 'center', gap: 4 },
+  statValue:        { fontSize: SM ? 22 : 26, fontWeight: '900', color: LIME },
+  statLabel:        { fontSize: 10, color: 'rgba(255,255,255,0.5)', fontWeight: '600' },
+  nextCard:         { borderRadius: 16, borderWidth: 1.5, borderColor: LIME + '50', padding: 14, overflow: 'hidden', gap: 6, width: '100%' },
+  nextCardTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  nextCardTitle:    { fontSize: SM ? 13 : 14, fontWeight: '900', color: LIME },
+  nextCardBody:     { fontSize: SM ? 12 : 13, color: 'rgba(255,255,255,0.8)', lineHeight: SM ? 18 : 20 },
+  nextCardSubRow:   { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  nextCardSub:      { fontSize: 11, color: 'rgba(255,255,255,0.45)', flex: 1 },
+  ghostBtn:         { alignItems: 'center', paddingVertical: 14, width: '100%' },
+  ghostBtnText:     { fontSize: 14, fontWeight: '700', color: 'rgba(255,255,255,0.45)' },
 });

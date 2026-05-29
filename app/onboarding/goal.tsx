@@ -1,6 +1,7 @@
 import ScreenContainer from '@/components/ScreenContainer';
 import { useOnboarding } from '@/contexts/OnboardingContext';
 import { LinearGradient } from 'expo-linear-gradient';
+import { ArrowRight, ChevronLeft, Dumbbell, Target } from 'lucide-react-native';
 import { useEffect, useRef } from 'react';
 import { Dimensions, PanResponder, Pressable, ScrollView, StatusBar, StyleSheet, Text, View } from 'react-native';
 import Animated, {
@@ -28,10 +29,10 @@ const GOAL_CIRCLE = SM ? 84  : 112;
 const CIRCLE_R    = SM ? 42  : 56;
 
 function getGoalMessage(goal: number) {
-  if (goal >= 7) return '¡Meta perfecta! Vas por el máximo 🚀';
-  if (goal >= 6) return '¡Excelente! Estás apuntando muy alto 🔥';
-  if (goal >= 5) return 'Un objetivo sólido. ¡Puedes lograrlo! 💪';
-  return 'Buen punto de partida. ¡Vas a crecer! ⭐';
+  if (goal >= 7) return '¡Meta perfecta! Vas por el máximo';
+  if (goal >= 6) return '¡Excelente! Estás apuntando muy alto';
+  if (goal >= 5) return 'Un objetivo sólido. ¡Puedes lograrlo!';
+  return 'Buen punto de partida. ¡Vas a crecer!';
 }
 
 // Preset button with spring scale animation on activation
@@ -183,7 +184,7 @@ export default function GoalScreen() {
       {/* Top bar */}
       <View style={styles.topBar}>
         <Pressable onPress={prevStep} style={styles.backBtn}>
-          <Text style={styles.backBtnText}>‹</Text>
+          <ChevronLeft size={22} color="rgba(255,255,255,0.8)" strokeWidth={2.2} />
         </Pressable>
         <View style={styles.progressWrap}>
           {Array.from({ length: TOTAL_STEPS }).map((_, i) => {
@@ -202,7 +203,9 @@ export default function GoalScreen() {
 
       <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false} bounces={false}>
         <Animated.View style={[styles.body, bodyStyle]}>
-          <Text style={styles.emoji}>🎯</Text>
+          <View style={{ alignItems: 'center', marginBottom: SM ? 4 : 8 }}>
+            <Target size={SM ? 36 : 44} color={LIME} strokeWidth={1.6} />
+          </View>
           <Text style={styles.title}>¿Cuál es tu <Text style={styles.lime}>meta?</Text></Text>
           <Text style={styles.subtitle}>La nota que quieres alcanzar este año</Text>
 
@@ -262,7 +265,7 @@ export default function GoalScreen() {
 
           {/* Motivator */}
           <View style={styles.motivator}>
-            <Text style={styles.motivatorEmoji}>💪</Text>
+            <Dumbbell size={20} color={LIME} strokeWidth={1.8} />
             <Text style={styles.motivatorText}>{getGoalMessage(state.data.goal)}</Text>
           </View>
         </Animated.View>
@@ -277,7 +280,7 @@ export default function GoalScreen() {
           <LinearGradient colors={[NEON, '#B44EFF']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={styles.cta}>
             <Animated.View style={[styles.ctaShine, ctaShineStyle]} />
             <Text style={styles.ctaText}>Siguiente</Text>
-            <Text style={styles.ctaArrow}>→</Text>
+            <ArrowRight size={17} color="#FFF" strokeWidth={2.5} />
           </LinearGradient>
         </Pressable>
       </View>

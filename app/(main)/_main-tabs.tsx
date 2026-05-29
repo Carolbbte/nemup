@@ -5,32 +5,35 @@ import { Tabs, useRouter } from 'expo-router';
 import { useEffect, useRef } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { BookOpen, Bot, Home, Trophy, User } from 'lucide-react-native';
 
 const FIRST_SESSION_KEY = 'nemup_first_session_completed';
 const BRAND = '#5B3DF5';
 
-const TAB_ICONS: Record<string, string> = {
-  home: '🏠',
-  ramos: '📚',
-  tutor: '🤖',
-  liga: '🏆',
-  perfil: '👤',
+type TabName = 'home' | 'ramos' | 'tutor' | 'liga' | 'perfil';
+
+const TAB_ICONS: Record<TabName, React.ComponentType<{ size?: number; color?: string; strokeWidth?: number }>> = {
+  home:   Home,
+  ramos:  BookOpen,
+  tutor:  Bot,
+  liga:   Trophy,
+  perfil: User,
 };
 
 const TAB_LABELS: Record<string, string> = {
-  home: 'Inicio',
-  ramos: 'Ramos',
-  tutor: 'Tutor',
-  liga: 'Liga',
+  home:   'Inicio',
+  ramos:  'Ramos',
+  tutor:  'Tutor',
+  liga:   'Liga',
   perfil: 'Perfil',
 };
 
-const VISIBLE = new Set(['home', 'ramos', 'tutor', 'liga', 'perfil']);
+const VISIBLE  = new Set(['home', 'ramos', 'tutor', 'liga', 'perfil']);
 const HIDE_BAR = new Set(['modals/first-session', 'modals/upload', 'modals/session']);
 
 // ── Floating tab bar ─────────────────────────────────────────────
 function FloatingTabBar({ state, navigation }: BottomTabBarProps) {
-  const insets = useSafeAreaInsets();
+  const insets  = useSafeAreaInsets();
   const current = state.routes[state.index];
 
   if (HIDE_BAR.has(current.name)) return null;
@@ -42,6 +45,7 @@ function FloatingTabBar({ state, navigation }: BottomTabBarProps) {
           if (!VISIBLE.has(route.name)) return null;
 
           const focused = state.index === index;
+          const Icon    = TAB_ICONS[route.name as TabName];
 
           const onPress = () => {
             const event = navigation.emit({
@@ -64,7 +68,13 @@ function FloatingTabBar({ state, navigation }: BottomTabBarProps) {
               accessibilityLabel={TAB_LABELS[route.name]}
             >
               <View style={[tabStyles.iconWrap, focused && tabStyles.iconWrapActive]}>
-                <Text style={tabStyles.icon}>{TAB_ICONS[route.name]}</Text>
+                {Icon && (
+                  <Icon
+                    size={22}
+                    color={focused ? BRAND : Colors.muted}
+                    strokeWidth={focused ? 2.2 : 1.8}
+                  />
+                )}
               </View>
               <Text style={[tabStyles.label, focused && tabStyles.labelActive]}>
                 {TAB_LABELS[route.name]}
@@ -78,8 +88,6 @@ function FloatingTabBar({ state, navigation }: BottomTabBarProps) {
 }
 
 const tabStyles = StyleSheet.create({
-  // Outer wrapper — matches app background so the "floating" bar
-  // appears to float above the screen content.
   wrapper: {
     backgroundColor: '#F7F8FC',
     paddingHorizontal: 16,
@@ -119,7 +127,6 @@ const tabStyles = StyleSheet.create({
     shadowOpacity: 0.18,
     shadowRadius: 8,
   },
-  icon: { fontSize: 20 },
   label: {
     fontSize: 10,
     fontWeight: '600',
@@ -134,10 +141,9 @@ const tabStyles = StyleSheet.create({
 
 // ── Main tab navigator ───────────────────────────────────────────
 export default function MainTabs() {
-  const router = useRouter();
+  const router  = useRouter();
   const checked = useRef(false);
 
-  // Redirect to first-session if not yet completed
   useEffect(() => {
     if (checked.current) return;
     checked.current = true;
@@ -158,8 +164,8 @@ export default function MainTabs() {
       <Tabs.Screen name="tutor" />
       <Tabs.Screen name="liga" />
       <Tabs.Screen name="perfil" />
-      <Tabs.Screen name="modals/upload" options={{ href: null }} />
-      <Tabs.Screen name="modals/session" options={{ href: null }} />
+      <Tabs.Screen name="modals/upload"        options={{ href: null }} />
+      <Tabs.Screen name="modals/session"       options={{ href: null }} />
       <Tabs.Screen name="modals/first-session" options={{ href: null }} />
     </Tabs>
   );
