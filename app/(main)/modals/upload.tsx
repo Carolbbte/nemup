@@ -4,7 +4,23 @@ import { Image } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
-import { CheckCircle, ChevronRight, Upload, X } from 'lucide-react-native';
+import {
+  ArrowLeft,
+  BarChart3,
+  Bot,
+  CheckCircle,
+  ChevronRight,
+  ClipboardList,
+  Clock,
+  FileText,
+  ImageIcon,
+  Layers,
+  Lightbulb,
+  Sparkles,
+  Upload,
+  X,
+  Zap,
+} from 'lucide-react-native';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Alert,
@@ -123,8 +139,11 @@ const cf = StyleSheet.create({
   piece: { position: 'absolute', top: -20 },
 });
 
-// ── Floating emoji (mascot area) ──────────────────────────────────
-function FloatingEmoji({ emoji, style: posStyle, delay = 0 }: { emoji: string; style?: object; delay?: number }) {
+// ── Floating icon (mascot area) ───────────────────────────────────
+type LucideIcon = React.ComponentType<{ size?: number; color?: string; strokeWidth?: number }>;
+function FloatingIcon({ Icon, style: posStyle, delay = 0, color = BRAND }: {
+  Icon: LucideIcon; style?: object; delay?: number; color?: string;
+}) {
   const ty = useSharedValue(0);
   useEffect(() => {
     ty.value = withDelay(delay, withRepeat(
@@ -137,7 +156,7 @@ function FloatingEmoji({ emoji, style: posStyle, delay = 0 }: { emoji: string; s
   const anim = useAnimatedStyle(() => ({ transform: [{ translateY: ty.value }] }));
   return (
     <Animated.View style={[{ position: 'absolute' }, posStyle, anim]}>
-      <Text style={{ fontSize: 26 }}>{emoji}</Text>
+      <Icon size={24} color={color} strokeWidth={1.6} />
     </Animated.View>
   );
 }
@@ -165,8 +184,8 @@ const prog = StyleSheet.create({
 // ── File type icon ────────────────────────────────────────────────
 function FileTypeIcon({ mimeType }: { mimeType: string }) {
   if (mimeType.includes('pdf'))   return <View style={fti.pdf}><Text style={fti.pdfText}>PDF</Text></View>;
-  if (mimeType.includes('image')) return <View style={fti.img}><Text style={{ fontSize: 20 }}>🖼️</Text></View>;
-  return <View style={fti.doc}><Text style={{ fontSize: 20 }}>📄</Text></View>;
+  if (mimeType.includes('image')) return <View style={fti.img}><ImageIcon size={20} color="#16A34A" strokeWidth={1.8} /></View>;
+  return <View style={fti.doc}><FileText size={20} color="#2563EB" strokeWidth={1.8} /></View>;
 }
 const fti = StyleSheet.create({
   pdf:     { width: 44, height: 44, borderRadius: 12, backgroundColor: '#FEE2E2', alignItems: 'center', justifyContent: 'center' },
@@ -178,15 +197,6 @@ const fti = StyleSheet.create({
 // ── Utilities ─────────────────────────────────────────────────────
 function getBackendBaseUrl() { return BACKEND_BASE_URL || 'http://localhost:3000'; }
 
-const SUBJECT_EMOJI: Record<string, string> = {
-  biología: '🧬', biologia: '🧬', matemática: '📐', matematica: '📐',
-  historia: '📜', física: '⚗️', fisica: '⚗️', química: '🔬', quimica: '🔬',
-  lenguaje: '📝', inglés: '🌐', ingles: '🌐',
-};
-function subjectEmoji(s: string) {
-  const key = s?.toLowerCase() ?? '';
-  return Object.entries(SUBJECT_EMOJI).find(([k]) => key.includes(k))?.[1] ?? '📘';
-}
 function difficultyLabel(d?: string) {
   const map: Record<string, string> = { adaptive: 'Adaptativa', easy: 'Fácil', hard: 'Difícil', medium: 'Media' };
   return d ? (map[d] ?? d.charAt(0).toUpperCase() + d.slice(1)) : 'Adaptativa';
@@ -336,8 +346,6 @@ export default function UploadFlowScreen() {
         format: ['quizzes', 'flashcards'],
         difficulty: 'adaptive',
         estimatedDuration: 18,
-        subject: 'Biología',
-        topic: 'Mitosis y meiosis',
       }));
       formData.append('userId', 'demo-user');
       selectedFiles.forEach(f => formData.append('documents', { uri: f.uri, type: f.mimeType, name: f.name } as any));
@@ -412,7 +420,7 @@ export default function UploadFlowScreen() {
         {/* Header */}
         <View style={shared.header}>
           <Pressable onPress={handleBack} style={shared.iconBtn} hitSlop={10}>
-            <Text style={shared.iconBtnText}>←</Text>
+            <ArrowLeft size={16} color={Colors.ink} strokeWidth={2.5} />
           </Pressable>
           <SlimProgress step={step} />
           <Pressable onPress={handleClose} style={shared.iconBtn} hitSlop={10}>
@@ -428,7 +436,9 @@ export default function UploadFlowScreen() {
           {/* Celebration emoji */}
           <View style={s2.celebWrap}>
             <Animated.View style={celebScaleAnim}>
-              <Animated.Text style={[s2.celebEmoji, celebPulseAnim]}>🎉</Animated.Text>
+              <Animated.View style={celebPulseAnim}>
+                <Sparkles size={90} color={BRAND} strokeWidth={1.3} />
+              </Animated.View>
             </Animated.View>
           </View>
 
@@ -437,14 +447,16 @@ export default function UploadFlowScreen() {
 
           {/* Stats card */}
           <View style={s2.card}>
-            {[
-              { emoji: '📝', label: `${s?.questions?.length ?? 0} actividades creadas` },
-              { emoji: '🃏', label: `${s?.flashcards?.length ?? 0} flashcards` },
-              { emoji: '⏱️', label: `Duración estimada: ${s?.estimatedDuration ?? 18} min` },
-              { emoji: '⚡', label: `+${s?.xpReward ?? 0} XP al completar` },
-            ].map(({ emoji, label }) => (
+            {([
+              { Icon: ClipboardList, color: Colors.brand,  label: `${s?.questions?.length ?? 0} actividades creadas` },
+              { Icon: Layers,        color: Colors.sky,    label: `${s?.flashcards?.length ?? 0} flashcards` },
+              { Icon: Clock,         color: Colors.muted,  label: `Duración estimada: ${s?.estimatedDuration ?? 18} min` },
+              { Icon: Zap,           color: Colors.amber,  label: `+${s?.xpReward ?? 0} XP al completar` },
+            ] as { Icon: LucideIcon; color: string; label: string }[]).map(({ Icon, color, label }) => (
               <View key={label} style={s2.statRow}>
-                <Text style={s2.statEmoji}>{emoji}</Text>
+                <View style={{ width: 28, alignItems: 'center' }}>
+                  <Icon size={22} color={color} strokeWidth={1.8} />
+                </View>
                 <Text style={s2.statLabel}>{label}</Text>
               </View>
             ))}
@@ -478,7 +490,7 @@ export default function UploadFlowScreen() {
 
         <View style={shared.header}>
           <Pressable onPress={handleBack} style={shared.iconBtn} hitSlop={10}>
-            <Text style={shared.iconBtnText}>←</Text>
+            <ArrowLeft size={16} color={Colors.ink} strokeWidth={2.5} />
           </Pressable>
           <SlimProgress step={step} />
           <Pressable onPress={handleClose} style={shared.iconBtn} hitSlop={10}>
@@ -499,12 +511,12 @@ export default function UploadFlowScreen() {
           <View style={s1.mascotCard}>
             <View style={s1.mascotInner}>
               {/* Floating icons */}
-              <FloatingEmoji emoji="📄" style={{ top: 10, left: 10 }}  delay={0}   />
-              <FloatingEmoji emoji="💡" style={{ top: 10, right: 10 }} delay={400} />
-              <FloatingEmoji emoji="📊" style={{ bottom: 10, right: 30 }} delay={800} />
+              <FloatingIcon Icon={FileText}  style={{ top: 10, left: 10 }}      delay={0}   color={BRAND} />
+              <FloatingIcon Icon={Lightbulb} style={{ top: 10, right: 10 }}     delay={400} color={Colors.amber} />
+              <FloatingIcon Icon={BarChart3} style={{ bottom: 10, right: 30 }}  delay={800} color={Colors.teal} />
 
-              {/* Main emoji */}
-              <Text style={s1.mascotEmoji}>🤖</Text>
+              {/* Main icon */}
+              <Bot size={80} color={BRAND} strokeWidth={1.2} />
             </View>
           </View>
 
@@ -535,7 +547,9 @@ export default function UploadFlowScreen() {
 
           {/* Tip */}
           <View style={s1.tipCard}>
-            <Text style={s1.tipIcon}>💡</Text>
+            <View style={{ marginTop: 1 }}>
+              <Lightbulb size={18} color={Colors.ink2} strokeWidth={1.8} />
+            </View>
             <Text style={s1.tipText}>
               <Text style={s1.tipBold}>Tip: </Text>
               {TIPS[tipIdx]}
@@ -555,7 +569,7 @@ export default function UploadFlowScreen() {
 
       <View style={shared.header}>
         <Pressable onPress={handleClose} style={shared.iconBtn} hitSlop={10}>
-          <Text style={shared.iconBtnText}>←</Text>
+          <ArrowLeft size={16} color={Colors.ink} strokeWidth={2.5} />
         </Pressable>
         <SlimProgress step={step} />
         <Pressable onPress={handleClose} style={shared.iconBtn} hitSlop={10}>

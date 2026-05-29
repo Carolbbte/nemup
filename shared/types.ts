@@ -28,14 +28,19 @@ export interface Flashcard {
   difficulty: 'easy' | 'medium' | 'hard';
 }
 
+export type SummarySlideType = 'concept' | 'key_fact' | 'important' | 'remember' | 'example' | 'curiosity';
+
+export interface SummarySlide {
+  type: SummarySlideType;
+  emoji: string;
+  title: string;
+  content: string;
+}
+
 export interface Summary {
   id: string;
   title: string;
-  sections: {
-    heading: string;
-    content: string;
-    keyPoints: string[];
-  }[];
+  slides: SummarySlide[];
   sourceQuotes: string[]; // Fragments validating the summary
 }
 

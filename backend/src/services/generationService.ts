@@ -7,6 +7,7 @@ import type {
   MultipleChoiceQuestion,
   Flashcard,
   Summary,
+  SummarySlideType,
   SessionConfig,
   GeneratedSession,
 } from '../types.js';
@@ -38,10 +39,18 @@ export async function generateSessionContent(
 
 Rules:
 - Return only valid JSON without additional text.
-- Use Spanish field names in the JSON keys exactly as requested.
 - Use quotes extracted verbatim from the transcription in 'sourceQuote'.
 - Keep each sourceQuote concise (20-80 characters) and ensure it appears in the transcription.
 - Use the provided difficulty and duration values from the configuration.
+
+SUMMARY RULES (critical — mobile app for teenagers):
+- Each slide must represent ONE single idea only.
+- Maximum 30-40 words per slide content.
+- If an idea needs more words, split it into multiple slides.
+- Never generate long paragraphs or chapter-style text.
+- Prioritize: clarity, simplicity, quick comprehension.
+- Choose an appropriate emoji for each slide.
+- Use these slide types: concept (neutral idea), key_fact (important data), important (critical info), remember (must memorize), example (concrete case), curiosity (interesting detail).
 
 JSON schema:
 {
@@ -70,11 +79,12 @@ JSON schema:
   "summary": {
     "id": string,
     "title": string,
-    "sections": [
+    "slides": [
       {
-        "heading": string,
-        "content": string,
-        "keyPoints": [string]
+        "type": "concept" | "key_fact" | "important" | "remember" | "example" | "curiosity",
+        "emoji": string,
+        "title": string,
+        "content": string
       }
     ],
     "sourceQuotes": [string]
@@ -95,7 +105,7 @@ ${normalizeText(transcription)}
       { role: 'user', content: prompt },
     ],
     temperature: 0.15,
-    max_tokens: 2200,
+    max_tokens: 3200,
   });
 
   const raw = response.choices?.[0]?.message?.content ?? response.choices?.[0]?.message?.content?.toString?.() ?? '';
@@ -135,13 +145,16 @@ ${normalizeText(transcription)}
     difficulty: card.difficulty || 'easy',
   })) as Flashcard[];
 
+  const VALID_SLIDE_TYPES: SummarySlideType[] = ['concept', 'key_fact', 'important', 'remember', 'example', 'curiosity'];
+
   const summary: Summary = {
     id: parsed.summary?.id || 'summary-1',
     title: parsed.summary?.title || `Resumen de ${topic}`,
-    sections: (parsed.summary?.sections || []).map((section: any) => ({
-      heading: section.heading || section.titulo || 'Sección',
-      content: section.content || section.contenido || '',
-      keyPoints: section.keyPoints || section.puntosClave || [],
+    slides: (parsed.summary?.slides || []).map((slide: any, i: number) => ({
+      type: VALID_SLIDE_TYPES.includes(slide.type) ? slide.type : 'concept',
+      emoji: slide.emoji || '📚',
+      title: slide.title || `Concepto ${i + 1}`,
+      content: slide.content || '',
     })),
     sourceQuotes: parsed.summary?.sourceQuotes || parsed.summary?.citas || [],
   };

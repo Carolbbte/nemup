@@ -38,16 +38,19 @@ export interface Flashcard {
   difficulty: DifficultyLevel;
 }
 
-export interface SummarySection {
-  heading: string;
+export type SummarySlideType = 'concept' | 'key_fact' | 'important' | 'remember' | 'example' | 'curiosity';
+
+export interface SummarySlide {
+  type: SummarySlideType;
+  emoji: string;
+  title: string;
   content: string;
-  keyPoints: string[];
 }
 
 export interface Summary {
   id: string;
   title: string;
-  sections: SummarySection[];
+  slides: SummarySlide[];
   sourceQuotes: string[];
 }
 
