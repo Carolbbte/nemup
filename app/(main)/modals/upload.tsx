@@ -5,20 +5,7 @@ import { Image } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
-import {
-  BookOpen,
-  Camera,
-  CheckCircle,
-  ChevronDown,
-  ChevronRight,
-  Clock,
-  FileText,
-  Plus,
-  Sparkles,
-  Target,
-  X,
-  Zap,
-} from 'lucide-react-native';
+import { CheckCircle, ChevronRight, Upload, X } from 'lucide-react-native';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Alert,
@@ -46,34 +33,20 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 const { height: SCREEN_H } = Dimensions.get('window');
 const SM = SCREEN_H < 740;
 
-const BG = '#F7F8FC';
+const BG    = '#F7F8FC';
 const BRAND = '#5B3DF5';
-const BRAND2 = '#7C5AFF';
+const NEON  = '#7C5AFF';
+const LIME  = '#C4F852';
 
 // ── Types ─────────────────────────────────────────────────────────
 type UploadedFile = {
-  uri: string;
-  name: string;
-  mimeType: string;
-  sizeText: string;
-  sizeBytes: number;
+  uri: string; name: string; mimeType: string; sizeText: string; sizeBytes: number;
 };
-
 type SessionProgress = {
   stage: 'uploading' | 'transcribing' | 'extracting' | 'generating' | 'validating_grounding' | 'done';
   status: 'processing' | 'complete' | 'error';
   progress: number;
   message: string;
-};
-
-type GeneratedQuestion = {
-  id: string;
-  text: string;
-  options: { id: string; text: string }[];
-  correctOptionId: string;
-  explanation: string;
-  sourceQuote: string;
-  difficulty: string;
 };
 
 // ── Constants ─────────────────────────────────────────────────────
@@ -84,7 +57,126 @@ const RECENT_FILES: UploadedFile[] = [
   { uri: 'file:///FichaQuimica.png', name: 'Ficha Química.png', mimeType: 'image/png', sizeText: '780 KB', sizeBytes: 780000 },
 ];
 
-// ── Utilities ──────────────────────────────────────────────────────
+const TIPS = [
+  'Estudiar en intervalos cortos es más efectivo que horas seguidas.',
+  'Las preguntas activan tu memoria mejor que releer apuntes.',
+  'Tu cerebro consolida lo aprendido mientras duermes.',
+  'Usar tus propios apuntes te da el doble de XP en cada sesión.',
+  'La práctica espaciada reduce el tiempo total de estudio.',
+];
+
+// ── Confetti — mismo patrón que onboarding ────────────────────────
+const CONFETTI = [
+  { left: '7%',  bg: LIME,      size: 9,  dur: 2800, delay: 0,    zigzag:  8 },
+  { left: '15%', bg: '#FF5B9F', size: 7,  dur: 3200, delay: 400,  zigzag: -10, radius: 4 },
+  { left: '28%', bg: '#5BC8FF', size: 10, dur: 2600, delay: 800,  zigzag:  12 },
+  { left: '38%', bg: LIME,      size: 6,  dur: 3600, delay: 200,  zigzag: -8,  radius: 3 },
+  { left: '50%', bg: '#FFB547', size: 9,  dur: 2900, delay: 600,  zigzag:  6  },
+  { left: '62%', bg: '#5BC8FF', size: 7,  dur: 3100, delay: 1000, zigzag: -12, radius: 4 },
+  { left: '72%', bg: '#FF5B9F', size: 8,  dur: 2700, delay: 300,  zigzag:  10, radius: 4 },
+  { left: '82%', bg: LIME,      size: 6,  dur: 3400, delay: 700,  zigzag: -6,  radius: 3 },
+  { left: '20%', bg: NEON,      size: 8,  dur: 3000, delay: 500,  zigzag:  8,  radius: 4 },
+  { left: '45%', bg: '#FFB547', size: 7,  dur: 2500, delay: 900,  zigzag: -10 },
+  { left: '88%', bg: LIME,      size: 9,  dur: 3300, delay: 100,  zigzag:  6  },
+  { left: '58%', bg: '#5BC8FF', size: 6,  dur: 2800, delay: 1200, zigzag: -8,  radius: 3 },
+] as const;
+
+type ConfettiItem = (typeof CONFETTI)[number];
+
+function ConfettiPiece({ item }: { item: ConfettiItem }) {
+  const ty  = useSharedValue(0);
+  const tx  = useSharedValue(0);
+  const rot = useSharedValue(0);
+
+  useEffect(() => {
+    ty.value = withDelay(item.delay, withRepeat(
+      withTiming(SCREEN_H + 40, { duration: item.dur, easing: Easing.linear }), -1, false,
+    ));
+    tx.value = withDelay(item.delay, withRepeat(
+      withSequence(
+        withTiming(item.zigzag,       { duration: item.dur * 0.25, easing: Easing.inOut(Easing.sin) }),
+        withTiming(-item.zigzag,      { duration: item.dur * 0.25, easing: Easing.inOut(Easing.sin) }),
+        withTiming(item.zigzag * 0.6, { duration: item.dur * 0.25, easing: Easing.inOut(Easing.sin) }),
+        withTiming(0,                 { duration: item.dur * 0.25, easing: Easing.inOut(Easing.sin) }),
+      ), -1, false,
+    ));
+    rot.value = withDelay(item.delay, withRepeat(
+      withTiming(720, { duration: item.dur, easing: Easing.linear }), -1, false,
+    ));
+  }, []);
+
+  const style = useAnimatedStyle(() => ({
+    transform: [{ translateX: tx.value }, { translateY: ty.value }, { rotateZ: rot.value + 'deg' }],
+  }));
+
+  return (
+    <Animated.View
+      style={[
+        cf.piece, style,
+        { left: item.left, width: item.size, height: item.size, backgroundColor: item.bg,
+          borderRadius: 'radius' in item ? (item as any).radius : 2 },
+      ]}
+    />
+  );
+}
+
+const cf = StyleSheet.create({
+  piece: { position: 'absolute', top: -20 },
+});
+
+// ── Floating emoji (mascot area) ──────────────────────────────────
+function FloatingEmoji({ emoji, style: posStyle, delay = 0 }: { emoji: string; style?: object; delay?: number }) {
+  const ty = useSharedValue(0);
+  useEffect(() => {
+    ty.value = withDelay(delay, withRepeat(
+      withSequence(
+        withTiming(-9, { duration: 1300, easing: Easing.inOut(Easing.ease) }),
+        withTiming(0,  { duration: 1300, easing: Easing.inOut(Easing.ease) }),
+      ), -1, false,
+    ));
+  }, []);
+  const anim = useAnimatedStyle(() => ({ transform: [{ translateY: ty.value }] }));
+  return (
+    <Animated.View style={[{ position: 'absolute' }, posStyle, anim]}>
+      <Text style={{ fontSize: 26 }}>{emoji}</Text>
+    </Animated.View>
+  );
+}
+
+// ── Slim gradient progress bar ────────────────────────────────────
+function SlimProgress({ step }: { step: number }) {
+  const fill = useSharedValue(((step + 1) / 3) * 100);
+  useEffect(() => {
+    fill.value = withTiming(((step + 1) / 3) * 100, { duration: 420, easing: Easing.out(Easing.cubic) });
+  }, [step]);
+  const fillStyle = useAnimatedStyle(() => ({ width: `${fill.value}%` as any }));
+  return (
+    <View style={prog.track}>
+      <Animated.View style={[prog.fill, fillStyle]}>
+        <LinearGradient colors={[BRAND, LIME]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={{ flex: 1 }} />
+      </Animated.View>
+    </View>
+  );
+}
+const prog = StyleSheet.create({
+  track: { flex: 1, height: 5, backgroundColor: Colors.line, borderRadius: 99, overflow: 'hidden', marginHorizontal: 10 },
+  fill:  { height: '100%', borderRadius: 99, overflow: 'hidden' },
+});
+
+// ── File type icon ────────────────────────────────────────────────
+function FileTypeIcon({ mimeType }: { mimeType: string }) {
+  if (mimeType.includes('pdf'))   return <View style={fti.pdf}><Text style={fti.pdfText}>PDF</Text></View>;
+  if (mimeType.includes('image')) return <View style={fti.img}><Text style={{ fontSize: 20 }}>🖼️</Text></View>;
+  return <View style={fti.doc}><Text style={{ fontSize: 20 }}>📄</Text></View>;
+}
+const fti = StyleSheet.create({
+  pdf:     { width: 44, height: 44, borderRadius: 12, backgroundColor: '#FEE2E2', alignItems: 'center', justifyContent: 'center' },
+  pdfText: { fontSize: 11, fontWeight: '800', color: '#DC2626' },
+  img:     { width: 44, height: 44, borderRadius: 12, backgroundColor: '#DCFCE7', alignItems: 'center', justifyContent: 'center' },
+  doc:     { width: 44, height: 44, borderRadius: 12, backgroundColor: '#DBEAFE', alignItems: 'center', justifyContent: 'center' },
+});
+
+// ── Utilities ─────────────────────────────────────────────────────
 function getBackendBaseUrl() { return BACKEND_BASE_URL || 'http://localhost:3000'; }
 
 const SUBJECT_EMOJI: Record<string, string> = {
@@ -92,900 +184,561 @@ const SUBJECT_EMOJI: Record<string, string> = {
   historia: '📜', física: '⚗️', fisica: '⚗️', química: '🔬', quimica: '🔬',
   lenguaje: '📝', inglés: '🌐', ingles: '🌐',
 };
-function subjectEmoji(subject: string) {
-  const key = subject?.toLowerCase() ?? '';
+function subjectEmoji(s: string) {
+  const key = s?.toLowerCase() ?? '';
   return Object.entries(SUBJECT_EMOJI).find(([k]) => key.includes(k))?.[1] ?? '📘';
 }
 function difficultyLabel(d?: string) {
   const map: Record<string, string> = { adaptive: 'Adaptativa', easy: 'Fácil', hard: 'Difícil', medium: 'Media' };
   return d ? (map[d] ?? d.charAt(0).toUpperCase() + d.slice(1)) : 'Adaptativa';
 }
-function normalizeMime(name: string, mimeType: string) {
-  if (!mimeType || mimeType === 'application/octet-stream') {
+function normalizeMime(name: string, mime: string) {
+  if (!mime || mime === 'application/octet-stream') {
     if (name.toLowerCase().endsWith('.pdf')) return 'application/pdf';
     if (name.toLowerCase().match(/\.(jpg|jpeg|png|gif|heic|webp)$/i)) return 'image/jpeg';
   }
-  return mimeType;
+  return mime;
 }
-
-function parseSseEvents(rawChunk: string, handleEvent: (event: string, payload: any) => void) {
-  const events = rawChunk.split(/\r?\n\r?\n/);
+function parseSseEvents(raw: string, handle: (event: string, payload: any) => void) {
+  const events = raw.split(/\r?\n\r?\n/);
   const leftover = events.pop() ?? '';
-  for (const eventText of events) {
-    if (!eventText.trim()) continue;
-    const lines = eventText.split(/\r?\n/);
-    let eventName = 'message';
-    let dataText = '';
-    for (const line of lines) {
-      if (line.startsWith('event:')) eventName = line.replace('event:', '').trim();
-      if (line.startsWith('data:')) dataText += line.replace('data:', '').trim();
+  for (const block of events) {
+    if (!block.trim()) continue;
+    let name = 'message', data = '';
+    for (const line of block.split(/\r?\n/)) {
+      if (line.startsWith('event:')) name = line.replace('event:', '').trim();
+      if (line.startsWith('data:')) data += line.replace('data:', '').trim();
     }
-    if (dataText) {
-      try { handleEvent(eventName, JSON.parse(dataText)); }
-      catch (e) { console.warn('[SSE] parse error:', dataText, e); }
-    }
+    if (data) { try { handle(name, JSON.parse(data)); } catch (e) { console.warn('[SSE]', e); } }
   }
   return leftover;
 }
 
-// ── Slim progress bar ─────────────────────────────────────────────
-function SlimProgress({ step }: { step: number }) {
-  const fill = useSharedValue(0);
-  useEffect(() => {
-    fill.value = withTiming((step / 3) * 100, { duration: 400, easing: Easing.out(Easing.cubic) });
-  }, [step]);
-  const fillStyle = useAnimatedStyle(() => ({ width: `${fill.value}%` as any }));
-  return (
-    <View style={prog.track}>
-      <Animated.View style={[prog.fill, fillStyle]} />
-    </View>
-  );
-}
-const prog = StyleSheet.create({
-  track: { flex: 1, height: 3, backgroundColor: Colors.line, borderRadius: 99, overflow: 'hidden', marginHorizontal: 12 },
-  fill: { height: '100%', backgroundColor: BRAND, borderRadius: 99 },
-});
-
-// ── FadeIn card ───────────────────────────────────────────────────
-function FadeInCard({ children, delay = 0 }: { children: React.ReactNode; delay?: number }) {
-  const op = useSharedValue(0);
-  const ty = useSharedValue(12);
-  const anim = useAnimatedStyle(() => ({ opacity: op.value, transform: [{ translateY: ty.value }] }));
-  useEffect(() => {
-    op.value = withDelay(delay, withTiming(1, { duration: 300 }));
-    ty.value = withDelay(delay, withTiming(0, { duration: 300 }));
-  }, []);
-  return <Animated.View style={anim}>{children}</Animated.View>;
-}
-
-// ── Pulsing dots loader ───────────────────────────────────────────
-function PulsingDots() {
-  const d1 = useSharedValue(0.3);
-  const d2 = useSharedValue(0.3);
-  const d3 = useSharedValue(0.3);
-  useEffect(() => {
-    const p = (sv: any, delay: number) =>
-      (sv.value = withDelay(delay, withRepeat(
-        withSequence(withTiming(1, { duration: 500 }), withTiming(0.3, { duration: 500 })), -1, false,
-      )));
-    p(d1, 0); p(d2, 180); p(d3, 360);
-  }, []);
-  const a1 = useAnimatedStyle(() => ({ opacity: d1.value }));
-  const a2 = useAnimatedStyle(() => ({ opacity: d2.value }));
-  const a3 = useAnimatedStyle(() => ({ opacity: d3.value }));
-  return (
-    <View style={{ flexDirection: 'row', gap: 7, alignItems: 'center' }}>
-      <Animated.View style={[pd.dot, a1]} />
-      <Animated.View style={[pd.dot, a2]} />
-      <Animated.View style={[pd.dot, a3]} />
-    </View>
-  );
-}
-const pd = StyleSheet.create({ dot: { width: 10, height: 10, borderRadius: 5, backgroundColor: BRAND } });
-
-// ── Main component ─────────────────────────────────────────────────
+// ══════════════════════════════════════════════════════════════════
+// MAIN COMPONENT
+// ══════════════════════════════════════════════════════════════════
 export default function UploadFlowScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
 
-  // ── State ──
-  const [step, setStep] = useState(0);
+  // ── State ──────────────────────────────────────────────────────
+  const [step, setStep] = useState(0);                             // 0=upload 1=generating 2=done
   const [selectedFiles, setSelectedFiles] = useState<UploadedFile[]>([]);
-  const [uploadError, setUploadError] = useState('');
-  const [sessionType, setSessionType] = useState('practice');
-  const [sessionTypeExpanded, setSessionTypeExpanded] = useState(false);
-  const [duration, setDuration] = useState(18);
+  const [uploadError, setUploadError]     = useState('');
   const [generationError, setGenerationError] = useState<string | null>(null);
-  const [progressEvents, setProgressEvents] = useState<SessionProgress[]>([]);
-  const [transcriptChunks, setTranscriptChunks] = useState<string[]>([]);
-  const [generatedQuestions, setGeneratedQuestions] = useState<GeneratedQuestion[]>([]);
-  const [sessionResult, setSessionResult] = useState<any | null>(null);
-  const sseBufferRef = useRef('');
-  const lastResponseLengthRef = useRef(0);
-  const xhrRef = useRef<XMLHttpRequest | null>(null);
+  const [progressEvents, setProgressEvents]   = useState<SessionProgress[]>([]);
+  const [sessionResult, setSessionResult]     = useState<any | null>(null);
+  const [tipIdx, setTipIdx] = useState(0);
+
+  const sseBufferRef         = useRef('');
+  const lastLenRef           = useRef(0);
+  const xhrRef               = useRef<XMLHttpRequest | null>(null);
   const generationStartedRef = useRef(false);
-  const autoNavRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const autoNavRef           = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // ── Shared values (all unconditional) ──
-  const checkScale = useSharedValue(0);
-  const checkPulse = useSharedValue(1);
-  const ctaPulse = useSharedValue(0);
-  const laserY = useSharedValue(0);
+  // ── Shared values (all unconditional) ─────────────────────────
+  const celebScale = useSharedValue(0);
+  const celebPulse = useSharedValue(1);
+  const ctaPulse   = useSharedValue(0);
 
-  const checkScaleAnim = useAnimatedStyle(() => ({ transform: [{ scale: checkScale.value }] }));
-  const checkPulseAnim = useAnimatedStyle(() => ({
-    transform: [{ scale: checkPulse.value }],
-    shadowOpacity: 0.3 + checkPulse.value * 0.25,
+  const celebScaleAnim = useAnimatedStyle(() => ({ transform: [{ scale: celebScale.value }] }));
+  const celebPulseAnim = useAnimatedStyle(() => ({ transform: [{ scale: celebPulse.value }] }));
+  const ctaPulseAnim   = useAnimatedStyle(() => ({
+    transform: [{ scale: 1 + ctaPulse.value * 0.014 }],
+    shadowOpacity: 0.24 + ctaPulse.value * 0.16,
   }));
-  const ctaPulseAnim = useAnimatedStyle(() => ({
-    transform: [{ scale: 1 + ctaPulse.value * 0.012 }],
-    shadowOpacity: 0.22 + ctaPulse.value * 0.18,
-  }));
-  const laserAnim = useAnimatedStyle(() => ({ top: 18 + laserY.value * 152 }));
 
+  // ── Effects ────────────────────────────────────────────────────
   useEffect(() => {
-    if (step !== 1) { laserY.value = 0; return; }
-    laserY.value = withRepeat(withTiming(1, { duration: 2400, easing: Easing.linear }), -1, false);
-  }, [step]);
-
-  useEffect(() => {
-    if (step !== 3) return;
-    checkScale.value = withSpring(1, { damping: 12, stiffness: 200 });
-    checkPulse.value = withDelay(800, withRepeat(
-      withSequence(withTiming(1.08, { duration: 400 }), withTiming(1.0, { duration: 400 }), withDelay(3200, withTiming(1.0, { duration: 0 }))),
-      -1, false,
+    if (step !== 2) return;
+    celebScale.value = withSpring(1, { damping: 11, stiffness: 180 });
+    celebPulse.value = withDelay(700, withRepeat(
+      withSequence(
+        withTiming(1.1,  { duration: 350 }),
+        withTiming(1.0,  { duration: 350 }),
+        withDelay(3400, withTiming(1.0, { duration: 0 })),
+      ), -1, false,
     ));
     ctaPulse.value = withRepeat(
-      withSequence(withTiming(1, { duration: 2000 }), withTiming(0, { duration: 2000 })), -1, false,
+      withSequence(withTiming(1, { duration: 1800 }), withTiming(0, { duration: 1800 })), -1, false,
     );
   }, [step]);
 
-  // ── File helpers ──
+  useEffect(() => {
+    if (step !== 1) return;
+    const t = setInterval(() => setTipIdx(i => (i + 1) % TIPS.length), 4000);
+    return () => clearInterval(t);
+  }, [step]);
+
+  // ── File helpers ───────────────────────────────────────────────
   const addFiles = (incoming: UploadedFile[]) => {
     setSelectedFiles(prev => {
-      const existingUris = new Set(prev.map(f => f.uri));
-      const deduped = incoming.filter(f => !existingUris.has(f.uri));
-      return [...prev, ...deduped];
+      const existing = new Set(prev.map(f => f.uri));
+      return [...prev, ...incoming.filter(f => !existing.has(f.uri))];
     });
     setUploadError('');
   };
   const removeFile = (uri: string) => setSelectedFiles(prev => prev.filter(f => f.uri !== uri));
 
-  // ── Handlers ──
-  const pushProgressEvent = useCallback((event: SessionProgress) => {
-    setProgressEvents(prev => [...prev, event]);
+  // ── Handlers ──────────────────────────────────────────────────
+  const pushProgress = useCallback((e: SessionProgress) => {
+    setProgressEvents(prev => [...prev, e]);
   }, []);
 
-  const handleDocumentPick = async () => {
+  const handleFilePick = async () => {
     try {
       const result = await DocumentPicker.getDocumentAsync({
-        type: ['application/pdf', 'image/*'],
-        copyToCacheDirectory: true,
-        multiple: true,
+        type: ['application/pdf', 'image/*'], copyToCacheDirectory: true, multiple: true,
       });
       if (result.canceled || !result.assets?.length) return;
-      const picked: UploadedFile[] = result.assets.map(asset => ({
-        uri: asset.uri,
-        name: asset.name ?? 'archivo',
-        mimeType: normalizeMime(asset.name ?? '', asset.mimeType ?? ''),
-        sizeText: asset.size ? `${(asset.size / 1024).toFixed(1)} KB` : 'N/A',
-        sizeBytes: asset.size ?? 0,
-      }));
-      addFiles(picked);
-    } catch (error) {
-      setUploadError(`No se pudo seleccionar el archivo: ${error instanceof Error ? error.message : String(error)}`);
+      addFiles(result.assets.map(a => ({
+        uri: a.uri, name: a.name ?? 'archivo',
+        mimeType: normalizeMime(a.name ?? '', a.mimeType ?? ''),
+        sizeText: a.size ? `${(a.size / 1024).toFixed(1)} KB` : 'N/A',
+        sizeBytes: a.size ?? 0,
+      })));
+    } catch (e) {
+      setUploadError(`No se pudo seleccionar: ${e instanceof Error ? e.message : String(e)}`);
     }
   };
 
   const handleCameraPick = async () => {
     try {
       if (Platform.OS === 'web') {
-        const result = await ImagePicker.launchImageLibraryAsync({
-          mediaTypes: ImagePicker.MediaTypeOptions.Images,
-          quality: 0.8,
-          allowsMultipleSelection: true,
-        });
+        const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ImagePicker.MediaTypeOptions.Images, quality: 0.8, allowsMultipleSelection: true });
         if (!result.canceled && result.assets?.length) {
-          addFiles(result.assets.map(a => ({
-            uri: a.uri,
-            name: a.fileName ?? `Foto-${Date.now()}.jpg`,
-            mimeType: a.type ?? 'image/jpeg',
-            sizeText: a.fileSize ? `${Math.round(a.fileSize / 1024)} KB` : 'N/A',
-            sizeBytes: a.fileSize ?? 0,
-          })));
+          addFiles(result.assets.map(a => ({ uri: a.uri, name: a.fileName ?? `Foto-${Date.now()}.jpg`, mimeType: a.type ?? 'image/jpeg', sizeText: a.fileSize ? `${Math.round(a.fileSize / 1024)} KB` : 'N/A', sizeBytes: a.fileSize ?? 0 })));
         }
         return;
       }
-      const permission = await ImagePicker.requestCameraPermissionsAsync();
-      if (permission.status !== 'granted') {
-        Alert.alert('Permiso denegado', 'Necesitamos acceso a la cámara para tomar una foto.');
-        return;
-      }
+      const perm = await ImagePicker.requestCameraPermissionsAsync();
+      if (perm.status !== 'granted') { Alert.alert('Permiso denegado', 'Necesitamos acceso a la cámara.'); return; }
       const result = await ImagePicker.launchCameraAsync({ mediaTypes: ImagePicker.MediaTypeOptions.Images, quality: 0.8 });
       if (!result.canceled && result.assets?.length) {
         const a = result.assets[0];
-        addFiles([{
-          uri: a.uri,
-          name: a.fileName ?? `Foto-${Date.now()}.jpg`,
-          mimeType: a.type ?? 'image/jpeg',
-          sizeText: a.fileSize ? `${Math.round(a.fileSize / 1024)} KB` : 'N/A',
-          sizeBytes: a.fileSize ?? 0,
-        }]);
+        addFiles([{ uri: a.uri, name: a.fileName ?? `Foto-${Date.now()}.jpg`, mimeType: a.type ?? 'image/jpeg', sizeText: a.fileSize ? `${Math.round(a.fileSize / 1024)} KB` : 'N/A', sizeBytes: a.fileSize ?? 0 }]);
       }
-    } catch (error) {
-      setUploadError(`No se pudo usar la cámara: ${error instanceof Error ? error.message : String(error)}`);
+    } catch (e) {
+      setUploadError(`Error cámara: ${e instanceof Error ? e.message : String(e)}`);
     }
   };
 
-  const handleUseRecent = (file: UploadedFile) => addFiles([file]);
-
-  const startSseGeneration = useCallback(async () => {
+  const startGeneration = useCallback(async () => {
     if (selectedFiles.length === 0) return;
     setGenerationError(null);
     setProgressEvents([]);
-    setTranscriptChunks([]);
-    setGeneratedQuestions([]);
     sseBufferRef.current = '';
-    lastResponseLengthRef.current = 0;
+    lastLenRef.current = 0;
     try {
       const primary = selectedFiles[0];
       const formData = new FormData();
       formData.append('config', JSON.stringify({
         documentId: primary.name,
-        format: sessionType === 'practice' ? ['quizzes', 'flashcards'] : sessionType === 'exam' ? ['quizzes', 'summary'] : ['summary', 'flashcards'],
-        difficulty: sessionType === 'review' ? 'easy' : sessionType === 'exam' ? 'hard' : 'adaptive',
-        estimatedDuration: duration,
+        format: ['quizzes', 'flashcards'],
+        difficulty: 'adaptive',
+        estimatedDuration: 18,
         subject: 'Biología',
         topic: 'Mitosis y meiosis',
       }));
       formData.append('userId', 'demo-user');
-      selectedFiles.forEach(f => {
-        formData.append('documents', { uri: f.uri, type: f.mimeType, name: f.name } as any);
-      });
+      selectedFiles.forEach(f => formData.append('documents', { uri: f.uri, type: f.mimeType, name: f.name } as any));
+
       const xhr = new XMLHttpRequest();
       xhrRef.current = xhr;
       xhr.open('POST', `${getBackendBaseUrl()}/sessions/generate`, true);
       xhr.setRequestHeader('Accept', 'text/event-stream');
       xhr.onprogress = () => {
-        const incoming = xhr.responseText.substring(lastResponseLengthRef.current);
-        lastResponseLengthRef.current = xhr.responseText.length;
-        const unprocessed = `${sseBufferRef.current}${incoming}`;
-        sseBufferRef.current = parseSseEvents(unprocessed, (event, payload) => {
-          if (event === 'progress') pushProgressEvent(payload as SessionProgress);
-          if (event === 'transcript_chunk') setTranscriptChunks(prev => [...prev, payload.text]);
-          if (event === 'question_generated') setGeneratedQuestions(prev => [...prev, payload.question]);
-          if (event === 'complete') setSessionResult(payload);
-          if (event === 'error') setGenerationError(payload?.message ?? 'Error inesperado.');
+        const incoming = xhr.responseText.substring(lastLenRef.current);
+        lastLenRef.current = xhr.responseText.length;
+        sseBufferRef.current = parseSseEvents(`${sseBufferRef.current}${incoming}`, (event, payload) => {
+          if (event === 'progress') pushProgress(payload as SessionProgress);
+          if (event === 'complete')  setSessionResult(payload);
+          if (event === 'error')     setGenerationError(payload?.message ?? 'Error inesperado.');
         });
       };
-      xhr.onload = () => { if (xhr.status >= 400) setGenerationError('No se pudo generar la sesión. Verifica tu conexión.'); };
-      xhr.onerror = () => setGenerationError('Error de red durante la generación. Intenta nuevamente.');
+      xhr.onload  = () => { if (xhr.status >= 400) setGenerationError('No se pudo generar la sesión.'); };
+      xhr.onerror = () => setGenerationError('Error de red. Intenta nuevamente.');
       xhr.send(formData);
-    } catch (error) {
-      setGenerationError(`Error al procesar el archivo: ${error instanceof Error ? error.message : 'Error desconocido'}`);
+    } catch (e) {
+      setGenerationError(`Error: ${e instanceof Error ? e.message : 'Error desconocido'}`);
     }
-  }, [duration, pushProgressEvent, selectedFiles, sessionType]);
+  }, [pushProgress, selectedFiles]);
 
   useEffect(() => {
-    if (step !== 2) { generationStartedRef.current = false; return; }
+    if (step !== 1) { generationStartedRef.current = false; return; }
     if (generationStartedRef.current || selectedFiles.length === 0) return;
     generationStartedRef.current = true;
-    startSseGeneration();
+    startGeneration();
     return () => { xhrRef.current?.abort(); };
-  }, [selectedFiles, startSseGeneration, step]);
+  }, [selectedFiles, startGeneration, step]);
 
   useEffect(() => {
-    if (sessionResult && step === 2) {
-      autoNavRef.current = setTimeout(() => setStep(3), 800);
+    if (sessionResult && step === 1) {
+      autoNavRef.current = setTimeout(() => setStep(2), 800);
       return () => { if (autoNavRef.current) clearTimeout(autoNavRef.current); };
     }
   }, [sessionResult, step]);
 
+  const lastProgress    = progressEvents[progressEvents.length - 1];
+  const progressPct     = lastProgress?.progress ?? 0;
+  const progressMsg     = lastProgress?.message ?? 'Conectando con el servidor…';
   const completedSession = sessionResult?.session;
+  const hasFiles = selectedFiles.length > 0;
 
   const handleContinue = () => {
-    if (step === 0 && selectedFiles.length === 0) { setUploadError('Selecciona al menos un archivo o toma una foto para continuar.'); return; }
-    if (step < 3) setStep(step + 1);
+    if (!hasFiles) { setUploadError('Selecciona al menos un archivo para continuar.'); return; }
+    setStep(1);
   };
-  const handleBack = () => { if (step > 0) setStep(step - 1); };
-  const handleStartSession = () => {
+  const handleClose = () => router.back();
+  const handleBack  = () => { if (step > 0) setStep(step - 1); else router.back(); };
+  const handleStart = () => {
     if (!completedSession) return;
     router.push({ pathname: '/modals/session' as any, params: { data: JSON.stringify(completedSession) } });
   };
 
-  // ─────────────────────────────────────────────────────────────────
-  // PANTALLA 4 — Sesión lista
-  // ─────────────────────────────────────────────────────────────────
-  if (step === 3) {
+  // ══════════════════════════════════════════════════════════════
+  // PANTALLA 2 — ¡Tu sesión está lista!
+  // ══════════════════════════════════════════════════════════════
+  if (step === 2) {
     const s = completedSession;
     return (
-      <ScreenContainer style={s4.page}>
-        <StatusBar barStyle="dark-content" backgroundColor={Colors.paper} />
-        <View style={s4.header}>
-          <Pressable onPress={handleBack} style={s4.backBtn} hitSlop={10}>
-            <Text style={s4.backBtnText}>←</Text>
-          </Pressable>
-          <Text style={s4.headerTitle}>Sesión lista</Text>
-          <View style={{ width: 38 }} />
+      <ScreenContainer style={s2.page}>
+        <StatusBar barStyle="dark-content" backgroundColor={BG} />
+
+        {/* Confetti overlay */}
+        <View style={s2.confettiLayer} pointerEvents="none">
+          {CONFETTI.map((item, i) => <ConfettiPiece key={i} item={item} />)}
         </View>
-        <ScrollView style={{ flex: 1 }} contentContainerStyle={s4.scroll} showsVerticalScrollIndicator={false}>
-          <LinearGradient colors={['#1A1033', '#2A1060', '#1C0B56']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={s4.hero}>
-            <Animated.View style={[s4.checkWrap, checkScaleAnim]}>
-              <Animated.View style={[s4.checkCircle, checkPulseAnim]}>
-                <Text style={s4.checkText}>✓</Text>
-              </Animated.View>
+
+        {/* Header */}
+        <View style={[shared.header, { paddingTop: insets.top + 4 }]}>
+          <Pressable onPress={handleBack} style={shared.iconBtn} hitSlop={10}>
+            <Text style={shared.iconBtnText}>←</Text>
+          </Pressable>
+          <SlimProgress step={step} />
+          <Pressable onPress={handleClose} style={shared.iconBtn} hitSlop={10}>
+            <X size={16} color={Colors.ink} strokeWidth={2.5} />
+          </Pressable>
+        </View>
+
+        <ScrollView
+          style={{ flex: 1 }}
+          contentContainerStyle={[s2.scroll, { paddingBottom: insets.bottom + 16 }]}
+          showsVerticalScrollIndicator={false}
+        >
+          {/* Celebration emoji */}
+          <View style={s2.celebWrap}>
+            <Animated.View style={celebScaleAnim}>
+              <Animated.Text style={[s2.celebEmoji, celebPulseAnim]}>🎉</Animated.Text>
             </Animated.View>
-            <Text style={s4.xpHero}>Esta sesión vale 2× XP</Text>
-            <Text style={s4.heroSub}>¡Generación completa! Creado desde tus apuntes.</Text>
-          </LinearGradient>
-          <View style={s4.card}>
-            <View style={s4.subjectRow}>
-              <View style={s4.subjectIcon}>
-                <Text style={{ fontSize: 24 }}>{subjectEmoji(s?.subject ?? '')}</Text>
-              </View>
-              <View style={{ flex: 1 }}>
-                <Text style={s4.subjectName}>{s?.subject ?? 'Sesión generada'}</Text>
-                <Text style={s4.topicText} numberOfLines={1}>{(s?.topic ?? '').toUpperCase()}</Text>
-              </View>
-              <View style={s4.diffBadge}>
-                <Text style={s4.diffText}>{difficultyLabel(s?.difficulty)}</Text>
-              </View>
-            </View>
-            <View style={s4.divider} />
-            <View style={s4.statsGrid}>
-              <View style={s4.statCell}>
-                <Text style={s4.statVal}>{s?.questions?.length ?? 0}</Text>
-                <Text style={s4.statLbl}>PREGUNTAS</Text>
-              </View>
-              <View style={s4.statCell}>
-                <Text style={s4.statVal}>{s?.estimatedDuration ?? duration} min</Text>
-                <Text style={s4.statLbl}>DURACIÓN</Text>
-              </View>
-              <View style={s4.statCell}>
-                <Text style={s4.statVal}>+{s?.xpReward ?? 0} XP</Text>
-                <Text style={s4.statLbl}>RECOMPENSA</Text>
-              </View>
-              <View style={s4.statCell}>
-                <Text style={s4.statVal}>+{s?.gemReward ?? 10}</Text>
-                <Text style={s4.statLbl}>GEMAS</Text>
-              </View>
-            </View>
-            <View style={s4.divider} />
+          </View>
+
+          <Text style={s2.title}>¡Tu sesión está lista!</Text>
+          <Text style={s2.subtitle}>La IA creó una sesión personalizada para ti.</Text>
+
+          {/* Stats card */}
+          <View style={s2.card}>
             {[
-              { icon: '❓', label: 'Preguntas', count: s?.questions?.length ?? 0 },
-              { icon: '🃏', label: 'Flashcards', count: s?.flashcards?.length ?? 0 },
-              { icon: '📋', label: 'Resumen', count: s?.summary?.sections?.length ?? 1 },
-            ].map(({ icon, label, count }) => (
-              <View key={label} style={s4.contentRow}>
-                <Text style={s4.contentIcon}>{icon}</Text>
-                <Text style={s4.contentLabel}>{label}</Text>
-                <View style={s4.contentCount}><Text style={s4.contentCountText}>{count}</Text></View>
+              { emoji: '📝', label: `${s?.questions?.length ?? 0} actividades creadas` },
+              { emoji: '🃏', label: `${s?.flashcards?.length ?? 0} flashcards` },
+              { emoji: '⏱️', label: `Duración estimada: ${s?.estimatedDuration ?? 18} min` },
+              { emoji: '⚡', label: `+${s?.xpReward ?? 0} XP al completar` },
+            ].map(({ emoji, label }) => (
+              <View key={label} style={s2.statRow}>
+                <Text style={s2.statEmoji}>{emoji}</Text>
+                <Text style={s2.statLabel}>{label}</Text>
               </View>
             ))}
           </View>
         </ScrollView>
-        <View style={[s4.actions, { paddingBottom: insets.bottom + 12 }]}>
-          <Pressable onPress={handleStartSession} style={{ width: '100%' }}>
-            <Animated.View style={[s4.ctaShadow, ctaPulseAnim]}>
-              <View style={s4.ctaOverflow}>
-                <LinearGradient colors={[BRAND, BRAND2]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={s4.ctaGrad}>
-                  <Zap size={18} color="white" strokeWidth={2.5} />
-                  <Text style={s4.ctaText}>Empezar sesión ahora</Text>
-                </LinearGradient>
-              </View>
+
+        {/* CTA */}
+        <View style={[s2.actions, { paddingBottom: insets.bottom + 16 }]}>
+          <Pressable onPress={handleStart} style={{ width: '100%' }}>
+            <Animated.View style={ctaPulseAnim}>
+              <LinearGradient colors={[BRAND, NEON]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={s2.ctaBtn}>
+                <Text style={s2.ctaText}>Ver mi sesión</Text>
+              </LinearGradient>
             </Animated.View>
           </Pressable>
-          <View style={s4.textLinks}>
-            <Pressable hitSlop={10}><Text style={s4.textLink}>Agendar después</Text></Pressable>
-            <Text style={s4.textLinkDot}>·</Text>
-            <Pressable hitSlop={10}><Text style={s4.textLink}>Compartir</Text></Pressable>
-          </View>
+          <Pressable hitSlop={12} style={{ marginTop: 14 }}>
+            <Text style={s2.saveLink}>Guardar para después</Text>
+          </Pressable>
         </View>
       </ScreenContainer>
     );
   }
 
-  // ─────────────────────────────────────────────────────────────────
-  // PANTALLA 3 — Creando tu sesión
-  // ─────────────────────────────────────────────────────────────────
-  if (step === 2) {
-    const transcript = transcriptChunks.join(' ');
+  // ══════════════════════════════════════════════════════════════
+  // PANTALLA 1 — La IA está trabajando…
+  // ══════════════════════════════════════════════════════════════
+  if (step === 1) {
     return (
-      <SafeAreaView style={s3.page} edges={['top', 'bottom']}>
+      <SafeAreaView style={s1.page} edges={['top', 'bottom']}>
         <StatusBar barStyle="dark-content" backgroundColor={BG} />
-        <View style={s3.header}>
-          <Text style={s3.headerTitle}>Creando tu sesión...</Text>
-          <PulsingDots />
+
+        <View style={shared.header}>
+          <Pressable onPress={handleBack} style={shared.iconBtn} hitSlop={10}>
+            <Text style={shared.iconBtnText}>←</Text>
+          </Pressable>
+          <SlimProgress step={step} />
+          <Pressable onPress={handleClose} style={shared.iconBtn} hitSlop={10}>
+            <X size={16} color={Colors.ink} strokeWidth={2.5} />
+          </Pressable>
         </View>
-        {generationError ? (
-          <View style={s3.errorWrap}>
-            <View style={s3.errorBanner}>
-              <Text style={s3.errorTitle}>Algo salió mal</Text>
-              <Text style={s3.errorMsg}>{generationError}</Text>
-              <Pressable onPress={() => { setStep(1); setGenerationError(null); }} style={s3.retryBtn}>
-                <Text style={s3.retryText}>Volver e intentar de nuevo</Text>
+
+        <ScrollView
+          contentContainerStyle={[s1.scroll, { paddingBottom: insets.bottom + 24 }]}
+          showsVerticalScrollIndicator={false}
+        >
+          <Text style={s1.title}>La IA está trabajando…</Text>
+          <Text style={s1.subtitle}>
+            Analizando tus documentos{'\n'}para crear la mejor sesión.
+          </Text>
+
+          {/* Mascot area */}
+          <View style={s1.mascotCard}>
+            <View style={s1.mascotInner}>
+              {/* Floating icons */}
+              <FloatingEmoji emoji="📄" style={{ top: 10, left: 10 }}  delay={0}   />
+              <FloatingEmoji emoji="💡" style={{ top: 10, right: 10 }} delay={400} />
+              <FloatingEmoji emoji="📊" style={{ bottom: 10, right: 30 }} delay={800} />
+
+              {/* Main emoji */}
+              <Text style={s1.mascotEmoji}>🤖</Text>
+            </View>
+          </View>
+
+          {/* Progress card */}
+          <View style={s1.progressCard}>
+            <View style={s1.progressHeader}>
+              <Text style={s1.progressTitle}>Progreso del análisis</Text>
+              <Text style={s1.progressPct}>{progressPct}%</Text>
+            </View>
+            <View style={s1.progressTrack}>
+              <View style={[s1.progressFill, { width: `${progressPct}%` }]}>
+                <LinearGradient colors={[BRAND, NEON]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={{ flex: 1 }} />
+              </View>
+            </View>
+            <Text style={s1.progressMsg} numberOfLines={1}>{progressMsg}</Text>
+          </View>
+
+          {/* Error */}
+          {generationError && (
+            <View style={s1.errorBanner}>
+              <Text style={s1.errorTitle}>Algo salió mal</Text>
+              <Text style={s1.errorMsg}>{generationError}</Text>
+              <Pressable onPress={() => { setStep(0); setGenerationError(null); }} style={s1.retryBtn}>
+                <Text style={s1.retryText}>Volver e intentar de nuevo</Text>
               </Pressable>
             </View>
+          )}
+
+          {/* Tip */}
+          <View style={s1.tipCard}>
+            <Text style={s1.tipIcon}>💡</Text>
+            <Text style={s1.tipText}>
+              <Text style={s1.tipBold}>Tip: </Text>
+              {TIPS[tipIdx]}
+            </Text>
           </View>
-        ) : (
-          <View style={s3.body}>
-            <View style={s3.half}>
-              <Text style={s3.sectionLabel}>TUS APUNTES</Text>
-              <ScrollView style={s3.transcriptScroll} contentContainerStyle={s3.transcriptContent} showsVerticalScrollIndicator={false}>
-                {transcript ? (
-                  <Text style={s3.transcriptText}>
-                    {transcript}
-                    {!sessionResult && <Text style={s3.cursor}>|</Text>}
-                  </Text>
-                ) : (
-                  <Text style={s3.transcriptPlaceholder}>Leyendo tu material...</Text>
-                )}
-              </ScrollView>
-            </View>
-            <View style={s3.divider} />
-            <View style={s3.half}>
-              <Text style={s3.sectionLabel}>PREGUNTAS GENERADAS</Text>
-              <ScrollView style={s3.questionsScroll} showsVerticalScrollIndicator={false}>
-                {generatedQuestions.length === 0 && !sessionResult && (
-                  <Text style={s3.transcriptPlaceholder}>Las preguntas aparecerán aquí...</Text>
-                )}
-                {generatedQuestions.map((q, i) => (
-                  <FadeInCard key={q.id} delay={i * 60}>
-                    <View style={s3.questionCard}>
-                      <Text style={s3.questionText} numberOfLines={3}>{q.text}</Text>
-                      {q.sourceQuote ? (
-                        <View style={s3.sourceChip}>
-                          <BookOpen size={10} color={BRAND} strokeWidth={2} />
-                          <Text style={s3.sourceText} numberOfLines={1}>{q.sourceQuote}</Text>
-                        </View>
-                      ) : null}
-                    </View>
-                  </FadeInCard>
-                ))}
-              </ScrollView>
-            </View>
-          </View>
-        )}
+        </ScrollView>
       </SafeAreaView>
     );
   }
 
-  // ─────────────────────────────────────────────────────────────────
-  // PANTALLAS 1 y 2
-  // ─────────────────────────────────────────────────────────────────
-  const hasFiles = selectedFiles.length > 0;
-  const previewFile = selectedFiles[0] ?? null;
-
+  // ══════════════════════════════════════════════════════════════
+  // PANTALLA 0 — Sube tus documentos
+  // ══════════════════════════════════════════════════════════════
   return (
-    <SafeAreaView style={styles.page} edges={['top']}>
+    <SafeAreaView style={s0.page} edges={['top']}>
       <StatusBar barStyle="dark-content" backgroundColor={BG} />
-      <View style={styles.pageHeader}>
-        <Pressable onPress={step === 0 ? () => router.back() : handleBack} style={styles.closeBtn} hitSlop={8}>
-          <Text style={styles.closeBtnText}>{step === 0 ? '✕' : '←'}</Text>
+
+      <View style={shared.header}>
+        <Pressable onPress={handleClose} style={shared.iconBtn} hitSlop={10}>
+          <Text style={shared.iconBtnText}>←</Text>
         </Pressable>
         <SlimProgress step={step} />
-        <View style={{ width: 36 }} />
+        <Pressable onPress={handleClose} style={shared.iconBtn} hitSlop={10}>
+          <X size={16} color={Colors.ink} strokeWidth={2.5} />
+        </Pressable>
       </View>
 
       <ScrollView
-        style={styles.scrollArea}
-        contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + 100 }]}
+        style={{ flex: 1 }}
+        contentContainerStyle={[s0.scroll, { paddingBottom: insets.bottom + 110 }]}
         showsVerticalScrollIndicator={false}
       >
+        <Text style={s0.title}>Sube tus documentos</Text>
+        <Text style={s0.subtitle}>Puedes subir varios archivos.</Text>
 
-        {/* ── PANTALLA 1 ── */}
-        {step === 0 && (
-          <View>
-            <View style={styles.titleWrap}>
-              <Text style={styles.titleText}>¿Qué vamos a estudiar hoy?</Text>
-              <Text style={styles.titleSub}>
-                {hasFiles
-                  ? `${selectedFiles.length} archivo${selectedFiles.length > 1 ? 's' : ''} seleccionado${selectedFiles.length > 1 ? 's' : ''}`
-                  : 'Toma una foto o sube tu archivo.'}
-              </Text>
-            </View>
+        {/* Drop zone */}
+        <Pressable style={s0.dropZone} onPress={handleFilePick}>
+          <View style={s0.dropIconWrap}>
+            <Upload size={36} color={BRAND} strokeWidth={1.8} />
+          </View>
+          <Text style={s0.dropMainText}>Arrastra tus archivos aquí</Text>
+          <Text style={s0.dropSubText}>o toca para buscar</Text>
+          <Pressable onPress={handleFilePick} style={s0.chooseBtnWrap}>
+            <LinearGradient colors={[BRAND, NEON]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={s0.chooseBtn}>
+              <Text style={s0.chooseBtnText}>Elegir archivos</Text>
+            </LinearGradient>
+          </Pressable>
+        </Pressable>
 
-            {/* ── Lista de archivos seleccionados ── */}
-            {hasFiles && (
-              <View style={styles.fileList}>
-                {selectedFiles.map((file, idx) => (
-                  <View key={file.uri} style={styles.fileRow}>
-                    <Image source={{ uri: file.uri }} style={styles.fileThumb} contentFit="cover" />
-                    <View style={{ flex: 1 }}>
-                      <Text style={styles.fileName} numberOfLines={1}>{file.name}</Text>
-                      <Text style={styles.fileMeta}>
-                        {file.mimeType.includes('pdf') ? 'PDF' : 'Imagen'} · {file.sizeText}
-                      </Text>
-                    </View>
-                    <Pressable onPress={() => removeFile(file.uri)} style={styles.removeBtn} hitSlop={8}>
-                      <X size={14} color={Colors.muted} strokeWidth={2.5} />
-                    </Pressable>
-                  </View>
-                ))}
-              </View>
-            )}
+        {/* Camera option */}
+        <Pressable style={s0.cameraLink} onPress={handleCameraPick}>
+          <Text style={s0.cameraLinkText}>O toma una foto con la cámara</Text>
+        </Pressable>
 
-            {/* ── Opciones de carga ── */}
-            {/* Siempre visibles; cuando hay archivos se muestran como "Añadir más" */}
-            <View style={styles.optionsRow}>
-              {/* Foto rápida — primario */}
-              <Pressable style={styles.optionCardPrimary} onPress={handleCameraPick}>
-                <LinearGradient colors={[BRAND, BRAND2]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.optionCardGrad}>
-                  <Camera size={26} color="white" strokeWidth={2} />
-                  <Text style={styles.optionCardTitlePrimary}>
-                    {hasFiles ? 'Añadir foto' : 'Foto rápida'}
-                  </Text>
-                  <Text style={styles.optionCardSubPrimary}>
-                    {hasFiles ? 'Otra foto de tus apuntes' : 'Escanea tu cuaderno'}
-                  </Text>
-                </LinearGradient>
-              </Pressable>
+        {uploadError ? <Text style={s0.error}>{uploadError}</Text> : null}
 
-              {/* Subir archivo — secundario, igual de visible */}
-              <Pressable style={styles.optionCardSecondary} onPress={handleDocumentPick}>
-                <FileText size={26} color={BRAND} strokeWidth={1.8} />
-                <Text style={styles.optionCardTitleSecondary}>
-                  {hasFiles ? 'Añadir archivo' : 'Subir archivo'}
-                </Text>
-                <Text style={styles.optionCardSubSecondary}>
-                  {hasFiles ? 'PDF o imagen adicional' : 'PDF · Imagen · JPG'}
-                </Text>
-              </Pressable>
-            </View>
-
-            {uploadError ? <Text style={styles.uploadError}>{uploadError}</Text> : null}
-
-            {/* Recientes */}
-            <Text style={styles.recentLabel}>RECIENTES</Text>
-            {RECENT_FILES.map(file => {
-              const alreadyAdded = selectedFiles.some(f => f.uri === file.uri);
-              return (
-                <View key={file.name} style={styles.recentItem}>
-                  <Image source={{ uri: file.uri }} style={styles.recentThumb} contentFit="cover" />
-                  <View style={{ flex: 1 }}>
-                    <Text style={styles.recentName} numberOfLines={1}>{file.name}</Text>
-                    <Text style={styles.recentMeta}>{file.sizeText} · {file.mimeType.includes('pdf') ? 'PDF' : 'Imagen'}</Text>
-                  </View>
-                  {alreadyAdded ? (
-                    <View style={styles.addedBadge}>
-                      <CheckCircle size={14} color={Colors.teal} strokeWidth={2} />
-                      <Text style={styles.addedText}>Añadido</Text>
-                    </View>
-                  ) : (
-                    <Pressable onPress={() => handleUseRecent(file)} style={styles.useBtn}>
-                      <Text style={styles.useBtnText}>Usar</Text>
-                    </Pressable>
-                  )}
+        {/* Selected files list */}
+        {hasFiles && (
+          <View style={s0.fileList}>
+            {selectedFiles.map(file => (
+              <View key={file.uri} style={s0.fileRow}>
+                <FileTypeIcon mimeType={file.mimeType} />
+                <View style={{ flex: 1 }}>
+                  <Text style={s0.fileName} numberOfLines={1}>{file.name}</Text>
+                  <Text style={s0.fileMeta}>{file.sizeText}</Text>
                 </View>
-              );
-            })}
+                <Pressable onPress={() => removeFile(file.uri)} hitSlop={8} style={s0.removeBtn}>
+                  <X size={13} color={Colors.muted} strokeWidth={2.5} />
+                </Pressable>
+                <CheckCircle size={20} color={Colors.teal} strokeWidth={2} style={{ marginLeft: 6 }} />
+              </View>
+            ))}
           </View>
         )}
 
-        {/* ── PANTALLA 2 ── */}
-        {step === 1 && (
-          <View>
-            <View style={styles.titleWrap}>
-              <Text style={styles.titleText}>Revisa tu sesión</Text>
-              <Text style={styles.titleSub}>
-                {selectedFiles.length > 1
-                  ? `${selectedFiles.length} archivos combinados`
-                  : 'Así quedó tu material.'}
-              </Text>
-            </View>
-
-            {/* Preview real + viewfinder */}
-            <View style={s2.previewWrap}>
-              {previewFile ? (
-                <Image source={{ uri: previewFile.uri }} style={s2.previewImg} contentFit="cover" />
-              ) : (
-                <View style={s2.previewFallback}>
-                  <FileText size={40} color={Colors.muted} strokeWidth={1.5} />
+        {/* Recent files */}
+        {!hasFiles && (
+          <>
+            <Text style={s0.recentLabel}>RECIENTES</Text>
+            {RECENT_FILES.map(file => (
+              <View key={file.name} style={s0.fileRow}>
+                <FileTypeIcon mimeType={file.mimeType} />
+                <View style={{ flex: 1 }}>
+                  <Text style={s0.fileName} numberOfLines={1}>{file.name}</Text>
+                  <Text style={s0.fileMeta}>{file.sizeText}</Text>
                 </View>
-              )}
-              <View style={[s2.corner, s2.cTL]} />
-              <View style={[s2.corner, s2.cTR]} />
-              <View style={[s2.corner, s2.cBL]} />
-              <View style={[s2.corner, s2.cBR]} />
-              <Animated.View style={[s2.laser, laserAnim]} />
-              <View style={s2.readyBadge}>
-                <View style={s2.readyDot} />
-                <Text style={s2.readyText}>Listo</Text>
+                <Pressable onPress={() => addFiles([file])} style={s0.useBtn}>
+                  <Text style={s0.useBtnText}>Usar</Text>
+                </Pressable>
               </View>
-              {/* Badge de múltiples archivos */}
-              {selectedFiles.length > 1 && (
-                <View style={s2.multiFileBadge}>
-                  <Text style={s2.multiFileText}>+{selectedFiles.length - 1} más</Text>
-                </View>
-              )}
-            </View>
-
-            {/* Chips horizontales */}
-            <View style={s2.chipsRow}>
-              <View style={s2.chip}>
-                <FileText size={11} color={Colors.ink3} strokeWidth={2} />
-                <Text style={s2.chipText}>
-                  {selectedFiles.length > 1 ? `${selectedFiles.length} archivos` : '5 págs'}
-                </Text>
-              </View>
-              <Text style={s2.chipSep}>·</Text>
-              <View style={s2.chip}>
-                <Target size={11} color={Colors.ink3} strokeWidth={2} />
-                <Text style={s2.chipText}>Biología</Text>
-              </View>
-              <Text style={s2.chipSep}>·</Text>
-              <View style={s2.chip}>
-                <CheckCircle size={11} color={Colors.teal} strokeWidth={2} />
-                <Text style={[s2.chipText, { color: Colors.teal }]}>Listo para usar</Text>
-              </View>
-            </View>
-
-            {/* Conceptos detectados */}
-            <View style={s2.conceptsSection}>
-              <Text style={s2.sectionLabel}>ESTO ES LO QUE DETECTAMOS</Text>
-              <View style={s2.conceptsRow}>
-                {['Mitosis', 'Cromosomas', 'División celular', 'Interfase', 'Citocinesis'].map(c => (
-                  <View key={c} style={s2.conceptChip}>
-                    <Text style={s2.conceptText}>{c}</Text>
-                  </View>
-                ))}
-              </View>
-            </View>
-
-            {/* Tipo de sesión */}
-            <View style={s2.sessionSection}>
-              <Text style={s2.sectionLabel}>TIPO DE SESIÓN</Text>
-              <Pressable
-                style={[s2.sessionCard, sessionType === 'practice' && s2.sessionCardActive]}
-                onPress={() => setSessionType('practice')}
-              >
-                <Sparkles size={22} color={sessionType === 'practice' ? BRAND : Colors.muted} strokeWidth={1.5} />
-                <View style={{ flex: 1, marginLeft: 12 }}>
-                  <Text style={[s2.sessionTitle, sessionType === 'practice' && { color: BRAND }]}>Adaptativa</Text>
-                  <Text style={s2.sessionDesc}>La IA ajusta la dificultad automáticamente</Text>
-                </View>
-                {sessionType === 'practice' && (
-                  <View style={s2.recommendedBadge}>
-                    <Text style={s2.recommendedText}>Recomendada</Text>
-                  </View>
-                )}
-              </Pressable>
-              <Pressable style={s2.personalizeBtn} onPress={() => setSessionTypeExpanded(e => !e)}>
-                <Text style={s2.personalizeBtnText}>Personalizar</Text>
-                <ChevronDown size={13} color={BRAND} strokeWidth={2}
-                  style={{ transform: [{ rotate: sessionTypeExpanded ? '180deg' : '0deg' }] }} />
-              </Pressable>
-              {sessionTypeExpanded && (
-                <View style={s2.altOptions}>
-                  {[
-                    { id: 'review', label: 'Revisión', desc: 'Repaso rápido de conceptos clave', icon: BookOpen },
-                    { id: 'exam', label: 'Simulacro', desc: 'Experiencia tipo prueba real', icon: Target },
-                  ].map(({ id, label, desc, icon: Icon }) => (
-                    <Pressable
-                      key={id}
-                      style={[s2.altCard, sessionType === id && s2.sessionCardActive]}
-                      onPress={() => { setSessionType(id); setSessionTypeExpanded(false); }}
-                    >
-                      <Icon size={18} color={sessionType === id ? BRAND : Colors.muted} strokeWidth={1.5} />
-                      <View style={{ flex: 1, marginLeft: 10 }}>
-                        <Text style={[s2.altTitle, sessionType === id && { color: BRAND }]}>{label}</Text>
-                        <Text style={s2.sessionDesc}>{desc}</Text>
-                      </View>
-                    </Pressable>
-                  ))}
-                </View>
-              )}
-            </View>
-
-            {/* Duración */}
-            <View style={s2.durationCard}>
-              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                  <Clock size={14} color={Colors.ink3} strokeWidth={2} />
-                  <Text style={s2.durationLabel}>Duración estimada</Text>
-                </View>
-                <View style={s2.durationBadge}>
-                  <Text style={s2.durationVal}>{duration} min</Text>
-                </View>
-              </View>
-              <View style={s2.sliderTrack}>
-                <View style={[s2.sliderFill, { width: `${Math.min(duration / 40, 1) * 100}%` }]} />
-                <View style={[s2.sliderThumb, { left: `${Math.min(duration / 40, 1) * 100}%` as any }]} />
-              </View>
-              <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 6 }}>
-                <Text style={s2.durationRange}>5 min</Text>
-                <Text style={s2.durationRange}>40 min</Text>
-              </View>
-            </View>
-          </View>
+            ))}
+          </>
         )}
       </ScrollView>
 
-      {/* Sticky bottom */}
-      <View style={[styles.stickyBottom, { paddingBottom: insets.bottom + 12 }]}>
-        {step > 0 && (
-          <Pressable hitSlop={12} onPress={handleBack}>
-            <Text style={styles.backLink}>Volver</Text>
-          </Pressable>
-        )}
-        {(step === 1 || hasFiles) && (
-          <Pressable
-            style={[styles.continueBtn, { flex: step === 1 ? 1 : undefined, marginLeft: step === 1 ? 0 : 'auto' as any }]}
-            onPress={handleContinue}
-          >
-            <LinearGradient colors={[BRAND, BRAND2]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={styles.continueBtnGrad}>
-              <Text style={styles.continueBtnText}>Continuar</Text>
-              <ChevronRight size={16} color="white" strokeWidth={2.5} />
+      {/* Bottom CTA — aparece solo cuando hay archivos */}
+      {hasFiles && (
+        <View style={[s0.bottomBar, { paddingBottom: insets.bottom + 12 }]}>
+          <Pressable onPress={handleContinue} style={{ width: '100%' }}>
+            <LinearGradient colors={[BRAND, NEON]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={s0.continueBtn}>
+              <Text style={s0.continueBtnText}>Continuar</Text>
+              <ChevronRight size={18} color="white" strokeWidth={2.5} />
             </LinearGradient>
           </Pressable>
-        )}
-      </View>
+        </View>
+      )}
     </SafeAreaView>
   );
 }
 
-// ── Shared styles ─────────────────────────────────────────────────
-const styles = StyleSheet.create({
-  page: { flex: 1, backgroundColor: BG },
-  pageHeader: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 10 },
-  closeBtn: { width: 36, height: 36, borderRadius: 11, backgroundColor: 'white', borderWidth: 1, borderColor: Colors.line, alignItems: 'center', justifyContent: 'center', shadowColor: '#0B0B1A', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.06, shadowRadius: 6, elevation: 2 },
-  closeBtnText: { fontSize: 16, color: Colors.ink, fontWeight: '700' },
-  scrollArea: { flex: 1 },
-  scrollContent: { paddingHorizontal: 20 },
-  titleWrap: { paddingTop: 4, paddingBottom: 20 },
-  titleText: { fontSize: SM ? 22 : 26, fontWeight: '800', color: Colors.ink, letterSpacing: -0.4, marginBottom: 5 },
-  titleSub: { fontSize: 14, color: Colors.ink3, lineHeight: 20 },
+// ── Shared header styles ──────────────────────────────────────────
+const shared = StyleSheet.create({
+  header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 10 },
+  iconBtn: { width: 36, height: 36, borderRadius: 11, backgroundColor: 'white', borderWidth: 1, borderColor: Colors.line, alignItems: 'center', justifyContent: 'center', shadowColor: '#0B0B1A', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.06, shadowRadius: 5, elevation: 2 },
+  iconBtnText: { fontSize: 17, color: Colors.ink, fontWeight: '700' },
+});
 
-  // File list (selected)
-  fileList: { marginBottom: 14, gap: 8 },
-  fileRow: { flexDirection: 'row', alignItems: 'center', backgroundColor: 'white', borderRadius: 16, borderWidth: 1, borderColor: Colors.line, padding: 12, gap: 12 },
-  fileThumb: { width: 44, height: 44, borderRadius: 10, backgroundColor: Colors.bgSoft },
+// ── Screen 0 styles ───────────────────────────────────────────────
+const s0 = StyleSheet.create({
+  page:  { flex: 1, backgroundColor: BG },
+  scroll: { paddingHorizontal: 20, paddingTop: 4 },
+  title: { fontSize: SM ? 24 : 28, fontWeight: '900', color: Colors.ink, letterSpacing: -0.5, marginBottom: 6 },
+  subtitle: { fontSize: 15, color: Colors.ink3, marginBottom: 24, lineHeight: 22 },
+
+  dropZone: { borderWidth: 2, borderStyle: 'dashed', borderColor: 'rgba(91,61,245,0.3)', borderRadius: 22, paddingVertical: 32, paddingHorizontal: 20, alignItems: 'center', backgroundColor: 'rgba(91,61,245,0.03)', marginBottom: 14 },
+  dropIconWrap: { width: 72, height: 72, borderRadius: 20, backgroundColor: 'rgba(91,61,245,0.08)', alignItems: 'center', justifyContent: 'center', marginBottom: 14 },
+  dropMainText: { fontSize: 15, fontWeight: '700', color: Colors.ink, marginBottom: 4, textAlign: 'center' },
+  dropSubText:  { fontSize: 13, color: Colors.muted, marginBottom: 18, textAlign: 'center' },
+  chooseBtnWrap: { width: '80%' },
+  chooseBtn: { paddingVertical: 13, borderRadius: 30, alignItems: 'center' },
+  chooseBtnText: { fontSize: 15, fontWeight: '800', color: 'white' },
+
+  cameraLink: { alignItems: 'center', paddingVertical: 8, marginBottom: 10 },
+  cameraLinkText: { fontSize: 13, color: BRAND, fontWeight: '700' },
+
+  error: { color: Colors.rose, fontSize: 12, fontWeight: '700', marginBottom: 10 },
+
+  fileList: { marginTop: 4, gap: 8, marginBottom: 8 },
+  fileRow:  { flexDirection: 'row', alignItems: 'center', backgroundColor: 'white', borderRadius: 16, borderWidth: 1, borderColor: Colors.line, padding: 12, gap: 12 },
   fileName: { fontSize: 13, fontWeight: '700', color: Colors.ink, marginBottom: 2 },
   fileMeta: { fontSize: 11, color: Colors.muted },
-  removeBtn: { width: 28, height: 28, borderRadius: 8, backgroundColor: Colors.bgSoft, alignItems: 'center', justifyContent: 'center' },
+  removeBtn: { width: 26, height: 26, borderRadius: 8, backgroundColor: Colors.bgSoft, alignItems: 'center', justifyContent: 'center' },
 
-  // Two-column option cards
-  optionsRow: { flexDirection: 'row', gap: 10, marginBottom: 16 },
-  optionCardPrimary: { flex: 1, borderRadius: 20, overflow: 'hidden', shadowColor: BRAND, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.22, shadowRadius: 12, elevation: 6 },
-  optionCardGrad: { paddingVertical: 22, paddingHorizontal: 16, alignItems: 'center', gap: 8 },
-  optionCardTitlePrimary: { fontSize: 14, fontWeight: '800', color: 'white', textAlign: 'center' },
-  optionCardSubPrimary: { fontSize: 11, color: 'rgba(255,255,255,0.8)', textAlign: 'center', lineHeight: 15 },
-  optionCardSecondary: { flex: 1, borderRadius: 20, backgroundColor: 'white', borderWidth: 1.5, borderColor: Colors.line2, paddingVertical: 22, paddingHorizontal: 16, alignItems: 'center', gap: 8, shadowColor: '#0B0B1A', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.06, shadowRadius: 8, elevation: 2 },
-  optionCardTitleSecondary: { fontSize: 14, fontWeight: '800', color: Colors.ink, textAlign: 'center' },
-  optionCardSubSecondary: { fontSize: 11, color: Colors.ink3, textAlign: 'center', lineHeight: 15 },
-
-  uploadError: { color: Colors.rose, fontSize: 12, fontWeight: '700', marginBottom: 12 },
-
-  // Recent files
-  recentLabel: { fontSize: 10, fontWeight: '700', color: Colors.muted, letterSpacing: 0.7, marginBottom: 10, marginTop: 4 },
-  recentItem: { flexDirection: 'row', alignItems: 'center', backgroundColor: 'white', borderRadius: 16, borderWidth: 1, borderColor: Colors.line, padding: 12, marginBottom: 8, gap: 12 },
-  recentThumb: { width: 44, height: 44, borderRadius: 9, backgroundColor: Colors.bgSoft },
-  recentName: { fontSize: 13, fontWeight: '700', color: Colors.ink, marginBottom: 2 },
-  recentMeta: { fontSize: 11, color: Colors.muted },
-  useBtn: { backgroundColor: 'rgba(91,61,245,0.08)', borderRadius: 10, paddingVertical: 7, paddingHorizontal: 12 },
+  recentLabel: { fontSize: 10, fontWeight: '700', color: Colors.muted, letterSpacing: 0.7, marginBottom: 10, marginTop: 6 },
+  useBtn:    { backgroundColor: 'rgba(91,61,245,0.08)', borderRadius: 10, paddingVertical: 7, paddingHorizontal: 12 },
   useBtnText: { fontSize: 12, fontWeight: '700', color: BRAND },
-  addedBadge: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  addedText: { fontSize: 12, fontWeight: '600', color: Colors.teal },
 
-  // Sticky bottom
-  stickyBottom: { paddingHorizontal: 20, paddingTop: 12, borderTopWidth: 1, borderTopColor: Colors.line, backgroundColor: BG, flexDirection: 'row', alignItems: 'center', gap: 16 },
-  backLink: { fontSize: 14, fontWeight: '600', color: Colors.ink3 },
-  continueBtn: { borderRadius: 18, overflow: 'hidden', shadowColor: BRAND, shadowOffset: { width: 0, height: 5 }, shadowOpacity: 0.22, shadowRadius: 12, elevation: 8 },
-  continueBtnGrad: { paddingVertical: 15, paddingHorizontal: 24, flexDirection: 'row', alignItems: 'center', gap: 6 },
-  continueBtnText: { fontSize: 15, fontWeight: '800', color: 'white' },
+  bottomBar:   { paddingHorizontal: 20, paddingTop: 12, borderTopWidth: 1, borderTopColor: Colors.line, backgroundColor: BG },
+  continueBtn: { paddingVertical: 16, borderRadius: 30, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 },
+  continueBtnText: { fontSize: 16, fontWeight: '800', color: 'white' },
 });
 
-// ── Pantalla 2 styles ─────────────────────────────────────────────
+// ── Screen 1 styles ───────────────────────────────────────────────
+const s1 = StyleSheet.create({
+  page:   { flex: 1, backgroundColor: BG },
+  scroll: { paddingHorizontal: 20, paddingTop: 4 },
+  title:  { fontSize: SM ? 22 : 26, fontWeight: '900', color: Colors.ink, letterSpacing: -0.4, marginBottom: 8, textAlign: 'center' },
+  subtitle: { fontSize: 14, color: Colors.ink3, lineHeight: 22, textAlign: 'center', marginBottom: 28 },
+
+  mascotCard:  { backgroundColor: 'rgba(91,61,245,0.05)', borderRadius: 28, borderWidth: 1, borderColor: 'rgba(91,61,245,0.1)', marginBottom: 20, overflow: 'hidden', height: SM ? 190 : 220 },
+  mascotInner: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+  mascotEmoji: { fontSize: 80 },
+
+  progressCard: { backgroundColor: 'white', borderRadius: 20, borderWidth: 1, borderColor: Colors.line, padding: 18, marginBottom: 16, shadowColor: '#0B0B1A', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.06, shadowRadius: 10, elevation: 2 },
+  progressHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
+  progressTitle: { fontSize: 14, fontWeight: '800', color: Colors.ink },
+  progressPct:   { fontSize: 16, fontWeight: '900', color: BRAND },
+  progressTrack: { height: 10, backgroundColor: Colors.bgSoft, borderRadius: 99, overflow: 'hidden', marginBottom: 10 },
+  progressFill:  { height: '100%', borderRadius: 99, overflow: 'hidden' },
+  progressMsg:   { fontSize: 12, color: Colors.muted, fontStyle: 'italic' },
+
+  errorBanner: { backgroundColor: 'rgba(255,77,109,0.07)', borderColor: 'rgba(255,77,109,0.2)', borderWidth: 1, borderRadius: 18, padding: 18, marginBottom: 16 },
+  errorTitle:  { fontSize: 15, fontWeight: '800', color: Colors.rose, marginBottom: 6 },
+  errorMsg:    { fontSize: 13, color: Colors.ink3, lineHeight: 19, marginBottom: 14 },
+  retryBtn:    { backgroundColor: Colors.rose, borderRadius: 14, paddingVertical: 11, alignItems: 'center' },
+  retryText:   { fontSize: 14, fontWeight: '700', color: 'white' },
+
+  tipCard: { flexDirection: 'row', alignItems: 'flex-start', gap: 10, backgroundColor: 'rgba(196,248,82,0.12)', borderRadius: 16, borderWidth: 1, borderColor: 'rgba(196,248,82,0.3)', padding: 14 },
+  tipIcon: { fontSize: 18, marginTop: 1 },
+  tipText: { flex: 1, fontSize: 13, color: Colors.ink2, lineHeight: 19 },
+  tipBold: { fontWeight: '800', color: Colors.ink },
+});
+
+// ── Screen 2 styles ───────────────────────────────────────────────
 const s2 = StyleSheet.create({
-  previewWrap: { height: 210, borderRadius: 20, overflow: 'hidden', backgroundColor: '#1A1A2E', marginBottom: 14, position: 'relative' },
-  previewImg: { position: 'absolute', inset: 0 } as any,
-  previewFallback: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  corner: { position: 'absolute', width: 22, height: 22, borderWidth: 3, borderColor: Colors.lime, borderRadius: 4 },
-  cTL: { top: 10, left: 10, borderRightWidth: 0, borderBottomWidth: 0 },
-  cTR: { top: 10, right: 10, borderLeftWidth: 0, borderBottomWidth: 0 },
-  cBL: { bottom: 10, left: 10, borderRightWidth: 0, borderTopWidth: 0 },
-  cBR: { bottom: 10, right: 10, borderLeftWidth: 0, borderTopWidth: 0 },
-  laser: { position: 'absolute', left: 10, right: 10, height: 2, backgroundColor: Colors.lime, shadowColor: Colors.lime, shadowOffset: { width: 0, height: 0 }, shadowOpacity: 0.9, shadowRadius: 5 },
-  readyBadge: { position: 'absolute', top: 10, right: 10, backgroundColor: 'rgba(0,194,168,0.85)', paddingVertical: 4, paddingHorizontal: 10, borderRadius: 20, flexDirection: 'row', alignItems: 'center', gap: 5 },
-  readyDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: 'white' },
-  readyText: { color: 'white', fontSize: 11, fontWeight: '700' },
-  multiFileBadge: { position: 'absolute', bottom: 10, right: 10, backgroundColor: 'rgba(0,0,0,0.55)', paddingVertical: 4, paddingHorizontal: 9, borderRadius: 20 },
-  multiFileText: { color: 'white', fontSize: 11, fontWeight: '700' },
-  chipsRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 20, gap: 6 },
-  chip: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  chipText: { fontSize: 12, color: Colors.ink3, fontWeight: '600' },
-  chipSep: { fontSize: 14, color: Colors.line2 },
-  conceptsSection: { marginBottom: 20 },
-  sectionLabel: { fontSize: 10, fontWeight: '700', color: Colors.muted, letterSpacing: 0.7, marginBottom: 10 },
-  conceptsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  conceptChip: { backgroundColor: Colors.brandSoft, borderRadius: 20, paddingVertical: 6, paddingHorizontal: 12 },
-  conceptText: { fontSize: 12, fontWeight: '700', color: BRAND },
-  sessionSection: { marginBottom: 16 },
-  sessionCard: { flexDirection: 'row', alignItems: 'center', backgroundColor: 'white', borderRadius: 18, borderWidth: 1, borderColor: Colors.line, padding: 16, marginBottom: 8, shadowColor: '#0B0B1A', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.04, shadowRadius: 6, elevation: 1 },
-  sessionCardActive: { borderColor: BRAND, backgroundColor: 'rgba(91,61,245,0.04)' },
-  sessionTitle: { fontSize: 15, fontWeight: '800', color: Colors.ink, marginBottom: 3 },
-  sessionDesc: { fontSize: 12, color: Colors.ink3, lineHeight: 17 },
-  recommendedBadge: { backgroundColor: 'rgba(91,61,245,0.1)', borderRadius: 10, paddingVertical: 4, paddingHorizontal: 8 },
-  recommendedText: { fontSize: 10, fontWeight: '700', color: BRAND },
-  personalizeBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 8, paddingHorizontal: 4, alignSelf: 'flex-start' },
-  personalizeBtnText: { fontSize: 13, fontWeight: '700', color: BRAND },
-  altOptions: { gap: 8, marginTop: 4 },
-  altCard: { flexDirection: 'row', alignItems: 'center', backgroundColor: 'white', borderRadius: 14, borderWidth: 1, borderColor: Colors.line, padding: 14 },
-  altTitle: { fontSize: 13, fontWeight: '700', color: Colors.ink, marginBottom: 2 },
-  durationCard: { backgroundColor: 'white', borderRadius: 16, borderWidth: 1, borderColor: Colors.line, padding: 16, marginBottom: 8 },
-  durationLabel: { fontSize: 13, fontWeight: '700', color: Colors.ink2 },
-  durationBadge: { backgroundColor: Colors.brandSoft, borderRadius: 12, paddingVertical: 4, paddingHorizontal: 12 },
-  durationVal: { fontSize: 14, fontWeight: '800', color: BRAND },
-  durationRange: { fontSize: 10, color: Colors.muted, fontWeight: '600' },
-  sliderTrack: { height: 8, borderRadius: 999, backgroundColor: Colors.bgSoft, overflow: 'hidden', marginBottom: 8 },
-  sliderFill: { height: '100%', borderRadius: 999, backgroundColor: BRAND },
-  sliderThumb: { position: 'absolute', width: 20, height: 20, borderRadius: 10, borderWidth: 3, borderColor: BRAND, backgroundColor: 'white', top: -6 },
-});
-
-// ── Pantalla 3 styles ─────────────────────────────────────────────
-const s3 = StyleSheet.create({
   page: { flex: 1, backgroundColor: BG },
-  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, paddingVertical: 16, borderBottomWidth: 1, borderBottomColor: Colors.line },
-  headerTitle: { fontSize: 17, fontWeight: '800', color: Colors.ink },
-  body: { flex: 1 },
-  half: { flex: 1, paddingHorizontal: 20, paddingTop: 14, paddingBottom: 6 },
-  divider: { height: 1, backgroundColor: Colors.line, marginHorizontal: 20 },
-  sectionLabel: { fontSize: 10, fontWeight: '700', color: Colors.muted, letterSpacing: 0.7, marginBottom: 10 },
-  transcriptScroll: { flex: 1 },
-  transcriptContent: { paddingBottom: 8 },
-  transcriptText: { fontSize: 13, color: Colors.ink2, lineHeight: 20 },
-  transcriptPlaceholder: { fontSize: 13, color: Colors.muted, fontStyle: 'italic', lineHeight: 20 },
-  cursor: { color: BRAND, fontWeight: '900' },
-  questionsScroll: { flex: 1 },
-  questionCard: { backgroundColor: 'white', borderRadius: 14, borderWidth: 1, borderColor: Colors.line, padding: 12, marginBottom: 8 },
-  questionText: { fontSize: 13, fontWeight: '600', color: Colors.ink, lineHeight: 19, marginBottom: 6 },
-  sourceChip: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  sourceText: { fontSize: 10, color: BRAND, flex: 1, fontStyle: 'italic' },
-  errorWrap: { flex: 1, padding: 20, justifyContent: 'center' },
-  errorBanner: { backgroundColor: 'rgba(255,77,109,0.07)', borderColor: 'rgba(255,77,109,0.2)', borderWidth: 1, borderRadius: 20, padding: 20 },
-  errorTitle: { fontSize: 16, fontWeight: '800', color: Colors.rose, marginBottom: 8 },
-  errorMsg: { fontSize: 13, color: Colors.ink3, lineHeight: 19, marginBottom: 16 },
-  retryBtn: { backgroundColor: Colors.rose, borderRadius: 14, paddingVertical: 12, alignItems: 'center' },
-  retryText: { fontSize: 14, fontWeight: '700', color: 'white' },
-});
+  confettiLayer: { ...StyleSheet.absoluteFillObject, zIndex: 0 },
+  scroll: { paddingHorizontal: 24, paddingTop: 8, alignItems: 'center', zIndex: 1 },
 
-// ── Pantalla 4 styles ─────────────────────────────────────────────
-const s4 = StyleSheet.create({
-  page: { flex: 1, backgroundColor: Colors.paper },
-  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: Colors.line },
-  backBtn: { width: 38, height: 38, borderRadius: 12, backgroundColor: Colors.bgSoft, alignItems: 'center', justifyContent: 'center' },
-  backBtnText: { fontSize: 18, color: Colors.ink, fontWeight: '700' },
-  headerTitle: { fontSize: 17, fontWeight: '800', color: Colors.ink },
-  scroll: { padding: 16, paddingBottom: 8 },
-  hero: { borderRadius: 24, paddingVertical: 32, paddingHorizontal: 24, alignItems: 'center', marginBottom: 16 },
-  checkWrap: { marginBottom: 20 },
-  checkCircle: { width: 72, height: 72, borderRadius: 36, backgroundColor: Colors.lime, alignItems: 'center', justifyContent: 'center', shadowColor: Colors.lime, shadowOffset: { width: 0, height: 0 }, shadowRadius: 20, elevation: 8 },
-  checkText: { fontSize: 36, color: Colors.ink, fontWeight: '900' },
-  xpHero: { fontSize: 24, fontWeight: '900', color: Colors.lime, textAlign: 'center', letterSpacing: -0.5, marginBottom: 10 },
-  heroSub: { fontSize: 14, color: 'rgba(255,255,255,0.7)', textAlign: 'center' },
-  card: { backgroundColor: Colors.paper, borderRadius: 20, borderWidth: 1, borderColor: Colors.line, padding: 18, shadowColor: Colors.ink, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.06, shadowRadius: 16, elevation: 3, marginBottom: 8 },
-  subjectRow: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 16 },
-  subjectIcon: { width: 52, height: 52, borderRadius: 14, backgroundColor: '#DBFCE7', alignItems: 'center', justifyContent: 'center' },
-  subjectName: { fontSize: 16, fontWeight: '800', color: Colors.ink, marginBottom: 2 },
-  topicText: { fontSize: 11, color: Colors.muted, fontWeight: '600', letterSpacing: 0.3 },
-  diffBadge: { backgroundColor: Colors.bgSoft, borderRadius: 100, paddingVertical: 5, paddingHorizontal: 10, borderWidth: 1, borderColor: Colors.line },
-  diffText: { fontSize: 11, fontWeight: '700', color: Colors.ink2 },
-  divider: { height: 1, backgroundColor: Colors.line, marginVertical: 14 },
-  statsGrid: { flexDirection: 'row', flexWrap: 'wrap' },
-  statCell: { width: '50%', alignItems: 'center', paddingVertical: 12 },
-  statVal: { fontSize: 17, fontWeight: '900', color: Colors.ink, marginBottom: 3 },
-  statLbl: { fontSize: 9, fontWeight: '700', color: Colors.muted, letterSpacing: 0.6 },
-  contentRow: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 10 },
-  contentIcon: { fontSize: 18, width: 24 },
-  contentLabel: { flex: 1, fontSize: 14, color: Colors.ink2, fontWeight: '500' },
-  contentCount: { backgroundColor: Colors.bgSoft, borderRadius: 8, paddingVertical: 3, paddingHorizontal: 10 },
-  contentCountText: { fontSize: 13, fontWeight: '700', color: Colors.ink },
-  actions: { padding: 16, gap: 0, borderTopWidth: 1, borderTopColor: Colors.line, backgroundColor: Colors.paper },
-  ctaShadow: { borderRadius: 18, shadowColor: BRAND, shadowOffset: { width: 0, height: 6 }, shadowRadius: 16, elevation: 10 },
-  ctaOverflow: { borderRadius: 18, overflow: 'hidden' },
-  ctaGrad: { paddingVertical: 17, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 },
-  ctaText: { color: 'white', fontWeight: '800', fontSize: 17, letterSpacing: -0.2 },
-  textLinks: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10, marginTop: 14 },
-  textLink: { fontSize: 13, color: Colors.muted, fontWeight: '600' },
-  textLinkDot: { fontSize: 16, color: Colors.line2 },
+  celebWrap:  { alignItems: 'center', marginBottom: 18, marginTop: 8 },
+  celebEmoji: { fontSize: 90 },
+
+  title:    { fontSize: SM ? 26 : 30, fontWeight: '900', color: Colors.ink, letterSpacing: -0.5, textAlign: 'center', marginBottom: 8 },
+  subtitle: { fontSize: 14, color: Colors.ink3, textAlign: 'center', lineHeight: 21, marginBottom: 24 },
+
+  card: { width: '100%', backgroundColor: 'white', borderRadius: 22, borderWidth: 1, borderColor: Colors.line, padding: 20, shadowColor: '#0B0B1A', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.07, shadowRadius: 14, elevation: 3 },
+  statRow:   { flexDirection: 'row', alignItems: 'center', gap: 14, paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: Colors.line },
+  statEmoji: { fontSize: 22, width: 28 },
+  statLabel: { fontSize: 14, fontWeight: '600', color: Colors.ink2, flex: 1 },
+
+  actions: { paddingHorizontal: 24, paddingTop: 12, alignItems: 'center', borderTopWidth: 1, borderTopColor: Colors.line, backgroundColor: BG, zIndex: 2 },
+  ctaBtn:  { paddingVertical: 16, borderRadius: 30, alignItems: 'center', width: '100%' },
+  ctaText: { fontSize: 17, fontWeight: '800', color: 'white' },
+  saveLink: { fontSize: 14, fontWeight: '600', color: Colors.muted },
 });
