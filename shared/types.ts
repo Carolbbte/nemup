@@ -29,6 +29,7 @@ export interface Flashcard {
 }
 
 export type SummarySlideType = 'concept' | 'key_fact' | 'important' | 'remember' | 'example' | 'curiosity' | 'wow_fact';
+export type IllustrationType = 'educational' | 'diagram' | 'concept' | 'timeline' | 'map' | 'process' | 'comparison';
 
 export interface SummarySlide {
   type: SummarySlideType;
@@ -36,6 +37,8 @@ export interface SummarySlide {
   title: string;
   definition: string;
   example: string;
+  visualHint?: string;
+  illustrationType?: IllustrationType;
 }
 
 export interface Summary {

@@ -8,6 +8,7 @@ import type {
   Flashcard,
   Summary,
   SummarySlideType,
+  IllustrationType,
   SessionConfig,
   GeneratedSession,
 } from '../types.js';
@@ -55,6 +56,12 @@ SUMMARY RULES (critical — mobile app for teenagers):
 - Slide types: concept (neutral idea), key_fact (important data), important (critical info),
   remember (must memorize), example (concrete application), curiosity (interesting detail),
   wow_fact (surprising fact — use sparingly, 1-2 per topic).
+- "visualHint": short description (5-10 words) of the ideal image to represent this concept.
+  Must be concrete and visual. Examples: "célula dividiéndose en mitosis",
+  "mapa rutas comerciales medievales", "átomo con electrones en órbita".
+- "illustrationType": choose the most fitting type for the visual:
+  educational (general illustration), diagram (structure/parts), concept (abstract idea),
+  timeline (chronological), map (geographic), process (steps/flow), comparison (side by side).
 
 JSON schema:
 {
@@ -89,7 +96,9 @@ JSON schema:
         "emoji": string,
         "title": string,
         "definition": string,
-        "example": string
+        "example": string,
+        "visualHint": string,
+        "illustrationType": "educational" | "diagram" | "concept" | "timeline" | "map" | "process" | "comparison"
       }
     ],
     "sourceQuotes": [string]
@@ -151,6 +160,7 @@ ${normalizeText(transcription)}
   })) as Flashcard[];
 
   const VALID_SLIDE_TYPES: SummarySlideType[] = ['concept', 'key_fact', 'important', 'remember', 'example', 'curiosity', 'wow_fact'];
+  const VALID_ILLUSTRATION_TYPES: IllustrationType[] = ['educational', 'diagram', 'concept', 'timeline', 'map', 'process', 'comparison'];
 
   const summary: Summary = {
     id: parsed.summary?.id || 'summary-1',
@@ -161,6 +171,8 @@ ${normalizeText(transcription)}
       title: slide.title || `Concepto ${i + 1}`,
       definition: slide.definition || slide.content || '',
       example: slide.example || '',
+      visualHint: slide.visualHint || undefined,
+      illustrationType: VALID_ILLUSTRATION_TYPES.includes(slide.illustrationType) ? slide.illustrationType : undefined,
     })),
     sourceQuotes: parsed.summary?.sourceQuotes || parsed.summary?.citas || [],
   };

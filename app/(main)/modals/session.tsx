@@ -51,7 +51,8 @@ type Option  = { id: string; text: string };
 type Question = { id: string; text: string; options: Option[]; correctOptionId: string; explanation: string; sourceQuote: string };
 type Flashcard = { id: string; front: string; back: string };
 type SummarySlideType = 'concept' | 'key_fact' | 'important' | 'remember' | 'example' | 'curiosity' | 'wow_fact';
-type BackendSlide = { type: SummarySlideType; emoji: string; title: string; definition: string; example: string };
+type IllustrationType = 'educational' | 'diagram' | 'concept' | 'timeline' | 'map' | 'process' | 'comparison';
+type BackendSlide = { type: SummarySlideType; emoji: string; title: string; definition: string; example: string; visualHint?: string; illustrationType?: IllustrationType };
 type LegacySection = { heading: string; content: string; keyPoints: string[] };
 type Session = {
   subject: string; topic: string; estimatedDuration: number; difficulty: string;
@@ -194,6 +195,41 @@ const fcd = StyleSheet.create({
   hintText:  { fontSize: 12, color: Colors.muted, fontStyle: 'italic' },
 });
 
+// ── Visual placeholder (future image slot) ────────────────────────
+const ILLUSTRATION_LABELS: Record<IllustrationType, string> = {
+  educational: 'ilustración',
+  diagram:     'diagrama',
+  concept:     'concepto',
+  timeline:    'línea de tiempo',
+  map:         'mapa',
+  process:     'proceso',
+  comparison:  'comparación',
+};
+
+function VisualPlaceholder({ hint, illustrationType }: { hint: string; illustrationType?: IllustrationType }) {
+  return (
+    <View style={vp.container}>
+      <View style={vp.topRow}>
+        <Text style={{ fontSize: 20 }}>🖼️</Text>
+        {illustrationType && (
+          <View style={vp.badge}>
+            <Text style={vp.badgeText}>{ILLUSTRATION_LABELS[illustrationType]}</Text>
+          </View>
+        )}
+      </View>
+      <Text style={vp.hint} numberOfLines={2}>{hint}</Text>
+    </View>
+  );
+}
+
+const vp = StyleSheet.create({
+  container:  { backgroundColor: Colors.bgSoft, borderRadius: 12, borderWidth: 1.5, borderColor: Colors.line2, borderStyle: 'dashed', paddingVertical: 12, paddingHorizontal: 14, marginBottom: 12, gap: 6 },
+  topRow:     { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  badge:      { backgroundColor: Colors.line2, borderRadius: 100, paddingVertical: 2, paddingHorizontal: 8 },
+  badgeText:  { fontSize: 9, fontWeight: '700', color: Colors.muted, textTransform: 'uppercase', letterSpacing: 0.5 },
+  hint:       { fontSize: 12, color: Colors.muted, fontStyle: 'italic', lineHeight: 17 },
+});
+
 // ── Summary slide style config ────────────────────────────────────
 const SLIDE_STYLE: Record<string, { accent: string; bg: string; label: string }> = {
   key_fact:  { accent: '#5B3DF5', bg: 'rgba(91,61,245,0.08)',  label: '💡 Dato clave' },
@@ -206,7 +242,7 @@ const SLIDE_STYLE: Record<string, { accent: string; bg: string; label: string }>
 
 // ── Summary slide builder ─────────────────────────────────────────
 type SummarySlide =
-  | { type: SummarySlideType; emoji: string; title: string; definition: string; example: string }
+  | { type: SummarySlideType; emoji: string; title: string; definition: string; example: string; visualHint?: string; illustrationType?: IllustrationType }
   | { type: 'milestone'; emoji: string; message: string };
 
 const MILESTONES = [
@@ -588,7 +624,10 @@ export default function SessionPlayerScreen() {
               </View>
             ) : slide?.type === 'concept' ? (
               <View style={sum.introCard}>
-                <Text style={sum.slideEmoji}>{slide.emoji}</Text>
+                {slide.visualHint
+                  ? <VisualPlaceholder hint={slide.visualHint} illustrationType={slide.illustrationType} />
+                  : <Text style={sum.slideEmoji}>{slide.emoji}</Text>
+                }
                 <Text style={sum.introHeading}>{slide.title}</Text>
                 {!!slide.definition && <Text style={sum.introDef}>{slide.definition}</Text>}
                 {!!slide.example && (
@@ -606,7 +645,10 @@ export default function SessionPlayerScreen() {
               </View>
             ) : (
               <View style={[sum.kpCard, { backgroundColor: SLIDE_STYLE[slide?.type]?.bg, borderLeftColor: SLIDE_STYLE[slide?.type]?.accent }]}>
-                <Text style={sum.kpEmoji}>{slide?.emoji}</Text>
+                {slide?.visualHint
+                  ? <VisualPlaceholder hint={slide.visualHint} illustrationType={slide.illustrationType} />
+                  : <Text style={sum.kpEmoji}>{slide?.emoji}</Text>
+                }
                 <Text style={[sum.kpLabel, { color: SLIDE_STYLE[slide?.type]?.accent }]}>{SLIDE_STYLE[slide?.type]?.label}</Text>
                 <Text style={sum.kpTitle}>{slide?.title}</Text>
                 {!!slide?.definition && <Text style={sum.kpDef}>{slide.definition}</Text>}
