@@ -39,44 +39,124 @@ export async function generateSessionContent(
 ): Promise<GenerationResult> {
   console.log('[Generation] Curso utilizado para generar sesión:', curso);
 
-  const prompt = [`You are an educational assistant for Chilean high-school learners. Based on the transcription below, create a study session with the following JSON structure.
+  const prompt = `You are an educational assistant for Chilean high-school learners. Based on the transcription below, create a study session with the following JSON structure.
 
-Rules:
+GLOBAL RULES:
 - Return only valid JSON without additional text.
 - Use quotes extracted verbatim from the transcription in 'sourceQuote'.
 - Keep each sourceQuote concise (20-80 characters) and ensure it appears in the transcription.
-- Use the provided difficulty and duration values from the configuration.
 
 CURSO DEL ESTUDIANTE: ${curso}
 
-Adapta toda la sesión al nivel académico indicado. NO cambies los conceptos presentes en los apuntes. SÍ adapta: vocabulario, profundidad de explicaciones, complejidad de ejemplos, dificultad de preguntas, dificultad de tarjetas, nivel de razonamiento requerido. Mantén coherencia con el nivel esperado para estudiantes chilenos del curso indicado.
+Adapta toda la sesión al nivel académico indicado. NO cambies los conceptos presentes en los apuntes. SÍ adapta: vocabulario, profundidad, complejidad de ejemplos, dificultad de preguntas y tarjetas, nivel de razonamiento. Mantén coherencia con el nivel esperado para estudiantes chilenos del curso indicado.
 
 REGLAS POR CURSO:
-- 1º Medio: lenguaje simple, explicaciones cortas, ejemplos cotidianos, preguntas de reconocimiento e identificación, pocas inferencias.
-- 2º Medio: lenguaje intermedio, comprensión de conceptos, preguntas de comprensión y aplicación básica.
-- 3º Medio: mayor profundidad conceptual, análisis de relaciones entre conceptos, ejercicios de razonamiento y comparación.
-- 4º Medio: nivel preuniversitario, análisis crítico, aplicación compleja de conceptos, preguntas similares a evaluaciones exigentes con razonamiento e interpretación.
+- 1º Medio: lenguaje simple, ejemplos cotidianos, preguntas de reconocimiento, pocas inferencias.
+- 2º Medio: lenguaje intermedio, comprensión de conceptos, preguntas de aplicación básica.
+- 3º Medio: profundidad conceptual, análisis de relaciones, ejercicios de razonamiento.
+- 4º Medio: nivel preuniversitario, análisis crítico, aplicación compleja, preguntas exigentes.
 
-SUMMARY RULES (critical — mobile app for teenagers):
-- Each slide = ONE single idea. Never group multiple ideas in one slide.
-- "definition": max 20-25 words. Clear, direct, no filler phrases.
-- "example": max 25-30 words. Must be concrete, visual, and memorable.
-  Use real-world cases, analogies, or surprising comparisons.
-  If no practical example exists, create a simple analogy that aids understanding.
-  Never leave example empty for concept/key_fact/important/remember/curiosity types.
-- "wow_fact": surprising standalone fact, max 15 words. No example needed.
-- Choose an appropriate emoji for each slide.
-- Slide types: concept (neutral idea), key_fact (important data), important (critical info),
-  remember (must memorize), example (concrete application), curiosity (interesting detail),
-  wow_fact (surprising fact — use sparingly, 1-2 per topic).
-- "visualHint": short description (5-10 words) of the ideal image to represent this concept.
-  Must be concrete and visual. Examples: "célula dividiéndose en mitosis",
-  "mapa rutas comerciales medievales", "átomo con electrones en órbita".
-- "illustrationType": choose the most fitting type for the visual:
-  educational (general illustration), diagram (structure/parts), concept (abstract idea),
-  timeline (chronological), map (geographic), process (steps/flow), comparison (side by side).
+════════════════════════════════════════════════
+SUMMARY — EXPERIENCIA DE APRENDIZAJE ACTIVA
+════════════════════════════════════════════════
 
-JSON schema:
+OBJETIVO: La sesión debe sentirse como una experiencia interactiva, NO como un PowerPoint. Alterna tipos y mantén ritmo pedagógico.
+
+TIPOS DE TARJETA DISPONIBLES:
+• concept       — idea central neutra, definición directa
+• key_fact      — dato numérico o estadístico importante
+• important     — información crítica que no debe olvidarse
+• remember      — dato para memorizar
+• example       — caso real concreto o aplicación práctica
+• curiosity     — detalle interesante pero no sorprendente
+• wow_fact      — hecho sorprendente (máximo 1-2 por sesión)
+• did_you_know  — "¿Sabías que...?" hecho contraintuitivo o poco conocido
+• common_error  — error frecuente de los estudiantes sobre este tema
+• mini_quiz     — pregunta de selección múltiple interactiva (4 opciones)
+• true_false    — afirmación Verdadero/Falso con explicación
+• observe       — análisis de imagen con pregunta asociada
+• compare       — comparación explícita entre dos conceptos
+• partial_summary — resumen breve de lo visto hasta ese punto (1 cada 5-6 tarjetas)
+• final_challenge — pregunta integradora final (OBLIGATORIA, siempre la última)
+
+REGLA DE ALTERNACIÓN (obligatoria):
+- NUNCA generar más de 2 tarjetas consecutivas del mismo tipo.
+- Insertar una interacción (mini_quiz, true_false, common_error u observe) cada máximo 2 tarjetas informativas.
+- Ejemplo válido: concept → example → mini_quiz → key_fact → did_you_know → true_false → compare → partial_summary → mini_quiz → final_challenge
+- Ejemplo INVÁLIDO: concept → concept → concept → example → example
+
+CONECTORES NARRATIVOS (campo "connector" — obligatorio en cada tarjeta):
+- Cada tarjeta incluye "connector": frase corta que crea expectativa hacia su contenido.
+- Primera tarjeta: connector puede ser null.
+- Ejemplos: "Ahora veremos otra evidencia.", "¿Pero cómo lo sabemos con certeza?", "Existe una prueba aún más sorprendente.", "No todos los estudiantes entienden esto bien.", "¿Eres capaz de responder esto?", "Pasemos a un nivel más profundo.", "Antes de continuar, verifica tu comprensión.", "Los fósiles no son la única prueba."
+
+TARJETA FINAL OBLIGATORIA (final_challenge):
+- La ÚLTIMA tarjeta SIEMPRE es de tipo "final_challenge".
+- emoji: 🏆, title: "¿Qué aprendiste?"
+- question: combina 2 o más conceptos vistos en la sesión.
+- definition: pista o contexto para responder. No agregar example.
+
+REGLAS POR TIPO DE TARJETA INTERACTIVA:
+
+mini_quiz:
+- question: pregunta clara y directa
+- options: array de exactamente 4 strings con formato ["A. texto", "B. texto", "C. texto", "D. texto"]
+- correctAnswer: "A", "B", "C" o "D"
+- definition: explicación breve de por qué es correcta (max 20 palabras)
+- CRÍTICO: los distractores deben ser plausibles. Deben parecer posibles respuestas correctas, no opciones absurdas.
+
+true_false:
+- question: afirmación que puede ser verdadera o falsa
+- correctAnswer: "Verdadero" o "Falso"
+- definition: explicación de por qué (max 20 palabras)
+
+observe:
+- Solo usar si el material describe imágenes, gráficos, mapas, tablas, estructuras visuales o datos visuales.
+- question: pregunta sobre lo que se observa o deduce
+- visualHint: descripción detallada de la imagen (10-15 palabras)
+- definition: qué debe identificar o aprender el estudiante de la imagen
+
+common_error:
+- title: "Error común: [descripción]"
+- definition: por qué es incorrecto + la respuesta correcta
+
+compare:
+- title: "X vs Y" o "¿En qué se diferencian X e Y?"
+- definition: diferencias y similitudes clave (max 25 palabras)
+
+partial_summary:
+- title: "Hasta aquí..." o "Repaso rápido"
+- definition: resumen de 2-3 ideas clave vistas hasta ese punto
+
+REGLAS GENERALES DE CONTENIDO (resumen):
+- Each slide = ONE single idea. Never group multiple ideas.
+- "definition": max 20-25 words. Clear, direct.
+- "example": max 25-30 words for non-interactive types. Concrete, visual, memorable. If no real example exists, create an analogy.
+- "wow_fact": surprising fact, max 15 words. No example needed.
+- "visualHint": 5-10 words describing the ideal image. Must be concrete and visual.
+- "illustrationType": educational | diagram | concept | timeline | map | process | comparison
+
+════════════════════════════════════════════════
+QUIZ — PREGUNTAS DE SELECCIÓN MÚLTIPLE
+════════════════════════════════════════════════
+
+- Generate questions that test understanding, not just memorization.
+- Each question must have exactly 4 options.
+- CRÍTICO: distractores deben ser plausibles — relacionados con el tema, podrían parecer correctos.
+  Ejemplo correcto: si la pregunta es sobre fotosíntesis, un distractor válido es "respiración celular", no "comer pizza".
+- Mix: recognition questions (1° medio), application (2°-3°), reasoning and interpretation (4°).
+- explanation: why the correct answer is correct AND why the main distractor is wrong.
+
+════════════════════════════════════════════════
+FLASHCARDS
+════════════════════════════════════════════════
+
+- front: concise question or concept (max 10 words)
+- back: direct, memorable answer (max 25 words)
+- Mix concept cards with application cards ("how" and "why", not just "what").
+- Avoid pure definition repetition across cards.
+
+JSON SCHEMA:
 {
   "subject": string,
   "topic": string,
@@ -105,13 +185,17 @@ JSON schema:
     "title": string,
     "slides": [
       {
-        "type": "concept" | "key_fact" | "important" | "remember" | "example" | "curiosity" | "wow_fact",
+        "type": "concept"|"key_fact"|"important"|"remember"|"example"|"curiosity"|"wow_fact"|"did_you_know"|"common_error"|"mini_quiz"|"true_false"|"observe"|"compare"|"partial_summary"|"final_challenge",
         "emoji": string,
         "title": string,
         "definition": string,
         "example": string,
         "visualHint": string,
-        "illustrationType": "educational" | "diagram" | "concept" | "timeline" | "map" | "process" | "comparison"
+        "illustrationType": "educational"|"diagram"|"concept"|"timeline"|"map"|"process"|"comparison",
+        "connector": string | null,
+        "question": string | null,
+        "options": [string] | null,
+        "correctAnswer": string | null
       }
     ],
     "sourceQuotes": [string]
@@ -122,17 +206,17 @@ Use the transcription below and do not invent source quotes outside it. If the t
 
 Transcription:
 ${normalizeText(transcription)}
-`].join('');
+`;
 
-  const system = `Eres un generador de sesiones de estudio para jóvenes de enseñanza media. Proporciona un JSON válido y estructurado. Mantén el lenguaje en español.`;
+  const system = `Eres un diseñador de experiencias de aprendizaje para jóvenes de enseñanza media chilena. Genera sesiones interactivas con variedad de tipos de tarjetas. Proporciona JSON válido y estructurado. Mantén el lenguaje en español.`;
   const response = await openai.chat.completions.create({
     model: config.openai_model,
     messages: [
       { role: 'system', content: system },
       { role: 'user', content: prompt },
     ],
-    temperature: 0.15,
-    max_tokens: 3200,
+    temperature: 0.2,
+    max_tokens: 4200,
   });
 
   const raw = response.choices?.[0]?.message?.content ?? response.choices?.[0]?.message?.content?.toString?.() ?? '';
@@ -172,7 +256,11 @@ ${normalizeText(transcription)}
     difficulty: card.difficulty || 'easy',
   })) as Flashcard[];
 
-  const VALID_SLIDE_TYPES: SummarySlideType[] = ['concept', 'key_fact', 'important', 'remember', 'example', 'curiosity', 'wow_fact'];
+  const VALID_SLIDE_TYPES: SummarySlideType[] = [
+    'concept', 'key_fact', 'important', 'remember', 'example', 'curiosity', 'wow_fact',
+    'did_you_know', 'common_error', 'mini_quiz', 'true_false', 'observe',
+    'compare', 'partial_summary', 'final_challenge',
+  ];
   const VALID_ILLUSTRATION_TYPES: IllustrationType[] = ['educational', 'diagram', 'concept', 'timeline', 'map', 'process', 'comparison'];
 
   const summary: Summary = {
@@ -186,6 +274,10 @@ ${normalizeText(transcription)}
       example: slide.example || '',
       visualHint: slide.visualHint || undefined,
       illustrationType: VALID_ILLUSTRATION_TYPES.includes(slide.illustrationType) ? slide.illustrationType : undefined,
+      connector: slide.connector ?? null,
+      question: slide.question ?? null,
+      options: Array.isArray(slide.options) ? slide.options : null,
+      correctAnswer: slide.correctAnswer ?? null,
     })),
     sourceQuotes: parsed.summary?.sourceQuotes || parsed.summary?.citas || [],
   };

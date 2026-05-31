@@ -39,7 +39,11 @@ export interface Flashcard {
   difficulty: DifficultyLevel;
 }
 
-export type SummarySlideType = 'concept' | 'key_fact' | 'important' | 'remember' | 'example' | 'curiosity' | 'wow_fact';
+export type SummarySlideType =
+  | 'concept' | 'key_fact' | 'important' | 'remember' | 'example' | 'curiosity' | 'wow_fact'
+  | 'did_you_know' | 'common_error' | 'mini_quiz' | 'true_false' | 'observe'
+  | 'compare' | 'partial_summary' | 'final_challenge';
+
 export type IllustrationType = 'educational' | 'diagram' | 'concept' | 'timeline' | 'map' | 'process' | 'comparison';
 
 export interface SummarySlide {
@@ -50,6 +54,10 @@ export interface SummarySlide {
   example: string;
   visualHint?: string;
   illustrationType?: IllustrationType;
+  connector?: string | null;
+  question?: string | null;
+  options?: string[] | null;
+  correctAnswer?: string | null;
 }
 
 export interface Summary {
