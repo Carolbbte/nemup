@@ -39,7 +39,14 @@ export async function generateSessionContent(
 ): Promise<GenerationResult> {
   console.log('[Generation] Curso utilizado para generar sesión:', curso);
 
-  const prompt = `You are a Duolingo-style learning experience designer for Chilean high-school students. Your mission is NOT to summarize a document. Your mission is to engineer DISCOVERY moments — each screen must make the student feel curiosity, surprise, personal connection, or an "aha" moment.
+  const prompt = `You are a Duolingo-style learning experience designer for Chilean high-school students. Your mission is NOT to summarize a document. Your mission is to engineer DISCOVERY moments.
+
+THE FUNDAMENTAL RULE OF THIS SESSION:
+  ❌ WRONG sequence: Concepto → explicación → pregunta
+  ✅ RIGHT sequence: Pregunta → descubrimiento → explicación breve
+
+The student must DISCOVER the concept, not receive it. Each screen must make them feel:
+  Curiosidad → Descubrimiento → Relación → Aplicación → Refuerzo
 
 RETURN ONLY VALID JSON. No extra text.
 
@@ -54,7 +61,7 @@ ADAPT EVERYTHING to this academic level:
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 EMOTIONAL VALIDATION — apply to EVERY screen before writing it:
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-Ask yourself: "Would a Chilean teenager say 'ah, now I get it' or 'I didn't know that'?"
+Ask yourself: "¿Un adolescente chileno diría 'ah, por eso pasa eso' o 'no sabía eso'?"
 If NO → rewrite the screen.
 
 Each screen must provoke exactly ONE of these:
@@ -67,6 +74,13 @@ Each screen must provoke exactly ONE of these:
 A screen that only INFORMS is NOT valid. It must make the student FEEL something.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+WOW RULE — mandatory for every session:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+At least ONE screen must produce the reaction: "Ah, por eso pasa eso."
+This is the WOW moment. It comes from a counterintuitive fact, a surprising chain reaction, or a connection the student never made before.
+If no screen produces this reaction → rewrite the most informational screen until it does.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 INTERNAL ANALYSIS — do this mentally BEFORE generating the JSON:
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 Ask yourself:
@@ -75,7 +89,7 @@ Ask yourself:
 3. Is there a chain reaction or domino effect in the material?
 4. What would a student who only uses TikTok and watches Netflix incorrectly believe about this?
 5. Which real teen situation (Spotify, zapatillas, celular, bencina) makes this concept land?
-6. What is the single most surprising or counterintuitive fact in this material?
+6. What is the single most surprising or counterintuitive fact in this material? → this becomes the WOW screen.
 7. If the material has diagrams — what real-world chain of events do they represent?
 
 DO NOT include this analysis in the JSON. Use it to build the 10 screens below.
@@ -100,45 +114,53 @@ SCREEN 1 — type: "mission" — emoji: 🎯
 - example: null
 
 SCREEN 2 — type: "main_concept" — emoji: fitting to content
-FOLLOW THIS EXACT 3-PART FORMAT:
-  Part 1 — IMPACT LINE: One sentence that creates curiosity or surprise. NOT a definition.
-    Must make the student think "interesting" or "I didn't know that."
-    Example: "Cada vez que eliges qué comprar, estás haciendo economía sin saberlo."
-    Example: "El Estado gasta tu plata antes de que tú la ganes."
-  Part 2 — SIMPLE EXPLANATION: One plain sentence explaining the concept. Zero academic jargon.
-    Example: "La microeconomía estudia las decisiones de personas y empresas."
-  Part 3 — in example field: A situation a Chilean teenager ACTUALLY lives.
-    Use: precios de alimentos, celulares, streaming, zapatillas, transporte, redes sociales.
-    Example: "¿Por qué la palta subió de precio esta semana?"
-    Example: "¿Por qué Netflix cuesta más pero el plan básico desapareció?"
+FOLLOW THE DISCOVERY SEQUENCE — Pregunta → Descubrimiento → Explicación breve:
+  Part 1 — HOOK QUESTION: Start with a question that provokes curiosity. The student does NOT know the answer yet.
+    Must make the student think "hm, why does that happen?"
+    ✅ Good: "¿Por qué Netflix cuesta más cada año aunque la plata sea la misma?"
+    ✅ Good: "¿Por qué la palta sube de precio justo cuando más quieres comer?"
+    ❌ Bad: "Cada vez que eliges qué comprar, estás haciendo economía." — this is a statement, not a hook.
+  Part 2 — DISCOVERY: One plain sentence that ANSWERS the hook question and reveals the concept. Zero academic jargon.
+    Example: "Porque cuando más personas quieren algo y hay poco disponible, el precio sube — eso es oferta y demanda."
+  Part 3 — in example field: A SPECIFIC situation a Chilean teenager encounters TODAY.
+    Must be concrete: a platform, a product, a real scenario with a number or name.
+    ✅ "Tu zapatilla favorita subió $20.000 en una semana porque todos la quieren."
+    ❌ "Los consumidores toman decisiones" — too abstract, FORBIDDEN.
 - title: the concept name (max 5 words)
-- definition: Part 1 + Part 2 combined (max 40 words total, 2 sentences max)
-- example: Part 3 — must describe a situation a 15-year-old actually encounters (max 20 words)
+- definition: Part 1 + Part 2 combined (max 40 words total, 2 sentences: hook question then discovery answer)
+- example: Part 3 — specific, concrete, teen situation (max 20 words)
 
 SCREEN 3 — type: "comprehension" — emoji: 🤔  [INTERACTIVE — REQUIRED]
 - title: "¿Comprendiste?"
-- question: simple direct question about the concept from screen 2 (max 20 words)
+STRICT QUESTION RULES — any violation means rewrite:
+  ❌ PROHIBIDO preguntar definiciones: "¿Qué es la inflación?" — FORBIDDEN
+  ❌ PROHIBIDO preguntar conceptos literales: "¿Qué estudia la microeconomía?" — FORBIDDEN
+  ❌ PROHIBIDO preguntar exactamente lo que apareció en la tarjeta anterior — FORBIDDEN
+  ✅ Las preguntas deben plantear SITUACIONES que requieren aplicar el concepto.
+  ✅ Good: "¿Cuál de estas situaciones es un ejemplo de oferta y demanda?"
+  ✅ Good: "Si el precio de las bebidas sube en todo Chile, ¿qué está ocurriendo?"
+  ✅ Good: "¿Qué pasaría si todas las tiendas de zapatillas subieran sus precios al mismo tiempo?"
+- question: a SITUATIONAL question — present a scenario, ask what concept applies or what would happen (max 25 words)
 - options: ["A. ...", "B. ...", "C. ...", "D. ..."] — exactly 4 options, each max 12 words
 - correctAnswer: "A", "B", "C", or "D"
 - definition: one sentence explaining why the answer is correct (max 15 words)
-- CRITICAL: distractors must be plausible — related to the topic, not absurd
+- CRITICAL: distractors must be plausible — real teen misconceptions, not obviously wrong
 
 SCREEN 4 — type: "key_relation" — emoji: 🔗
-SHOW CAUSE AND EFFECT — not abstract concepts.
-- connector: a vertical chain showing a REAL CHAIN REACTION using this exact format:
-  "SituaciónCotidiana ↓ verbo ↓ Consecuencia ↓ verbo ↓ Resultado"
-  REQUIRED: nodes must be situations a teenager can visualize, not abstract terms.
-  Good examples:
-    "Más familias compran ↓ sube ↓ Demanda aumenta ↓ suben ↓ Precios"
-    "Sube el dólar ↓ encarece ↓ Importaciones ↓ aumentan ↓ Precios en tiendas"
-    "Más personas ahorran ↓ baja ↓ Consumo ↓ cae ↓ Ventas de empresas"
-  Use 2 to 4 nodes. Each node max 4 words. Each verb max 2 words.
-  PROHIBITED: abstract or purely academic concepts as nodes (e.g., "Oferta", "Demanda" alone are too abstract — show the REAL situation that creates them).
-  IMPORTANT: use the ↓ character, NOT "→".
-- title: a short name for this chain (max 6 words)
-- definition: one sentence explaining WHY this chain matters in real life (max 20 words)
+SHOW A REAL CHAIN REACTION — this is the WOW candidate screen. Use it to show a domino effect the student never noticed.
+❌ PROHIBITED: abstract nodes like "Oferta", "Demanda", "Consumo" alone — these mean nothing to a teenager.
+✅ REQUIRED: nodes must be VISIBLE EVERYDAY ACTIONS or SITUATIONS.
+- connector: chain in EXACTLY this format — situación real → consecuencia visible → impacto:
+  "Acción cotidiana ↓ verbo ↓ Consecuencia visible ↓ verbo ↓ Impacto"
+  Each node = max 4 words. Each verb = max 2 words. Use ↓ NOT →.
+  ✅ Good: "Más personas compran zapatillas ↓ sube ↓ Tiendas piden más stock ↓ suben ↓ Precios"
+  ✅ Good: "Sube el dólar ↓ encarece ↓ Celulares importados ↓ suben ↓ Precio del iPhone"
+  ✅ Good: "Spotify sube su precio ↓ bajan ↓ Suscriptores ↓ cae ↓ Ingresos de artistas"
+  ❌ Bad: "Oferta ↓ sube ↓ Demanda ↓ baja ↓ Precios" — abstract, not a real situation.
+- title: a short descriptive name for this reaction (max 6 words)
+- definition: one sentence explaining WHY this chain matters to the student personally (max 20 words)
 - example: null
-- FALLBACK: If you cannot find a concrete real-world chain → use type "comprehension" instead.
+- FALLBACK: If no concrete real-world chain exists → use type "comprehension" instead.
 
 SCREEN 5 — type: "mini_quiz" — emoji: ⚡  [INTERACTIVE — REQUIRED]
 - title: "Quiz rápido"
@@ -151,6 +173,7 @@ SCREEN 5 — type: "mini_quiz" — emoji: ⚡  [INTERACTIVE — REQUIRED]
 - CRITICAL — CORRECT ANSWER must NOT be obvious from the question wording.
 - CRITICAL — DISTRACTORS must represent plausible misconceptions or half-truths, NOT absurd alternatives.
 - CRITICAL — Prioritize REASONING over memorization. If a student can answer without understanding, rewrite.
+- 2-SECOND TEST: If the correct answer can be identified in less than 2 seconds without reasoning → the question is too easy → rewrite it.
 
 SCREEN 6 — type: "process_flow" OR "challenge" — emoji: 🔄 or 🤔
 - OPTION A — type: "process_flow" — if the material has a clear sequence or flow:
@@ -165,26 +188,35 @@ SCREEN 6 — type: "process_flow" OR "challenge" — emoji: 🔄 or 🤔
   - question, options, correctAnswer: all null
 
 SCREEN 7 — type: "application" — emoji: 🌍
-MANDATORY: use a real teen-relevant platform or situation. Choose from:
-  Netflix, Spotify, TikTok, Steam, PlayStation, Xbox, celulares, zapatillas, comida rápida, transporte, compras online, redes sociales.
-  PROHIBITED: generic business examples like "una empresa" or "un consumidor" with no context.
-- title: a concrete scenario as a question using one of the platforms above (max 15 words)
-  Example: "Si Netflix sube su precio, ¿qué pasará con la cantidad de suscriptores?"
-  Example: "¿Por qué Steam pone los juegos en oferta en fechas específicas?"
-- definition: the answer explaining WHICH concept applies and WHY (max 2 sentences, 40 words max)
-- example: what this means for the student personally (max 15 words)
+THIS SCREEN MUST ANSWER: "¿Dónde veré esto hoy?"
+The student must leave this screen thinking "eso pasa en algo que uso todos los días."
+MANDATORY: use a specific named platform or product. Choose from:
+  Netflix, Spotify, Steam, PlayStation, TikTok, iPhone, Samsung, Uber, PedidosYa, Mercado Libre
+  ❌ PROHIBITED: generic examples — "una empresa", "un consumidor", "una tienda", "los productores" with no real name.
+  ❌ PROHIBITED: examples from books or school contexts.
+- title: a concrete scenario AS A QUESTION using one of the above (max 15 words)
+  ✅ "¿Por qué Uber sube su precio cuando llueve y hay poca disponibilidad?"
+  ✅ "¿Por qué Mercado Libre muestra precios distintos para el mismo celular?"
+  ✅ "¿Por qué Steam pone juegos en oferta solo en fechas específicas?"
+- definition: answer explaining WHICH concept applies and WHY — plain language, no jargon (max 2 sentences, 40 words)
+- example: one sentence connecting this to the student's daily life (max 15 words)
 
 SCREEN 8 — type: "common_error" — emoji: ⚠️
-SHOW A REAL TEEN MISCONCEPTION — not an academic error a professor would make.
-Think: what would a student who only watches TikTok and never studied this topic believe? That is the error.
-CRITICAL RULES FOR THIS SCREEN:
-1. definition = the WRONG belief a real teenager would have (1 sentence, max 20 words).
-   Good: "Mucha gente cree que si el dólar sube, el gobierno puede simplemente bajar su precio."
-   Bad: "Confunden oferta con demanda." — too academic, not a real teen belief.
-2. example = the CORRECT reality that surprises them (1 sentence, max 20 words).
-   Example: "El dólar lo fija el mercado global, no el gobierno chileno."
-3. BOTH fields are REQUIRED. If you cannot identify a real teen misconception, replace with type "comprehension" using a new question.
-4. The error must be believable — something a smart teenager would actually think before learning this.
+SHOW WHAT TEENAGERS ACTUALLY BELIEVE — not textbook errors.
+Think: what does a smart 15-year-old who uses TikTok but never studied this assume to be true? That assumption IS the error.
+Real teen error examples to model (adapt to this topic, do NOT copy verbatim):
+  ❌ "El dólar solo afecta a las empresas, no a mí"
+  ❌ "La inflación es culpa de una tienda que quiere ganar más"
+  ❌ "Ahorrar siempre ayuda a la economía"
+  ❌ "Si algo sube de precio es una estafa"
+RULES:
+1. definition = the WRONG belief phrased as what "mucha gente cree" or "muchos piensan" (1 sentence, max 20 words).
+   ✅ Good: "Muchos creen que si el dólar sube, el gobierno puede simplemente bajar su precio."
+   ❌ Bad: "Confunden oferta con demanda." — too academic, not a real teen belief.
+2. example = the CORRECT reality stated as a surprising fact (1 sentence, max 20 words).
+   It must SURPRISE the student — they didn't know this.
+3. BOTH fields are REQUIRED. If no real teen misconception exists, replace with type "comprehension".
+4. The error must be specific to THIS topic and believable for a smart teenager.
 
 SCREEN 9 — type: "final_challenge" — emoji: 🏆  [INTERACTIVE — REQUIRED]
 - title: "Desafío final"
@@ -212,7 +244,16 @@ ABSOLUTE RULES FOR ALL 10 SCREENS:
 - Reorganize content by PEDAGOGICAL IMPORTANCE, not by document order.
 - Prioritize: understanding → application → retention. NOT total content coverage.
 - The 3 interactive screens (screens 3, 5, 9) are MANDATORY. They must always be comprehension/mini_quiz/final_challenge with real questions and options.
-- FINAL VALIDATION before outputting JSON: for each screen ask "¿Un adolescente chileno diría 'ah, ahora entiendo' o 'no sabía eso'?" If the answer is NO for any screen → rewrite that screen.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+FINAL VALIDATION — run this checklist before outputting JSON:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+1. ¿Hay curiosidad? → ¿Al menos una tarjeta provoca "¿por qué pasa eso?"
+2. ¿Hay descubrimiento? → ¿El estudiante aprende algo que no sabía, no que le repiten algo?
+3. ¿Las preguntas requieren pensar? → ¿No se pueden responder en menos de 2 segundos sin razonar?
+4. ¿Los ejemplos son adolescentes? → ¿Aparece Netflix, Spotify, TikTok, Uber, Steam, iPhone, PedidosYa, o Mercado Libre — no "una empresa" genérica?
+5. ¿Existe al menos un momento WOW? → ¿Hay una tarjeta que provoca "ah, por eso pasa eso"?
+If any answer is NO → rewrite the failing screen before outputting.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 QUIZ QUESTIONS (separate from summary screens):
