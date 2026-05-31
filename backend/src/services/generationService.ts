@@ -404,7 +404,7 @@ ${normalizeText(transcription)}
       { role: 'user', content: prompt },
     ],
     temperature: 0.2,
-    max_tokens: 4200,
+    max_tokens: 6500,
   });
 
   const raw = response.choices?.[0]?.message?.content ?? response.choices?.[0]?.message?.content?.toString?.() ?? '';

@@ -806,7 +806,7 @@ export default function UploadFlowScreen() {
             <View style={s1.errorModal}>
               <Text style={s1.errorEmoji}>⚠️</Text>
               <Text style={s1.errorTitle}>No pudimos crear la sesión</Text>
-              <Text style={s1.errorMsg}>El archivo tiene muy poco contenido o no pudo procesarse.</Text>
+              <Text style={s1.errorMsg}>{generationError ?? 'El archivo tiene muy poco contenido o no pudo procesarse.'}</Text>
               <Pressable
                 onPress={() => { setStep(0); setGenerationError(null); }}
                 style={s1.errorPrimaryWrap}
