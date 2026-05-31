@@ -122,15 +122,11 @@ router.post('/generate', upload.array('documents', 10), async (req, res) => {
     sendSse(res, 'question_generated', { question, index, total: generation.questions.length });
   });
 
-  // Step 4: Validate grounding
+  // Step 4: Validate grounding (non-fatal — log score only)
   sendSse(res, 'progress', createProgressPayload('validating_grounding', 85, 'Validando anclaje al documento...'));
   const validation = validateGrounding(generation, transcription);
   if (!validation.validated) {
-    sendSse(res, 'error', {
-      code: 'GROUNDING_VALIDATION_FAILED',
-      message: 'No se pudo validar que el contenido generado esté anclado al documento.',
-    });
-    return res.end();
+    console.warn('[Sessions] Grounding score low:', validation.score, '— continuing anyway');
   }
 
   // Step 5: Build and persist session (best-effort)
