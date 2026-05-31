@@ -787,7 +787,7 @@ export default function SessionPlayerScreen() {
   // ══════════════════════════════════════════════════════════════
   if (phase === 'mode-select') {
     const modes = [
-      { key: 'summary' as const,    emoji: '📖', title: 'Resumen',  desc: 'Lee y comprende los conceptos clave', detail: `${summarySlides.length} conceptos`, xp: XP_PER_SUMMARY * Math.max(summarySlides.length, 1), colors: [BRAND, '#8B5CF6'] as [string,string] },
+      { key: 'summary' as const,    emoji: '🎯', title: 'Misión',   desc: 'Lee y comprende los conceptos clave', detail: `${summarySlides.length} conceptos`, xp: XP_PER_SUMMARY * Math.max(summarySlides.length, 1), colors: [BRAND, '#8B5CF6'] as [string,string] },
       { key: 'quiz' as const,       emoji: '🧠', title: 'Quiz',     desc: 'Pon a prueba lo que aprendiste',      detail: `${questions.length} preguntas`, xp: XP_PER_CORRECT * Math.max(questions.length, 1), colors: ['#3B82F6', '#1D4ED8'] as [string,string] },
       { key: 'flashcards' as const, emoji: '🗂️', title: 'Tarjetas', desc: 'Memoriza con tarjetas interactivas',  detail: `${flashcards.length} tarjetas`, xp: XP_PER_CARD * Math.max(flashcards.length, 1), colors: ['#059669', '#047857'] as [string,string] },
     ];
@@ -908,7 +908,7 @@ export default function SessionPlayerScreen() {
               <ChevronLeft size={18} color={Colors.ink} strokeWidth={2.5} />
             </Pressable>
             <View style={{ flex: 1, alignItems: 'center' }}>
-              <Text style={g.screenTitle}>🧠 Resumen</Text>
+              <Text style={g.screenTitle}>🎯 Misión</Text>
               <Text style={sum.slideCounter}>{summaryIdx + 1} / {slides.length}</Text>
             </View>
             <Pressable onPress={() => setPhase('mode-select')} style={g.iconBtn} hitSlop={10}>
@@ -1662,7 +1662,7 @@ export default function SessionPlayerScreen() {
   // CELEBRATION — Screen 6
   // ══════════════════════════════════════════════════════════════
   if (phase === 'celebration') {
-    const modeLabel = { summary: 'Resumen', quiz: 'Quiz', flashcards: 'Tarjetas' }[celebSrc];
+    const modeLabel = { summary: 'Misión', quiz: 'Quiz', flashcards: 'Tarjetas' }[celebSrc];
     const allDone   = completedModes.size >= 3;
     return (
       <View style={{ flex: 1, backgroundColor: BG }}>
