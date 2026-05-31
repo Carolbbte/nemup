@@ -13,6 +13,7 @@ export interface SessionConfig {
   estimatedDuration: number;
   subject?: string;
   topic?: string;
+  curso?: string;
 }
 
 export interface MultipleChoiceOption {

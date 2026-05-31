@@ -1,4 +1,5 @@
-import React, { useEffect, useState } from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   Dimensions,
   Pressable,
@@ -24,672 +25,498 @@ import { useRouter } from 'expo-router';
 import { Colors } from '@/constants/Colors';
 import { useOnboarding } from '@/contexts/OnboardingContext';
 import {
-  Calculator,
   ChevronRight,
   Clock,
-  Dna,
-  FlaskConical,
-  Flame,
-  Gem,
-  Scroll,
+  Play,
   Sparkles,
-  Trophy,
   Zap,
 } from 'lucide-react-native';
 
 const { height: SCREEN_H } = Dimensions.get('window');
-const SM = SCREEN_H < 740;
-
+const SM    = SCREEN_H < 740;
 const BG    = '#F7F8FC';
 const BRAND = '#5B3DF5';
-const BRAND2 = '#7C5AFF';
+const LIME  = '#C4F852';
 
-// ── Fade-up entrance wrapper ─────────────────────────────────────
-function FadeUp({
-  children,
-  delay = 0,
-  style,
-}: {
-  children: React.ReactNode;
-  delay?: number;
-  style?: object;
+const GRAD_CTA = ['#7C5AFF', '#B44EFF'] as const;
+
+// ── NEM ─────────────────────────────────────────────────────────
+const NEM_GOAL = 6.5;
+
+// ── Gamification (only shown values) ─────────────────────────────
+const LEVEL      = 12;
+const CURRENT_XP = 2480;
+const GEM_COUNT  = 340;
+const LEAGUE_POS: number = 3;
+
+// ── Mensajes de identidad ─────────────────────────────────────────
+const IDENTITY_MSGS = [
+  '🔥 14 días de racha',
+  `🏆 Top ${LEAGUE_POS} en tu liga`,
+  '🎯 Vas por buen camino académico',
+  '📚 Cada sesión suma a tu futuro',
+  '🚀 Vas camino a la universidad',
+];
+
+// ── Materias ─────────────────────────────────────────────────────
+const SUBJECT_META: Record<string, { name: string; emoji: string; color: string }> = {
+  math:      { name: 'Matemáticas', emoji: '🔢', color: BRAND },
+  spanish:   { name: 'Lengua',      emoji: '📖', color: Colors.sky },
+  english:   { name: 'Inglés',      emoji: '🌍', color: '#2563EB' },
+  science:   { name: 'Ciencias',    emoji: '🔬', color: Colors.teal },
+  history:   { name: 'Historia',    emoji: '📜', color: Colors.orange },
+  biology:   { name: 'Biología',    emoji: '🧬', color: Colors.teal },
+  chemistry: { name: 'Química',     emoji: '⚗️', color: Colors.sky },
+  physics:   { name: 'Física',      emoji: '⚡', color: Colors.amber },
+};
+
+// ── Entrance animation ────────────────────────────────────────────
+function FadeUp({ children, delay = 0, style }: {
+  children: React.ReactNode; delay?: number; style?: object;
 }) {
   const opacity = useSharedValue(0);
-  const ty      = useSharedValue(20);
-
+  const ty      = useSharedValue(14);
   useEffect(() => {
-    opacity.value = withDelay(delay, withTiming(1, { duration: 360 }));
+    opacity.value = withDelay(delay, withTiming(1, { duration: 300 }));
     ty.value      = withDelay(delay, withSpring(0, { damping: 22, stiffness: 175 }));
   }, []);
-
-  const anim = useAnimatedStyle(() => ({
-    opacity: opacity.value,
-    transform: [{ translateY: ty.value }],
-  }));
-
+  const anim = useAnimatedStyle(() => ({ opacity: opacity.value, transform: [{ translateY: ty.value }] }));
   return <Animated.View style={[anim, style]}>{children}</Animated.View>;
 }
 
-// ── Animated decimal count-up (e.g. 5.8 → 6.2) ──────────────────
+// ── Animated NEM counter ──────────────────────────────────────────
 function AnimatedNemValue({ from, to }: { from: number; to: number }) {
   const progress = useSharedValue(0);
   const [displayed, setDisplayed] = useState(from.toFixed(1));
-
   const fromInt = Math.round(from * 10);
   const range   = Math.round(to * 10) - fromInt;
-
   useAnimatedReaction(
     () => Math.round(fromInt + progress.value * range),
-    (cur, prev) => {
-      if (cur !== prev) runOnJS(setDisplayed)((cur / 10).toFixed(1));
-    },
+    (cur, prev) => { if (cur !== prev) runOnJS(setDisplayed)((cur / 10).toFixed(1)); },
   );
-
   useEffect(() => {
-    progress.value = withDelay(
-      400,
-      withTiming(1, { duration: 900, easing: Easing.out(Easing.cubic) }),
-    );
+    progress.value = withDelay(400, withTiming(1, { duration: 900, easing: Easing.out(Easing.cubic) }));
   }, []);
-
-  return <Text style={styles.nemValue}>{displayed}</Text>;
+  return <Text style={s.nemValue}>{displayed}</Text>;
 }
 
-// ── Mini ascending sparkline bars ────────────────────────────────
-const SPARK = [8, 11, 9, 15, 13, 21, 30];
-function Sparkline() {
+// ── Task row ──────────────────────────────────────────────────────
+function TaskRow({ index, label, done }: { index: number; label: string; done: boolean }) {
+  const checkScale = useSharedValue(0);
+  const checkStyle = useAnimatedStyle(() => ({ transform: [{ scale: checkScale.value }] }));
+  useEffect(() => {
+    if (done) checkScale.value = withSpring(1, { damping: 11, stiffness: 260 });
+  }, [done]);
   return (
-    <View style={styles.sparkWrap}>
-      {SPARK.map((h, i) => (
-        <View
-          key={i}
-          style={[
-            styles.sparkBar,
-            { height: h, opacity: 0.3 + (i / SPARK.length) * 0.7 },
-          ]}
-        />
-      ))}
+    <View style={s.taskRow}>
+      {done ? (
+        <LinearGradient colors={[...GRAD_CTA]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={s.taskDoneBox}>
+          <Animated.View style={checkStyle}>
+            <Text style={s.taskDoneMark}>✓</Text>
+          </Animated.View>
+        </LinearGradient>
+      ) : (
+        <View style={s.taskTodoBox}>
+          <Text style={s.taskTodoNum}>{index + 1}</Text>
+        </View>
+      )}
+      <Text style={[s.taskLabel, done && s.taskLabelDone]} numberOfLines={1}>{label}</Text>
     </View>
   );
 }
 
-// ── Mission card (horizontal carousel) ──────────────────────────
-type Difficulty = 'Fácil' | 'Medio' | 'Difícil';
-type Mission = {
-  Icon: React.ComponentType<{ color?: string; size?: number; strokeWidth?: number }>;
-  subject: string;
-  topic: string;
-  xp: number;
-  time: number;
-  difficulty: Difficulty;
-  color: string;
-  tint: string;
-};
-
-const MISSIONS: Mission[] = [
-  {
-    Icon: Calculator,
-    subject: 'Matemáticas',
-    topic: 'Funciones cuadráticas',
-    xp: 80,
-    time: 8,
-    difficulty: 'Medio',
-    color: BRAND,
-    tint: 'rgba(91,61,245,0.06)',
-  },
-  {
-    Icon: Dna,
-    subject: 'Biología',
-    topic: 'Genética y herencia',
-    xp: 60,
-    time: 6,
-    difficulty: 'Fácil',
-    color: Colors.teal,
-    tint: 'rgba(0,194,168,0.06)',
-  },
-  {
-    Icon: Scroll,
-    subject: 'Historia',
-    topic: 'Chile siglo XX',
-    xp: 90,
-    time: 10,
-    difficulty: 'Difícil',
-    color: Colors.orange,
-    tint: 'rgba(255,122,43,0.06)',
-  },
-  {
-    Icon: FlaskConical,
-    subject: 'Química',
-    topic: 'Tabla periódica',
-    xp: 70,
-    time: 7,
-    difficulty: 'Medio',
-    color: Colors.sky,
-    tint: 'rgba(91,200,255,0.06)',
-  },
-];
-
-const DIFF_COLOR: Record<Difficulty, string> = {
-  Fácil:   Colors.teal,
-  Medio:   Colors.amber,
-  Difícil: Colors.rose,
-};
-
-function MissionCard({ m, onPress }: { m: Mission; onPress: () => void }) {
-  const scale    = useSharedValue(1);
-  const scaleAnim = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
-
-  return (
-    <Pressable
-      onPressIn={() => { scale.value = withSpring(0.96, { damping: 20 }); }}
-      onPressOut={() => { scale.value = withSpring(1, { damping: 20 }); }}
-      onPress={onPress}
-    >
-      <Animated.View
-        style={[
-          styles.missionCard,
-          { backgroundColor: m.tint, borderColor: m.color + '28' },
-          scaleAnim,
-        ]}
-      >
-        <View style={[styles.missionIconWrap, { backgroundColor: m.color + '18' }]}>
-          <m.Icon color={m.color} size={22} strokeWidth={1.8} />
-        </View>
-        <Text style={[styles.missionSubject, { color: m.color }]}>{m.subject}</Text>
-        <Text style={styles.missionTopic} numberOfLines={2}>
-          {m.topic}
-        </Text>
-        <View style={styles.missionMeta}>
-          <View style={[styles.diffPill, { backgroundColor: DIFF_COLOR[m.difficulty] + '1A' }]}>
-            <Text style={[styles.diffText, { color: DIFF_COLOR[m.difficulty] }]}>
-              {m.difficulty}
-            </Text>
-          </View>
-        </View>
-        <View style={styles.missionFooter}>
-          <View style={styles.missionXpRow}>
-            <Zap size={11} color={m.color} strokeWidth={2.5} />
-            <Text style={[styles.missionXp, { color: m.color }]}>+{m.xp} XP</Text>
-          </View>
-          <View style={styles.missionTimeRow}>
-            <Clock size={10} color={Colors.ink3} strokeWidth={2} />
-            <Text style={styles.missionTime}>{m.time} min</Text>
-          </View>
-        </View>
-      </Animated.View>
-    </Pressable>
-  );
-}
-
-// ── Main screen ──────────────────────────────────────────────────
+// ══════════════════════════════════════════════════════════════════
+// MAIN SCREEN
+// ══════════════════════════════════════════════════════════════════
 export default function HomeScreen() {
-  const router = useRouter();
+  const router    = useRouter();
   const { state } = useOnboarding();
   const insets    = useSafeAreaInsets();
+  const name      = state.data.name ?? 'estudiante';
 
-  const name = state.data.name ?? 'estudiante';
-  const goal = state.data.goal ?? 6;
+  const topSubjectId = state.data.subjects?.[0] ?? 'math';
+  const topSubject   = SUBJECT_META[topSubjectId] ?? { name: 'Matemáticas', emoji: '🔢', color: BRAND };
 
-  const ctaScale = useSharedValue(1);
-  const ctaAnim  = useAnimatedStyle(() => ({ transform: [{ scale: ctaScale.value }] }));
+  const [lastSession, setLastSession] = useState<{
+    subject: string; topic: string; xpReward: number; estimatedDuration: number;
+  } | null>(null);
+
+  // Identity message rotation
+  const [identityIdx, setIdentityIdx] = useState(0);
+  const identityIdxRef = useRef(0);
+  const identityOp     = useSharedValue(1);
+  const identityStyle  = useAnimatedStyle(() => ({ opacity: identityOp.value }));
+
+  useEffect(() => {
+    AsyncStorage.getItem('nemup_last_session').then((raw) => {
+      if (!raw) return;
+      try {
+        const p = JSON.parse(raw);
+        setLastSession({ subject: p.subject, topic: p.topic, xpReward: p.xpReward, estimatedDuration: p.estimatedDuration });
+      } catch {}
+    });
+  }, []);
+
+  useEffect(() => {
+    const t = setInterval(() => {
+      identityOp.value = withTiming(0, { duration: 200 }, (done) => {
+        if (!done) return;
+        identityIdxRef.current = (identityIdxRef.current + 1) % IDENTITY_MSGS.length;
+        runOnJS(setIdentityIdx)(identityIdxRef.current);
+        identityOp.value = withTiming(1, { duration: 260 });
+      });
+    }, 3500);
+    return () => clearInterval(t);
+  }, []);
+
+  const missionsDone = lastSession ? 1 : 0;
+  const dailyTasks = [
+    { label: 'Practica la materia de mayor impacto', done: lastSession !== null },
+    { label: 'Sube apuntes de una asignatura',       done: false },
+    { label: 'Responde 3 preguntas correctas',        done: false },
+  ];
+
+  const continueScale    = useSharedValue(1);
+  const continueAnim     = useAnimatedStyle(() => ({ transform: [{ scale: continueScale.value }] }));
+  const ctaScale         = useSharedValue(1);
+  const ctaAnim          = useAnimatedStyle(() => ({ transform: [{ scale: ctaScale.value }] }));
+  const subjectScale     = useSharedValue(1);
+  const subjectAnim      = useAnimatedStyle(() => ({ transform: [{ scale: subjectScale.value }] }));
+  const newSessionScale  = useSharedValue(1);
+  const newSessionAnim   = useAnimatedStyle(() => ({ transform: [{ scale: newSessionScale.value }] }));
+
+  // Entrance microanimations
+  const avatarScale = useSharedValue(0.82);
+  const avatarAnim  = useAnimatedStyle(() => ({ transform: [{ scale: avatarScale.value }] }));
+  const badgeScale  = useSharedValue(0);
+  const badgeAnim   = useAnimatedStyle(() => ({ transform: [{ scale: badgeScale.value }] }));
+  const playScale   = useSharedValue(0.78);
+  const playAnim    = useAnimatedStyle(() => ({ transform: [{ scale: playScale.value }] }));
+
+  useEffect(() => {
+    avatarScale.value = withDelay(80,  withSpring(1, { damping: 14, stiffness: 200 }));
+    badgeScale.value  = withDelay(320, withSpring(1, { damping: 11, stiffness: 220 }));
+    playScale.value   = withDelay(200, withSpring(1, { damping: 13, stiffness: 180 }));
+  }, []);
 
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
+    <SafeAreaView style={s.container} edges={['top']}>
       <StatusBar barStyle="dark-content" backgroundColor={BG} />
-
       <ScrollView
-        style={styles.scroll}
-        contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 110 }]}
+        style={s.scroll}
+        contentContainerStyle={[s.content, { paddingBottom: insets.bottom + 110 }]}
         showsVerticalScrollIndicator={false}
       >
-        {/* ─── Header ───────────────────────────────────────── */}
+
+        {/* ══ HEADER ════════════════════════════════════════════ */}
         <FadeUp delay={0}>
-          <View style={styles.header}>
-            <View style={styles.headerLeft}>
-              <View style={styles.streakPill}>
-                <Flame size={13} color={Colors.orange} strokeWidth={2.5} />
-                <Text style={styles.streakText}>14 días seguidos</Text>
+          <View style={s.header}>
+            <View style={s.headerLeft}>
+              <Text style={s.greeting}>Hola, {name} 👋</Text>
+              <Animated.View style={[s.identityWrap, identityStyle]}>
+                <Text style={s.identityText}>{IDENTITY_MSGS[identityIdx]}</Text>
+              </Animated.View>
+            </View>
+            <Animated.View style={[s.avatarWrap, avatarAnim]}>
+              <View style={s.avatar}>
+                <Text style={s.avatarLetter}>{(name[0] ?? 'U').toUpperCase()}</Text>
               </View>
-              <Text style={styles.greeting}>Hola, {name}</Text>
-              <Text style={styles.subGreeting}>Tu NEM sigue subiendo.</Text>
-            </View>
-            <View style={styles.avatar}>
-              <Text style={styles.avatarLetter}>
-                {(name[0] ?? 'U').toUpperCase()}
-              </Text>
-            </View>
+              <Animated.View style={[s.avatarBadge, badgeAnim]}>
+                <Text style={s.avatarBadgeText}>🔥14</Text>
+              </Animated.View>
+            </Animated.View>
           </View>
         </FadeUp>
 
-        {/* ─── NEM Card ─────────────────────────────────────── */}
-        <FadeUp delay={80}>
+        {/* ══ [1] META NEM ════════════════════════════════════ */}
+        <FadeUp delay={40} style={{ marginBottom: 28 }}>
           <LinearGradient
-            colors={['#6552F0', '#5240DC', '#7252E0', '#9B6AF2']}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={styles.nemCard}
+            colors={['#4A2FE0', '#5B3DF5', '#7B61FF', '#9B6AF2']}
+            start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
+            style={s.nemCard}
           >
-            <View style={styles.nemTop}>
-              <Text style={styles.nemLabel}>NEM PROYECTADO</Text>
-              <Sparkline />
+            <View style={s.nemGlow1} pointerEvents="none" />
+            <View style={s.nemGlow2} pointerEvents="none" />
+
+            <Text style={s.nemLabel}>🎯 TU META NEM</Text>
+
+            <View style={s.nemValueBlock}>
+              <AnimatedNemValue from={6.0} to={NEM_GOAL} />
+              <Text style={s.nemSubtitle}>Meta académica definida</Text>
             </View>
-            <AnimatedNemValue from={5.8} to={6.2} />
-            <Text style={styles.nemSub}>Basado en tus notas y práctica</Text>
-            <View style={styles.nemBadges}>
-              <View style={styles.nemBadge}>
-                <Text style={styles.nemBadgeGreenText}>↑ +0.7 este año</Text>
+
+            <Text style={s.nemMotiv}>Cada sesión te acerca a tu meta</Text>
+
+            <View style={s.nemStats}>
+              <View style={s.nemStatItem}>
+                <Text style={s.nemStatIcon}>🔥</Text>
+                <Text style={s.nemStatValue}>14 días</Text>
+                <Text style={s.nemStatLabel}>Racha activa</Text>
               </View>
-              <View style={[styles.nemBadge, styles.nemBadgeWhite]}>
-                <Text style={styles.nemBadgeWhiteText}>Meta: {goal}.0</Text>
+              <View style={s.nemStatDivider} />
+              <View style={s.nemStatItem}>
+                <Text style={s.nemStatIcon}>⚡</Text>
+                <Text style={s.nemStatValue}>{CURRENT_XP.toLocaleString()} XP</Text>
+                <Text style={s.nemStatLabel}>acumulado</Text>
+              </View>
+              <View style={s.nemStatDivider} />
+              <View style={s.nemStatItem}>
+                <Text style={s.nemStatIcon}>🏆</Text>
+                <Text style={s.nemStatValue}>Top {LEAGUE_POS}</Text>
+                <Text style={s.nemStatLabel}>de tu liga</Text>
               </View>
             </View>
+
           </LinearGradient>
         </FadeUp>
 
-        {/* ─── CTA principal ────────────────────────────────── */}
-        <FadeUp delay={150}>
+        {/* ══ [2] CONTINUAR APRENDIENDO / CREAR ════════════════ */}
+        {lastSession ? (
+          <FadeUp delay={120} style={{ marginBottom: 12 }}>
+            <Pressable
+              onPressIn={() => { continueScale.value = withSpring(0.97, { damping: 20 }); }}
+              onPressOut={() => { continueScale.value = withSpring(1,    { damping: 20 }); }}
+              onPress={() => router.push('/modals/session' as any)}
+            >
+              <Animated.View style={[s.continueCard, continueAnim]}>
+                <LinearGradient colors={[...GRAD_CTA]} start={{ x: 0, y: 0 }} end={{ x: 0, y: 1 }} style={s.continueStripe} />
+                <View style={s.continueBody}>
+                  <Text style={s.continueTag}>📚 CONTINUAR APRENDIENDO</Text>
+                  <Text style={s.continueSubject}>{lastSession.subject}</Text>
+                  <Text style={s.continueTopic} numberOfLines={1}>{lastSession.topic}</Text>
+                  <View style={s.continueImpactRow}>
+                    <Text style={s.continueImpact}>↑ Te acerca a tu meta</Text>
+                  </View>
+                  <View style={s.continueMeta}>
+                    <Zap size={11} color={BRAND} strokeWidth={2.5} />
+                    <Text style={s.continueMetaTxt}>+{lastSession.xpReward} XP</Text>
+                    <Text style={s.continueMetaDot}>·</Text>
+                    <Clock size={10} color={Colors.muted} strokeWidth={2} />
+                    <Text style={s.continueMetaTxt}>{lastSession.estimatedDuration} min</Text>
+                  </View>
+                </View>
+                <Animated.View style={[s.continuePlayWrap, playAnim]}>
+                  <LinearGradient colors={[...GRAD_CTA]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={s.continuePlayInner}>
+                    <Play size={14} color="white" strokeWidth={2.5} fill="white" />
+                  </LinearGradient>
+                </Animated.View>
+              </Animated.View>
+            </Pressable>
+            <Pressable
+              onPressIn={() => { newSessionScale.value = withSpring(0.97, { damping: 20 }); }}
+              onPressOut={() => { newSessionScale.value = withSpring(1,    { damping: 20 }); }}
+              onPress={() => router.push('/modals/upload' as any)}
+              style={{ marginTop: 10 }}
+            >
+              <Animated.View style={[s.newSessionCard, newSessionAnim]}>
+                <View style={s.newSessionBody}>
+                  <Text style={s.newSessionTitle}>📄 Nueva sesión</Text>
+                  <Text style={s.newSessionSub}>Sube apuntes y genera práctica personalizada</Text>
+                </View>
+                <LinearGradient colors={[...GRAD_CTA]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={s.newSessionBtn}>
+                  <Text style={s.newSessionBtnText}>Subir apuntes</Text>
+                </LinearGradient>
+              </Animated.View>
+            </Pressable>
+          </FadeUp>
+        ) : (
+          <FadeUp delay={120} style={{ marginBottom: 16 }}>
+            <Pressable
+              onPressIn={() => { ctaScale.value = withSpring(0.97, { damping: 20 }); }}
+              onPressOut={() => { ctaScale.value = withSpring(1,    { damping: 20 }); }}
+              onPress={() => router.push('/modals/upload' as any)}
+            >
+              <Animated.View style={[s.ctaWrap, ctaAnim]}>
+                <LinearGradient colors={[...GRAD_CTA]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={s.ctaGradient}>
+                  <View style={s.ctaShine} pointerEvents="none" />
+                  <View style={s.ctaIconBox}>
+                    <Sparkles size={24} color="white" strokeWidth={1.8} />
+                  </View>
+                  <View style={s.ctaTextBlock}>
+                    <Text style={s.ctaTitle}>Sube tus apuntes y practica</Text>
+                    <Text style={s.ctaSub}>NEMup crea sesiones que te acercan a tu objetivo</Text>
+                  </View>
+                  <ChevronRight size={20} color="white" strokeWidth={2.5} />
+                </LinearGradient>
+              </Animated.View>
+            </Pressable>
+          </FadeUp>
+        )}
+
+        {/* ══ [3] TU PRÓXIMA MEJORA ════════════════════════════ */}
+        <FadeUp delay={160} style={{ marginBottom: 12 }}>
+          <Text style={s.topPickLabel}>📈 TU PRÓXIMA MEJORA</Text>
           <Pressable
-            onPressIn={() => { ctaScale.value = withSpring(0.97, { damping: 20 }); }}
-            onPressOut={() => { ctaScale.value = withSpring(1, { damping: 20 }); }}
+            onPressIn={() => { subjectScale.value = withSpring(0.98, { damping: 20 }); }}
+            onPressOut={() => { subjectScale.value = withSpring(1,    { damping: 20 }); }}
             onPress={() => router.push('/modals/upload' as any)}
           >
-            <Animated.View style={[styles.ctaWrap, ctaAnim]}>
-              <LinearGradient
-                colors={[BRAND, BRAND2]}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 0 }}
-                style={styles.ctaGradient}
-              >
-                <View style={styles.ctaIconBox}>
-                  <Sparkles size={26} color="white" strokeWidth={1.8} />
+            <Animated.View style={[s.topPickCard, { borderColor: topSubject.color + '28' }, subjectAnim]}>
+              <LinearGradient colors={[...GRAD_CTA]} start={{ x: 0, y: 0 }} end={{ x: 0, y: 1 }} style={s.topPickStripe} />
+              <View style={s.topPickBody}>
+                <Text style={s.topPickEmoji}>{topSubject.emoji}</Text>
+                <View style={{ flex: 1 }}>
+                  <Text style={[s.topPickName, { color: topSubject.color }]}>{topSubject.name}</Text>
+                  <Text style={s.topPickReason}>Tu materia con menor práctica reciente</Text>
                 </View>
-                <View style={styles.ctaBody}>
-                  <Text style={styles.ctaTitle}>
-                    Crea una sesión desde tus apuntes
-                  </Text>
-                  <Text style={styles.ctaSub}>
-                    La IA convierte tu materia en práctica interactiva
-                  </Text>
-                </View>
-                <ChevronRight size={20} color="white" strokeWidth={2.5} />
-              </LinearGradient>
+                <LinearGradient colors={[...GRAD_CTA]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={s.topPickBtn}>
+                  <Text style={s.topPickBtnText}>Mejorar {topSubject.name}</Text>
+                </LinearGradient>
+              </View>
             </Animated.View>
           </Pressable>
         </FadeUp>
 
-        {/* ─── Continúa donde quedaste ──────────────────────── */}
-        <FadeUp delay={210} style={styles.section}>
-          <Text style={styles.sectionTitle}>Continúa donde quedaste</Text>
-          <Pressable
-            style={({ pressed }) => [
-              styles.continueCard,
-              pressed && styles.continueCardPressed,
-            ]}
-          >
-            <View style={styles.continueRow}>
-              <View style={styles.continueIconWrap}>
-                <Dna size={28} color={Colors.teal} strokeWidth={1.8} />
-              </View>
-              <View style={styles.continueInfo}>
-                <Text style={styles.continueSubject}>Biología</Text>
-                <Text style={styles.continueTopic}>División Celular</Text>
-                <View style={styles.continueMetaRow}>
-                  <Zap size={11} color={Colors.ink3} strokeWidth={2.5} />
-                  <Text style={styles.continueMeta}>+60 XP</Text>
-                  <Text style={styles.continueMeta}> · </Text>
-                  <Clock size={11} color={Colors.ink3} strokeWidth={2} />
-                  <Text style={styles.continueMeta}>5 min restantes</Text>
-                </View>
-              </View>
-              <View style={styles.continueRight}>
-                <View style={styles.progressTrack}>
-                  <View style={[styles.progressFill, { width: '60%' }]} />
-                </View>
-                <Text style={styles.progressPct}>60%</Text>
-                <ChevronRight size={18} color={Colors.muted} strokeWidth={2} />
-              </View>
+        {/* ══ [4] MISIÓN DE HOY ═══════════════════════════════ */}
+        <FadeUp delay={200} style={[s.card, { padding: 14 }]}>
+          <View style={[s.cardHeaderRow, { marginBottom: 10 }]}>
+            <Text style={s.cardTitle}>🎯 Misión de hoy</Text>
+            <View style={s.missionBadge}>
+              <Text style={s.missionBadgeText}>{missionsDone}/3 completadas</Text>
             </View>
-          </Pressable>
+          </View>
+          <View style={s.taskList}>
+            {dailyTasks.map((t, i) => (
+              <TaskRow key={i} index={i} label={t.label} done={t.done} />
+            ))}
+          </View>
+          <View style={s.missionFooter}>
+            <Text style={s.missionFooterText}>🎁 +50 XP · +5 gemas al completar todo</Text>
+          </View>
         </FadeUp>
 
-        {/* ─── Stats ────────────────────────────────────────── */}
-        <FadeUp delay={270}>
-          <View style={styles.statsRow}>
-            <View
-              style={[
-                styles.statCard,
-                { backgroundColor: 'rgba(91,61,245,0.07)', borderColor: 'rgba(91,61,245,0.13)' },
-              ]}
-            >
-              <Zap size={20} color={BRAND} strokeWidth={2} style={{ marginBottom: 6 }} />
-              <Text style={[styles.statValue, { color: BRAND }]}>2.480</Text>
-              <Text style={styles.statLabel}>XP TOTAL</Text>
+        {/* ══ [5] PROGRESO COMPACTO ════════════════════════════ */}
+        <FadeUp delay={240} style={{ marginBottom: 0 }}>
+          <View style={s.bandCard}>
+            <View style={s.bandItem}>
+              <Text style={s.bandEmoji}>⭐</Text>
+              <Text style={s.bandValue}>Nivel {LEVEL}</Text>
+              <Text style={s.bandLabel}>{CURRENT_XP.toLocaleString()} XP</Text>
             </View>
-            <View
-              style={[
-                styles.statCard,
-                { backgroundColor: 'rgba(0,194,168,0.07)', borderColor: 'rgba(0,194,168,0.13)' },
-              ]}
-            >
-              <Gem size={20} color={Colors.teal} strokeWidth={2} style={{ marginBottom: 6 }} />
-              <Text style={[styles.statValue, { color: Colors.teal }]}>340</Text>
-              <Text style={styles.statLabel}>GEMAS</Text>
+            <View style={s.bandSep} />
+            <View style={s.bandItem}>
+              <Text style={s.bandEmoji}>🏆</Text>
+              <Text style={[s.bandValue, { color: Colors.amber }]}>Liga Oro</Text>
+              <Text style={s.bandLabel}>Posición #{LEAGUE_POS}</Text>
             </View>
-            <View
-              style={[
-                styles.statCard,
-                {
-                  backgroundColor: 'rgba(255,181,71,0.07)',
-                  borderColor: 'rgba(255,181,71,0.13)',
-                },
-              ]}
-            >
-              <Trophy size={20} color={Colors.amber} strokeWidth={2} style={{ marginBottom: 6 }} />
-              <Text style={[styles.statValue, { color: Colors.amber }]}>#3</Text>
-              <Text style={styles.statLabel}>EN TU LIGA</Text>
+            <View style={s.bandSep} />
+            <View style={s.bandItem}>
+              <Text style={s.bandEmoji}>💎</Text>
+              <Text style={[s.bandValue, { color: Colors.teal }]}>{GEM_COUNT}</Text>
+              <Text style={s.bandLabel}>Gemas</Text>
             </View>
           </View>
         </FadeUp>
 
-        {/* ─── Missions header ──────────────────────────────── */}
-        <FadeUp delay={320}>
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Misiones de hoy</Text>
-            <Pressable style={styles.seeAllBtn}>
-              <Text style={styles.seeAll}>Ver todas</Text>
-              <ChevronRight size={12} color={BRAND} strokeWidth={2.5} />
-            </Pressable>
-          </View>
-        </FadeUp>
-
-        {/* ─── Missions horizontal carousel ─────────────────── */}
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          style={styles.missionsScroll}
-          contentContainerStyle={styles.missionsContent}
-        >
-          {MISSIONS.map((m, i) => (
-            <MissionCard
-              key={i}
-              m={m}
-              onPress={() => console.log('Mission:', m.subject)}
-            />
-          ))}
-        </ScrollView>
       </ScrollView>
     </SafeAreaView>
   );
 }
 
-// ── Styles ───────────────────────────────────────────────────────
-const styles = StyleSheet.create({
+// ══════════════════════════════════════════════════════════════════
+// STYLES
+// ══════════════════════════════════════════════════════════════════
+const s = StyleSheet.create({
   container: { flex: 1, backgroundColor: BG },
   scroll:    { flex: 1 },
-  content:   { paddingHorizontal: 20, paddingTop: 12 },
+  content:   { paddingHorizontal: 20, paddingTop: 10 },
 
-  // Header
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginBottom: 22,
-  },
-  headerLeft: { flex: 1, paddingRight: 12 },
-  streakPill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 5,
-    alignSelf: 'flex-start',
-    backgroundColor: 'rgba(255,122,43,0.1)',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: 'rgba(255,122,43,0.22)',
-    marginBottom: 10,
-  },
-  streakText: { fontSize: 13, fontWeight: '700', color: Colors.orange },
-  greeting: {
-    fontSize: SM ? 22 : 26,
-    fontWeight: '800',
-    color: Colors.ink,
-    marginBottom: 4,
-    letterSpacing: -0.3,
-  },
-  subGreeting: { fontSize: 14, fontWeight: '500', color: Colors.ink3 },
-  avatar: {
-    width: 46,
-    height: 46,
-    borderRadius: 23,
-    backgroundColor: BRAND,
-    justifyContent: 'center',
-    alignItems: 'center',
-    shadowColor: BRAND,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.28,
-    shadowRadius: 8,
-    elevation: 6,
-  },
-  avatarLetter: { fontSize: 19, fontWeight: '800', color: 'white' },
+  // ── Header ──────────────────────────────────────────────────
+  header:       { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16 },
+  headerLeft:   { flex: 1, paddingRight: 12 },
+  streakPill:   { flexDirection: 'row', alignItems: 'center', gap: 5, alignSelf: 'flex-start', backgroundColor: 'rgba(255,122,43,0.1)', paddingHorizontal: 11, paddingVertical: 4, borderRadius: 20, borderWidth: 1, borderColor: 'rgba(255,122,43,0.2)', marginBottom: 7 },
+  streakText:   { fontSize: 12, fontWeight: '700', color: Colors.orange },
+  greeting:     { fontSize: SM ? 22 : 25, fontWeight: '800', color: Colors.ink, marginBottom: 5, letterSpacing: -0.3 },
+  identityWrap: { alignSelf: 'flex-start', backgroundColor: 'rgba(196,248,82,0.12)', borderRadius: 10, paddingHorizontal: 9, paddingVertical: 4, borderWidth: 1, borderColor: 'rgba(196,248,82,0.28)' },
+  identityText: { fontSize: 12, fontWeight: '700', color: '#2D6A00' },
+  avatarWrap:       { alignItems: 'center', gap: 4 },
+  avatar:           { width: 44, height: 44, borderRadius: 22, backgroundColor: BRAND, justifyContent: 'center', alignItems: 'center', borderWidth: 2, borderColor: LIME, shadowColor: '#7C5AFF', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.35, shadowRadius: 10, elevation: 6 },
+  avatarLetter:     { fontSize: 18, fontWeight: '800', color: 'white' },
+  avatarBadge:      { backgroundColor: 'rgba(255,122,43,0.12)', borderRadius: 10, paddingHorizontal: 7, paddingVertical: 2, borderWidth: 1, borderColor: 'rgba(255,122,43,0.28)' },
+  avatarBadgeText:  { fontSize: 10, fontWeight: '800', color: Colors.orange },
 
-  // NEM Card
-  nemCard: {
-    borderRadius: 24,
-    padding: SM ? 18 : 22,
-    marginBottom: 16,
-    shadowColor: '#5240DC',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.18,
-    shadowRadius: 22,
-    elevation: 10,
-    overflow: 'hidden',
-  },
-  nemTop: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-end',
-    marginBottom: 4,
-  },
-  nemLabel: {
-    fontSize: 10,
-    fontWeight: '700',
-    letterSpacing: 1.2,
-    textTransform: 'uppercase',
-    color: 'rgba(255,255,255,0.55)',
-  },
-  sparkWrap: { flexDirection: 'row', alignItems: 'flex-end', gap: 3 },
-  sparkBar:  { width: 5, backgroundColor: Colors.lime, borderRadius: 2 },
-  nemValue: {
-    fontSize: SM ? 50 : 62,
-    fontWeight: '900',
-    color: 'white',
-    lineHeight: SM ? 56 : 68,
-    marginBottom: 6,
-    letterSpacing: -1,
-  },
-  nemSub:    { fontSize: 12, color: 'rgba(255,255,255,0.65)', marginBottom: 14 },
-  nemBadges: { flexDirection: 'row', gap: 8 },
-  nemBadge:  {
-    backgroundColor: 'rgba(196,248,82,0.18)',
-    paddingVertical: 7,
-    paddingHorizontal: 12,
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: 'rgba(196,248,82,0.32)',
-  },
-  nemBadgeGreenText: { fontSize: 12, fontWeight: '700', color: Colors.lime },
-  nemBadgeWhite:     {
-    backgroundColor: 'rgba(255,255,255,0.12)',
-    borderColor: 'rgba(255,255,255,0.22)',
-  },
-  nemBadgeWhiteText: { fontSize: 12, fontWeight: '700', color: 'white' },
+  // ── META NEM Hero ─────────────────────────────────────────────
+  nemCard:       { borderRadius: 24, padding: SM ? 14 : 17, marginBottom: 10, overflow: 'hidden', shadowColor: BRAND, shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.28, shadowRadius: 22, elevation: 12 },
+  nemGlow1:      { position: 'absolute', top: -40, right: -30, width: 140, height: 140, borderRadius: 70, backgroundColor: 'rgba(196,248,82,0.08)' },
+  nemGlow2:      { position: 'absolute', bottom: -20, left: -20, width: 100, height: 100, borderRadius: 50, backgroundColor: 'rgba(255,255,255,0.04)' },
+  nemLabel:      { fontSize: 10, fontWeight: '800', letterSpacing: 1.4, color: 'rgba(255,255,255,0.55)', textTransform: 'uppercase', marginBottom: 8 },
+  nemValueBlock: { marginBottom: 2 },
+  nemValue:      { fontSize: SM ? 54 : 64, fontWeight: '900', color: 'white', letterSpacing: -3, lineHeight: SM ? 60 : 70 },
+  nemSubtitle:   { fontSize: 13, color: 'rgba(255,255,255,0.55)', fontWeight: '600', marginTop: 4 },
+  nemMotiv:      { fontSize: 13, color: 'rgba(255,255,255,0.75)', fontWeight: '600', marginBottom: 18, marginTop: 10 },
+  nemStats:      { flexDirection: 'row', backgroundColor: 'rgba(255,255,255,0.08)', borderRadius: 14, paddingVertical: 9, paddingHorizontal: 8, marginBottom: 0 },
+  nemStatItem:   { flex: 1, alignItems: 'center', gap: 2 },
+  nemStatDivider:{ width: 1, backgroundColor: 'rgba(255,255,255,0.12)', marginVertical: 4 },
+  nemStatIcon:   { fontSize: 16 },
+  nemStatValue:  { fontSize: 12, fontWeight: '800', color: 'white', letterSpacing: -0.2 },
+  nemStatLabel:  { fontSize: 10, color: 'rgba(255,255,255,0.5)', fontWeight: '500' },
+  // ── Continue card (primary CTA) ──────────────────────────────
+  continueCard:    { backgroundColor: 'white', borderRadius: 20, flexDirection: 'row', overflow: 'hidden', borderWidth: 1, borderColor: 'rgba(91,61,245,0.25)', shadowColor: BRAND, shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.22, shadowRadius: 22, elevation: 12, alignItems: 'stretch' },
+  continueStripe:  { width: 7 },
+  continueBody:    { flex: 1, paddingVertical: SM ? 10 : 12, paddingHorizontal: SM ? 10 : 12, gap: 3 },
+  continueTag:     { fontSize: 10, fontWeight: '900', color: BRAND, letterSpacing: 0.6, marginBottom: 3 },
+  continueSubject: { fontSize: 11, fontWeight: '800', color: BRAND, opacity: 0.7, textTransform: 'uppercase', letterSpacing: 0.5 },
+  continueTopic:   { fontSize: 15, fontWeight: '800', color: Colors.ink, letterSpacing: -0.2 },
+  continueImpactRow: { backgroundColor: 'rgba(196,248,82,0.12)', borderRadius: 7, paddingVertical: 3, paddingHorizontal: 8, alignSelf: 'flex-start', borderWidth: 1, borderColor: 'rgba(196,248,82,0.28)' },
+  continueImpact:  { fontSize: 11, fontWeight: '700', color: '#4C8A00' },
+  continueMeta:    { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  continueMetaTxt: { fontSize: 11, color: Colors.muted, fontWeight: '500' },
+  continueMetaDot: { fontSize: 11, color: Colors.muted },
+  continuePlayWrap:  { width: 50, alignSelf: 'stretch', margin: 12 },
+  continuePlayInner: { flex: 1, borderRadius: 15, alignItems: 'center', justifyContent: 'center', shadowColor: BRAND, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.45, shadowRadius: 12, elevation: 8 },
 
-  // CTA
-  ctaWrap: {
-    borderRadius: 20,
-    marginBottom: 24,
-    overflow: 'hidden',
-    shadowColor: BRAND,
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.22,
-    shadowRadius: 16,
-    elevation: 10,
-  },
-  ctaGradient: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: SM ? 18 : 22,
-    paddingHorizontal: 18,
-    gap: 14,
-  },
-  ctaIconBox: {
-    width: 52,
-    height: 52,
-    borderRadius: 16,
-    backgroundColor: 'rgba(255,255,255,0.15)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  ctaBody:  { flex: 1 },
-  ctaTitle: {
-    fontSize: 15,
-    fontWeight: '800',
-    color: 'white',
-    marginBottom: 5,
-    lineHeight: 20,
-    letterSpacing: -0.2,
-  },
-  ctaSub: { fontSize: 12, color: 'rgba(255,255,255,0.74)', lineHeight: 17 },
+  // ── Nueva sesión card ─────────────────────────────────────────
+  newSessionCard:    { backgroundColor: 'white', borderRadius: 16, flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderColor: Colors.line, padding: 14, gap: 12, shadowColor: '#0B0B1A', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 10, elevation: 3 },
+  newSessionBody:    { flex: 1 },
+  newSessionTitle:   { fontSize: 15, fontWeight: '800', color: Colors.ink, marginBottom: 3 },
+  newSessionSub:     { fontSize: 12, color: Colors.muted, fontWeight: '500', lineHeight: 17 },
+  newSessionBtn:     { borderRadius: 10, paddingVertical: 9, paddingHorizontal: 13 },
+  newSessionBtnText: { fontSize: 12, fontWeight: '800', color: 'white' },
 
-  // Continue section
-  section:       { marginBottom: 22 },
-  sectionTitle:  { fontSize: 17, fontWeight: '800', color: Colors.ink, marginBottom: 12 },
-  sectionHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  seeAllBtn: { flexDirection: 'row', alignItems: 'center', gap: 2 },
-  seeAll:    { fontSize: 13, fontWeight: '600', color: BRAND },
-  continueCard: {
-    backgroundColor: 'white',
-    borderRadius: 18,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: Colors.line,
-    shadowColor: '#0B0B1A',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06,
-    shadowRadius: 12,
-    elevation: 3,
-  },
-  continueCardPressed: { opacity: 0.82 },
-  continueRow:    { flexDirection: 'row', alignItems: 'center', gap: 14 },
-  continueIconWrap: {
-    width: 52,
-    height: 52,
-    borderRadius: 14,
-    backgroundColor: 'rgba(0,194,168,0.1)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  continueInfo:   { flex: 1 },
-  continueSubject: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: Colors.teal,
-    textTransform: 'uppercase',
-    letterSpacing: 0.6,
-    marginBottom: 2,
-  },
-  continueTopic: {
-    fontSize: 15,
-    fontWeight: '800',
-    color: Colors.ink,
-    marginBottom: 4,
-    letterSpacing: -0.2,
-  },
-  continueMetaRow: { flexDirection: 'row', alignItems: 'center', gap: 3 },
-  continueMeta:    { fontSize: 12, color: Colors.ink3, fontWeight: '500' },
-  continueRight:   { alignItems: 'flex-end', gap: 5 },
-  progressTrack: {
-    width: 52,
-    height: 4,
-    backgroundColor: Colors.line,
-    borderRadius: 2,
-    overflow: 'hidden',
-  },
-  progressFill:  { height: 4, backgroundColor: Colors.teal, borderRadius: 2 },
-  progressPct:   { fontSize: 11, fontWeight: '700', color: Colors.teal },
+  // ── Create CTA ───────────────────────────────────────────────
+  ctaWrap:      { borderRadius: 20, overflow: 'hidden', shadowColor: '#7C5AFF', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.32, shadowRadius: 18, elevation: 10 },
+  ctaShine:     { position: 'absolute', top: 0, left: 0, right: 0, height: 24, backgroundColor: 'rgba(255,255,255,0.22)', zIndex: 1 },
+  ctaGradient:  { flexDirection: 'row', alignItems: 'center', paddingVertical: SM ? 16 : 18, paddingHorizontal: 18, gap: 14 },
+  ctaIconBox:   { width: 46, height: 46, borderRadius: 13, backgroundColor: 'rgba(255,255,255,0.15)', justifyContent: 'center', alignItems: 'center' },
+  ctaTextBlock: { flex: 1 },
+  ctaTitle:     { fontSize: 15, fontWeight: '800', color: 'white', marginBottom: 3, lineHeight: 20, letterSpacing: -0.2 },
+  ctaSub:       { fontSize: 12, color: 'rgba(255,255,255,0.72)', lineHeight: 17 },
 
-  // Stats
-  statsRow: { flexDirection: 'row', gap: 10, marginBottom: 22 },
-  statCard: {
-    flex: 1,
-    borderRadius: 16,
-    paddingVertical: 14,
-    paddingHorizontal: 8,
-    alignItems: 'center',
-    borderWidth: 1,
-  },
-  statValue: { fontSize: 15, fontWeight: '800', marginBottom: 3 },
-  statLabel: {
-    fontSize: 8,
-    fontWeight: '700',
-    textTransform: 'uppercase',
-    letterSpacing: 0.6,
-    color: Colors.muted,
-    textAlign: 'center',
-  },
+  // ── Tu próxima mejora ────────────────────────────────────────
+  topPickLabel: { fontSize: 9, fontWeight: '800', color: Colors.muted, letterSpacing: 1.2, textTransform: 'uppercase', marginBottom: 8 },
+  topPickCard:  { backgroundColor: 'white', borderRadius: 18, flexDirection: 'row', overflow: 'hidden', borderWidth: 1, shadowColor: '#0B0B1A', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.06, shadowRadius: 10, elevation: 3, alignItems: 'stretch' },
+  topPickStripe:{ width: 5 },
+  topPickBody:  { flex: 1, flexDirection: 'row', alignItems: 'center', paddingVertical: 14, paddingLeft: 14, paddingRight: 12, gap: 12 },
+  topPickEmoji: { fontSize: 26 },
+  topPickName:  { fontSize: 15, fontWeight: '800', letterSpacing: -0.3, marginBottom: 3 },
+  topPickReason:{ fontSize: 11, fontWeight: '500', color: Colors.muted, lineHeight: 15 },
+  topPickBtn:   { borderRadius: 10, paddingVertical: 8, paddingHorizontal: 12, alignSelf: 'center' },
+  topPickBtnText: { fontSize: 12, fontWeight: '800', color: 'white' },
 
-  // Missions
-  missionsScroll:  { marginHorizontal: -20 },
-  missionsContent: { paddingHorizontal: 20, gap: 12 },
-  missionCard: {
-    width: 184,
-    padding: 16,
-    borderRadius: 20,
-    borderWidth: 1,
-  },
-  missionIconWrap: {
-    width: 44,
-    height: 44,
-    borderRadius: 14,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 10,
-  },
-  missionSubject: {
-    fontSize: 10,
-    fontWeight: '800',
-    textTransform: 'uppercase',
-    letterSpacing: 0.7,
-    marginBottom: 4,
-  },
-  missionTopic: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: Colors.ink,
-    marginBottom: 10,
-    lineHeight: 19,
-  },
-  missionMeta:   { marginBottom: 12 },
-  diffPill: {
-    alignSelf: 'flex-start',
-    paddingHorizontal: 9,
-    paddingVertical: 4,
-    borderRadius: 10,
-  },
-  diffText: { fontSize: 10, fontWeight: '700' },
-  missionFooter: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  missionXpRow:   { flexDirection: 'row', alignItems: 'center', gap: 3 },
-  missionXp:      { fontSize: 13, fontWeight: '800' },
-  missionTimeRow: { flexDirection: 'row', alignItems: 'center', gap: 3 },
-  missionTime:    { fontSize: 11, fontWeight: '500', color: Colors.ink3 },
+  // ── Shared card ──────────────────────────────────────────────
+  card:          { backgroundColor: 'white', borderRadius: 20, padding: 16, borderWidth: 1, borderColor: Colors.line, shadowColor: '#0B0B1A', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 10, elevation: 3, marginBottom: 12 },
+  cardHeaderRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
+  cardTitle:     { fontSize: 16, fontWeight: '800', color: Colors.ink },
+
+  // ── Misión de hoy ─────────────────────────────────────────────
+  missionBadge:     { backgroundColor: 'rgba(196,248,82,0.12)', borderRadius: 100, paddingVertical: 4, paddingHorizontal: 10, borderWidth: 1, borderColor: 'rgba(196,248,82,0.28)' },
+  missionBadgeText: { fontSize: 11, fontWeight: '800', color: '#2D6A00' },
+  taskList:         { gap: 8 },
+  taskRow:          { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  taskDoneBox:      { width: 22, height: 22, borderRadius: 7, alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
+  taskDoneMark:     { fontSize: 11, color: 'white', fontWeight: '900' },
+  taskTodoBox:      { width: 22, height: 22, borderRadius: 7, borderWidth: 1.5, borderColor: 'rgba(91,61,245,0.28)', alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
+  taskTodoNum:      { fontSize: 11, fontWeight: '800', color: 'rgba(91,61,245,0.45)' },
+  taskLabel:        { flex: 1, fontSize: 13, fontWeight: '600', color: Colors.ink },
+  taskLabelDone:    { color: Colors.muted, textDecorationLine: 'line-through' as const },
+  missionFooter:    { backgroundColor: 'rgba(196,248,82,0.1)', borderRadius: 10, paddingVertical: 8, paddingHorizontal: 12, alignItems: 'center' as const, marginTop: 12, borderWidth: 1, borderColor: 'rgba(196,248,82,0.28)' },
+  missionFooterText:{ fontSize: 12, fontWeight: '700', color: '#2D6A00' },
+
+  // ── Progreso compacto (banda) ─────────────────────────────────
+  bandCard:  { backgroundColor: 'white', borderRadius: 16, borderWidth: 1, borderColor: Colors.line, flexDirection: 'row', alignItems: 'center', paddingVertical: 14, paddingHorizontal: 16, shadowColor: '#0B0B1A', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.04, shadowRadius: 8, elevation: 2 },
+  bandItem:  { flex: 1, alignItems: 'center', gap: 3 },
+  bandSep:   { width: 1, height: 38, backgroundColor: Colors.line },
+  bandEmoji: { fontSize: 20 },
+  bandValue: { fontSize: 13, fontWeight: '800', color: Colors.ink, letterSpacing: -0.2 },
+  bandLabel: { fontSize: 10, color: Colors.muted, fontWeight: '500' },
 });

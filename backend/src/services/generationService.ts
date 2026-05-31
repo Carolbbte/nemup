@@ -34,8 +34,11 @@ export interface GenerationResult {
 
 export async function generateSessionContent(
   transcription: string,
-  configValues: SessionConfig
+  configValues: SessionConfig,
+  curso: string = '1º Medio'
 ): Promise<GenerationResult> {
+  console.log('[Generation] Curso utilizado para generar sesión:', curso);
+
   const prompt = [`You are an educational assistant for Chilean high-school learners. Based on the transcription below, create a study session with the following JSON structure.
 
 Rules:
@@ -43,6 +46,16 @@ Rules:
 - Use quotes extracted verbatim from the transcription in 'sourceQuote'.
 - Keep each sourceQuote concise (20-80 characters) and ensure it appears in the transcription.
 - Use the provided difficulty and duration values from the configuration.
+
+CURSO DEL ESTUDIANTE: ${curso}
+
+Adapta toda la sesión al nivel académico indicado. NO cambies los conceptos presentes en los apuntes. SÍ adapta: vocabulario, profundidad de explicaciones, complejidad de ejemplos, dificultad de preguntas, dificultad de tarjetas, nivel de razonamiento requerido. Mantén coherencia con el nivel esperado para estudiantes chilenos del curso indicado.
+
+REGLAS POR CURSO:
+- 1º Medio: lenguaje simple, explicaciones cortas, ejemplos cotidianos, preguntas de reconocimiento e identificación, pocas inferencias.
+- 2º Medio: lenguaje intermedio, comprensión de conceptos, preguntas de comprensión y aplicación básica.
+- 3º Medio: mayor profundidad conceptual, análisis de relaciones entre conceptos, ejercicios de razonamiento y comparación.
+- 4º Medio: nivel preuniversitario, análisis crítico, aplicación compleja de conceptos, preguntas similares a evaluaciones exigentes con razonamiento e interpretación.
 
 SUMMARY RULES (critical — mobile app for teenagers):
 - Each slide = ONE single idea. Never group multiple ideas in one slide.

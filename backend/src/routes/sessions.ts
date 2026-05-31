@@ -58,7 +58,9 @@ router.post('/generate', upload.array('documents', 10), async (req, res) => {
 
   const configValues = typeof configJson === 'string' ? JSON.parse(configJson) : configJson;
   const sessionConfig = configValues as SessionConfig;
+  const curso = configValues.curso ?? '1º Medio';
   const userId = req.body.userId ?? 'anonymous';
+  console.log('[Sessions] Curso recibido:', curso);
   const documentId = randomUUID();
   const sessionId = randomUUID();
 
@@ -106,7 +108,7 @@ router.post('/generate', upload.array('documents', 10), async (req, res) => {
   sendSse(res, 'progress', createProgressPayload('extracting', 45, 'Analizando conceptos clave...'));
   let generation: Awaited<ReturnType<typeof generateSessionContent>>;
   try {
-    generation = await generateSessionContent(transcription, sessionConfig);
+    generation = await generateSessionContent(transcription, sessionConfig, curso);
   } catch (err: any) {
     console.error('[Sessions] Generation error:', err?.message);
     sendSse(res, 'error', { code: 'GENERATION_FAILED', message: `Error al generar con IA: ${err?.message}` });
