@@ -46,7 +46,7 @@ export type SummarySlideType =
   | 'compare' | 'partial_summary' | 'final_challenge'
   // Structured mission screens
   | 'mission' | 'main_concept' | 'comprehension' | 'key_relation'
-  | 'process_flow' | 'application' | 'victory' | 'challenge';
+  | 'process_flow' | 'application' | 'victory' | 'challenge' | 'decide';
 
 export type IllustrationType = 'educational' | 'diagram' | 'concept' | 'timeline' | 'map' | 'process' | 'comparison';
 

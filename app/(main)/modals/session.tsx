@@ -51,7 +51,7 @@ type Option  = { id: string; text: string };
 type Question = { id: string; text: string; options: Option[]; correctOptionId: string; explanation: string; sourceQuote: string };
 type Flashcard = { id: string; front: string; back: string };
 type SummarySlideType = 'concept' | 'key_fact' | 'important' | 'remember' | 'example' | 'curiosity' | 'wow_fact'
-  | 'mission' | 'main_concept' | 'comprehension' | 'key_relation' | 'mini_quiz' | 'process_flow' | 'application' | 'common_error' | 'final_challenge' | 'victory' | 'challenge';
+  | 'mission' | 'main_concept' | 'comprehension' | 'key_relation' | 'mini_quiz' | 'process_flow' | 'application' | 'common_error' | 'final_challenge' | 'victory' | 'challenge' | 'decide';
 type IllustrationType = 'educational' | 'diagram' | 'concept' | 'timeline' | 'map' | 'process' | 'comparison';
 type BackendSlide = { type: SummarySlideType; emoji: string; title: string; definition: string; example: string; visualHint?: string; illustrationType?: IllustrationType; connector?: string | null; question?: string | null; options?: string[] | null; correctAnswer?: string | null };
 type LegacySection = { heading: string; content: string; keyPoints: string[] };
@@ -103,6 +103,7 @@ const MICRO_REWARD_MSGS: Record<number, string> = {
   7:  '⚡ Bonus XP desbloqueado',
   10: '📚 ¡Tema completado!',
 };
+const SUMMARY_REWARDS = ['✨ +10 XP', '🔥 Correcto', '⚡ Muy bien', '🎯 Excelente'];
 const NEMI_MSGS = [
   'Buen comienzo.',
   'Ya entendiste este concepto.',
@@ -282,7 +283,7 @@ function buildSummarySlides(backendSlides: BackendSlide[], questions: Question[]
 
   // Mission model: pass through directly without TikTok injection
   if (backendSlides[0].type === 'mission') {
-    const INTERACTIVE = ['comprehension', 'mini_quiz', 'final_challenge'];
+    const INTERACTIVE = ['comprehension', 'mini_quiz', 'final_challenge', 'decide'];
     const validSlides = backendSlides.filter(s => {
       const hasContent = !!(s.title?.trim() || s.definition?.trim());
       const isInteractive = INTERACTIVE.includes(s.type);
@@ -414,6 +415,7 @@ export default function SessionPlayerScreen() {
   const [comboCount, setComboCount]       = useState(0);
   const [streakMsg, setStreakMsg]         = useState('');
   const [microMsg, setMicroMsg]           = useState('');
+  const [summaryRewardText, setSummaryRewardText] = useState<string | null>(null);
   const [nemiMsg, setNemiMsg]             = useState('');
   const [motivText, setMotivText]         = useState(MOTIV_POOLS.start[0]);
 
@@ -464,6 +466,14 @@ export default function SessionPlayerScreen() {
 
   const wrongShakeSV     = useSharedValue(0);
   const wrongShakeStyle  = useAnimatedStyle(() => ({ transform: [{ translateX: wrongShakeSV.value }] }));
+
+  // Summary mode micro-reward animation
+  const summaryRewardOpSV = useSharedValue(0);
+  const summaryRewardYSV  = useSharedValue(8);
+  const summaryRewardStyle2 = useAnimatedStyle(() => ({
+    opacity: summaryRewardOpSV.value,
+    transform: [{ translateY: summaryRewardYSV.value }],
+  }));
 
   // New: TikTok question transition
   const questionX    = useSharedValue(0);
@@ -693,6 +703,19 @@ export default function SessionPlayerScreen() {
     else { setCardIdx(next); setCardFlipped(false); }
   };
 
+  const showSummaryReward = () => {
+    const text = SUMMARY_REWARDS[Math.floor(Math.random() * SUMMARY_REWARDS.length)];
+    setSummaryRewardText(text);
+    summaryRewardOpSV.value = withSequence(
+      withSpring(1, { damping: 10, stiffness: 180 }),
+      withDelay(700, withTiming(0, { duration: 280 })),
+    );
+    summaryRewardYSV.value = withSequence(
+      withTiming(0, { duration: 200 }),
+      withDelay(700, withTiming(8, { duration: 280 })),
+    );
+  };
+
   const finalAccuracy = questions.length > 0 ? Math.round((correctCount / questions.length) * 100) : 100;
 
   // ══════════════════════════════════════════════════════════════
@@ -866,7 +889,7 @@ export default function SessionPlayerScreen() {
     const slideQuizAnswered = slide?.type === 'quiz' ? quizAnswers[summaryIdx] : undefined;
     // Stats for victory screen — computed once, used in victory card renderer
     const V_CONCEPT   = ['main_concept', 'key_relation', 'process_flow', 'application', 'common_error', 'challenge'];
-    const V_INTER     = ['comprehension', 'mini_quiz', 'final_challenge'];
+    const V_INTER     = ['comprehension', 'mini_quiz', 'final_challenge', 'decide'];
     const vConcepts   = slides.filter(s => V_CONCEPT.includes(s.type)).length;
     const vInterTotal = slides.filter(s => V_INTER.includes(s.type)).length;
     const vCorrect    = slides.filter((s, i) => V_INTER.includes(s.type) && quizAnswers[i] === (s as BackendSlide).correctAnswer).length;
@@ -910,6 +933,9 @@ export default function SessionPlayerScreen() {
             <View style={{ flex: 1, alignItems: 'center' }}>
               <Text style={g.screenTitle}>🎯 Misión</Text>
               <Text style={sum.slideCounter}>{summaryIdx + 1} / {slides.length}</Text>
+              <View style={sum.progressBarOuter}>
+                <View style={[sum.progressBarFill, { width: `${(summaryIdx / Math.max(slides.length - 1, 1)) * 100}%` }]} />
+              </View>
             </View>
             <Pressable onPress={() => setPhase('mode-select')} style={g.iconBtn} hitSlop={10}>
               <X size={16} color={Colors.ink} strokeWidth={2.5} />
@@ -1037,7 +1063,7 @@ export default function SessionPlayerScreen() {
                     const dimmed    = !!answered && !isCorrect && answered !== letter;
                     return (
                       <Pressable key={i}
-                        onPress={() => !answered && setQuizAnswers(prev => ({ ...prev, [summaryIdx]: letter }))}
+                        onPress={() => { if (!answered) { setQuizAnswers(prev => ({ ...prev, [summaryIdx]: letter })); if (isCorrect) showSummaryReward(); } }}
                         style={[sum.quizOption, showGreen && sum.quizOptCorrect, showRed && sum.quizOptWrong, { opacity: dimmed ? 0.35 : 1 }]}
                       >
                         <View style={[sum.quizLetter, showGreen && sum.quizLetterGreen, showRed && sum.quizLetterRed]}>
@@ -1112,7 +1138,7 @@ export default function SessionPlayerScreen() {
                     const dimmed    = !!answered && !isCorrect && answered !== letter;
                     return (
                       <Pressable key={i}
-                        onPress={() => !answered && setQuizAnswers(prev => ({ ...prev, [summaryIdx]: letter }))}
+                        onPress={() => { if (!answered) { setQuizAnswers(prev => ({ ...prev, [summaryIdx]: letter })); if (isCorrect) showSummaryReward(); } }}
                         style={[sum.quizOption, showGreen && sum.quizOptCorrect, showRed && sum.quizOptWrong, { opacity: dimmed ? 0.35 : 1 }]}
                       >
                         <View style={[sum.quizLetter, showGreen && sum.quizLetterGreen, showRed && sum.quizLetterRed]}>
@@ -1242,13 +1268,53 @@ export default function SessionPlayerScreen() {
                         <Text style={sum.quizFeedbackTitle}>🏆 ¡Superado! {slide.title}</Text>
                       ) : (
                         <>
-                          <Text style={sum.quizFeedbackTitle}>{`💡 Casi — era la ${slide.correctAnswer}`}</Text>
+                          <Text style={sum.quizFeedbackTitle}>💡 Buena intención</Text>
                           {!!slide.definition && <Text style={sum.quizFeedbackText}>{slide.definition}</Text>}
                         </>
                       )}
                     </View>
                   )}
                 </View>
+              </View>
+            ) : slide?.type === 'decide' ? (
+              <View style={sum.quizCard}>
+                <Text style={[sum.quizLabel, { color: '#FF7A2B' }]}>🤔 DECIDE</Text>
+                <Text style={sum.quizQuestion}>{slide.question ?? slide.title}</Text>
+                <View style={{ gap: 8, marginTop: 14 }}>
+                  {slide.options?.map((opt, i) => {
+                    const letter    = LETTERS[i];
+                    const answered  = quizAnswers[summaryIdx];
+                    const isCorrect = slide.correctAnswer === letter;
+                    const showGreen = !!answered && isCorrect;
+                    const showRed   = answered === letter && !isCorrect;
+                    const dimmed    = !!answered && !isCorrect && answered !== letter;
+                    return (
+                      <Pressable key={i}
+                        onPress={() => { if (!answered) { setQuizAnswers(prev => ({ ...prev, [summaryIdx]: letter })); if (isCorrect) showSummaryReward(); } }}
+                        style={[sum.quizOption, showGreen && sum.quizOptCorrect, showRed && sum.quizOptWrong, { opacity: dimmed ? 0.35 : 1 }]}
+                      >
+                        <View style={[sum.quizLetter, showGreen && sum.quizLetterGreen, showRed && sum.quizLetterRed]}>
+                          {showGreen ? <Check size={12} color="white" strokeWidth={3} /> :
+                           showRed   ? <X    size={12} color="white" strokeWidth={3} /> :
+                           <Text style={sum.quizLetterText}>{letter}</Text>}
+                        </View>
+                        <Text style={[sum.quizOptText, showGreen && { color: '#065F46', fontWeight: '700' }, showRed && { color: '#991B1B', fontWeight: '700' }]}>{opt}</Text>
+                      </Pressable>
+                    );
+                  })}
+                </View>
+                {!!quizAnswers[summaryIdx] && (
+                  <View style={[sum.quizFeedback, quizAnswers[summaryIdx] === slide.correctAnswer ? sum.quizFeedbackOk : sum.quizFeedbackErr]}>
+                    {quizAnswers[summaryIdx] === slide.correctAnswer ? (
+                      <Text style={sum.quizFeedbackTitle}>🎉 ¡Buena decisión!</Text>
+                    ) : (
+                      <>
+                        <Text style={sum.quizFeedbackTitle}>💡 Buena intención</Text>
+                        <Text style={sum.quizFeedbackText}>{slide.definition || `La opción correcta era la ${slide.correctAnswer}.`}</Text>
+                      </>
+                    )}
+                  </View>
+                )}
               </View>
             ) : slide?.type === 'challenge' ? (
               <View style={sum.challengeRefCard}>
@@ -1304,10 +1370,43 @@ export default function SessionPlayerScreen() {
                 )}
               </View>
             ) : slide?.type === 'wow_fact' ? (
-              <View style={sum.wowCard}>
+              <View style={[sum.wowCard, slide.question && { padding: SM ? 18 : 22 }]}>
                 <Text style={sum.wowEmoji}>🤯</Text>
                 <Text style={sum.wowLabel}>¿SABÍAS QUE?</Text>
                 <Text style={sum.wowText}>{slide.definition}</Text>
+                {slide.question && slide.options && (
+                  <View style={{ gap: 8, marginTop: 20, alignSelf: 'stretch' }}>
+                    <Text style={[sum.quizQuestion, { fontSize: SM ? 13 : 14 }]}>{slide.question}</Text>
+                    {slide.options.map((opt, i) => {
+                      const letter    = LETTERS[i];
+                      const answered  = quizAnswers[summaryIdx];
+                      const isCorrect = slide.correctAnswer === letter;
+                      const showGreen = !!answered && isCorrect;
+                      const showRed   = answered === letter && !isCorrect;
+                      const dimmed    = !!answered && !isCorrect && answered !== letter;
+                      return (
+                        <Pressable key={i}
+                          onPress={() => { if (!answered) { setQuizAnswers(prev => ({ ...prev, [summaryIdx]: letter })); if (isCorrect) showSummaryReward(); } }}
+                          style={[sum.quizOption, showGreen && sum.quizOptCorrect, showRed && sum.quizOptWrong, { opacity: dimmed ? 0.35 : 1 }]}
+                        >
+                          <View style={[sum.quizLetter, showGreen && sum.quizLetterGreen, showRed && sum.quizLetterRed]}>
+                            {showGreen ? <Check size={12} color="white" strokeWidth={3} /> :
+                             showRed   ? <X    size={12} color="white" strokeWidth={3} /> :
+                             <Text style={sum.quizLetterText}>{letter}</Text>}
+                          </View>
+                          <Text style={[sum.quizOptText, showGreen && { color: '#065F46', fontWeight: '700' }, showRed && { color: '#991B1B', fontWeight: '700' }]}>{opt}</Text>
+                        </Pressable>
+                      );
+                    })}
+                    {!!quizAnswers[summaryIdx] && (
+                      <View style={[sum.quizFeedback, quizAnswers[summaryIdx] === slide.correctAnswer ? sum.quizFeedbackOk : sum.quizFeedbackErr]}>
+                        <Text style={sum.quizFeedbackTitle}>
+                          {quizAnswers[summaryIdx] === slide.correctAnswer ? '🤯 ¡Exacto!' : '💡 Buena intención'}
+                        </Text>
+                      </View>
+                    )}
+                  </View>
+                )}
               </View>
             ) : slide?.type === 'example' ? (
               <View style={sum.scenarioCard}>
@@ -1341,12 +1440,21 @@ export default function SessionPlayerScreen() {
                 )}
               </View>
             )}
+
+            {/* Summary mode micro-reward overlay */}
+            {!!summaryRewardText && (
+              <Animated.View style={[sum.summaryRewardOverlay, summaryRewardStyle2]} pointerEvents="none">
+                <View style={sum.summaryRewardBadge}>
+                  <Text style={sum.summaryRewardBadgeTxt}>{summaryRewardText}</Text>
+                </View>
+              </Animated.View>
+            )}
           </Animated.View>
 
           {/* CTA */}
           <View style={[g.bottom, { paddingBottom: insets.bottom + 12 }]}>
             {((slide?.type === 'quiz' && !slideQuizAnswered) ||
-              ((slide?.type === 'comprehension' || slide?.type === 'mini_quiz' || slide?.type === 'final_challenge') && !quizAnswers[summaryIdx])) ? (
+              ((slide?.type === 'comprehension' || slide?.type === 'mini_quiz' || slide?.type === 'final_challenge' || slide?.type === 'decide' || (slide?.type === 'wow_fact' && !!slide.question)) && !quizAnswers[summaryIdx])) ? (
               <View style={g.ctaBtnOff}>
                 <Text style={g.ctaTextOff}>Elige una opción</Text>
               </View>
@@ -1361,6 +1469,7 @@ export default function SessionPlayerScreen() {
                      isLast ? '✅ Completar resumen' :
                      slide?.type === 'mission' ? '¡Comenzar! →' :
                      slide?.type === 'challenge' ? '🤔 Lo pensé →' :
+                     slide?.type === 'decide' ? '✅ Decidido →' :
                      slide?.type === 'motivation' ? '¡Seguimos! →' :
                      slide?.type === 'prediction' ? '🧠 Entendido →' :
                      'Siguiente →'}
@@ -1898,7 +2007,14 @@ const sum = StyleSheet.create({
   storySeg:     { flex: 1, height: 4, borderRadius: 2, overflow: 'hidden', backgroundColor: Colors.line },
   storyFill:    { height: '100%', borderRadius: 2, backgroundColor: BRAND },
   slideCounter: { fontSize: 11, color: Colors.muted, fontWeight: '600', marginTop: 1 },
+  progressBarOuter: { width: 72, height: 3, borderRadius: 2, backgroundColor: 'rgba(0,0,0,0.07)', overflow: 'hidden', marginTop: 3 },
+  progressBarFill:  { height: '100%', borderRadius: 2, backgroundColor: BRAND },
   slideArea:    { flex: 1, paddingHorizontal: 20, justifyContent: 'center' },
+
+  // Summary micro-reward overlay
+  summaryRewardOverlay: { position: 'absolute', alignSelf: 'center', top: '30%', zIndex: 50 },
+  summaryRewardBadge:   { backgroundColor: BRAND, borderRadius: 100, paddingVertical: 9, paddingHorizontal: 20, shadowColor: BRAND, shadowOpacity: 0.35, shadowRadius: 12, shadowOffset: { width: 0, height: 4 }, elevation: 6 },
+  summaryRewardBadgeTxt:{ fontSize: 15, fontWeight: '800', color: 'white' },
 
   // Concept card
   introCard:    { backgroundColor: 'white', borderRadius: 24, padding: SM ? 18 : 22, shadowColor: '#0B0B1A', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.09, shadowRadius: 20, elevation: 5 },

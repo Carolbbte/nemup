@@ -208,12 +208,24 @@ SCREEN 5 — type: "mini_quiz" — emoji: ⚡  [INTERACTIVE — REQUIRED]
 - CRITICAL — Prioritize REASONING over memorization. If a student can answer without understanding, rewrite.
 - 2-SECOND TEST: If the correct answer can be identified in less than 2 seconds without reasoning → the question is too easy → rewrite it.
 
-SCREEN 6 — type: "process_flow" OR "challenge" — emoji: 🔄 or 🤔
+SCREEN 6 — type: "process_flow" OR "decide" OR "challenge" — emoji: 🔄 or 🤔
 - OPTION A — type: "process_flow" — if the material has a clear sequence or flow:
   - title: name of the process or flow (max 6 words)
   - definition: the steps written as "Step1 → Step2 → Step3 → Step4" (max 4 steps, max 5 words each). Show a CAUSAL chain — each step causes the next.
   - example: real-world instance of this process (max 20 words)
-- OPTION B — type: "challenge" — if there is NO clear process in the material:
+- OPTION B — type: "decide" — PREFERRED if no clear process but a dilemma or choice can be posed:  [INTERACTIVE]
+  Use this to force the student to APPLY the concept by choosing between two realistic paths.
+  - title: "¿Qué harías?" or "¿Cuál elegirías?" or similar (max 8 words)
+  - question: a realistic dilemma rooted in the content (max 30 words). Describe a real scenario with two possible choices.
+    ✅ Good: "El gobierno quiere bajar el desempleo. ¿Qué política sería más efectiva a corto plazo?"
+    ✅ Good: "Eres empresario y sube el costo del café. ¿Qué decisión tomarías para proteger tus ganancias?"
+  - options: ["A. ...", "B. ...", "C. ...", "D. ..."] — exactly 3 or 4 options (each max 12 words)
+    Each option must reflect a different but plausible economic/conceptual reasoning.
+  - correctAnswer: "A", "B", "C", or "D" — the option that best demonstrates understanding of the concept.
+  - definition: one sentence explaining WHY that answer shows correct conceptual understanding (max 20 words)
+  - example: null
+  ❌ FORBIDDEN options: "Todas las anteriores", "Ninguna de las anteriores", "No haría nada"
+- OPTION C — type: "challenge" — only if NEITHER process NOR dilemma works for this material:
   - title: "Reflexiona"
   - definition: an open-ended "what if" or "why" question that requires applying the concepts (max 30 words)
     Example: "Si desaparecieran los impuestos, ¿qué servicio público podría verse más afectado y por qué?"
@@ -270,9 +282,11 @@ The student must finish this screen thinking: "No tenía idea de que eso pasaba.
   ✅ Topic: dólar → "Chile puede exportar más cuando el peso se DEBILITA, no cuando se fortalece."
   ✅ Topic: inflación → "Un poco de inflación es intencional — sin ella la economía se congela."
 - example: one sentence grounding this in a teen's everyday life (max 20 words)
-- question: null
-- options: null
-- correctAnswer: null
+- OPTIONAL INTERACTIVE VERIFICATION: If you can write a HIGH-QUALITY verification question about the wow fact, include:
+  - question: ONE question that directly tests if the student understood the counterintuitive fact (max 20 words). Must be about the wow fact itself, not a repeat of earlier screens.
+  - options: ["A. ...", "B. ...", "C. ..."] — exactly 3 options (each max 10 words), one clearly correct
+  - correctAnswer: "A", "B", or "C"
+  If the question would be trivial, repetitive, or low-quality → leave question/options/correctAnswer as null.
 
 SCREEN 10 — type: "victory" — emoji: 🏆
 - title: "¡Misión cumplida!"
@@ -294,7 +308,9 @@ ABSOLUTE RULES FOR ALL 10 SCREENS:
 - NEVER create empty or vague slides. If a type cannot be filled with quality content, use the FALLBACK types specified above.
 - Reorganize content by PEDAGOGICAL IMPORTANCE, not by document order.
 - Prioritize: understanding → application → retention. NOT total content coverage.
-- The 2 interactive screens (screens 3, 5) are MANDATORY. They must always be comprehension/mini_quiz with real questions and options. Screen 9 is informational (wow_fact), NOT interactive.
+- The 2 interactive screens (screens 3, 5) are MANDATORY. They must always be comprehension/mini_quiz with real questions and options.
+- INTERACTIVITY TARGET: At least 35% of screens must be interactive. With 10 screens = minimum 3-4 interactive screens. Screens 3 and 5 are mandatory. Use "decide" for screen 6 and/or interactive wow_fact (screen 9) to reach this target. Prefer "decide" over "challenge" whenever a realistic dilemma can be posed.
+- Screen 9 (wow_fact) CAN optionally be interactive if a high-quality verification question exists.
 - CONCEPTUAL BRIDGE: When the session moves from micro-level concepts (individual choices, product prices) to macro-level concepts (inflation, GDP, Banco Central, monetary policy), write an explicit bridge in the definition field of the transition screen. Example bridge: "Lo que ocurre con el precio de la palta también pasa a escala de toda la economía — así funcionan los precios a nivel macro."
 - CURSO ADAPTATION is MANDATORY. The complexity of vocabulary, the depth of reasoning required, and the length of explanations must match the student's curso level: ${curso}. A 1º Medio session must feel simpler than a 4º Medio session in every screen.
 
@@ -357,7 +373,7 @@ JSON SCHEMA — return ONLY this structure:
     "title": string,
     "slides": [
       {
-        "type": "mission"|"main_concept"|"comprehension"|"key_relation"|"mini_quiz"|"process_flow"|"application"|"common_error"|"wow_fact"|"victory"|"challenge",
+        "type": "mission"|"main_concept"|"comprehension"|"key_relation"|"mini_quiz"|"process_flow"|"decide"|"application"|"common_error"|"wow_fact"|"victory"|"challenge",
         "emoji": string,
         "title": string,
         "definition": string,
@@ -431,7 +447,7 @@ ${normalizeText(transcription)}
   const VALID_SLIDE_TYPES: SummarySlideType[] = [
     // Structured mission screens (primary — current generation)
     'mission', 'main_concept', 'comprehension', 'key_relation',
-    'mini_quiz', 'process_flow', 'application', 'common_error', 'wow_fact', 'victory',
+    'mini_quiz', 'process_flow', 'decide', 'application', 'common_error', 'wow_fact', 'victory',
     'challenge',
     // Kept for backward compatibility with older sessions
     'final_challenge',
@@ -441,8 +457,8 @@ ${normalizeText(transcription)}
   ];
   const VALID_ILLUSTRATION_TYPES: IllustrationType[] = ['educational', 'diagram', 'concept', 'timeline', 'map', 'process', 'comparison'];
 
-  // Interactive types that require question + options (wow_fact and victory do NOT need them)
-  const INTERACTIVE_SLIDE_TYPES = ['comprehension', 'mini_quiz', 'final_challenge'];
+  // Interactive types that require question + options (wow_fact optional, victory never needs them)
+  const INTERACTIVE_SLIDE_TYPES = ['comprehension', 'mini_quiz', 'final_challenge', 'decide'];
 
   const rawSlides = (parsed.summary?.slides || []).map((slide: any, i: number) => ({
     type: VALID_SLIDE_TYPES.includes(slide.type) ? slide.type : 'concept',
@@ -475,6 +491,15 @@ ${normalizeText(transcription)}
           options: null,
           correctAnswer: null,
         };
+      }
+    }
+    // wow_fact with partial interactive fields — clean up if incomplete
+    if (isMissionModel && slide.type === 'wow_fact') {
+      const hasQ = typeof slide.question === 'string' && slide.question.trim().length > 0;
+      const hasOpts = Array.isArray(slide.options) && slide.options.length >= 2;
+      if (hasQ !== hasOpts) {
+        // Partial — strip interactive fields rather than leaving broken state
+        return { ...slide, question: null, options: null, correctAnswer: null };
       }
     }
     // wow_fact slide (screen 9) must have a definition — patch if missing
