@@ -109,10 +109,12 @@ DO NOT include this analysis in the JSON. Use it to build the 10 screens below.
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 TEXT LIMITS — apply to EVERY screen:
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-- definition: maximum 2 sentences OR 50 words — whichever is shorter.
-- example: maximum 25 words.
-- title: maximum 10 words.
-Clarity over coverage. If you cannot say it in 2 sentences, cut the less important sentence.
+- definition: maximum 2 sentences OR 30 words — whichever is shorter. No exceptions.
+- example: maximum 15 words.
+- title: maximum 8 words.
+Prefer scannable short phrases over connected prose. If you have 3 ideas, split into 3 lines.
+BAD: "Porque si hay más personas que quieren algo y hay poco disponible, el precio sube."
+GOOD: "Más personas quieren comprar.\nHay poco disponible.\nEl precio sube."
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 THE 10 SCREENS — generate EXACTLY in this order
@@ -139,8 +141,14 @@ FOLLOW THE DISCOVERY SEQUENCE — Pregunta → Descubrimiento → Explicación b
     ✅ "Tu zapatilla favorita subió $20.000 en una semana porque todos la quieren."
     ❌ "Los consumidores toman decisiones" — too abstract, FORBIDDEN.
 - title: the concept name (max 5 words)
-- definition: Part 1 + Part 2 combined (max 40 words total, 2 sentences: hook question then discovery answer)
-- example: Part 3 — specific, concrete, teen situation (max 20 words)
+- definition: Part 1 + Part 2 combined (max 25 words total, 2 sentences: hook question then discovery answer)
+- example: Part 3 — max 12 words. One concrete fact or price from real life.
+- connector: REQUIRED — visual causal chain showing HOW this concept works in 3 steps.
+  Format: "emoji1 Step1 ↓ verb ↓ emoji2 Step2 ↓ verb ↓ emoji3 Step3"
+  Each step node = emoji + max 3 words. Each verb = 1 word.
+  ✅ "🙋 Mucha demanda ↓ genera ↓ 📦 Poco stock ↓ eleva ↓ 💰 Precio sube"
+  ✅ "📱 Sube el dólar ↓ encarece ↓ 🛒 Productos importados ↓ sube ↓ 💸 Lo que pagas"
+  This chain IS the main explanation. Keep definition ultra-short.
 
 SCREEN 3 — type: "comprehension" — emoji: 🤔  [INTERACTIVE — REQUIRED]
 - title: "¿Comprendiste?"
@@ -156,18 +164,22 @@ STRICT QUESTION RULES — any violation means rewrite:
 - options: ["A. ...", "B. ...", "C. ...", "D. ..."] — exactly 4 options, each max 12 words
 - correctAnswer: "A", "B", "C", or "D"
 - definition: one sentence explaining why the answer is correct (max 15 words)
-- DISTRACTOR QUALITY — all 4 options must be believable partial-truths. Model your distractors like this:
-  Example question: "Si el precio del pan sube, ¿qué harán probablemente las familias?"
+- DISTRACTOR QUALITY — all 4 options must be believable partial-truths. Model:
+  Example: "Si el precio del pan sube, ¿qué harán probablemente las familias?"
   A. Comprarán menos pan           ← correct
-  B. Comprarán marcas más baratas  ← plausible (substitution effect)
-  C. Gastarán menos en otros productos ← plausible (budget effect)
-  D. Todas pueden ocurrir          ← forces real reasoning
-  ❌ FORBIDDEN distractors: "porque sí", "no cambia nada", "dejan de comprar para siempre", "todos comprarán más"
+  B. Comprarán marcas más baratas  ← plausible (substitution)
+  C. Gastarán menos en otras cosas ← plausible (budget effect)
+  D. Buscarán ofertas en internet  ← plausible (price search)
+  ❌ STRICTLY FORBIDDEN options: "Todas las anteriores", "Todas las opciones", "Ninguna de las anteriores", "Todas pueden ocurrir", "porque sí", "no cambia nada", "dejan de comprar para siempre"
+  RULE: There must be EXACTLY ONE clearly correct answer. If two options could both be correct → rewrite.
 
 SCREEN 4 — type: "key_relation" — emoji: 🔗
-SHOW A REAL CHAIN REACTION — this is the WOW candidate screen. Use it to show a domino effect the student never noticed.
+SHOW EXACTLY ONE CAUSAL CHAIN — ONE relationship, THREE steps maximum. No extensions.
+❌ PROHIBITED: chains that go beyond 3 nodes (do NOT add "ventas bajan" or extra consequences after the result).
 ❌ PROHIBITED: abstract nodes like "Oferta", "Demanda", "Consumo" alone — these mean nothing to a teenager.
 ✅ REQUIRED: nodes must be VISIBLE EVERYDAY ACTIONS or SITUATIONS.
+CORRECT: Más personas quieren zapatillas ↓ sube ↓ Demanda ↓ sube ↓ Precio
+WRONG: Más personas compran ↓ sube ↓ Demanda ↓ sube ↓ Precio ↓ bajan ↓ Ventas ↓ cae ↓ Empresa
 - connector: chain in EXACTLY this format — situación real → consecuencia visible → impacto:
   "Acción cotidiana ↓ verbo ↓ Consecuencia visible ↓ verbo ↓ Impacto"
   Each node = max 4 words. Each verb = max 2 words. Use ↓ NOT →.
@@ -190,8 +202,9 @@ SCREEN 5 — type: "mini_quiz" — emoji: ⚡  [INTERACTIVE — REQUIRED]
 - definition: one sentence explanation WHY the correct answer is right (max 20 words)
 - CRITICAL — CORRECT ANSWER must NOT be obvious from the question wording.
 - CRITICAL — ALL 4 options must seem plausible at first glance — partial-truths, not absurdities.
-  ❌ FORBIDDEN: "porque sí", "no cambia nada", "dejan de comprar para siempre", "todos comprarán más"
-  ✅ REQUIRED: each wrong option represents a real but incomplete or slightly-off reasoning
+  ❌ STRICTLY FORBIDDEN: "Todas las anteriores", "Todas las opciones", "Ninguna de las anteriores", "Todas pueden ocurrir", "porque sí", "no cambia nada"
+  ✅ REQUIRED: each wrong option represents a real but incomplete or slightly-off reasoning.
+  SINGLE CORRECT ANSWER: if two options could both be correct → rewrite the question.
 - CRITICAL — Prioritize REASONING over memorization. If a student can answer without understanding, rewrite.
 - 2-SECOND TEST: If the correct answer can be identified in less than 2 seconds without reasoning → the question is too easy → rewrite it.
 
@@ -210,10 +223,13 @@ SCREEN 6 — type: "process_flow" OR "challenge" — emoji: 🔄 or 🤔
 SCREEN 7 — type: "application" — emoji: 🌍
 THIS SCREEN MUST ANSWER: "¿Dónde veré esto hoy?"
 The student must leave this screen thinking "eso pasa en algo que uso todos los días."
-MANDATORY: use a specific named platform or product. Choose from:
-  Netflix, Spotify, Steam, PlayStation, TikTok, iPhone, Samsung, Uber, PedidosYa, Mercado Libre
+MANDATORY: use a specific named platform or product. Priority order:
+  1st choice: PlayStation, iPhone, zapatillas de marca, conciertos, videojuegos, ropa de temporada
+  2nd choice: Uber, PedidosYa, Mercado Libre, Steam, TikTok, Samsung, Spotify
+  Last resort: Netflix (overused — only if nothing else fits)
   ❌ PROHIBITED: generic examples — "una empresa", "un consumidor", "una tienda", "los productores" with no real name.
   ❌ PROHIBITED: examples from books or school contexts.
+  ❌ PROHIBITED: inventing prices or facts — only use real economic mechanisms.
 - title: a concrete scenario AS A QUESTION using one of the above (max 15 words)
   ✅ "¿Por qué Uber sube su precio cuando llueve y hay poca disponibilidad?"
   ✅ "¿Por qué Mercado Libre muestra precios distintos para el mismo celular?"
@@ -246,7 +262,7 @@ SCREEN 9 — type: "wow_fact" — emoji: 🤯
 THIS IS THE WOW INSIGHT SCREEN — the single most counterintuitive or surprising fact from this topic.
 The student must finish this screen thinking: "No tenía idea de que eso pasaba."
 - title: "¿Sabías que...?" (or a short intriguing phrase, max 6 words)
-- definition: ONE surprising, counterintuitive fact that challenges what the student assumed. (max 40 words)
+- definition: ONE surprising, counterintuitive fact that challenges what the student assumed. MAX 3 lines / 30 words. No more.
   Must be 100% accurate. Must relate directly to this session's topic.
   Model structure: "Aunque parezca imposible, [hecho contraintuitivo]. Esto ocurre porque [mecanismo real simple]."
   ✅ Topic: precios → "Subir el precio de un producto puede reducir las ganancias totales de la empresa."

@@ -995,10 +995,29 @@ export default function SessionPlayerScreen() {
                 <View style={sum.mainCardBody}>
                   <Text style={sum.mainCardEmoji}>{slide.emoji}</Text>
                   <Text style={sum.mainCardTitle}>{slide.title}</Text>
-                  {!!slide.definition && <Text style={sum.mainCardDef}>{slide.definition}</Text>}
+                  {slide.connector?.includes('↓') ? (
+                    <View style={sum.chainContainer}>
+                      {slide.connector.split('↓').map((part, i) => {
+                        const text = part.trim();
+                        if (!text) return null;
+                        return i % 2 === 0 ? (
+                          <View key={i} style={sum.chainNode}>
+                            <Text style={sum.chainNodeText}>{text}</Text>
+                          </View>
+                        ) : (
+                          <View key={i} style={sum.chainLink}>
+                            <Text style={sum.chainLinkArrow}>↓</Text>
+                            <Text style={sum.chainLinkText}>{text}</Text>
+                          </View>
+                        );
+                      })}
+                    </View>
+                  ) : (
+                    !!slide.definition && <Text style={sum.mainCardDef}>{slide.definition}</Text>
+                  )}
                   {!!slide.example && (
                     <View style={sum.exampleBox}>
-                      <Text style={sum.exampleLabel}>📌 Ejemplo</Text>
+                      <Text style={sum.exampleLabel}>📌 En tu vida</Text>
                       <Text style={sum.exampleText}>{slide.example}</Text>
                     </View>
                   )}
@@ -1037,8 +1056,8 @@ export default function SessionPlayerScreen() {
                       <Text style={sum.quizFeedbackTitle}>🎉 ¡Bien! {slide.title}</Text>
                     ) : (
                       <>
-                        <Text style={sum.quizFeedbackTitle}>{`💡 Casi — era la ${slide.correctAnswer}`}</Text>
-                        {!!slide.definition && <Text style={sum.quizFeedbackText}>{slide.definition}</Text>}
+                        <Text style={sum.quizFeedbackTitle}>💡 Buena intención</Text>
+                        <Text style={sum.quizFeedbackText}>{slide.definition || `La opción correcta era la ${slide.correctAnswer}.`}</Text>
                       </>
                     )}
                   </View>
@@ -1112,8 +1131,8 @@ export default function SessionPlayerScreen() {
                       <Text style={sum.quizFeedbackTitle}>🎉 ¡Bien! {slide.title}</Text>
                     ) : (
                       <>
-                        <Text style={sum.quizFeedbackTitle}>{`💡 Casi — era la ${slide.correctAnswer}`}</Text>
-                        {!!slide.definition && <Text style={sum.quizFeedbackText}>{slide.definition}</Text>}
+                        <Text style={sum.quizFeedbackTitle}>💡 Buena intención</Text>
+                        <Text style={sum.quizFeedbackText}>{slide.definition || `La opción correcta era la ${slide.correctAnswer}.`}</Text>
                       </>
                     )}
                   </View>
@@ -1301,6 +1320,12 @@ export default function SessionPlayerScreen() {
                   {!!slide.definition && <Text style={sum.scenarioDef}>{slide.definition}</Text>}
                   {!!slide.example && <Text style={sum.scenarioEx}>{slide.example}</Text>}
                 </View>
+              </View>
+            ) : !slide?.title?.trim() && !slide?.definition?.trim() ? (
+              <View style={sum.kpCard}>
+                {(() => { console.warn(`[Session] Empty slide at index ${summaryIdx}: type=${slide?.type ?? 'unknown'}`); return null; })()}
+                <Text style={sum.kpEmoji}>⚠️</Text>
+                <Text style={sum.kpTitle}>Contenido no disponible</Text>
               </View>
             ) : (
               <View style={[sum.kpCard, { backgroundColor: SLIDE_STYLE[slide?.type ?? '']?.bg ?? 'rgba(91,61,245,0.08)', borderLeftColor: SLIDE_STYLE[slide?.type ?? '']?.accent ?? BRAND }]}>
