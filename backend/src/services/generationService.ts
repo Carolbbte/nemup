@@ -39,124 +39,130 @@ export async function generateSessionContent(
 ): Promise<GenerationResult> {
   console.log('[Generation] Curso utilizado para generar sesión:', curso);
 
-  const prompt = `You are an educational assistant for Chilean high-school learners. Based on the transcription below, create a study session with the following JSON structure.
+  const prompt = `You are an educational experience designer for Chilean high-school students. Your mission is NOT to summarize a document. Your mission is to build an interactive learning experience that makes the student understand, apply, and remember the most important concepts for their exam.
 
-GLOBAL RULES:
-- Return only valid JSON without additional text.
-- Use quotes extracted verbatim from the transcription in 'sourceQuote'.
-- Keep each sourceQuote concise (20-80 characters) and ensure it appears in the transcription.
+RETURN ONLY VALID JSON. No extra text.
 
 CURSO DEL ESTUDIANTE: ${curso}
 
-Adapta toda la sesión al nivel académico indicado. NO cambies los conceptos presentes en los apuntes. SÍ adapta: vocabulario, profundidad, complejidad de ejemplos, dificultad de preguntas y tarjetas, nivel de razonamiento. Mantén coherencia con el nivel esperado para estudiantes chilenos del curso indicado.
+ADAPT EVERYTHING to this academic level:
+- 1º Medio: simple language, everyday examples, recognition questions, minimal inference.
+- 2º Medio: intermediate language, conceptual understanding, basic application questions.
+- 3º Medio: conceptual depth, relational analysis, reasoning exercises.
+- 4º Medio: pre-university level, critical analysis, complex application, demanding questions.
 
-REGLAS POR CURSO:
-- 1º Medio: lenguaje simple, ejemplos cotidianos, preguntas de reconocimiento, pocas inferencias.
-- 2º Medio: lenguaje intermedio, comprensión de conceptos, preguntas de aplicación básica.
-- 3º Medio: profundidad conceptual, análisis de relaciones, ejercicios de razonamiento.
-- 4º Medio: nivel preuniversitario, análisis crítico, aplicación compleja, preguntas exigentes.
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+INTERNAL ANALYSIS — do this mentally BEFORE generating the JSON:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Ask yourself:
+1. What are the 2-3 concepts the student MUST understand to pass the exam?
+2. How do these concepts relate to each other?
+3. Is there a key process, flow, or sequence in the material?
+4. What is the most likely exam question on this topic?
+5. What mistake do students most often make?
+6. What real-world example makes this impossible to forget?
+7. If the material has diagrams, flows, or visual structures — how do I convert them into activities?
 
-════════════════════════════════════════════════
-SUMMARY — EXPERIENCIA DE APRENDIZAJE ACTIVA
-════════════════════════════════════════════════
+DO NOT include this analysis in the JSON. Use it to build the 10 screens below.
 
-OBJETIVO: La sesión debe sentirse como una experiencia interactiva, NO como un PowerPoint. Alterna tipos y mantén ritmo pedagógico.
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+THE 10 SCREENS — generate EXACTLY in this order
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-TIPOS DE TARJETA DISPONIBLES:
-• concept       — idea central neutra, definición directa
-• key_fact      — dato numérico o estadístico importante
-• important     — información crítica que no debe olvidarse
-• remember      — dato para memorizar
-• example       — caso real concreto o aplicación práctica
-• curiosity     — detalle interesante pero no sorprendente
-• wow_fact      — hecho sorprendente (máximo 1-2 por sesión)
-• did_you_know  — "¿Sabías que...?" hecho contraintuitivo o poco conocido
-• common_error  — error frecuente de los estudiantes sobre este tema
-• mini_quiz     — pregunta de selección múltiple interactiva (4 opciones)
-• true_false    — afirmación Verdadero/Falso con explicación
-• observe       — análisis de imagen con pregunta asociada
-• compare       — comparación explícita entre dos conceptos
-• partial_summary — resumen breve de lo visto hasta ese punto (1 cada 5-6 tarjetas)
-• final_challenge — pregunta integradora final (OBLIGATORIA, siempre la última)
+SCREEN 1 — type: "mission" — emoji: 🎯
+- title: active mission title (e.g., "Misión: Agentes Económicos")
+- definition: the learning objective as an active mission statement (1 sentence).
+  Example: "En esta misión aprenderás cómo interactúan familias, empresas y Estado en la economía."
+  DO NOT write "Aprenderás sobre..." — make it exciting and specific.
+- example: null
 
-REGLA DE ALTERNACIÓN (obligatoria):
-- NUNCA generar más de 2 tarjetas consecutivas del mismo tipo.
-- Insertar una interacción (mini_quiz, true_false, common_error u observe) cada máximo 2 tarjetas informativas.
-- Ejemplo válido: concept → example → mini_quiz → key_fact → did_you_know → true_false → compare → partial_summary → mini_quiz → final_challenge
-- Ejemplo INVÁLIDO: concept → concept → concept → example → example
+SCREEN 2 — type: "main_concept" — emoji: fitting to content
+- title: the single most important concept name
+- definition: explanation in MAXIMUM 2 short sentences. Direct, clear, no filler.
+- DO NOT copy text literally from the document. Rewrite in your own words.
+- example: a brief, memorable real-world anchor (max 15 words)
 
-CONECTORES NARRATIVOS (campo "connector" — obligatorio en cada tarjeta):
-- Cada tarjeta incluye "connector": frase corta que crea expectativa hacia su contenido.
-- Primera tarjeta: connector puede ser null.
-- Ejemplos: "Ahora veremos otra evidencia.", "¿Pero cómo lo sabemos con certeza?", "Existe una prueba aún más sorprendente.", "No todos los estudiantes entienden esto bien.", "¿Eres capaz de responder esto?", "Pasemos a un nivel más profundo.", "Antes de continuar, verifica tu comprensión.", "Los fósiles no son la única prueba."
+SCREEN 3 — type: "comprehension" — emoji: 🤔
+- title: "¿Comprendiste?"
+- question: simple direct question about the concept from screen 2
+- options: ["A. ...", "B. ...", "C. ...", "D. ..."] — exactly 4 options
+- correctAnswer: "A", "B", "C", or "D"
+- definition: brief explanation of why the answer is correct (max 15 words)
+- CRITICAL: distractors must be plausible — related to the topic, not absurd
 
-TARJETA FINAL OBLIGATORIA (final_challenge):
-- La ÚLTIMA tarjeta SIEMPRE es de tipo "final_challenge".
-- emoji: 🏆, title: "¿Qué aprendiste?"
-- question: combina 2 o más conceptos vistos en la sesión.
-- definition: pista o contexto para responder. No agregar example.
+SCREEN 4 — type: "key_relation" — emoji: 🔗
+- title: "X → Y" or "¿Cómo se relacionan X e Y?"
+- definition: explain the relationship and why it matters (max 2 sentences)
+- example: what happens when this relationship breaks or changes (concrete, max 20 words)
 
-REGLAS POR TIPO DE TARJETA INTERACTIVA:
+SCREEN 5 — type: "mini_quiz" — emoji: ⚡
+- title: "Quiz rápido"
+- question: application question (NOT pure recognition — requires using the concept)
+- options: ["A. ...", "B. ...", "C. ...", "D. ..."] — exactly 4 options
+- correctAnswer: "A", "B", "C", or "D"
+- definition: explanation referencing the concept from screens 2 or 4 (max 20 words)
+- CRITICAL: distractors must be plausible
 
-mini_quiz:
-- question: pregunta clara y directa
-- options: array de exactamente 4 strings con formato ["A. texto", "B. texto", "C. texto", "D. texto"]
-- correctAnswer: "A", "B", "C" o "D"
-- definition: explicación breve de por qué es correcta (max 20 palabras)
-- CRÍTICO: los distractores deben ser plausibles. Deben parecer posibles respuestas correctas, no opciones absurdas.
+SCREEN 6 — type: "process_flow" — emoji: 🔄
+- title: name of the process or flow
+- definition: the steps or stages written with clear structure (use numbers or →)
+  Example: "1. Familias ofrecen trabajo → 2. Empresas pagan salarios → 3. Familias consumen bienes"
+- IF the material has no clear process, use type "key_relation" for a second important relationship instead.
+- example: real-world instance of this process in action (max 20 words)
 
-true_false:
-- question: afirmación que puede ser verdadera o falsa
-- correctAnswer: "Verdadero" o "Falso"
-- definition: explicación de por qué (max 20 palabras)
+SCREEN 7 — type: "application" — emoji: 🌍
+- title: a concrete real-world situation as a question
+  Example: "Si una familia compra pan en una panadería, ¿qué agente económico participa?"
+- definition: the answer, explaining WHICH concept applies and WHY (max 2 sentences)
+- Must be relatable to a Chilean teenager. Concrete, not abstract.
 
-observe:
-- Solo usar si el material describe imágenes, gráficos, mapas, tablas, estructuras visuales o datos visuales.
-- question: pregunta sobre lo que se observa o deduce
-- visualHint: descripción detallada de la imagen (10-15 palabras)
-- definition: qué debe identificar o aprender el estudiante de la imagen
+SCREEN 8 — type: "common_error" — emoji: ⚠️
+- title: "Error común: [description of the mistake]"
+- definition: why it is WRONG + what the correct understanding is (max 2 sentences)
+- Base this on real student misconceptions about this specific topic.
 
-common_error:
-- title: "Error común: [descripción]"
-- definition: por qué es incorrecto + la respuesta correcta
+SCREEN 9 — type: "final_challenge" — emoji: 🏆
+- title: "Desafío final"
+- question: integrating question that requires connecting AT LEAST 2 concepts from this session
+- options: ["A. ...", "B. ...", "C. ...", "D. ..."] — exactly 4 options
+- correctAnswer: "A", "B", "C", or "D"
+- definition: explanation that explicitly mentions both concepts (max 25 words)
+- CRITICAL: distractors must be plausible
 
-compare:
-- title: "X vs Y" o "¿En qué se diferencian X e Y?"
-- definition: diferencias y similitudes clave (max 25 palabras)
+SCREEN 10 — type: "victory" — emoji: 🎉
+- title: "¡Misión cumplida!"
+- definition: MAXIMUM 2 sentences celebrating what was mastered. Reference the SPECIFIC concepts learned. DO NOT repeat definitions.
+- example: one memorable takeaway or real-world connection the student will remember (max 20 words)
 
-partial_summary:
-- title: "Hasta aquí..." o "Repaso rápido"
-- definition: resumen de 2-3 ideas clave vistas hasta ese punto
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ABSOLUTE RULES FOR ALL 10 SCREENS:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+- Generate EXACTLY 10 slides in the exact order above.
+- NEVER copy text literally from the transcription.
+- NEVER create two consecutive informational screens with definitions only.
+- NEVER ignore diagrams, flows, or visual structures in the material — convert them into screen 6 (process_flow) or screen 4 (key_relation).
+- NEVER create empty or vague slides.
+- Reorganize content by PEDAGOGICAL IMPORTANCE, not by document order.
+- Prioritize: understanding → application → retention. NOT total content coverage.
 
-REGLAS GENERALES DE CONTENIDO (resumen):
-- Each slide = ONE single idea. Never group multiple ideas.
-- "definition": max 20-25 words. Clear, direct.
-- "example": max 25-30 words for non-interactive types. Concrete, visual, memorable. If no real example exists, create an analogy.
-- "wow_fact": surprising fact, max 15 words. No example needed.
-- "visualHint": 5-10 words describing the ideal image. Must be concrete and visual.
-- "illustrationType": educational | diagram | concept | timeline | map | process | comparison
-
-════════════════════════════════════════════════
-QUIZ — PREGUNTAS DE SELECCIÓN MÚLTIPLE
-════════════════════════════════════════════════
-
-- Generate questions that test understanding, not just memorization.
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+QUIZ QUESTIONS (separate from summary screens):
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+- Generate questions that test understanding and application, not just memorization.
 - Each question must have exactly 4 options.
-- CRÍTICO: distractores deben ser plausibles — relacionados con el tema, podrían parecer correctos.
-  Ejemplo correcto: si la pregunta es sobre fotosíntesis, un distractor válido es "respiración celular", no "comer pizza".
-- Mix: recognition questions (1° medio), application (2°-3°), reasoning and interpretation (4°).
-- explanation: why the correct answer is correct AND why the main distractor is wrong.
+- Distractors must be plausible — related to the topic, could seem correct at first glance.
+- Mix difficulty: recognition (1°), application (2°-3°), reasoning and interpretation (4°).
+- explanation: why the correct answer is right AND why the main distractor is wrong.
 
-════════════════════════════════════════════════
-FLASHCARDS
-════════════════════════════════════════════════
-
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+FLASHCARDS:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 - front: concise question or concept (max 10 words)
 - back: direct, memorable answer (max 25 words)
-- Mix concept cards with application cards ("how" and "why", not just "what").
-- Avoid pure definition repetition across cards.
+- Mix "what" cards with "how" and "why" cards.
+- Avoid pure definition repetition.
 
-JSON SCHEMA:
+JSON SCHEMA — return ONLY this structure:
 {
   "subject": string,
   "topic": string,
@@ -185,14 +191,13 @@ JSON SCHEMA:
     "title": string,
     "slides": [
       {
-        "type": "concept"|"key_fact"|"important"|"remember"|"example"|"curiosity"|"wow_fact"|"did_you_know"|"common_error"|"mini_quiz"|"true_false"|"observe"|"compare"|"partial_summary"|"final_challenge",
+        "type": "mission"|"main_concept"|"comprehension"|"key_relation"|"mini_quiz"|"process_flow"|"application"|"common_error"|"final_challenge"|"victory",
         "emoji": string,
         "title": string,
         "definition": string,
-        "example": string,
-        "visualHint": string,
-        "illustrationType": "educational"|"diagram"|"concept"|"timeline"|"map"|"process"|"comparison",
-        "connector": string | null,
+        "example": string | null,
+        "visualHint": string | null,
+        "illustrationType": "educational"|"diagram"|"concept"|"timeline"|"map"|"process"|"comparison"|null,
         "question": string | null,
         "options": [string] | null,
         "correctAnswer": string | null
@@ -202,13 +207,13 @@ JSON SCHEMA:
   }
 }
 
-Use the transcription below and do not invent source quotes outside it. If the transcription is shorter than 100 words, return a JSON object with an empty questions and flashcards list and a short summary.
+If the transcription is shorter than 100 words, return a JSON with an empty questions and flashcards list and a minimal 10-screen summary using the same structure.
 
 Transcription:
 ${normalizeText(transcription)}
 `;
 
-  const system = `Eres un diseñador de experiencias de aprendizaje para jóvenes de enseñanza media chilena. Genera sesiones interactivas con variedad de tipos de tarjetas. Proporciona JSON válido y estructurado. Mantén el lenguaje en español.`;
+  const system = `Eres un diseñador de experiencias de aprendizaje para jóvenes de enseñanza media chilena. Tu objetivo es construir misiones de aprendizaje interactivas — NO resúmenes pasivos. Genera exactamente 10 pantallas estructuradas según el esquema indicado. Proporciona JSON válido. Mantén todo el contenido en español.`;
   const response = await openai.chat.completions.create({
     model: config.openai_model,
     messages: [
@@ -257,9 +262,12 @@ ${normalizeText(transcription)}
   })) as Flashcard[];
 
   const VALID_SLIDE_TYPES: SummarySlideType[] = [
+    // Structured mission screens (primary)
+    'mission', 'main_concept', 'comprehension', 'key_relation',
+    'mini_quiz', 'process_flow', 'application', 'common_error', 'final_challenge', 'victory',
+    // Legacy types (fallback compatibility)
     'concept', 'key_fact', 'important', 'remember', 'example', 'curiosity', 'wow_fact',
-    'did_you_know', 'common_error', 'mini_quiz', 'true_false', 'observe',
-    'compare', 'partial_summary', 'final_challenge',
+    'did_you_know', 'true_false', 'observe', 'compare', 'partial_summary',
   ];
   const VALID_ILLUSTRATION_TYPES: IllustrationType[] = ['educational', 'diagram', 'concept', 'timeline', 'map', 'process', 'comparison'];
 
