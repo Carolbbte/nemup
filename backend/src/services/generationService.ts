@@ -242,35 +242,45 @@ RULES:
 3. BOTH fields are REQUIRED. If no real teen misconception exists, replace with type "comprehension".
 4. The error must be specific to THIS topic and believable for a smart teenager.
 
-SCREEN 9 — type: "final_challenge" — emoji: 🏆  [INTERACTIVE — REQUIRED]
-CRITICAL: This screen is MANDATORY with real content. It must ALWAYS have question AND options populated.
-If the material is too simple to write an integrating question → combine two concepts from earlier screens anyway.
-- title: "Desafío final"
-- question: integrating question connecting AT LEAST 2 concepts from this session (max 30 words)
-- options: ["A. ...", "B. ...", "C. ...", "D. ..."] — EXACTLY 4 options required, each max 12 words
-- correctAnswer: "A", "B", "C", or "D"
-- definition: explanation explicitly mentioning both concepts (max 25 words)
-- CRITICAL: ALL 4 options must be plausible — represent real partial-truths, not absurdities
-  ❌ NEVER leave question or options null or empty
+SCREEN 9 — type: "wow_fact" — emoji: 🤯
+THIS IS THE WOW INSIGHT SCREEN — the single most counterintuitive or surprising fact from this topic.
+The student must finish this screen thinking: "No tenía idea de que eso pasaba."
+- title: "¿Sabías que...?" (or a short intriguing phrase, max 6 words)
+- definition: ONE surprising, counterintuitive fact that challenges what the student assumed. (max 40 words)
+  Must be 100% accurate. Must relate directly to this session's topic.
+  Model structure: "Aunque parezca imposible, [hecho contraintuitivo]. Esto ocurre porque [mecanismo real simple]."
+  ✅ Topic: precios → "Subir el precio de un producto puede reducir las ganancias totales de la empresa."
+  ✅ Topic: ahorro → "Cuando todos ahorran al mismo tiempo, el país puede entrar en recesión."
+  ✅ Topic: dólar → "Chile puede exportar más cuando el peso se DEBILITA, no cuando se fortalece."
+  ✅ Topic: inflación → "Un poco de inflación es intencional — sin ella la economía se congela."
+- example: one sentence grounding this in a teen's everyday life (max 20 words)
+- question: null
+- options: null
+- correctAnswer: null
 
-SCREEN 10 — type: "victory" — emoji: 🎉
+SCREEN 10 — type: "victory" — emoji: 🏆
 - title: "¡Misión cumplida!"
-- definition: MAXIMUM 2 sentences celebrating what was mastered. Reference the SPECIFIC concepts learned. Be enthusiastic, not robotic.
-- example: MANDATORY format — start with "Lo usarás cuando..." and connect to a real teen situation (max 20 words).
-  Example: "Lo usarás cuando veas que el precio de tu celular favorito cambia en distintas tiendas."
-  Example: "Lo usarás cuando decidas si suscribirte a Spotify o esperar una oferta."
+- definition: MANDATORY CHECKLIST FORMAT — list the specific concepts mastered in this session.
+  Format: "Aprendiste: ✓ [Concepto 1] • ✓ [Concepto 2] • ✓ [Concepto 3] • ✓ [Concepto 4]"
+  Use the EXACT names of the concepts covered in screens 2, 4, 6, 7, 8, 9.
+  Example: "Aprendiste: ✓ Oferta y demanda • ✓ Inflación • ✓ Cómo afectan los precios • ✓ Relación micro y macro"
+  MAX 4 concepts in the checklist.
+- example: MANDATORY — start with "Lo usarás cuando..." and name a specific teen situation (max 20 words).
+  Example: "Lo usarás cuando el precio de tu celular favorito cambie y entiendas por qué."
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ABSOLUTE RULES FOR ALL 10 SCREENS:
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-- Generate EXACTLY 10 slides in the exact order above.
+- Generate EXACTLY 10 slides in the exact order above. No type may be duplicated.
 - NEVER copy text literally from the transcription.
 - NEVER create two consecutive informational screens with definitions only.
 - NEVER ignore diagrams, flows, or visual structures in the material — convert them into screen 6 (process_flow) or screen 4 (key_relation).
 - NEVER create empty or vague slides. If a type cannot be filled with quality content, use the FALLBACK types specified above.
 - Reorganize content by PEDAGOGICAL IMPORTANCE, not by document order.
 - Prioritize: understanding → application → retention. NOT total content coverage.
-- The 3 interactive screens (screens 3, 5, 9) are MANDATORY. They must always be comprehension/mini_quiz/final_challenge with real questions and options.
+- The 2 interactive screens (screens 3, 5) are MANDATORY. They must always be comprehension/mini_quiz with real questions and options. Screen 9 is informational (wow_fact), NOT interactive.
+- CONCEPTUAL BRIDGE: When the session moves from micro-level concepts (individual choices, product prices) to macro-level concepts (inflation, GDP, Banco Central, monetary policy), write an explicit bridge in the definition field of the transition screen. Example bridge: "Lo que ocurre con el precio de la palta también pasa a escala de toda la economía — así funcionan los precios a nivel macro."
+- CURSO ADAPTATION is MANDATORY. The complexity of vocabulary, the depth of reasoning required, and the length of explanations must match the student's curso level: ${curso}. A 1º Medio session must feel simpler than a 4º Medio session in every screen.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 FINAL VALIDATION — run this checklist before outputting JSON:
@@ -279,7 +289,10 @@ FINAL VALIDATION — run this checklist before outputting JSON:
 2. ¿Hay descubrimiento? → ¿El estudiante aprende algo que no sabía, no que le repiten algo?
 3. ¿Las preguntas requieren pensar? → ¿No se pueden responder en menos de 2 segundos sin razonar?
 4. ¿Los ejemplos son adolescentes? → ¿Aparece Netflix, Spotify, TikTok, Uber, Steam, iPhone, PedidosYa, o Mercado Libre — no "una empresa" genérica?
-5. ¿Existe al menos un momento WOW? → ¿Hay una tarjeta que provoca "ah, por eso pasa eso"?
+5. ¿Existe al menos un momento WOW? → ¿La tarjeta 9 (wow_fact) contiene un hecho contraintuitivo que sorprendería a un adolescente?
+6. ¿Las preguntas interactivas (screens 3 y 5) tienen question y options completas? → Si NO → reescribir esa pantalla completa.
+7. ¿La tarjeta 10 (victory) tiene el checklist de conceptos en formato ✓ ? → Si NO → regenerar.
+8. ¿El nivel de complejidad es correcto para ${curso}? → Si el lenguaje parece universitario para 1º Medio, simplificar.
 If any answer is NO → rewrite the failing screen before outputting.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -328,7 +341,7 @@ JSON SCHEMA — return ONLY this structure:
     "title": string,
     "slides": [
       {
-        "type": "mission"|"main_concept"|"comprehension"|"key_relation"|"mini_quiz"|"process_flow"|"application"|"common_error"|"final_challenge"|"victory"|"challenge",
+        "type": "mission"|"main_concept"|"comprehension"|"key_relation"|"mini_quiz"|"process_flow"|"application"|"common_error"|"wow_fact"|"victory"|"challenge",
         "emoji": string,
         "title": string,
         "definition": string,
@@ -400,16 +413,19 @@ ${normalizeText(transcription)}
   })) as Flashcard[];
 
   const VALID_SLIDE_TYPES: SummarySlideType[] = [
-    // Structured mission screens (primary)
+    // Structured mission screens (primary — current generation)
     'mission', 'main_concept', 'comprehension', 'key_relation',
-    'mini_quiz', 'process_flow', 'application', 'common_error', 'final_challenge', 'victory',
+    'mini_quiz', 'process_flow', 'application', 'common_error', 'wow_fact', 'victory',
     'challenge',
-    // Legacy types (fallback compatibility)
-    'concept', 'key_fact', 'important', 'remember', 'example', 'curiosity', 'wow_fact',
+    // Kept for backward compatibility with older sessions
+    'final_challenge',
+    // Legacy types
+    'concept', 'key_fact', 'important', 'remember', 'example', 'curiosity',
     'did_you_know', 'true_false', 'observe', 'compare', 'partial_summary',
   ];
   const VALID_ILLUSTRATION_TYPES: IllustrationType[] = ['educational', 'diagram', 'concept', 'timeline', 'map', 'process', 'comparison'];
 
+  // Interactive types that require question + options (wow_fact and victory do NOT need them)
   const INTERACTIVE_SLIDE_TYPES = ['comprehension', 'mini_quiz', 'final_challenge'];
 
   const rawSlides = (parsed.summary?.slides || []).map((slide: any, i: number) => ({
@@ -426,9 +442,10 @@ ${normalizeText(transcription)}
     correctAnswer: slide.correctAnswer ?? null,
   }));
 
-  // Post-processing: replace interactive slides missing question/options with a challenge fallback
   const isMissionModel = rawSlides.length > 0 && rawSlides[0].type === 'mission';
+
   const validatedSlides = rawSlides.map((slide, i) => {
+    // Interactive slides must have question + options — convert to 'challenge' if missing
     if (isMissionModel && INTERACTIVE_SLIDE_TYPES.includes(slide.type)) {
       const hasQuestion = typeof slide.question === 'string' && slide.question.trim().length > 0;
       const hasOptions = Array.isArray(slide.options) && slide.options.length >= 2;
@@ -437,12 +454,29 @@ ${normalizeText(transcription)}
         return {
           ...slide,
           type: 'challenge' as SummarySlideType,
-          definition: slide.definition || slide.title || 'Reflexiona sobre lo que aprendiste en esta sesión.',
+          definition: slide.definition?.trim() || slide.title || 'Reflexiona sobre los conceptos aprendidos en esta sesión.',
           question: null,
           options: null,
           correctAnswer: null,
         };
       }
+    }
+    // wow_fact slide (screen 9) must have a definition — patch if missing
+    if (isMissionModel && slide.type === 'wow_fact' && !slide.definition?.trim()) {
+      console.warn(`[Generation] wow_fact slide ${i} missing definition — applying fallback`);
+      return {
+        ...slide,
+        definition: `Un hecho sorprendente sobre ${topic}: los conceptos de esta sesión tienen efectos que van más allá de lo que parece a primera vista.`,
+      };
+    }
+    // victory slide must have a definition — patch if missing
+    if (isMissionModel && slide.type === 'victory' && !slide.definition?.trim()) {
+      console.warn(`[Generation] victory slide ${i} missing definition — applying fallback`);
+      return {
+        ...slide,
+        definition: `Aprendiste los conceptos clave de esta sesión sobre ${topic}.`,
+        example: slide.example || `Lo usarás cuando notes cómo los precios y decisiones económicas afectan tu vida diaria.`,
+      };
     }
     return slide;
   });
