@@ -66,73 +66,96 @@ Ask yourself:
 DO NOT include this analysis in the JSON. Use it to build the 10 screens below.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+TEXT LIMITS — apply to EVERY screen:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+- definition: maximum 2 sentences OR 50 words — whichever is shorter.
+- example: maximum 25 words.
+- title: maximum 10 words.
+Clarity over coverage. If you cannot say it in 2 sentences, cut the less important sentence.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 THE 10 SCREENS — generate EXACTLY in this order
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 SCREEN 1 — type: "mission" — emoji: 🎯
 - title: active mission title (e.g., "Misión: Agentes Económicos")
-- definition: the learning objective as an active mission statement (1 sentence).
+- definition: the learning objective as an active mission statement (1 sentence, max 25 words).
   Example: "En esta misión aprenderás cómo interactúan familias, empresas y Estado en la economía."
   DO NOT write "Aprenderás sobre..." — make it exciting and specific.
 - example: null
 
 SCREEN 2 — type: "main_concept" — emoji: fitting to content
-- title: the single most important concept name
-- definition: explanation in MAXIMUM 2 short sentences. Direct, clear, no filler.
+- title: the single most important concept name (max 5 words)
+- definition: explanation in MAXIMUM 2 short sentences, 50 words total. Direct, clear, no filler.
 - DO NOT copy text literally from the document. Rewrite in your own words.
 - example: a brief, memorable real-world anchor (max 15 words)
 
-SCREEN 3 — type: "comprehension" — emoji: 🤔
+SCREEN 3 — type: "comprehension" — emoji: 🤔  [INTERACTIVE — REQUIRED]
 - title: "¿Comprendiste?"
-- question: simple direct question about the concept from screen 2
-- options: ["A. ...", "B. ...", "C. ...", "D. ..."] — exactly 4 options
+- question: simple direct question about the concept from screen 2 (max 20 words)
+- options: ["A. ...", "B. ...", "C. ...", "D. ..."] — exactly 4 options, each max 12 words
 - correctAnswer: "A", "B", "C", or "D"
-- definition: brief explanation of why the answer is correct (max 15 words)
+- definition: one sentence explaining why the answer is correct (max 15 words)
 - CRITICAL: distractors must be plausible — related to the topic, not absurd
 
 SCREEN 4 — type: "key_relation" — emoji: 🔗
-- title: "X → Y" or "¿Cómo se relacionan X e Y?"
-- definition: explain the relationship and why it matters (max 2 sentences)
-- example: what happens when this relationship breaks or changes (concrete, max 20 words)
+- title: a short name for this relationship (max 6 words)
+- connector: the relationship as a VERTICAL CHAIN using this exact format:
+  "Node1 ↓ verb ↓ Node2 ↓ verb ↓ Node3"
+  Example: "Familias ↓ pagan ↓ Impuestos ↓ financian ↓ Estado ↓ entrega ↓ Subsidios"
+  Use 2 to 4 nodes. Each node max 3 words. Each verb max 2 words.
+  IMPORTANT: use the ↓ character (downward arrow), NOT "→".
+- definition: one sentence explaining WHY this chain matters (max 20 words)
+- example: null
+- FALLBACK: If you cannot identify a meaningful chain relationship, use type "comprehension" instead with a question about a second concept.
 
-SCREEN 5 — type: "mini_quiz" — emoji: ⚡
+SCREEN 5 — type: "mini_quiz" — emoji: ⚡  [INTERACTIVE — REQUIRED]
 - title: "Quiz rápido"
-- question: application question (NOT pure recognition — requires using the concept)
-- options: ["A. ...", "B. ...", "C. ...", "D. ..."] — exactly 4 options
+- question: application question (NOT pure recognition — requires using the concept, max 25 words)
+- options: ["A. ...", "B. ...", "C. ...", "D. ..."] — exactly 4 options, each max 12 words
 - correctAnswer: "A", "B", "C", or "D"
-- definition: explanation referencing the concept from screens 2 or 4 (max 20 words)
+- definition: one sentence explanation referencing the concept from screens 2 or 4 (max 20 words)
 - CRITICAL: distractors must be plausible
 
-SCREEN 6 — type: "process_flow" — emoji: 🔄
-- title: name of the process or flow
-- definition: the steps or stages written with clear structure (use numbers or →)
-  Example: "1. Familias ofrecen trabajo → 2. Empresas pagan salarios → 3. Familias consumen bienes"
-- IF the material has no clear process, use type "key_relation" for a second important relationship instead.
-- example: real-world instance of this process in action (max 20 words)
+SCREEN 6 — type: "process_flow" OR "challenge" — emoji: 🔄 or 🤔
+- OPTION A — type: "process_flow" — if the material has a clear sequence or flow:
+  - title: name of the process or flow (max 6 words)
+  - definition: the steps written as "Step1 → Step2 → Step3" (max 5 steps, max 8 words each)
+  - example: real-world instance of this process (max 20 words)
+- OPTION B — type: "challenge" — if there is NO clear process in the material:
+  - title: "Reflexiona"
+  - definition: an open-ended "what if" or "why" question that requires applying the concepts (max 30 words)
+    Example: "Si desaparecieran los impuestos, ¿qué servicio público podría verse más afectado y por qué?"
+  - example: null
+  - question, options, correctAnswer: all null
 
 SCREEN 7 — type: "application" — emoji: 🌍
-- title: a concrete real-world situation as a question
+- title: a concrete real-world situation as a question (max 15 words)
   Example: "Si una familia compra pan en una panadería, ¿qué agente económico participa?"
-- definition: the answer, explaining WHICH concept applies and WHY (max 2 sentences)
+- definition: the answer explaining WHICH concept applies and WHY (max 2 sentences, 40 words max)
 - Must be relatable to a Chilean teenager. Concrete, not abstract.
 
 SCREEN 8 — type: "common_error" — emoji: ⚠️
-- title: "Error común: [description of the mistake]"
-- definition: why it is WRONG + what the correct understanding is (max 2 sentences)
-- Base this on real student misconceptions about this specific topic.
+CRITICAL RULES FOR THIS SCREEN:
+1. definition = the WRONG belief students have (1 sentence, max 20 words). Start with what students incorrectly think.
+   Example: "Muchos creen que el Estado solo recauda impuestos sin devolver nada a la sociedad."
+2. example = the CORRECT reality (1 sentence, max 20 words). State what is actually true.
+   Example: "El Estado también financia educación, salud y subsidios con lo que recauda."
+3. BOTH fields are REQUIRED. If you cannot identify a real, specific common error for this topic, replace this entire screen with type "comprehension" using a new question about a different concept.
+4. DO NOT use vague or generic errors. The mistake must be specific to this exact topic.
 
-SCREEN 9 — type: "final_challenge" — emoji: 🏆
+SCREEN 9 — type: "final_challenge" — emoji: 🏆  [INTERACTIVE — REQUIRED]
 - title: "Desafío final"
-- question: integrating question that requires connecting AT LEAST 2 concepts from this session
-- options: ["A. ...", "B. ...", "C. ...", "D. ..."] — exactly 4 options
+- question: integrating question connecting AT LEAST 2 concepts from this session (max 30 words)
+- options: ["A. ...", "B. ...", "C. ...", "D. ..."] — exactly 4 options, each max 12 words
 - correctAnswer: "A", "B", "C", or "D"
-- definition: explanation that explicitly mentions both concepts (max 25 words)
+- definition: explanation explicitly mentioning both concepts (max 25 words)
 - CRITICAL: distractors must be plausible
 
 SCREEN 10 — type: "victory" — emoji: 🎉
 - title: "¡Misión cumplida!"
-- definition: MAXIMUM 2 sentences celebrating what was mastered. Reference the SPECIFIC concepts learned. DO NOT repeat definitions.
-- example: one memorable takeaway or real-world connection the student will remember (max 20 words)
+- definition: MAXIMUM 2 sentences celebrating what was mastered. Reference the SPECIFIC concepts learned.
+- example: one memorable takeaway or real-world connection (max 20 words)
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ABSOLUTE RULES FOR ALL 10 SCREENS:
@@ -141,9 +164,10 @@ ABSOLUTE RULES FOR ALL 10 SCREENS:
 - NEVER copy text literally from the transcription.
 - NEVER create two consecutive informational screens with definitions only.
 - NEVER ignore diagrams, flows, or visual structures in the material — convert them into screen 6 (process_flow) or screen 4 (key_relation).
-- NEVER create empty or vague slides.
+- NEVER create empty or vague slides. If a type cannot be filled with quality content, use the FALLBACK types specified above.
 - Reorganize content by PEDAGOGICAL IMPORTANCE, not by document order.
 - Prioritize: understanding → application → retention. NOT total content coverage.
+- The 3 interactive screens (screens 3, 5, 9) are MANDATORY. They must always be comprehension/mini_quiz/final_challenge with real questions and options.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 QUIZ QUESTIONS (separate from summary screens):
@@ -191,11 +215,12 @@ JSON SCHEMA — return ONLY this structure:
     "title": string,
     "slides": [
       {
-        "type": "mission"|"main_concept"|"comprehension"|"key_relation"|"mini_quiz"|"process_flow"|"application"|"common_error"|"final_challenge"|"victory",
+        "type": "mission"|"main_concept"|"comprehension"|"key_relation"|"mini_quiz"|"process_flow"|"application"|"common_error"|"final_challenge"|"victory"|"challenge",
         "emoji": string,
         "title": string,
         "definition": string,
         "example": string | null,
+        "connector": string | null,
         "visualHint": string | null,
         "illustrationType": "educational"|"diagram"|"concept"|"timeline"|"map"|"process"|"comparison"|null,
         "question": string | null,
@@ -265,6 +290,7 @@ ${normalizeText(transcription)}
     // Structured mission screens (primary)
     'mission', 'main_concept', 'comprehension', 'key_relation',
     'mini_quiz', 'process_flow', 'application', 'common_error', 'final_challenge', 'victory',
+    'challenge',
     // Legacy types (fallback compatibility)
     'concept', 'key_fact', 'important', 'remember', 'example', 'curiosity', 'wow_fact',
     'did_you_know', 'true_false', 'observe', 'compare', 'partial_summary',

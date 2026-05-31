@@ -51,7 +51,7 @@ type Option  = { id: string; text: string };
 type Question = { id: string; text: string; options: Option[]; correctOptionId: string; explanation: string; sourceQuote: string };
 type Flashcard = { id: string; front: string; back: string };
 type SummarySlideType = 'concept' | 'key_fact' | 'important' | 'remember' | 'example' | 'curiosity' | 'wow_fact'
-  | 'mission' | 'main_concept' | 'comprehension' | 'key_relation' | 'mini_quiz' | 'process_flow' | 'application' | 'common_error' | 'final_challenge' | 'victory';
+  | 'mission' | 'main_concept' | 'comprehension' | 'key_relation' | 'mini_quiz' | 'process_flow' | 'application' | 'common_error' | 'final_challenge' | 'victory' | 'challenge';
 type IllustrationType = 'educational' | 'diagram' | 'concept' | 'timeline' | 'map' | 'process' | 'comparison';
 type BackendSlide = { type: SummarySlideType; emoji: string; title: string; definition: string; example: string; visualHint?: string; illustrationType?: IllustrationType; connector?: string | null; question?: string | null; options?: string[] | null; correctAnswer?: string | null };
 type LegacySection = { heading: string; content: string; keyPoints: string[] };
@@ -855,6 +855,12 @@ export default function SessionPlayerScreen() {
     const slide             = slides[summaryIdx];
     const isLast            = summaryIdx >= slides.length - 1;
     const slideQuizAnswered = slide?.type === 'quiz' ? quizAnswers[summaryIdx] : undefined;
+    // Stats for victory screen — computed once, used in victory card renderer
+    const V_CONCEPT   = ['main_concept', 'key_relation', 'process_flow', 'application', 'common_error', 'challenge'];
+    const V_INTER     = ['comprehension', 'mini_quiz', 'final_challenge'];
+    const vConcepts   = slides.filter(s => V_CONCEPT.includes(s.type)).length;
+    const vInterTotal = slides.filter(s => V_INTER.includes(s.type)).length;
+    const vCorrect    = slides.filter((s, i) => V_INTER.includes(s.type) && quizAnswers[i] === (s as BackendSlide).correctAnswer).length;
 
     const goNext = () => {
       Vibration.vibrate(18);
@@ -1018,26 +1024,50 @@ export default function SessionPlayerScreen() {
                 </View>
                 {!!quizAnswers[summaryIdx] && (
                   <View style={[sum.quizFeedback, quizAnswers[summaryIdx] === slide.correctAnswer ? sum.quizFeedbackOk : sum.quizFeedbackErr]}>
-                    <Text style={sum.quizFeedbackTitle}>{quizAnswers[summaryIdx] === slide.correctAnswer ? '🎉 ¡Correcto!' : `💡 Era la ${slide.correctAnswer}`}</Text>
-                    {!!slide.definition && <Text style={sum.quizFeedbackText}>{slide.definition}</Text>}
+                    {quizAnswers[summaryIdx] === slide.correctAnswer ? (
+                      <Text style={sum.quizFeedbackTitle}>🎉 ¡Bien! {slide.title}</Text>
+                    ) : (
+                      <>
+                        <Text style={sum.quizFeedbackTitle}>{`💡 Casi — era la ${slide.correctAnswer}`}</Text>
+                        {!!slide.definition && <Text style={sum.quizFeedbackText}>{slide.definition}</Text>}
+                      </>
+                    )}
                   </View>
                 )}
               </View>
             ) : slide?.type === 'key_relation' ? (
               <View style={sum.relationCard}>
                 <Text style={sum.relationLabel}>🔗 RELACIÓN CLAVE</Text>
-                <View style={sum.relationRow}>
-                  <View style={sum.relationChipA}>
-                    <Text style={sum.relationChipText} numberOfLines={2}>{slide.title}</Text>
+                {slide.connector?.includes('↓') ? (
+                  <View style={sum.chainContainer}>
+                    {slide.connector.split('↓').map((part, i) => {
+                      const text = part.trim();
+                      if (!text) return null;
+                      return i % 2 === 0 ? (
+                        <View key={i} style={sum.chainNode}>
+                          <Text style={sum.chainNodeText}>{text}</Text>
+                        </View>
+                      ) : (
+                        <View key={i} style={sum.chainLink}>
+                          <Text style={sum.chainLinkArrow}>↓</Text>
+                          <Text style={sum.chainLinkText}>{text}</Text>
+                        </View>
+                      );
+                    })}
                   </View>
-                  <View style={sum.relationArrow}>
-                    <Text style={sum.relationArrowText}>→</Text>
+                ) : (
+                  <View style={sum.relationRow}>
+                    <View style={sum.relationChipA}>
+                      <Text style={sum.relationChipText} numberOfLines={2}>{slide.title}</Text>
+                    </View>
+                    <View style={sum.relationArrow}>
+                      <Text style={sum.relationArrowText}>→</Text>
+                    </View>
+                    <View style={sum.relationChipB}>
+                      <Text style={sum.relationChipText} numberOfLines={2}>{slide.example}</Text>
+                    </View>
                   </View>
-                  <View style={sum.relationChipB}>
-                    <Text style={sum.relationChipText} numberOfLines={2}>{slide.example}</Text>
-                  </View>
-                </View>
-                {!!slide.connector && <Text style={sum.relationConnector}>{slide.connector}</Text>}
+                )}
                 {!!slide.definition && <Text style={sum.relationDef}>{slide.definition}</Text>}
               </View>
             ) : slide?.type === 'mini_quiz' ? (
@@ -1069,8 +1099,14 @@ export default function SessionPlayerScreen() {
                 </View>
                 {!!quizAnswers[summaryIdx] && (
                   <View style={[sum.quizFeedback, quizAnswers[summaryIdx] === slide.correctAnswer ? sum.quizFeedbackOk : sum.quizFeedbackErr]}>
-                    <Text style={sum.quizFeedbackTitle}>{quizAnswers[summaryIdx] === slide.correctAnswer ? '🎉 ¡Correcto!' : `💡 Era la ${slide.correctAnswer}`}</Text>
-                    {!!slide.definition && <Text style={sum.quizFeedbackText}>{slide.definition}</Text>}
+                    {quizAnswers[summaryIdx] === slide.correctAnswer ? (
+                      <Text style={sum.quizFeedbackTitle}>🎉 ¡Bien! {slide.title}</Text>
+                    ) : (
+                      <>
+                        <Text style={sum.quizFeedbackTitle}>{`💡 Casi — era la ${slide.correctAnswer}`}</Text>
+                        {!!slide.definition && <Text style={sum.quizFeedbackText}>{slide.definition}</Text>}
+                      </>
+                    )}
                   </View>
                 )}
               </View>
@@ -1078,17 +1114,22 @@ export default function SessionPlayerScreen() {
               <View style={sum.processCard}>
                 <Text style={sum.processLabel}>⚙️ PROCESO</Text>
                 <Text style={sum.processTitle}>{slide.title}</Text>
-                {!!slide.definition && <Text style={sum.processDef}>{slide.definition}</Text>}
-                {!!slide.example && (
+                {!!slide.definition && (
                   <View style={sum.processSteps}>
-                    {slide.example.split('→').map((step, i) => (
+                    {slide.definition.split('→').map((step, i) => (
                       <View key={i} style={sum.processStep}>
                         <View style={sum.processNum}>
                           <Text style={sum.processNumText}>{i + 1}</Text>
                         </View>
-                        <Text style={sum.processStepText}>{step.trim()}</Text>
+                        <Text style={sum.processStepText}>{step.replace(/^\d+\.\s*/, '').trim()}</Text>
                       </View>
                     ))}
+                  </View>
+                )}
+                {!!slide.example && (
+                  <View style={sum.exampleBox}>
+                    <Text style={sum.exampleLabel}>📌 Ejemplo</Text>
+                    <Text style={sum.exampleText}>{slide.example}</Text>
                   </View>
                 )}
               </View>
@@ -1110,22 +1151,32 @@ export default function SessionPlayerScreen() {
                 </View>
               </View>
             ) : slide?.type === 'common_error' ? (
-              <View style={sum.errorCard}>
-                <View style={sum.errorHeader}>
-                  <Text style={sum.errorIcon}>⚠️</Text>
-                  <Text style={sum.errorHeaderLabel}>Error Común</Text>
+              !slide.definition || !slide.example ? (
+                <View style={sum.introCard}>
+                  <Text style={sum.slideEmoji}>{slide.emoji}</Text>
+                  <Text style={sum.introHeading}>{slide.title}</Text>
+                  {!!(slide.definition || slide.example) && (
+                    <Text style={sum.introDef}>{slide.definition || slide.example}</Text>
+                  )}
                 </View>
-                <View style={sum.errorBody}>
-                  <View style={sum.errorWrongBox}>
-                    <Text style={sum.errorWrongLabel}>❌ Muchos creen...</Text>
-                    <Text style={sum.errorWrongText}>{slide.definition}</Text>
+              ) : (
+                <View style={sum.errorCard}>
+                  <View style={sum.errorHeader}>
+                    <Text style={sum.errorIcon}>⚠️</Text>
+                    <Text style={sum.errorHeaderLabel}>Error Común</Text>
                   </View>
-                  <View style={sum.errorRightBox}>
-                    <Text style={sum.errorRightLabel}>✅ En realidad...</Text>
-                    <Text style={sum.errorRightText}>{slide.example}</Text>
+                  <View style={sum.errorBody}>
+                    <View style={sum.errorWrongBox}>
+                      <Text style={sum.errorWrongLabel}>❌ Error frecuente</Text>
+                      <Text style={sum.errorWrongText}>{slide.definition}</Text>
+                    </View>
+                    <View style={sum.errorRightBox}>
+                      <Text style={sum.errorRightLabel}>✅ Realidad</Text>
+                      <Text style={sum.errorRightText}>{slide.example}</Text>
+                    </View>
                   </View>
                 </View>
-              </View>
+              )
             ) : slide?.type === 'final_challenge' ? (
               <View style={sum.challengeCard}>
                 <LinearGradient colors={['#FF7A2B', '#FFB347']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={sum.challengeHeader}>
@@ -1159,23 +1210,53 @@ export default function SessionPlayerScreen() {
                   </View>
                   {!!quizAnswers[summaryIdx] && (
                     <View style={[sum.quizFeedback, quizAnswers[summaryIdx] === slide.correctAnswer ? sum.quizFeedbackOk : sum.quizFeedbackErr]}>
-                      <Text style={sum.quizFeedbackTitle}>{quizAnswers[summaryIdx] === slide.correctAnswer ? '🏆 ¡Superado!' : `💡 Era la ${slide.correctAnswer}`}</Text>
-                      {!!slide.definition && <Text style={sum.quizFeedbackText}>{slide.definition}</Text>}
+                      {quizAnswers[summaryIdx] === slide.correctAnswer ? (
+                        <Text style={sum.quizFeedbackTitle}>🏆 ¡Superado! {slide.title}</Text>
+                      ) : (
+                        <>
+                          <Text style={sum.quizFeedbackTitle}>{`💡 Casi — era la ${slide.correctAnswer}`}</Text>
+                          {!!slide.definition && <Text style={sum.quizFeedbackText}>{slide.definition}</Text>}
+                        </>
+                      )}
                     </View>
                   )}
                 </View>
+              </View>
+            ) : slide?.type === 'challenge' ? (
+              <View style={sum.challengeRefCard}>
+                <Text style={sum.challengeRefEmoji}>🤔</Text>
+                <Text style={sum.challengeRefLabel}>REFLEXIONA</Text>
+                <Text style={sum.challengeRefQ}>{slide.definition || slide.title}</Text>
+                {!!slide.example && (
+                  <View style={sum.challengeRefHintBox}>
+                    <Text style={sum.challengeRefHintLbl}>Pista</Text>
+                    <Text style={sum.challengeRefHintTxt}>{slide.example}</Text>
+                  </View>
+                )}
               </View>
             ) : slide?.type === 'victory' ? (
               <View style={sum.victoryCard}>
                 <Text style={sum.victoryEmoji}>{slide.emoji}</Text>
                 <Text style={sum.victoryTitle}>{slide.title}</Text>
                 {!!slide.definition && <Text style={sum.victorySub}>{slide.definition}</Text>}
-                <View style={sum.victoryRewards}>
-                  <View style={sum.victoryChip}>
-                    <Text style={sum.victoryChipText}>⚡ +{session.xpReward} XP</Text>
-                  </View>
-                  <View style={sum.victoryGemChip}>
-                    <Text style={sum.victoryGemText}>💎 +{session.gemReward}</Text>
+                <View style={sum.victoryStats}>
+                  <View style={sum.victoryStatRow}>
+                    <View style={sum.victoryStat}>
+                      <Text style={sum.victoryStatVal}>{vConcepts}</Text>
+                      <Text style={sum.victoryStatLbl}>conceptos</Text>
+                    </View>
+                    <View style={sum.victoryStat}>
+                      <Text style={[sum.victoryStatVal, { color: '#059669' }]}>{vCorrect}/{vInterTotal}</Text>
+                      <Text style={sum.victoryStatLbl}>correctas</Text>
+                    </View>
+                    <View style={sum.victoryStat}>
+                      <Text style={[sum.victoryStatVal, { color: BRAND }]}>+{session.xpReward}</Text>
+                      <Text style={sum.victoryStatLbl}>XP</Text>
+                    </View>
+                    <View style={sum.victoryStat}>
+                      <Text style={[sum.victoryStatVal, { color: '#FF7A2B' }]}>+{session.gemReward}</Text>
+                      <Text style={sum.victoryStatLbl}>💎</Text>
+                    </View>
                   </View>
                 </View>
                 {!!slide.example && <Text style={sum.victoryNote}>{slide.example}</Text>}
@@ -1245,6 +1326,7 @@ export default function SessionPlayerScreen() {
                     {isLast && slide?.type === 'victory' ? '🏆 ¡Misión completada!' :
                      isLast ? '✅ Completar resumen' :
                      slide?.type === 'mission' ? '¡Comenzar! →' :
+                     slide?.type === 'challenge' ? '🤔 Lo pensé →' :
                      slide?.type === 'motivation' ? '¡Seguimos! →' :
                      slide?.type === 'prediction' ? '🧠 Entendido →' :
                      'Siguiente →'}
@@ -1926,16 +2008,33 @@ const sum = StyleSheet.create({
   challengeQuestion:    { fontSize: SM ? 15 : 17, fontWeight: '800', color: Colors.ink, lineHeight: SM ? 22 : 26, letterSpacing: -0.2 },
 
   // Victory card
-  victoryCard:      { backgroundColor: 'white', borderRadius: 24, padding: SM ? 28 : 36, alignItems: 'center', shadowColor: BRAND, shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.14, shadowRadius: 24, elevation: 8 },
-  victoryEmoji:     { fontSize: SM ? 64 : 80, marginBottom: 14 },
-  victoryTitle:     { fontSize: SM ? 22 : 26, fontWeight: '900', color: Colors.ink, textAlign: 'center', letterSpacing: -0.5, lineHeight: SM ? 28 : 34, marginBottom: 8 },
-  victorySub:       { fontSize: SM ? 13 : 15, color: Colors.ink2, textAlign: 'center', lineHeight: SM ? 20 : 24, fontWeight: '500', marginBottom: 18 },
-  victoryRewards:   { flexDirection: 'row', gap: 10, marginBottom: 8 },
-  victoryChip:      { backgroundColor: 'rgba(91,61,245,0.09)', borderRadius: 100, paddingVertical: 8, paddingHorizontal: 18, borderWidth: 1, borderColor: 'rgba(91,61,245,0.18)' },
-  victoryChipText:  { fontSize: SM ? 14 : 16, fontWeight: '900', color: BRAND },
-  victoryGemChip:   { backgroundColor: '#FFF7ED', borderRadius: 100, paddingVertical: 8, paddingHorizontal: 18, borderWidth: 1, borderColor: 'rgba(255,122,43,0.2)' },
-  victoryGemText:   { fontSize: SM ? 14 : 16, fontWeight: '900', color: '#FF7A2B' },
-  victoryNote:      { fontSize: SM ? 11 : 12, color: Colors.muted, textAlign: 'center', fontWeight: '600', marginTop: 4 },
+  victoryCard:      { backgroundColor: 'white', borderRadius: 24, padding: SM ? 22 : 28, alignItems: 'center', shadowColor: BRAND, shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.14, shadowRadius: 24, elevation: 8 },
+  victoryEmoji:     { fontSize: SM ? 54 : 68, marginBottom: 10 },
+  victoryTitle:     { fontSize: SM ? 20 : 24, fontWeight: '900', color: Colors.ink, textAlign: 'center', letterSpacing: -0.5, lineHeight: SM ? 26 : 32, marginBottom: 6 },
+  victorySub:       { fontSize: SM ? 12 : 14, color: Colors.ink2, textAlign: 'center', lineHeight: SM ? 18 : 22, fontWeight: '500', marginBottom: 14 },
+  victoryStats:     { width: '100%', backgroundColor: Colors.bgSoft, borderRadius: 16, paddingVertical: SM ? 12 : 14, paddingHorizontal: 8, marginBottom: 10, borderWidth: 1, borderColor: Colors.line },
+  victoryStatRow:   { flexDirection: 'row', justifyContent: 'space-around' },
+  victoryStat:      { alignItems: 'center', gap: 2 },
+  victoryStatVal:   { fontSize: SM ? 18 : 22, fontWeight: '900', color: Colors.ink, letterSpacing: -0.5 },
+  victoryStatLbl:   { fontSize: 9, fontWeight: '700', color: Colors.muted, letterSpacing: 0.3, textTransform: 'uppercase' },
+  victoryNote:      { fontSize: SM ? 11 : 12, color: Colors.muted, textAlign: 'center', fontWeight: '600', marginTop: 2 },
+
+  // Chain diagram (key_relation)
+  chainContainer:   { gap: 0, alignItems: 'stretch', marginVertical: 10 },
+  chainNode:        { backgroundColor: '#F5F3FF', borderRadius: 14, borderWidth: 1.5, borderColor: 'rgba(91,61,245,0.28)', paddingVertical: SM ? 9 : 11, paddingHorizontal: 16 },
+  chainNodeText:    { fontSize: SM ? 14 : 16, fontWeight: '800', color: BRAND, textAlign: 'center' },
+  chainLink:        { alignItems: 'center', paddingVertical: 2 },
+  chainLinkArrow:   { fontSize: SM ? 16 : 18, color: '#00C2A8', fontWeight: '900', lineHeight: SM ? 18 : 20 },
+  chainLinkText:    { fontSize: SM ? 11 : 12, fontWeight: '700', color: '#00C2A8', fontStyle: 'italic', lineHeight: SM ? 14 : 16 },
+
+  // Challenge reflection card
+  challengeRefCard:    { backgroundColor: '#F5F3FF', borderRadius: 24, padding: SM ? 26 : 32, alignItems: 'center', shadowColor: NEON, shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.1, shadowRadius: 20, elevation: 5 },
+  challengeRefEmoji:   { fontSize: SM ? 52 : 64, marginBottom: 14 },
+  challengeRefLabel:   { fontSize: 10, fontWeight: '900', color: NEON, letterSpacing: 1.5, marginBottom: 14, textTransform: 'uppercase' },
+  challengeRefQ:       { fontSize: SM ? 17 : 21, fontWeight: '800', color: Colors.ink, textAlign: 'center', lineHeight: SM ? 25 : 30, letterSpacing: -0.3, marginBottom: 16 },
+  challengeRefHintBox: { backgroundColor: 'white', borderRadius: 14, padding: SM ? 10 : 12, width: '100%' },
+  challengeRefHintLbl: { fontSize: 9, fontWeight: '800', color: Colors.muted, letterSpacing: 1, marginBottom: 4, textTransform: 'uppercase' },
+  challengeRefHintTxt: { fontSize: SM ? 13 : 14, color: Colors.ink2, lineHeight: SM ? 20 : 22, fontWeight: '500' },
 });
 
 // ── Quiz ───────────────────────────────────────────────────────────
