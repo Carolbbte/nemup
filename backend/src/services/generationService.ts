@@ -444,7 +444,7 @@ ${normalizeText(transcription)}
 
   const isMissionModel = rawSlides.length > 0 && rawSlides[0].type === 'mission';
 
-  const validatedSlides = rawSlides.map((slide, i) => {
+  const validatedSlides = rawSlides.map((slide: any, i: number) => {
     // Interactive slides must have question + options — convert to 'challenge' if missing
     if (isMissionModel && INTERACTIVE_SLIDE_TYPES.includes(slide.type)) {
       const hasQuestion = typeof slide.question === 'string' && slide.question.trim().length > 0;
