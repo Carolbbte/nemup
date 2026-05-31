@@ -39,29 +39,44 @@ export async function generateSessionContent(
 ): Promise<GenerationResult> {
   console.log('[Generation] Curso utilizado para generar sesión:', curso);
 
-  const prompt = `You are an educational experience designer for Chilean high-school students. Your mission is NOT to summarize a document. Your mission is to build an interactive learning experience that makes the student understand, apply, and remember the most important concepts for their exam.
+  const prompt = `You are a Duolingo-style learning experience designer for Chilean high-school students. Your mission is NOT to summarize a document. Your mission is to engineer DISCOVERY moments — each screen must make the student feel curiosity, surprise, personal connection, or an "aha" moment.
 
 RETURN ONLY VALID JSON. No extra text.
 
 CURSO DEL ESTUDIANTE: ${curso}
 
 ADAPT EVERYTHING to this academic level:
-- 1º Medio: simple language, everyday examples, recognition questions, minimal inference.
-- 2º Medio: intermediate language, conceptual understanding, basic application questions.
-- 3º Medio: conceptual depth, relational analysis, reasoning exercises.
-- 4º Medio: pre-university level, critical analysis, complex application, demanding questions.
+- 1º Medio: very simple language, everyday examples, recognition questions, no inference.
+- 2º Medio: plain language, basic application, conceptual understanding.
+- 3º Medio: relational analysis, reasoning, real consequences.
+- 4º Medio: critical thinking, complex application, pre-university depth.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+EMOTIONAL VALIDATION — apply to EVERY screen before writing it:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Ask yourself: "Would a Chilean teenager say 'ah, now I get it' or 'I didn't know that'?"
+If NO → rewrite the screen.
+
+Each screen must provoke exactly ONE of these:
+- Curiosidad: "¿Por qué pasa eso?"
+- Sorpresa: "No sabía que..."
+- Conexión personal: "Eso me pasa a mí"
+- Descubrimiento: "Ah, entonces por eso..."
+- Reflexión: "¿Y si...?"
+
+A screen that only INFORMS is NOT valid. It must make the student FEEL something.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 INTERNAL ANALYSIS — do this mentally BEFORE generating the JSON:
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 Ask yourself:
-1. What are the 2-3 concepts the student MUST understand to pass the exam?
-2. How do these concepts relate to each other?
-3. Is there a key process, flow, or sequence in the material?
-4. What is the most likely exam question on this topic?
-5. What mistake do students most often make?
-6. What real-world example makes this impossible to forget?
-7. If the material has diagrams, flows, or visual structures — how do I convert them into activities?
+1. What 2-3 concepts MUST the student grasp to pass the exam?
+2. How do these concepts connect causally (not just relationally)?
+3. Is there a chain reaction or domino effect in the material?
+4. What would a student who only uses TikTok and watches Netflix incorrectly believe about this?
+5. Which real teen situation (Spotify, zapatillas, celular, bencina) makes this concept land?
+6. What is the single most surprising or counterintuitive fact in this material?
+7. If the material has diagrams — what real-world chain of events do they represent?
 
 DO NOT include this analysis in the JSON. Use it to build the 10 screens below.
 
@@ -85,10 +100,20 @@ SCREEN 1 — type: "mission" — emoji: 🎯
 - example: null
 
 SCREEN 2 — type: "main_concept" — emoji: fitting to content
-- title: the single most important concept name (max 5 words)
-- definition: explanation in MAXIMUM 2 short sentences, 50 words total. Direct, clear, no filler.
-- DO NOT copy text literally from the document. Rewrite in your own words.
-- example: a brief, memorable real-world anchor (max 15 words)
+FOLLOW THIS EXACT 3-PART FORMAT:
+  Part 1 — IMPACT LINE: One sentence that creates curiosity or surprise. NOT a definition.
+    Must make the student think "interesting" or "I didn't know that."
+    Example: "Cada vez que eliges qué comprar, estás haciendo economía sin saberlo."
+    Example: "El Estado gasta tu plata antes de que tú la ganes."
+  Part 2 — SIMPLE EXPLANATION: One plain sentence explaining the concept. Zero academic jargon.
+    Example: "La microeconomía estudia las decisiones de personas y empresas."
+  Part 3 — in example field: A situation a Chilean teenager ACTUALLY lives.
+    Use: precios de alimentos, celulares, streaming, zapatillas, transporte, redes sociales.
+    Example: "¿Por qué la palta subió de precio esta semana?"
+    Example: "¿Por qué Netflix cuesta más pero el plan básico desapareció?"
+- title: the concept name (max 5 words)
+- definition: Part 1 + Part 2 combined (max 40 words total, 2 sentences max)
+- example: Part 3 — must describe a situation a 15-year-old actually encounters (max 20 words)
 
 SCREEN 3 — type: "comprehension" — emoji: 🤔  [INTERACTIVE — REQUIRED]
 - title: "¿Comprendiste?"
@@ -99,28 +124,38 @@ SCREEN 3 — type: "comprehension" — emoji: 🤔  [INTERACTIVE — REQUIRED]
 - CRITICAL: distractors must be plausible — related to the topic, not absurd
 
 SCREEN 4 — type: "key_relation" — emoji: 🔗
-- title: a short name for this relationship (max 6 words)
-- connector: the relationship as a VERTICAL CHAIN using this exact format:
-  "Node1 ↓ verb ↓ Node2 ↓ verb ↓ Node3"
-  Example: "Familias ↓ pagan ↓ Impuestos ↓ financian ↓ Estado ↓ entrega ↓ Subsidios"
-  Use 2 to 4 nodes. Each node max 3 words. Each verb max 2 words.
-  IMPORTANT: use the ↓ character (downward arrow), NOT "→".
-- definition: one sentence explaining WHY this chain matters (max 20 words)
+SHOW CAUSE AND EFFECT — not abstract concepts.
+- connector: a vertical chain showing a REAL CHAIN REACTION using this exact format:
+  "SituaciónCotidiana ↓ verbo ↓ Consecuencia ↓ verbo ↓ Resultado"
+  REQUIRED: nodes must be situations a teenager can visualize, not abstract terms.
+  Good examples:
+    "Más familias compran ↓ sube ↓ Demanda aumenta ↓ suben ↓ Precios"
+    "Sube el dólar ↓ encarece ↓ Importaciones ↓ aumentan ↓ Precios en tiendas"
+    "Más personas ahorran ↓ baja ↓ Consumo ↓ cae ↓ Ventas de empresas"
+  Use 2 to 4 nodes. Each node max 4 words. Each verb max 2 words.
+  PROHIBITED: abstract or purely academic concepts as nodes (e.g., "Oferta", "Demanda" alone are too abstract — show the REAL situation that creates them).
+  IMPORTANT: use the ↓ character, NOT "→".
+- title: a short name for this chain (max 6 words)
+- definition: one sentence explaining WHY this chain matters in real life (max 20 words)
 - example: null
-- FALLBACK: If you cannot identify a meaningful chain relationship, use type "comprehension" instead with a question about a second concept.
+- FALLBACK: If you cannot find a concrete real-world chain → use type "comprehension" instead.
 
 SCREEN 5 — type: "mini_quiz" — emoji: ⚡  [INTERACTIVE — REQUIRED]
 - title: "Quiz rápido"
-- question: application question (NOT pure recognition — requires using the concept, max 25 words)
+- question: an APPLICATION question — the student must REASON using the concept, not just remember it (max 25 words).
+  Good: "Si el precio del pan sube un 30%, ¿qué pasará probablemente con la cantidad que compra una familia?"
+  Bad: "¿Qué es la demanda?" — this is pure recognition, FORBIDDEN.
 - options: ["A. ...", "B. ...", "C. ...", "D. ..."] — exactly 4 options, each max 12 words
 - correctAnswer: "A", "B", "C", or "D"
-- definition: one sentence explanation referencing the concept from screens 2 or 4 (max 20 words)
-- CRITICAL: distractors must be plausible
+- definition: one sentence explanation WHY the correct answer is right (max 20 words)
+- CRITICAL — CORRECT ANSWER must NOT be obvious from the question wording.
+- CRITICAL — DISTRACTORS must represent plausible misconceptions or half-truths, NOT absurd alternatives.
+- CRITICAL — Prioritize REASONING over memorization. If a student can answer without understanding, rewrite.
 
 SCREEN 6 — type: "process_flow" OR "challenge" — emoji: 🔄 or 🤔
 - OPTION A — type: "process_flow" — if the material has a clear sequence or flow:
   - title: name of the process or flow (max 6 words)
-  - definition: the steps written as "Step1 → Step2 → Step3" (max 5 steps, max 8 words each)
+  - definition: the steps written as "Step1 → Step2 → Step3 → Step4" (max 4 steps, max 5 words each). Show a CAUSAL chain — each step causes the next.
   - example: real-world instance of this process (max 20 words)
 - OPTION B — type: "challenge" — if there is NO clear process in the material:
   - title: "Reflexiona"
@@ -130,19 +165,26 @@ SCREEN 6 — type: "process_flow" OR "challenge" — emoji: 🔄 or 🤔
   - question, options, correctAnswer: all null
 
 SCREEN 7 — type: "application" — emoji: 🌍
-- title: a concrete real-world situation as a question (max 15 words)
-  Example: "Si una familia compra pan en una panadería, ¿qué agente económico participa?"
+MANDATORY: use a real teen-relevant platform or situation. Choose from:
+  Netflix, Spotify, TikTok, Steam, PlayStation, Xbox, celulares, zapatillas, comida rápida, transporte, compras online, redes sociales.
+  PROHIBITED: generic business examples like "una empresa" or "un consumidor" with no context.
+- title: a concrete scenario as a question using one of the platforms above (max 15 words)
+  Example: "Si Netflix sube su precio, ¿qué pasará con la cantidad de suscriptores?"
+  Example: "¿Por qué Steam pone los juegos en oferta en fechas específicas?"
 - definition: the answer explaining WHICH concept applies and WHY (max 2 sentences, 40 words max)
-- Must be relatable to a Chilean teenager. Concrete, not abstract.
+- example: what this means for the student personally (max 15 words)
 
 SCREEN 8 — type: "common_error" — emoji: ⚠️
+SHOW A REAL TEEN MISCONCEPTION — not an academic error a professor would make.
+Think: what would a student who only watches TikTok and never studied this topic believe? That is the error.
 CRITICAL RULES FOR THIS SCREEN:
-1. definition = the WRONG belief students have (1 sentence, max 20 words). Start with what students incorrectly think.
-   Example: "Muchos creen que el Estado solo recauda impuestos sin devolver nada a la sociedad."
-2. example = the CORRECT reality (1 sentence, max 20 words). State what is actually true.
-   Example: "El Estado también financia educación, salud y subsidios con lo que recauda."
-3. BOTH fields are REQUIRED. If you cannot identify a real, specific common error for this topic, replace this entire screen with type "comprehension" using a new question about a different concept.
-4. DO NOT use vague or generic errors. The mistake must be specific to this exact topic.
+1. definition = the WRONG belief a real teenager would have (1 sentence, max 20 words).
+   Good: "Mucha gente cree que si el dólar sube, el gobierno puede simplemente bajar su precio."
+   Bad: "Confunden oferta con demanda." — too academic, not a real teen belief.
+2. example = the CORRECT reality that surprises them (1 sentence, max 20 words).
+   Example: "El dólar lo fija el mercado global, no el gobierno chileno."
+3. BOTH fields are REQUIRED. If you cannot identify a real teen misconception, replace with type "comprehension" using a new question.
+4. The error must be believable — something a smart teenager would actually think before learning this.
 
 SCREEN 9 — type: "final_challenge" — emoji: 🏆  [INTERACTIVE — REQUIRED]
 - title: "Desafío final"
@@ -154,8 +196,10 @@ SCREEN 9 — type: "final_challenge" — emoji: 🏆  [INTERACTIVE — REQUIRED]
 
 SCREEN 10 — type: "victory" — emoji: 🎉
 - title: "¡Misión cumplida!"
-- definition: MAXIMUM 2 sentences celebrating what was mastered. Reference the SPECIFIC concepts learned.
-- example: one memorable takeaway or real-world connection (max 20 words)
+- definition: MAXIMUM 2 sentences celebrating what was mastered. Reference the SPECIFIC concepts learned. Be enthusiastic, not robotic.
+- example: MANDATORY format — start with "Lo usarás cuando..." and connect to a real teen situation (max 20 words).
+  Example: "Lo usarás cuando veas que el precio de tu celular favorito cambia en distintas tiendas."
+  Example: "Lo usarás cuando decidas si suscribirte a Spotify o esperar una oferta."
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ABSOLUTE RULES FOR ALL 10 SCREENS:
@@ -168,6 +212,7 @@ ABSOLUTE RULES FOR ALL 10 SCREENS:
 - Reorganize content by PEDAGOGICAL IMPORTANCE, not by document order.
 - Prioritize: understanding → application → retention. NOT total content coverage.
 - The 3 interactive screens (screens 3, 5, 9) are MANDATORY. They must always be comprehension/mini_quiz/final_challenge with real questions and options.
+- FINAL VALIDATION before outputting JSON: for each screen ask "¿Un adolescente chileno diría 'ah, ahora entiendo' o 'no sabía eso'?" If the answer is NO for any screen → rewrite that screen.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 QUIZ QUESTIONS (separate from summary screens):
@@ -238,7 +283,7 @@ Transcription:
 ${normalizeText(transcription)}
 `;
 
-  const system = `Eres un diseñador de experiencias de aprendizaje para jóvenes de enseñanza media chilena. Tu objetivo es construir misiones de aprendizaje interactivas — NO resúmenes pasivos. Genera exactamente 10 pantallas estructuradas según el esquema indicado. Proporciona JSON válido. Mantén todo el contenido en español.`;
+  const system = `Eres un diseñador de experiencias de aprendizaje estilo Duolingo para jóvenes de enseñanza media chilena. Tu objetivo NO es resumir un documento — es crear momentos de DESCUBRIMIENTO. Cada pantalla debe provocar curiosidad, sorpresa o una conexión personal. Un adolescente debe terminar la sesión pensando "no sabía eso" o "ah, por eso pasa". Construye misiones interactivas, NO resúmenes escolares. Genera exactamente 10 pantallas en el orden indicado. Proporciona JSON válido. Todo el contenido en español.`;
   const response = await openai.chat.completions.create({
     model: config.openai_model,
     messages: [
