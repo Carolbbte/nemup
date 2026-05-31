@@ -7,7 +7,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import {
   ArrowRight, BookOpen, BookText, Brain, Calculator, Camera,
-  Check, Dna, Flag, Flame, FlaskConical, Languages, Lightbulb,
+  Check, Dna, Flame, FlaskConical, Languages,
   Loader, Scroll, Target, Trophy, X, Zap,
 } from 'lucide-react-native';
 import React, { useEffect, useMemo, useState } from 'react';
@@ -21,11 +21,10 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 const { height: SCREEN_H } = Dimensions.get('window');
 const SM = SCREEN_H < 740;
 
-const BG          = '#F7F8FC';
-const PURPLE_HDR  = '#4A35CC';
-const NEON        = '#7C5AFF';
-const LIME        = '#C4F852';
-const CORRECT_CLR = '#2D7D52';
+const BG   = '#F7F8FC';
+const BRAND = Colors.brand;
+const NEON  = '#7C5AFF';
+const LIME  = '#C4F852';
 
 const COMPLETED_KEY = 'nemup_first_session_completed';
 const PROGRESS_KEY  = 'nemup_first_session_progress';
@@ -67,12 +66,14 @@ function AnimatedNumber({ to, delay = 0, style }: { to: number; delay?: number; 
 }
 
 // ─── Pill progress bar ────────────────────────────────────────────────────────
-function PillProgress({ filled, total }: { filled: number; total: number }) {
+function PillBar({ filled, total, color }: { filled: number; total: number; color: string }) {
+  const count  = Math.min(total, 20);
+  const active = Math.round((filled / Math.max(total, 1)) * count);
   return (
-    <View style={{ flexDirection: 'row', flex: 1, gap: 4, alignItems: 'center' }}>
-      {Array.from({ length: total }).map((_, i) => (
-        <View key={i} style={{ flex: 1, height: 6, borderRadius: 3,
-          backgroundColor: i < filled ? 'rgba(255,255,255,0.88)' : 'rgba(255,255,255,0.22)' }} />
+    <View style={{ flex: 1, flexDirection: 'row', gap: 2, alignItems: 'center' }}>
+      {Array.from({ length: count }).map((_, i) => (
+        <View key={i} style={{ flex: 1, height: 4, borderRadius: 2,
+          backgroundColor: i < active ? color : Colors.line }} />
       ))}
     </View>
   );
@@ -182,15 +183,15 @@ function QuizOption({ opt, selected, revealed, isCorrectOpt, onPress }: {
   const isWrong     = revealed && selected && !isCorrectOpt;
   const dimmed      = revealed && !selected && !isCorrectOpt;
   const borderColor = revealed
-    ? (isCorrectOpt ? CORRECT_CLR : isWrong ? Colors.rose : Colors.line)
-    : (selected ? Colors.brand : Colors.line);
+    ? (isCorrectOpt ? BRAND : isWrong ? Colors.line2 : Colors.line)
+    : (selected ? BRAND : Colors.line);
   const bgColor     = revealed
-    ? (isCorrectOpt ? 'rgba(45,125,82,0.08)' : isWrong ? 'rgba(255,77,109,0.08)' : 'white')
+    ? (isCorrectOpt ? 'rgba(91,61,245,0.04)' : 'white')
     : (selected ? Colors.brandSoft : 'white');
   const letterBg    = revealed
-    ? (isCorrectOpt ? CORRECT_CLR : isWrong ? Colors.rose : Colors.bgSoft)
-    : (selected ? Colors.brand : Colors.bgSoft);
-  const letterColor = ((revealed && (isCorrectOpt || isWrong)) || (!revealed && selected)) ? 'white' : Colors.ink;
+    ? (isCorrectOpt ? BRAND : isWrong ? Colors.line2 : Colors.bgSoft)
+    : (selected ? BRAND : Colors.bgSoft);
+  const letterColor = ((revealed && isCorrectOpt) || (!revealed && selected)) ? 'white' : Colors.ink;
 
   const optStyle   = useAnimatedStyle(() => ({
     transform: [{ scale: scale.value }, { translateX: shakeX.value }],
@@ -206,17 +207,17 @@ function QuizOption({ opt, selected, revealed, isCorrectOpt, onPress }: {
             <Text style={[styles.optLetterText, { color: letterColor }]}>{opt.id}</Text>
           </View>
           <Text style={[styles.optText,
-            revealed && isCorrectOpt && { color: '#1A5C3A', fontWeight: '700' },
-            revealed && isWrong      && { color: '#B91C30', fontWeight: '700' },
+            revealed && isCorrectOpt && { color: BRAND, fontWeight: '700' },
+            revealed && isWrong      && { color: Colors.muted, fontWeight: '700' },
           ]}>
             {opt.text}
           </Text>
           {revealed && isCorrectOpt && (
             <Animated.View style={checkStyle}>
-              <Check size={16} color={CORRECT_CLR} strokeWidth={2.5} />
+              <Check size={16} color={BRAND} strokeWidth={2.5} />
             </Animated.View>
           )}
-          {revealed && isWrong && <X size={16} color={Colors.rose} strokeWidth={2.5} />}
+          {revealed && isWrong && <X size={16} color={Colors.line2} strokeWidth={2.5} />}
         </View>
       </Pressable>
     </Animated.View>
@@ -434,121 +435,103 @@ export default function FirstSessionScreen() {
   const revealed = phase === 'answered';
 
   return (
-    <View style={{ flex: 1, backgroundColor: PURPLE_HDR }}>
-      <StatusBar barStyle="light-content" />
+    <View style={{ flex: 1, backgroundColor: BG }}>
+      <StatusBar barStyle="dark-content" backgroundColor={BG} />
       <SafeAreaView style={{ flex: 1 }} edges={['top']}>
 
-        {/* Purple header — identical to real session */}
-        <View style={{ backgroundColor: PURPLE_HDR, paddingHorizontal: 16, paddingBottom: 14 }}>
-          <View style={styles.headerRow}>
-            <View style={{ width: 32 }} />
-            <Text style={styles.headerTitle}>Quiz</Text>
-            <View style={{ width: 32 }} />
+        {/* Stats chip bar — matches session.tsx */}
+        <View style={styles.statsBar}>
+          <View style={styles.chip}>
+            <Text style={{ fontSize: 16 }}>🔥</Text>
+            <Text style={styles.chipVal}>{streak}</Text>
+            <Text style={styles.chipLbl}>racha</Text>
           </View>
-          <View style={styles.progressRow}>
-            <PillProgress filled={qIndex + 1} total={session.questions.length} />
-            <Text style={styles.counter}>{qIndex + 1}/{session.questions.length}</Text>
+          <View style={[styles.chip, { flex: 1.6, gap: 6 }]}>
+            <PillBar filled={qIndex + (revealed ? 1 : 0)} total={session.questions.length} color={BRAND} />
+            <Text style={styles.chipCounter}>{qIndex + 1}/{session.questions.length}</Text>
+          </View>
+          <View style={styles.chip}>
+            <Text style={{ fontSize: 16 }}>⚡</Text>
+            <Text style={styles.chipVal}>{xpEarned}</Text>
+            <Text style={styles.chipLbl}>XP</Text>
           </View>
         </View>
 
-        {/* White content area */}
-        <View style={{ flex: 1, backgroundColor: BG }}>
+        {/* Lives row */}
+        <View style={styles.livesRow}>
+          {Array.from({ length: 3 }).map((_, i) => (
+            <Text key={i} style={{ fontSize: 16, opacity: i < lives ? 1 : 0.2 }}>❤️</Text>
+          ))}
+        </View>
 
-          {/* Stats row */}
-          <View style={styles.quizStats}>
-            <View style={styles.quizStatBox}>
-              <Flame size={22} color="#FF6B00" strokeWidth={1.8} />
-              <View>
-                <Text style={styles.quizStatVal}>{streak}</Text>
-                <Text style={styles.quizStatLbl}>Racha</Text>
-              </View>
+        <ScrollView contentContainerStyle={[styles.quizScroll, { paddingBottom: 8 }]} showsVerticalScrollIndicator={false}>
+          {/* Question card */}
+          <View style={styles.questionCard}>
+            <View style={{ flexDirection: 'row', marginBottom: 8 }}>
+              <Text style={styles.questionChip}>🧠 Pregunta {qIndex + 1}</Text>
             </View>
-            <View style={styles.quizStatBox}>
-              <Zap size={22} color={Colors.brand} strokeWidth={1.8} />
-              <View>
-                <Text style={styles.quizStatVal}>{xpEarned}</Text>
-                <Text style={styles.quizStatLbl}>XP</Text>
-              </View>
-            </View>
-          </View>
-
-          <ScrollView contentContainerStyle={[styles.quizScroll, { paddingBottom: 8 }]} showsVerticalScrollIndicator={false}>
-            {/* Source chip */}
-            <View style={[styles.sourceChip, { flexDirection: 'row', alignItems: 'center', gap: 5 }]}>
-              <BookOpen size={11} color={Colors.brand} strokeWidth={2.2} />
-              <Text style={styles.sourceChipText}>Apunte demo · Pág. {question?.sourcePage}</Text>
-            </View>
-
-            {/* Question */}
             <Text style={styles.questionText}>{question?.text}</Text>
-
-            {/* Options */}
-            <View style={{ gap: 10, marginBottom: 12, position: 'relative' }}>
-              {question?.options.map(opt => (
-                <QuizOption
-                  key={opt.id}
-                  opt={opt}
-                  selected={selected === opt.id}
-                  revealed={revealed}
-                  isCorrectOpt={opt.id === question.correctOptionId}
-                  onPress={() => handleOptionSelect(opt.id)}
-                />
-              ))}
-              {revealed && isCorrect && <ConfettiBurst count={10} />}
-            </View>
-
-            {/* Inline feedback */}
-            {revealed && question?.explanation ? (
-              <View style={[styles.feedbackCallout, {
-                borderLeftColor: isCorrect ? CORRECT_CLR : Colors.rose,
-                backgroundColor: isCorrect ? 'rgba(45,125,82,0.06)' : 'rgba(255,77,109,0.06)',
-              }]}>
-                <Text style={[styles.feedbackTitle, { color: isCorrect ? CORRECT_CLR : Colors.rose }]}>
-                  {isCorrect ? `¡Excelente! +${qIndex === 0 ? 30 : 10} XP` : 'Casi'}
-                </Text>
-                <Text style={styles.feedbackText}>{question.explanation}</Text>
-                {question.sourceQuote ? (
-                  <View style={{ flexDirection: 'row', gap: 5, alignItems: 'flex-start' }}>
-                    <View style={{ marginTop: 2 }}>
-                      <BookOpen size={11} color={Colors.muted} strokeWidth={2} />
-                    </View>
-                    <Text style={[styles.feedbackSource, { flex: 1 }]} numberOfLines={2}>
-                      "{question.sourceQuote.slice(0, 90)}{question.sourceQuote.length > 90 ? '…' : ''}"
-                    </Text>
-                  </View>
-                ) : null}
-              </View>
-            ) : null}
-          </ScrollView>
-
-          {/* Bottom bar */}
-          <View style={[styles.bottomBar, { paddingBottom: insets.bottom + 12 }]}>
-            <Pressable style={styles.sideBtn}>
-              <Lightbulb size={20} color={Colors.ink2} strokeWidth={1.8} />
-            </Pressable>
-            {revealed ? (
-              <Pressable onPress={handleContinue} style={{ flex: 1 }}>
-                <LinearGradient
-                  colors={isCorrect ? [CORRECT_CLR, '#1A5C3A'] : [Colors.rose, '#C0132A']}
-                  start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
-                  style={styles.nextBtn}
-                >
-                  <Text style={styles.nextBtnText}>
-                    {qIndex < session.questions.length - 1 ? 'Siguiente' : 'Ver mis resultados →'}
-                  </Text>
-                </LinearGradient>
-              </Pressable>
-            ) : (
-              <View style={[styles.nextBtn, { flex: 1, backgroundColor: Colors.line }]}>
-                <Text style={{ color: Colors.muted, fontWeight: '700', fontSize: 15 }}>Selecciona</Text>
-              </View>
-            )}
-            <Pressable style={styles.sideBtn}>
-              <Flag size={20} color={Colors.ink2} strokeWidth={1.8} />
-            </Pressable>
           </View>
 
+          {/* Options */}
+          <View style={{ gap: 8, marginBottom: 10, position: 'relative' }}>
+            {question?.options.map(opt => (
+              <QuizOption
+                key={opt.id}
+                opt={opt}
+                selected={selected === opt.id}
+                revealed={revealed}
+                isCorrectOpt={opt.id === question.correctOptionId}
+                onPress={() => handleOptionSelect(opt.id)}
+              />
+            ))}
+            {revealed && isCorrect && <ConfettiBurst count={10} />}
+          </View>
+
+          {/* Feedback strip — compact, NemUp-branded */}
+          {revealed && question?.explanation ? (
+            <View style={[styles.feedbackCallout, {
+              borderLeftColor: isCorrect ? BRAND : Colors.line2,
+              backgroundColor: isCorrect ? 'rgba(91,61,245,0.04)' : Colors.bgSoft,
+            }]}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
+                <Text style={styles.feedbackTitle}>
+                  {isCorrect ? '🎉 ¡Correcto!' : '💪 Casi'}
+                </Text>
+                {isCorrect && (
+                  <View style={{ backgroundColor: BRAND, borderRadius: 100, paddingVertical: 2, paddingHorizontal: 8 }}>
+                    <Text style={{ fontSize: 11, fontWeight: '800', color: 'white' }}>+{qIndex === 0 ? 30 : 10} XP</Text>
+                  </View>
+                )}
+              </View>
+              <Text style={styles.feedbackText} numberOfLines={2}>{question.explanation}</Text>
+            </View>
+          ) : null}
+        </ScrollView>
+
+        {/* CTA — always BRAND/NEON */}
+        <View style={[styles.bottomBar, { paddingBottom: insets.bottom + 12 }]}>
+          {revealed ? (
+            <Pressable onPress={handleContinue} style={{ width: '100%' }}>
+              <LinearGradient
+                colors={[BRAND, NEON]}
+                start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
+                style={styles.nextBtn}
+              >
+                <Text style={styles.nextBtnText}>
+                  {qIndex < session.questions.length - 1
+                    ? (isCorrect ? '⚡ Siguiente' : '🚀 Continuar')
+                    : '🏆 Ver mis resultados'}
+                </Text>
+              </LinearGradient>
+            </Pressable>
+          ) : (
+            <View style={[styles.nextBtn, { backgroundColor: Colors.line }]}>
+              <Text style={{ color: Colors.muted, fontWeight: '700', fontSize: 15 }}>Selecciona una respuesta</Text>
+            </View>
+          )}
         </View>
+
       </SafeAreaView>
     </View>
   );
@@ -569,40 +552,36 @@ const styles = StyleSheet.create({
   ctaBtn:          { paddingVertical: 16, borderRadius: 30, alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: 8 },
   ctaBtnText:      { fontSize: 16, fontWeight: '800', color: 'white' },
 
-  // Quiz header
-  headerRow:   { flexDirection: 'row', alignItems: 'center', paddingVertical: 8 },
-  headerTitle: { flex: 1, textAlign: 'center', fontSize: 15, fontWeight: '800', color: 'white', letterSpacing: -0.2 },
-  progressRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  counter:     { fontSize: 12, fontWeight: '700', color: 'rgba(255,255,255,0.85)', minWidth: 36, textAlign: 'right' },
+  // Stats chip bar
+  statsBar:    { flexDirection: 'row', paddingHorizontal: 16, paddingVertical: 8, gap: 8, alignItems: 'center' },
+  chip:        { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: 'white', borderRadius: 12, borderWidth: 1, borderColor: Colors.line, paddingHorizontal: 10, paddingVertical: 6 },
+  chipVal:     { fontSize: 15, fontWeight: '900', color: Colors.ink },
+  chipLbl:     { fontSize: 10, color: Colors.muted, fontWeight: '600' },
+  chipCounter: { fontSize: 11, fontWeight: '700', color: Colors.muted, marginLeft: 4, flexShrink: 0 },
 
-  // Quiz stats
-  quizStats:   { flexDirection: 'row', paddingHorizontal: 16, paddingVertical: 12, gap: 12 },
-  quizStatBox: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: 'white', borderRadius: 16, borderWidth: 1, borderColor: Colors.line, paddingHorizontal: 14, paddingVertical: 10 },
-  quizStatVal: { fontSize: 18, fontWeight: '900', color: Colors.ink, letterSpacing: -0.5 },
-  quizStatLbl: { fontSize: 10, color: Colors.muted, fontWeight: '600' },
+  // Lives row
+  livesRow: { flexDirection: 'row', gap: 4, paddingHorizontal: 16, marginBottom: 2 },
 
   // Quiz content
-  quizScroll:     { paddingHorizontal: 16, paddingTop: 4 },
-  sourceChip:     { alignSelf: 'flex-start', backgroundColor: 'rgba(91,61,245,0.07)', borderRadius: 8, borderWidth: 1, borderColor: 'rgba(91,61,245,0.18)', paddingVertical: 4, paddingHorizontal: 10, marginBottom: 14 },
-  sourceChipText: { fontSize: 11, fontWeight: '700', color: Colors.brand },
-  questionText:   { fontSize: SM ? 16 : 19, fontWeight: '800', color: Colors.ink, lineHeight: SM ? 22 : 26, letterSpacing: -0.3, marginBottom: 18 },
+  quizScroll:    { paddingHorizontal: 16, paddingTop: 6 },
+  questionCard:  { backgroundColor: 'white', borderRadius: 20, padding: SM ? 14 : 16, marginBottom: 10, shadowColor: '#0B0B1A', shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.07, shadowRadius: 12, elevation: 3 },
+  questionChip:  { fontSize: 10, fontWeight: '800', color: Colors.brand, letterSpacing: 0.4, backgroundColor: 'rgba(91,61,245,0.08)', paddingVertical: 3, paddingHorizontal: 8, borderRadius: 100 },
+  questionText:  { fontSize: SM ? 16 : 18, fontWeight: '800', color: Colors.ink, lineHeight: SM ? 24 : 27, letterSpacing: -0.2 },
 
   // Options
-  option:        { flexDirection: 'row', alignItems: 'center', gap: 10, padding: 14, borderRadius: 14, borderWidth: 2, backgroundColor: 'white' },
-  optLetter:     { width: 28, height: 28, borderRadius: 8, alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
-  optLetterText: { fontSize: 12, fontWeight: '800' },
+  option:        { flexDirection: 'row', alignItems: 'center', gap: 10, padding: 13, borderRadius: 16, borderWidth: 2, backgroundColor: 'white' },
+  optLetter:     { width: 30, height: 30, borderRadius: 9, alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
+  optLetterText: { fontSize: 13, fontWeight: '800' },
   optText:       { flex: 1, fontSize: 14, color: Colors.ink, fontWeight: '600', lineHeight: 20 },
 
-  // Feedback callout
-  feedbackCallout: { borderRadius: 14, borderLeftWidth: 3, padding: 14, marginTop: 4, marginBottom: 4 },
-  feedbackTitle:   { fontSize: 12, fontWeight: '800', marginBottom: 4, letterSpacing: 0.2 },
-  feedbackText:    { fontSize: 14, color: Colors.ink2, lineHeight: 21, marginBottom: 6 },
-  feedbackSource:  { fontSize: 11, color: Colors.muted, fontStyle: 'italic', lineHeight: 16 },
+  // Feedback strip
+  feedbackCallout: { borderRadius: 14, borderLeftWidth: 3, paddingVertical: 10, paddingHorizontal: 14, marginBottom: 8 },
+  feedbackTitle:   { fontSize: 13, fontWeight: '800', color: Colors.ink },
+  feedbackText:    { fontSize: 12, color: Colors.ink2, lineHeight: 18 },
 
   // Bottom bar
-  bottomBar:   { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 16, paddingTop: 12, borderTopWidth: 1, borderTopColor: Colors.line, backgroundColor: BG },
-  sideBtn:     { width: 44, height: 44, borderRadius: 22, backgroundColor: 'white', borderWidth: 1, borderColor: Colors.line, alignItems: 'center', justifyContent: 'center' },
-  nextBtn:     { borderRadius: 18, paddingVertical: 14, alignItems: 'center', justifyContent: 'center' },
+  bottomBar:   { paddingHorizontal: 16, paddingTop: 12, borderTopWidth: 1, borderTopColor: Colors.line, backgroundColor: BG },
+  nextBtn:     { borderRadius: 18, paddingVertical: 15, alignItems: 'center', justifyContent: 'center' },
   nextBtnText: { color: 'white', fontWeight: '800', fontSize: 15 },
 
   // Result
