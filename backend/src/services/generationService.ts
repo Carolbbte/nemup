@@ -77,8 +77,13 @@ A screen that only INFORMS is NOT valid. It must make the student FEEL something
 WOW RULE — mandatory for every session:
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 At least ONE screen must produce the reaction: "Ah, por eso pasa eso."
-This is the WOW moment. It comes from a counterintuitive fact, a surprising chain reaction, or a connection the student never made before.
-If no screen produces this reaction → rewrite the most informational screen until it does.
+This is the WOW moment — a counterintuitive fact the student would NOT have guessed before the session.
+WOW moment examples (adapt to your topic, do NOT copy verbatim):
+  "Una subida de precio puede REDUCIR las ventas Y las ganancias al mismo tiempo."
+  "Ahorrar mucho puede en realidad ralentizar la economía de un país."
+  "Un producto puede subir de precio aunque ninguna persona haya ganado más dinero."
+  "Cuando todos venden al mismo tiempo, todos pierden — aunque cada uno actúe de forma racional."
+If no screen produces this reaction → rewrite the most informational screen with a counterintuitive angle.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 INTERNAL ANALYSIS — do this mentally BEFORE generating the JSON:
@@ -91,6 +96,13 @@ Ask yourself:
 5. Which real teen situation (Spotify, zapatillas, celular, bencina) makes this concept land?
 6. What is the single most surprising or counterintuitive fact in this material? → this becomes the WOW screen.
 7. If the material has diagrams — what real-world chain of events do they represent?
+
+8. Which concept from the material is most counterintuitive? → assign it to ONE screen, do NOT dilute across multiple.
+9. Am I about to repeat the same idea in two different screens? If YES → use the second screen for a different concept.
+
+NO-REPETITION LAW: Each of the 10 screens must teach something DIFFERENT. Before writing each screen, ask:
+"Have I already shown this idea in a previous screen?" If YES → use a different concept for this screen.
+The same cause-effect relationship (e.g., demand rises → price rises) must appear in AT MOST ONE screen.
 
 DO NOT include this analysis in the JSON. Use it to build the 10 screens below.
 
@@ -144,7 +156,13 @@ STRICT QUESTION RULES — any violation means rewrite:
 - options: ["A. ...", "B. ...", "C. ...", "D. ..."] — exactly 4 options, each max 12 words
 - correctAnswer: "A", "B", "C", or "D"
 - definition: one sentence explaining why the answer is correct (max 15 words)
-- CRITICAL: distractors must be plausible — real teen misconceptions, not obviously wrong
+- DISTRACTOR QUALITY — all 4 options must be believable partial-truths. Model your distractors like this:
+  Example question: "Si el precio del pan sube, ¿qué harán probablemente las familias?"
+  A. Comprarán menos pan           ← correct
+  B. Comprarán marcas más baratas  ← plausible (substitution effect)
+  C. Gastarán menos en otros productos ← plausible (budget effect)
+  D. Todas pueden ocurrir          ← forces real reasoning
+  ❌ FORBIDDEN distractors: "porque sí", "no cambia nada", "dejan de comprar para siempre", "todos comprarán más"
 
 SCREEN 4 — type: "key_relation" — emoji: 🔗
 SHOW A REAL CHAIN REACTION — this is the WOW candidate screen. Use it to show a domino effect the student never noticed.
@@ -171,7 +189,9 @@ SCREEN 5 — type: "mini_quiz" — emoji: ⚡  [INTERACTIVE — REQUIRED]
 - correctAnswer: "A", "B", "C", or "D"
 - definition: one sentence explanation WHY the correct answer is right (max 20 words)
 - CRITICAL — CORRECT ANSWER must NOT be obvious from the question wording.
-- CRITICAL — DISTRACTORS must represent plausible misconceptions or half-truths, NOT absurd alternatives.
+- CRITICAL — ALL 4 options must seem plausible at first glance — partial-truths, not absurdities.
+  ❌ FORBIDDEN: "porque sí", "no cambia nada", "dejan de comprar para siempre", "todos comprarán más"
+  ✅ REQUIRED: each wrong option represents a real but incomplete or slightly-off reasoning
 - CRITICAL — Prioritize REASONING over memorization. If a student can answer without understanding, rewrite.
 - 2-SECOND TEST: If the correct answer can be identified in less than 2 seconds without reasoning → the question is too easy → rewrite it.
 
@@ -200,6 +220,10 @@ MANDATORY: use a specific named platform or product. Choose from:
   ✅ "¿Por qué Steam pone juegos en oferta solo en fechas específicas?"
 - definition: answer explaining WHICH concept applies and WHY — plain language, no jargon (max 2 sentences, 40 words)
 - example: one sentence connecting this to the student's daily life (max 15 words)
+- ACCURACY RULE: The explanation must be TECHNICALLY CORRECT. Do NOT invent causes.
+  Use the actual mechanism: costos de producción, competencia, oferta y demanda, inflación, estrategia comercial — whichever actually applies.
+  ❌ FORBIDDEN: "Netflix sube su precio porque más personas lo usan." — this is incorrect.
+  ✅ CORRECT: "Netflix sube su precio por aumento de costos de contenido y para financiar nuevas producciones."
 
 SCREEN 8 — type: "common_error" — emoji: ⚠️
 SHOW WHAT TEENAGERS ACTUALLY BELIEVE — not textbook errors.
@@ -219,12 +243,15 @@ RULES:
 4. The error must be specific to THIS topic and believable for a smart teenager.
 
 SCREEN 9 — type: "final_challenge" — emoji: 🏆  [INTERACTIVE — REQUIRED]
+CRITICAL: This screen is MANDATORY with real content. It must ALWAYS have question AND options populated.
+If the material is too simple to write an integrating question → combine two concepts from earlier screens anyway.
 - title: "Desafío final"
 - question: integrating question connecting AT LEAST 2 concepts from this session (max 30 words)
-- options: ["A. ...", "B. ...", "C. ...", "D. ..."] — exactly 4 options, each max 12 words
+- options: ["A. ...", "B. ...", "C. ...", "D. ..."] — EXACTLY 4 options required, each max 12 words
 - correctAnswer: "A", "B", "C", or "D"
 - definition: explanation explicitly mentioning both concepts (max 25 words)
-- CRITICAL: distractors must be plausible
+- CRITICAL: ALL 4 options must be plausible — represent real partial-truths, not absurdities
+  ❌ NEVER leave question or options null or empty
 
 SCREEN 10 — type: "victory" — emoji: 🎉
 - title: "¡Misión cumplida!"
@@ -383,22 +410,47 @@ ${normalizeText(transcription)}
   ];
   const VALID_ILLUSTRATION_TYPES: IllustrationType[] = ['educational', 'diagram', 'concept', 'timeline', 'map', 'process', 'comparison'];
 
+  const INTERACTIVE_SLIDE_TYPES = ['comprehension', 'mini_quiz', 'final_challenge'];
+
+  const rawSlides = (parsed.summary?.slides || []).map((slide: any, i: number) => ({
+    type: VALID_SLIDE_TYPES.includes(slide.type) ? slide.type : 'concept',
+    emoji: slide.emoji || '📚',
+    title: slide.title || `Concepto ${i + 1}`,
+    definition: slide.definition || slide.content || '',
+    example: slide.example || null,
+    visualHint: slide.visualHint || undefined,
+    illustrationType: VALID_ILLUSTRATION_TYPES.includes(slide.illustrationType) ? slide.illustrationType : undefined,
+    connector: slide.connector ?? null,
+    question: slide.question ?? null,
+    options: Array.isArray(slide.options) && slide.options.length > 0 ? slide.options : null,
+    correctAnswer: slide.correctAnswer ?? null,
+  }));
+
+  // Post-processing: replace interactive slides missing question/options with a challenge fallback
+  const isMissionModel = rawSlides.length > 0 && rawSlides[0].type === 'mission';
+  const validatedSlides = rawSlides.map((slide, i) => {
+    if (isMissionModel && INTERACTIVE_SLIDE_TYPES.includes(slide.type)) {
+      const hasQuestion = typeof slide.question === 'string' && slide.question.trim().length > 0;
+      const hasOptions = Array.isArray(slide.options) && slide.options.length >= 2;
+      if (!hasQuestion || !hasOptions) {
+        console.warn(`[Generation] Interactive slide ${i} (${slide.type}) missing question/options — converting to challenge`);
+        return {
+          ...slide,
+          type: 'challenge' as SummarySlideType,
+          definition: slide.definition || slide.title || 'Reflexiona sobre lo que aprendiste en esta sesión.',
+          question: null,
+          options: null,
+          correctAnswer: null,
+        };
+      }
+    }
+    return slide;
+  });
+
   const summary: Summary = {
     id: parsed.summary?.id || 'summary-1',
     title: parsed.summary?.title || `Resumen de ${topic}`,
-    slides: (parsed.summary?.slides || []).map((slide: any, i: number) => ({
-      type: VALID_SLIDE_TYPES.includes(slide.type) ? slide.type : 'concept',
-      emoji: slide.emoji || '📚',
-      title: slide.title || `Concepto ${i + 1}`,
-      definition: slide.definition || slide.content || '',
-      example: slide.example || '',
-      visualHint: slide.visualHint || undefined,
-      illustrationType: VALID_ILLUSTRATION_TYPES.includes(slide.illustrationType) ? slide.illustrationType : undefined,
-      connector: slide.connector ?? null,
-      question: slide.question ?? null,
-      options: Array.isArray(slide.options) ? slide.options : null,
-      correctAnswer: slide.correctAnswer ?? null,
-    })),
+    slides: validatedSlides,
     sourceQuotes: parsed.summary?.sourceQuotes || parsed.summary?.citas || [],
   };
 

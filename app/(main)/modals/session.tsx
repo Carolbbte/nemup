@@ -282,7 +282,16 @@ function buildSummarySlides(backendSlides: BackendSlide[], questions: Question[]
 
   // Mission model: pass through directly without TikTok injection
   if (backendSlides[0].type === 'mission') {
-    return backendSlides as SummarySlide[];
+    const INTERACTIVE = ['comprehension', 'mini_quiz', 'final_challenge'];
+    const validSlides = backendSlides.filter(s => {
+      const hasContent = !!(s.title?.trim() || s.definition?.trim());
+      const isInteractive = INTERACTIVE.includes(s.type);
+      const hasInteractiveContent = !isInteractive || !!(s.question?.trim() && s.options?.length);
+      const valid = hasContent && hasInteractiveContent;
+      if (!valid) console.warn(`[Summary] Skipping incomplete slide: type=${s.type}, hasContent=${hasContent}, hasInteractiveContent=${hasInteractiveContent}`);
+      return valid;
+    });
+    return validSlides as SummarySlide[];
   }
 
   const out: SummarySlide[] = [];
