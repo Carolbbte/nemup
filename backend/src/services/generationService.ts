@@ -583,7 +583,7 @@ PREGUNTAS Y FLASHCARDS:
 - difficulty: "easy" = identificar el método, "medium" = aplicarlo, "hard" = detectar error en la aplicación.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-LAS 7 PANTALLAS — generar EXACTAMENTE en este orden:
+LAS 10 PANTALLAS — generar EXACTAMENTE en este orden:
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 PANTALLA 1 — type: "mission" — emoji: 🎯
@@ -619,17 +619,28 @@ EJEMPLO GUIADO — solución completa de un problema concreto del documento.
 - example: "✅ Comprobación: [por qué la respuesta es correcta, en max 15 palabras]"
 - connector: null
 
-PANTALLA 4 — type: "mini_quiz" — emoji: ⚡  [INTERACTIVA]
-PRACTICA TÚ — aplica el método a un nuevo problema del mismo tipo.
-- title: "Practica tú"
-- question: "Aplica el método: [problema similar con números DIFERENTES al de la pantalla 3]" Max 25 palabras.
+PANTALLA 4 — type: "comprehension" — emoji: 🧩  [INTERACTIVA — EJERCICIO GUIADO]
+TU TURNO (guiado) — problema nuevo con pista integrada en las opciones.
+- title: "Tu turno"
+- question: "[Problema de ${primarySkill.skillLabel} con números DISTINTOS al ejemplo]" Max 25 palabras.
+  Usa el mismo tipo de problema de la pantalla 3 pero con valores diferentes.
+- options: ["A. ...", "B. ...", "C. ...", "D. ..."] — exactamente 4 opciones.
+  Las opciones DEBEN incluir el resultado correcto Y errores típicos de cada paso del método.
+  Formato sugerido: "A. [resultado correcto]", "B. [error en paso 1]", "C. [error en paso 2]", "D. [error conceptual]"
+- correctAnswer: "A", "B", "C" o "D"
+- definition: Feedback que EXPLICA el paso donde se equivocan los que fallan. Empieza con 🎯 o ⚡. Max 20 palabras.
+
+PANTALLA 5 — type: "mini_quiz" — emoji: ⚡  [INTERACTIVA — MINI QUIZ 1]
+PRACTICA TÚ — aplica el método de forma independiente.
+- title: "Mini Quiz"
+- question: "[Problema sobre ${primarySkill.skillLabel} con números distintos a pantallas 3 y 4]" Max 25 palabras.
   DEBE ser un problema CONCRETO sobre "${primarySkill.skillLabel}". NO sobre otra habilidad.
 - options: ["A. ...", "B. ...", "C. ...", "D. ..."] — exactamente 4 opciones.
   Los distractores deben ser errores PLAUSIBLES de aplicación (error en un paso específico).
 - correctAnswer: "A", "B", "C" o "D"
-- definition: feedback emocional. DEBE empezar con 🔥, 🚀, ⚡ o 🎯. Explica por qué el resultado es correcto. Max 20 palabras.
+- definition: feedback emocional. DEBE empezar con 🔥, 🚀, ⚡ o 🎯. Max 20 palabras.
 
-PANTALLA 5 — type: "common_error" — emoji: ⚠️
+PANTALLA 6 — type: "common_error" — emoji: ⚠️
 ERROR FRECUENTE al aplicar "${primarySkill.skillLabel}".
 - definition: DEBE empezar con "❌" (max 25 palabras)
   "❌ Muchos cometen el error de [enfoque incorrecto específico de este procedimiento]."
@@ -638,17 +649,35 @@ ERROR FRECUENTE al aplicar "${primarySkill.skillLabel}".
 - title: "Error frecuente"
 - question: null, options: null, correctAnswer: null
 
-PANTALLA 6 — type: "decide" — emoji: 🏆  [INTERACTIVA — DESAFÍO]
-NUEVO EJERCICIO — problema diferente a las pantallas 3 y 4. Mismo tipo de habilidad.
-- title: "Desafío"
-- question: "[Problema nuevo sobre ${primarySkill.skillLabel}]" Max 30 palabras.
-  Usa números DISTINTOS a pantallas 3 y 4. Mismo tipo de procedimiento.
-- options: ["A. ...", "B. ...", "C. ...", "D. ..."] — 3 o 4 opciones.
+PANTALLA 7 — type: "decide" — emoji: 🤔  [INTERACTIVA — MINI QUIZ 2]
+DECIDE — problema diferente a pantallas 3, 4 y 5. Mismo tipo de habilidad.
+- title: "¿Cuál es correcto?"
+- question: "[Situación donde deben elegir el procedimiento o resultado correcto para ${primarySkill.skillLabel}]" Max 30 palabras.
+  Usa números DISTINTOS a todas las pantallas anteriores. Mismo tipo de procedimiento.
+- options: ["A. ...", "B. ...", "C. ...", "D. ..."] — 4 opciones.
   Solo una correcta. Las demás son errores plausibles de aplicación.
 - correctAnswer: "A", "B", "C" o "D"
 - definition: feedback emocional empezando con 🔥, 🚀, ⚡ o 🎯. Max 20 palabras.
 
-PANTALLA 7 — type: "victory" — emoji: 🏆
+PANTALLA 8 — type: "application" — emoji: 🌍
+APLICACIÓN REAL — dónde usarán esta habilidad fuera del aula.
+- title: Escenario concreto donde se usa "${primarySkill.skillLabel}" (max 15 palabras, preferiblemente pregunta).
+- definition: Por qué esta habilidad es relevante. Max 40 palabras. NO abstracta — situación concreta del mundo real.
+- example: Conexión con algo cotidiano del estudiante (max 15 palabras).
+- question: null, options: null, correctAnswer: null
+
+PANTALLA 9 — type: "final_challenge" — emoji: 🏆  [INTERACTIVA — DESAFÍO FINAL]
+DESAFÍO FINAL — el problema más difícil de la sesión. Exige dominio completo.
+- title: "Desafío final"
+- question: "[Problema complejo de ${primarySkill.skillLabel} que requiere aplicar TODOS los pasos del método]" Max 35 palabras.
+  Usa números y contexto DISTINTOS a todas las pantallas anteriores.
+  Puede combinar 2 pasos del método (pero NO mezclar otra habilidad distinta).
+- options: ["A. ...", "B. ...", "C. ...", "D. ..."] — exactamente 4 opciones.
+  Un correcto. Tres distractores que representan errores distintos del método.
+- correctAnswer: "A", "B", "C" o "D"
+- definition: Feedback completo. Explica el proceso correcto completo. Empieza con 🏆. Max 25 palabras.
+
+PANTALLA 10 — type: "victory" — emoji: 🏆
 VICTORIA — certifica la habilidad REALMENTE enseñada en esta sesión.
 - title: "¡Habilidad dominada!"
 - definition: FORMATO CHECKLIST — ÚNICAMENTE lo que se enseñó en ESTA sesión:
@@ -659,13 +688,13 @@ VICTORIA — certifica la habilidad REALMENTE enseñada en esta sesión.
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 REGLAS ABSOLUTAS:
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-- Generar EXACTAMENTE 7 pantallas en el orden indicado.
+- Generar EXACTAMENTE 10 pantallas en el orden indicado.
 - Pantalla 1 DEBE terminar en "?".
 - Pantalla 2 DEBE usar formato "Paso 1: X → Paso 2: X → Paso 3: X" con 3-4 pasos.
 - Pantalla 3 DEBE mostrar la solución paso a paso con números reales.
-- Pantallas 4 y 6 DEBEN tener question + options completos y ser sobre "${primarySkill.skillLabel}" ÚNICAMENTE.
-- Pantalla 5 definition DEBE empezar con "❌". example DEBE empezar con "✅".
-- Pantalla 7 definition DEBE certificar SOLO las habilidades enseñadas.
+- Pantallas 4, 5, 7 y 9 DEBEN tener question + options + correctAnswer completos sobre "${primarySkill.skillLabel}" ÚNICAMENTE.
+- Pantalla 6 definition DEBE empezar con "❌". example DEBE empezar con "✅".
+- Pantalla 10 definition DEBE certificar SOLO las habilidades enseñadas.
 - TODO el contenido académico deriva de la transcripción. NUNCA inventar ejercicios de otro tipo.
 - NUNCA mezclar habilidades: si esta misión es "${primarySkill.skillLabel}", CERO contenido de otras habilidades.
 
@@ -781,45 +810,25 @@ ${normalizeText(transcription)}
 ${JSON_SCHEMA}`;
 }
 
-// ── Main generation function ──────────────────────────────────────────────────
+// ── Shared slide-type validation constants ───────────────────────────────────
 
-export async function generateSessionContent(
-  transcription: string,
+const VALID_SLIDE_TYPES: SummarySlideType[] = [
+  'mission', 'main_concept', 'comprehension', 'key_relation',
+  'mini_quiz', 'process_flow', 'decide', 'application', 'common_error', 'wow_fact', 'victory',
+  'challenge', 'final_challenge',
+  'concept', 'key_fact', 'important', 'remember', 'example', 'curiosity',
+  'did_you_know', 'true_false', 'observe', 'compare', 'partial_summary',
+];
+const VALID_ILLUSTRATION_TYPES: IllustrationType[] = ['educational', 'diagram', 'concept', 'timeline', 'map', 'process', 'comparison'];
+const INTERACTIVE_SLIDE_TYPES = ['comprehension', 'mini_quiz', 'final_challenge', 'decide'];
+
+// Calls OpenAI with the given prompt and builds the parsed GenerationResult (without skill metadata).
+async function callOpenAIAndBuildResult(
+  prompt: string,
+  systemMsg: string,
   configValues: SessionConfig,
-  curso: string = '1º Medio'
-): Promise<GenerationResult> {
-  console.log('[Generation] Curso utilizado para generar sesión:', curso);
-
-  // Classify content type before selecting prompt
-  const classification = classifyContent(transcription);
-  console.log(`[Generation] Tipo pedagógico: ${classification.type} (confianza: ${(classification.confidence * 100).toFixed(0)}%)`);
-  console.log(`[Generation] Scores — conceptual: ${(classification.scores.conceptual * 100).toFixed(0)}%, procedimental: ${(classification.scores.procedural * 100).toFixed(0)}%, memorización: ${(classification.scores.memorization * 100).toFixed(0)}%`);
-  const primarySkill = classification.detectedSkills[0];
-  const learningPath = classification.detectedSkills;
-
-  if (learningPath.length > 0) {
-    console.log(`[Generation] Habilidades detectadas (${learningPath.length}): ${learningPath.map(s => `${s.skillId}(${(s.confidence * 100).toFixed(0)}%)`).join(', ')}`);
-    console.log(`[Generation] Habilidad primaria: ${primarySkill?.skillLabel ?? 'ninguna'}`);
-    if (learningPath.length > 1) {
-      console.log(`[Generation] Ruta de aprendizaje: ${learningPath.slice(1).map(s => s.skillLabel).join(' -> ')}`);
-    }
-  }
-
-  let prompt: string;
-  let systemMsg: string;
-
-  if (classification.type === 'PROCEDURAL' && primarySkill) {
-    prompt = buildFocusedProceduralPrompt(transcription, curso, primarySkill, learningPath);
-    systemMsg = `Eres un diseñador de sesiones de aprendizaje procedimental para estudiantes chilenos de enseñanza media. Esta misión enseña UNA SOLA habilidad. Tu filosofía: GANCHO → MÉTODO PASO A PASO → EJEMPLO RESUELTO → PRÁCTICA → ERROR COMÚN → DESAFÍO → VICTORIA. Cada pantalla construye competencia para resolver ejercicios de la habilidad específica. NO mezcles habilidades distintas. Genera exactamente 7 pantallas en el orden indicado. JSON válido únicamente. Todo en español.`;
-  } else if (classification.type === 'MEMORIZATION') {
-    prompt = buildMemorizationPrompt(transcription, curso);
-    systemMsg = `Eres un diseñador de sesiones de aprendizaje por memorización para estudiantes chilenos de enseñanza media. Tu filosofía: DATO → ASOCIACIÓN → RETO → REPASO → CURIOSIDAD → VICTORIA. Cada pantalla usa técnicas de memoria para que los datos sean inolvidables. Genera exactamente 8 pantallas en el orden indicado. JSON válido únicamente. Todo en español.`;
-  } else {
-    // CONCEPTUAL and MIXED → current discovery-mission structure
-    prompt = buildConceptualPrompt(transcription, curso);
-    systemMsg = `Eres un diseñador de experiencias de aprendizaje gamificadas para jóvenes chilenos de enseñanza media. Tu filosofía: HOOK → DESCUBRIMIENTO → RETO → APLICACIÓN → ERROR → CURIOSIDAD → VICTORIA. Cada pantalla debe hacer que el estudiante quiera ver la siguiente. NO resúmenes escolares — misiones interactivas con progresión de dificultad. Genera exactamente 10 pantallas en el orden indicado. JSON válido únicamente. Todo en español.`;
-  }
-
+  maxTokens = 7000,
+): Promise<Omit<GenerationResult, 'pedagogicalType' | 'primarySkill' | 'learningPath'>> {
   const response = await openai.chat.completions.create({
     model: config.openai_model,
     messages: [
@@ -827,12 +836,12 @@ export async function generateSessionContent(
       { role: 'user', content: prompt },
     ],
     temperature: 0.25,
-    max_tokens: 6500,
+    max_tokens: maxTokens,
   });
 
   const raw = response.choices?.[0]?.message?.content ?? '';
   const resultText = normalizeText(raw);
-  let parsed;
+  let parsed: any;
   try {
     parsed = JSON.parse(resultText);
   } catch {
@@ -864,16 +873,6 @@ export async function generateSessionContent(
     sourceQuote: card.sourceQuote || card.cita || '',
     difficulty: card.difficulty || 'easy',
   })) as Flashcard[];
-
-  const VALID_SLIDE_TYPES: SummarySlideType[] = [
-    'mission', 'main_concept', 'comprehension', 'key_relation',
-    'mini_quiz', 'process_flow', 'decide', 'application', 'common_error', 'wow_fact', 'victory',
-    'challenge', 'final_challenge',
-    'concept', 'key_fact', 'important', 'remember', 'example', 'curiosity',
-    'did_you_know', 'true_false', 'observe', 'compare', 'partial_summary',
-  ];
-  const VALID_ILLUSTRATION_TYPES: IllustrationType[] = ['educational', 'diagram', 'concept', 'timeline', 'map', 'process', 'comparison'];
-  const INTERACTIVE_SLIDE_TYPES = ['comprehension', 'mini_quiz', 'final_challenge', 'decide'];
 
   const rawSlides = (parsed.summary?.slides || []).map((slide: any, i: number) => ({
     type: VALID_SLIDE_TYPES.includes(slide.type) ? slide.type : 'concept',
@@ -946,8 +945,64 @@ export async function generateSessionContent(
   ].filter(Boolean).length;
 
   const groundingScore = sourceQuoteCount > 0 ? 1 : 0;
+  return { subject, topic, questions, flashcards, summary, groundingScore };
+}
 
-  return { subject, topic, questions, flashcards, summary, groundingScore, pedagogicalType: classification.type, primarySkill, learningPath };
+// ── Main generation function ──────────────────────────────────────────────────
+
+export async function generateSessionContent(
+  transcription: string,
+  configValues: SessionConfig,
+  curso: string = '1º Medio'
+): Promise<GenerationResult> {
+  console.log('[Generation] Curso utilizado para generar sesión:', curso);
+
+  // Classify content type before selecting prompt
+  const classification = classifyContent(transcription);
+  console.log(`[Generation] Tipo pedagógico: ${classification.type} (confianza: ${(classification.confidence * 100).toFixed(0)}%)`);
+  console.log(`[Generation] Scores — conceptual: ${(classification.scores.conceptual * 100).toFixed(0)}%, procedimental: ${(classification.scores.procedural * 100).toFixed(0)}%, memorización: ${(classification.scores.memorization * 100).toFixed(0)}%`);
+  const primarySkill = classification.detectedSkills[0];
+  const learningPath = classification.detectedSkills;
+
+  if (learningPath.length > 0) {
+    console.log(`[Generation] Habilidades detectadas (${learningPath.length}): ${learningPath.map(s => `${s.skillId}(${(s.confidence * 100).toFixed(0)}%)`).join(', ')}`);
+    console.log(`[Generation] Habilidad primaria: ${primarySkill?.skillLabel ?? 'ninguna'}`);
+    if (learningPath.length > 1) {
+      console.log(`[Generation] Ruta de aprendizaje: ${learningPath.slice(1).map(s => s.skillLabel).join(' -> ')}`);
+    }
+  }
+
+  let prompt: string;
+  let systemMsg: string;
+
+  if (classification.type === 'PROCEDURAL' && primarySkill) {
+    prompt = buildFocusedProceduralPrompt(transcription, curso, primarySkill, learningPath);
+    systemMsg = `Eres un diseñador de sesiones de aprendizaje procedimental para estudiantes chilenos de enseñanza media. Esta misión enseña UNA SOLA habilidad. Tu filosofía: GANCHO → MÉTODO PASO A PASO → EJEMPLO RESUELTO → PRÁCTICA → ERROR COMÚN → DESAFÍO → VICTORIA. Cada pantalla construye competencia para resolver ejercicios de la habilidad específica. NO mezcles habilidades distintas. Genera exactamente 7 pantallas en el orden indicado. JSON válido únicamente. Todo en español.`;
+  } else if (classification.type === 'MEMORIZATION') {
+    prompt = buildMemorizationPrompt(transcription, curso);
+    systemMsg = `Eres un diseñador de sesiones de aprendizaje por memorización para estudiantes chilenos de enseñanza media. Tu filosofía: DATO → ASOCIACIÓN → RETO → REPASO → CURIOSIDAD → VICTORIA. Cada pantalla usa técnicas de memoria para que los datos sean inolvidables. Genera exactamente 8 pantallas en el orden indicado. JSON válido únicamente. Todo en español.`;
+  } else {
+    // CONCEPTUAL and MIXED → current discovery-mission structure
+    prompt = buildConceptualPrompt(transcription, curso);
+    systemMsg = `Eres un diseñador de experiencias de aprendizaje gamificadas para jóvenes chilenos de enseñanza media. Tu filosofía: HOOK → DESCUBRIMIENTO → RETO → APLICACIÓN → ERROR → CURIOSIDAD → VICTORIA. Cada pantalla debe hacer que el estudiante quiera ver la siguiente. NO resúmenes escolares — misiones interactivas con progresión de dificultad. Genera exactamente 10 pantallas en el orden indicado. JSON válido únicamente. Todo en español.`;
+  }
+
+  const base = await callOpenAIAndBuildResult(prompt, systemMsg, configValues);
+  return { ...base, pedagogicalType: classification.type, primarySkill, learningPath };
+}
+
+// Generates ONE focused skill mission without re-classifying (classification done by caller).
+export async function generateSkillMission(
+  transcription: string,
+  sessionConfig: SessionConfig,
+  curso: string,
+  primarySkill: DetectedSkill,
+  learningPath: DetectedSkill[],
+): Promise<GenerationResult> {
+  const prompt = buildFocusedProceduralPrompt(transcription, curso, primarySkill, learningPath);
+  const systemMsg = `Eres un diseñador de sesiones de aprendizaje procedimental para estudiantes chilenos de enseñanza media. Esta misión enseña UNA SOLA habilidad: "${primarySkill.skillLabel}". Tu filosofía: GANCHO → MÉTODO → EJEMPLO → 4 RONDAS DE PRÁCTICA → ERROR → APLICACIÓN → DESAFÍO → VICTORIA. NO mezcles habilidades distintas. Genera exactamente 10 pantallas en el orden indicado. JSON válido únicamente. Todo en español.`;
+  const base = await callOpenAIAndBuildResult(prompt, systemMsg, sessionConfig, 8000);
+  return { ...base, pedagogicalType: 'PROCEDURAL', primarySkill, learningPath };
 }
 
 // ── Semantic grounding check ──────────────────────────────────────────────────

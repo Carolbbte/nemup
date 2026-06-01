@@ -8,6 +8,7 @@ import {
   saveDocumentMetadata as persistDocument,
   updateUserRewards as updateRewards,
   getSession as fetchSession,
+  saveSkillPath as persistSkillPath,
 } from '../services/firebaseAdmin.js';
 
 export async function saveDocumentMetadata(
@@ -31,6 +32,14 @@ export async function getGeneratedSession(
   sessionId: string
 ): Promise<GeneratedSession | null> {
   return (await fetchSession(userId, sessionId)) as GeneratedSession | null;
+}
+
+export async function saveSkillPath(
+  userId: string,
+  pathId: string,
+  pathData: Record<string, unknown>
+): Promise<void> {
+  await persistSkillPath(userId, pathId, pathData);
 }
 
 export async function applyUserRewards(

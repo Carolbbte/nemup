@@ -450,8 +450,9 @@ export default function SessionPlayerScreen() {
   const insets  = useSafeAreaInsets();
 
   const [session, setSession] = useState<Session | null>(null);
-  // Tracks which session key was last loaded — persists across focus cycles
-  // without causing re-renders (unlike state).
+  const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
+  const [skillPath, setSkillPath] = useState<{ pathId: string; totalMissions: number; missions: Array<{ missionIndex: number; skillId: string | null; skillLabel: string | null; sessionId: string; session: Session }> } | null>(null);
+  const [masteryLevel, setMasteryLevel] = useState<'needs_practice' | 'in_progress' | 'mastered' | null>(null);
   const loadedSessionKeyRef = useRef<string | null>(null);
 
   // Tab screens are never unmounted by React Navigation, so useEffect([], [])
@@ -463,9 +464,11 @@ export default function SessionPlayerScreen() {
     useCallback(() => {
       let active = true;
       async function loadIfNew() {
-        const [[, rawKey], [, rawSession]] = await AsyncStorage.multiGet([
+        const [[, rawKey], [, rawSession], [, rawSessionId], [, rawPath]] = await AsyncStorage.multiGet([
           'nemup_session_key',
           'nemup_last_session',
+          'nemup_last_session_id',
+          'nemup_skill_path',
         ]);
         if (!active) return;
         const isNewSession = rawKey !== loadedSessionKeyRef.current;
@@ -474,9 +477,11 @@ export default function SessionPlayerScreen() {
         if (!rawSession) return;
         try {
           const parsed: Session = JSON.parse(rawSession);
-          // Update session data
           setSession(parsed);
-          // Reset ALL game state so no stale data from a previous session leaks in
+          setCurrentSessionId(rawSessionId ?? null);
+          setMasteryLevel(null);
+          try { setSkillPath(rawPath ? JSON.parse(rawPath) : null); } catch { setSkillPath(null); }
+          // Reset ALL game state
           setPhase('lobby');
           setCompleted(new Set());
           setSummaryIdx(0);
@@ -654,6 +659,25 @@ export default function SessionPlayerScreen() {
 
   // Reset order taps when slide changes
   useEffect(() => { setOrderTaps([]); }, [summaryIdx]);
+
+  // Compute mastery when the victory slide is shown (mission model only)
+  useEffect(() => {
+    if (phase !== 'summary') return;
+    const slide = missionSlides[summaryIdx] as BackendSlide | undefined;
+    if (slide?.type !== 'victory') return;
+    if (masteryLevel !== null) return; // already computed
+    const V_INTER = ['comprehension', 'mini_quiz', 'final_challenge', 'decide', 'order_sequence'];
+    const interTotal = missionSlides.filter(s => V_INTER.includes(s.type)).length;
+    const interCorrect = missionSlides.filter((s, i) => V_INTER.includes(s.type) && quizAnswers[i] === (s as BackendSlide).correctAnswer).length;
+    const pct = interTotal > 0 ? Math.round((interCorrect / interTotal) * 100) : 100;
+    const level: 'needs_practice' | 'in_progress' | 'mastered' = pct >= 80 ? 'mastered' : pct >= 40 ? 'in_progress' : 'needs_practice';
+    setMasteryLevel(level);
+    // Persist mastery so next session can read it
+    if (currentSessionId) {
+      AsyncStorage.setItem(`nemup_mastery_${currentSessionId}`, JSON.stringify({ level, pct })).catch(() => {});
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [summaryIdx, phase]);
 
   // Evaluate order_sequence when all items are tapped
   useEffect(() => {
@@ -1568,11 +1592,71 @@ export default function SessionPlayerScreen() {
                   </View>
                 )}
               </View>
-            ) : slide?.type === 'victory' ? (
+            ) : slide?.type === 'victory' ? ((() => {
+              const masteryConfig = masteryLevel === 'mastered'
+                ? { bg: 'rgba(5,150,105,0.12)', border: 'rgba(5,150,105,0.3)', color: '#065F46', label: '🏆 Dominada', emoji: '🥇' }
+                : masteryLevel === 'in_progress'
+                ? { bg: 'rgba(245,158,11,0.10)', border: 'rgba(245,158,11,0.3)', color: '#92400E', label: '🎯 En progreso', emoji: '📈' }
+                : masteryLevel === 'needs_practice'
+                ? { bg: 'rgba(239,68,68,0.08)', border: 'rgba(239,68,68,0.2)', color: '#991B1B', label: '💪 Necesita práctica', emoji: '🔄' }
+                : null;
+              // Find next mission in skill path
+              const currentMissionIdx = skillPath?.missions?.findIndex(m => m.sessionId === currentSessionId) ?? -1;
+              const nextMission = skillPath && currentMissionIdx >= 0 && currentMissionIdx < skillPath.missions.length - 1
+                ? skillPath.missions[currentMissionIdx + 1]
+                : null;
+              const loadNextMission = async () => {
+                if (!nextMission) return;
+                const nextSession = nextMission.session as Session | undefined;
+                if (!nextSession) return;
+                const newKey = Date.now().toString();
+                await AsyncStorage.multiSet([
+                  ['nemup_last_session', JSON.stringify(nextSession)],
+                  ['nemup_session_key', newKey],
+                  ['nemup_last_session_id', nextMission.sessionId],
+                ]);
+                // Keep skill path as-is (same path, next mission)
+                // Reset game state and reload
+                loadedSessionKeyRef.current = null; // force reload on next focus
+                setSession(nextSession);
+                setCurrentSessionId(nextMission.sessionId);
+                setMasteryLevel(null);
+                setPhase('lobby');
+                setCompleted(new Set());
+                setSummaryIdx(0);
+                setQuizAnswers({});
+                setQuizIdx(0);
+                setSelected(null);
+                setQuizStep('answering');
+                setLives(MAX_LIVES);
+                setXpEarned(0);
+                setCorrectCount(0);
+                setStreak(0);
+                setMaxStreak(0);
+                setQuizDone(false);
+                setComboCount(0);
+                setStreakMsg('');
+                setMicroMsg('');
+                setSummaryRewardText(null);
+                setOrderTaps([]);
+                setNemiMsg('');
+                setMotivText(MOTIV_POOLS.start[0]);
+                setCardIdx(0);
+                setCardFlipped(false);
+                setCardsDone(false);
+                loadedSessionKeyRef.current = newKey;
+              };
+              return (
               <View style={sum.victoryCard}>
                 <Text style={sum.victoryEmoji}>{slide.emoji}</Text>
                 <Text style={sum.victoryTitle}>{slide.title}</Text>
                 {!!slide.definition && <Text style={sum.victorySub}>{slide.definition}</Text>}
+                {/* Mastery badge */}
+                {!!masteryConfig && (
+                  <View style={[sum.masteryBadge, { backgroundColor: masteryConfig.bg, borderColor: masteryConfig.border }]}>
+                    <Text style={[sum.masteryBadgeText, { color: masteryConfig.color }]}>{masteryConfig.label}</Text>
+                  </View>
+                )}
                 <View style={sum.victoryStats}>
                   <View style={sum.victoryStatRow}>
                     <View style={sum.victoryStat}>
@@ -1593,8 +1677,37 @@ export default function SessionPlayerScreen() {
                     </View>
                   </View>
                 </View>
-                {!!slide.example && <Text style={sum.victoryNote}>{slide.example}</Text>}
+                {!!slide.example && <Text style={sum.victoryNote}>{slide.example.split(' | ')[0]}</Text>}
+                {/* Next mission button */}
+                {!!nextMission && (
+                  <Pressable onPress={loadNextMission} style={sum.nextMissionBtn}>
+                    <LinearGradient colors={[BRAND, NEON]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={sum.nextMissionGrad}>
+                      <Text style={sum.nextMissionText}>
+                        ⚡ Siguiente: {nextMission.skillLabel ?? 'Próxima misión'} →
+                      </Text>
+                    </LinearGradient>
+                  </Pressable>
+                )}
+                {/* Upcoming missions from path */}
+                {skillPath && skillPath.totalMissions > 1 && (
+                  <View style={sum.upcomingBlock}>
+                    {skillPath.missions.map((m, i) => {
+                      const isCurrent = m.sessionId === currentSessionId;
+                      const isPast = i < currentMissionIdx;
+                      return (
+                        <View key={i} style={[sum.upcomingRow, isCurrent && sum.upcomingRowCurrent]}>
+                          <Text style={sum.upcomingDot}>{isPast ? '✓' : isCurrent ? '▶' : `${i + 1}`}</Text>
+                          <Text style={[sum.upcomingLabel, isPast && sum.upcomingLabelDone, isCurrent && sum.upcomingLabelCurrent]} numberOfLines={1}>
+                            {m.skillLabel ?? `Misión ${i + 1}`}
+                          </Text>
+                        </View>
+                      );
+                    })}
+                  </View>
+                )}
               </View>
+              );
+            })()
 
             // ── Legacy screens ────────────────────────────────────
             ) : slide?.type === 'concept' ? (
@@ -2408,6 +2521,24 @@ const sum = StyleSheet.create({
   victoryStatVal:   { fontSize: SM ? 18 : 22, fontWeight: '900', color: Colors.ink, letterSpacing: -0.5 },
   victoryStatLbl:   { fontSize: 9, fontWeight: '700', color: Colors.muted, letterSpacing: 0.3, textTransform: 'uppercase' },
   victoryNote:      { fontSize: SM ? 11 : 12, color: Colors.muted, textAlign: 'center', fontWeight: '600', marginTop: 2 },
+
+  // Mastery badge
+  masteryBadge:     { borderRadius: 100, borderWidth: 1.5, paddingVertical: 6, paddingHorizontal: 18, marginBottom: 10 },
+  masteryBadgeText: { fontSize: 13, fontWeight: '800', letterSpacing: 0.3 },
+
+  // Next mission button
+  nextMissionBtn:   { width: '100%', borderRadius: 16, overflow: 'hidden', marginBottom: 12 },
+  nextMissionGrad:  { paddingVertical: 14, paddingHorizontal: 20, alignItems: 'center', justifyContent: 'center' },
+  nextMissionText:  { fontSize: 15, fontWeight: '900', color: 'white', letterSpacing: -0.2 },
+
+  // Upcoming missions list
+  upcomingBlock:        { width: '100%', backgroundColor: Colors.bgSoft, borderRadius: 14, padding: 12, borderWidth: 1, borderColor: Colors.line, gap: 8 },
+  upcomingRow:          { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 2 },
+  upcomingRowCurrent:   { opacity: 1 },
+  upcomingDot:          { fontSize: 13, fontWeight: '800', color: Colors.muted, width: 20, textAlign: 'center' },
+  upcomingLabel:        { flex: 1, fontSize: 13, fontWeight: '600', color: Colors.muted },
+  upcomingLabelDone:    { color: '#059669', fontWeight: '700' },
+  upcomingLabelCurrent: { color: Colors.ink, fontWeight: '800' },
 
   // Chain diagram (key_relation)
   chainContainer:   { gap: 0, alignItems: 'stretch', marginVertical: 10 },

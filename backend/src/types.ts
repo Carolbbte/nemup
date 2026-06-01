@@ -105,3 +105,25 @@ export interface GeneratedSession {
   xpReward: number;
   gemReward: number;
 }
+
+export type MasteryLevel = 'needs_practice' | 'in_progress' | 'mastered';
+
+export interface SkillPathEntry {
+  missionIndex: number;
+  skillId: string;
+  skillLabel: string;
+  sessionId: string;
+}
+
+export interface SkillMission extends SkillPathEntry {
+  session: GeneratedSession;
+}
+
+export interface SkillPath {
+  pathId: string;
+  userId: string;
+  documentId: string;
+  totalMissions: number;
+  missions: SkillPathEntry[];
+  createdAt: string;
+}

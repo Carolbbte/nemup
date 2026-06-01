@@ -18,8 +18,11 @@ import {
 import {
   saveDocumentMetadata,
   saveGeneratedSession,
+  saveSkillPath,
   applyUserRewards,
 } from '../repository/sessionRepository.js';
+import { classifyContent } from '../services/pedagogicalClassifier.js';
+import { generateSkillMission } from '../services/generationService.js';
 import type { SessionConfig } from '../types.js';
 
 const router = express.Router();
@@ -108,8 +111,93 @@ router.post('/generate', upload.array('documents', 10), async (req, res) => {
     });
   }
 
-  // Step 3: Generate content with OpenAI
-  sendSse(res, 'progress', createProgressPayload('extracting', 45, 'Analizando conceptos clave...'));
+  // Step 3: Classify content to decide single-mission vs multi-skill path
+  sendSse(res, 'progress', createProgressPayload('extracting', 40, 'Detectando habilidades clave...'));
+  const classification = classifyContent(transcription);
+  const detectedSkills = classification.detectedSkills;
+  console.log(`[Sessions] Tipo pedagógico: ${classification.type}, habilidades: ${detectedSkills.length}`);
+
+  // ── MULTI-SKILL PATH (PROCEDURAL with ≥1 skill detected) ─────────────────────
+  if (classification.type === 'PROCEDURAL' && detectedSkills.length > 0) {
+    const skills = detectedSkills.slice(0, 4); // limit to 4 missions max
+    const pathId = randomUUID();
+    const allMissions: Array<{ missionIndex: number; skillId: string; skillLabel: string; sessionId: string; session: any }> = [];
+
+    for (let i = 0; i < skills.length; i++) {
+      const skill = skills[i];
+      const pct = 40 + Math.round((i / skills.length) * 50);
+      sendSse(res, 'progress', createProgressPayload(
+        `generating_skill_${i + 1}`,
+        pct,
+        `Misión ${i + 1}/${skills.length}: "${skill.skillLabel}"...`,
+      ));
+      sendSse(res, 'mission_generating', { missionIndex: i, total: skills.length, skillId: skill.skillId, skillLabel: skill.skillLabel });
+
+      let generation: Awaited<ReturnType<typeof generateSkillMission>>;
+      try {
+        generation = await generateSkillMission(transcription, sessionConfig, curso, skill, skills);
+      } catch (err: any) {
+        console.error(`[Sessions] Mission ${i} generation error:`, err?.message);
+        continue;
+      }
+
+      const validation = validateGrounding(generation, transcription);
+      const missionSessionId = randomUUID();
+      const missionSession = buildGeneratedSession(userId, documentId, transcription, wordCount, sessionConfig, {
+        ...generation,
+        groundingScore: validation.score,
+      });
+
+      allMissions.push({ missionIndex: i, skillId: skill.skillId, skillLabel: skill.skillLabel, sessionId: missionSessionId, session: missionSession });
+
+      sendSse(res, 'mission_complete', {
+        missionIndex: i,
+        total: skills.length,
+        skillId: skill.skillId,
+        skillLabel: skill.skillLabel,
+        sessionId: missionSessionId,
+        session: missionSession,
+      });
+
+      // Persist each mission session (non-blocking)
+      saveGeneratedSession(userId, missionSessionId, missionSession)
+        .catch(err => console.warn(`[Sessions] Session save error (mission ${i}):`, err?.message));
+    }
+
+    if (allMissions.length === 0) {
+      sendSse(res, 'error', { code: 'GENERATION_FAILED', message: 'No se pudo generar ninguna misión.' });
+      return res.end();
+    }
+
+    // Save skill path with index-only entries (no embedded sessions)
+    const skillPath = {
+      pathId,
+      userId,
+      documentId,
+      totalMissions: allMissions.length,
+      missions: allMissions.map(m => ({ missionIndex: m.missionIndex, skillId: m.skillId, skillLabel: m.skillLabel, sessionId: m.sessionId })),
+      createdAt: new Date().toISOString(),
+    };
+    saveSkillPath(userId, pathId, skillPath)
+      .catch(err => console.warn('[Sessions] Skill path save error:', err?.message));
+
+    applyUserRewards(userId, allMissions[0].session.xpReward, allMissions[0].session.gemReward)
+      .catch(err => console.warn('[Sessions] Rewards error:', err?.message));
+
+    sendSse(res, 'progress', createProgressPayload('done', 100, `${allMissions.length} misiones listas.`));
+    sendSse(res, 'complete', {
+      pathId,
+      totalMissions: allMissions.length,
+      missions: allMissions,
+      // backward-compat: first mission as the primary session
+      sessionId: allMissions[0].sessionId,
+      session: allMissions[0].session,
+    });
+    return res.end();
+  }
+
+  // ── SINGLE-MISSION PATH (CONCEPTUAL / MEMORIZATION / MIXED) ─────────────────
+  sendSse(res, 'progress', createProgressPayload('generating', 60, 'Generando misión...'));
   let generation: Awaited<ReturnType<typeof generateSessionContent>>;
   try {
     generation = await generateSessionContent(transcription, sessionConfig, curso);
@@ -119,21 +207,17 @@ router.post('/generate', upload.array('documents', 10), async (req, res) => {
     return res.end();
   }
 
-  sendSse(res, 'progress', createProgressPayload('generating', 70, 'Generando preguntas y flashcards...'));
-
-  // Emit each question as it's added — real data, sequential delivery
+  sendSse(res, 'progress', createProgressPayload('generating', 75, 'Generando preguntas y flashcards...'));
   generation.questions.forEach((question, index) => {
     sendSse(res, 'question_generated', { question, index, total: generation.questions.length });
   });
 
-  // Step 4: Validate grounding (non-fatal — log score only)
   sendSse(res, 'progress', createProgressPayload('validating_grounding', 85, 'Validando anclaje al documento...'));
   const validation = validateGrounding(generation, transcription);
   if (!validation.validated) {
     console.warn('[Sessions] Grounding score low:', validation.score, '— continuing anyway');
   }
 
-  // Step 5: Build and persist session (best-effort)
   let session = buildGeneratedSession(userId, documentId, transcription, wordCount, sessionConfig, {
     ...generation,
     groundingScore: validation.score,
@@ -143,13 +227,8 @@ router.post('/generate', upload.array('documents', 10), async (req, res) => {
   let semanticResult = checkSemanticGrounding(transcription, session.summary.slides as any);
   console.log('[Sessions] Doc keywords (top 10):', semanticResult.docKeywords.slice(0, 10).join(', '));
   console.log('[Sessions] Overall semantic overlap:', (semanticResult.overallOverlap * 100).toFixed(1) + '%');
-  semanticResult.slideScores.forEach(s => {
-    const flag = s.contaminated ? ' ⚠️ CONTAMINATED' : '';
-    console.log(`[Sessions] Slide ${s.slideIndex} (${s.slideType}): overlap=${(s.overlap * 100).toFixed(0)}%${flag} keywords=[${s.slideKeywords.slice(0, 6).join(', ')}]`);
-  });
-
   if (semanticResult.contaminated) {
-    console.warn('[Sessions] ⚠️ Contamination detected in slides:', semanticResult.contaminatedSlides, '(proceeding — prompt rules prevent real contamination)');
+    console.warn('[Sessions] ⚠️ Contamination detected in slides:', semanticResult.contaminatedSlides);
   } else {
     console.log('[Sessions] Semantic grounding OK');
   }
@@ -159,8 +238,6 @@ router.post('/generate', upload.array('documents', 10), async (req, res) => {
   if (!consistencyReport.allConsistent) {
     consistencyReport.results.filter(r => !r.consistent).forEach(r => {
       console.warn(`[Sessions] Inconsistency slide ${r.slideIndex} (${r.slideType}): ${r.issue}`);
-      console.warn(`[Sessions]   Q-keywords: [${r.questionKeywords.join(', ')}]`);
-      console.warn(`[Sessions]   F-keywords: [${r.feedbackKeywords.join(', ')}]`);
     });
   } else {
     console.log('[Sessions] Question consistency OK');
@@ -180,7 +257,7 @@ router.post('/generate', upload.array('documents', 10), async (req, res) => {
   ]).catch((err) => console.warn('[Sessions] Persistence error (non-fatal):', err?.message));
 
   sendSse(res, 'progress', createProgressPayload('done', 100, 'Sesión lista.'));
-  sendSse(res, 'complete', { sessionId, session });
+  sendSse(res, 'complete', { pathId: null, totalMissions: 1, missions: [{ missionIndex: 0, skillId: null, skillLabel: null, sessionId, session }], sessionId, session });
   return res.end();
 });
 

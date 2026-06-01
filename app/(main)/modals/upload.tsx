@@ -241,6 +241,8 @@ export default function UploadFlowScreen() {
   const [displayPct, setDisplayPct]           = useState(0);
   const [recentExpanded, setRecentExpanded]   = useState(false);
   const [recentFiles, setRecentFiles]         = useState<UploadedFile[]>([]);
+  const [completedMissions, setCompletedMissions] = useState<any[]>([]);
+  const [activeMissionLabel, setActiveMissionLabel] = useState<string | null>(null);
 
   useEffect(() => {
     AsyncStorage.getItem('nemup_recent_files').then(raw => {
@@ -514,6 +516,12 @@ export default function UploadFlowScreen() {
       const text = await response.text();
 
       const handleSseEvent = (event: string, payload: any) => {
+        if (event === 'mission_generating') {
+          setActiveMissionLabel(`${payload.missionIndex + 1}/${payload.total}: ${payload.skillLabel}`);
+        }
+        if (event === 'mission_complete') {
+          setCompletedMissions(prev => [...prev, payload]);
+        }
         if (event === 'complete') {
           setSessionResult(payload);
         }
@@ -624,14 +632,22 @@ export default function UploadFlowScreen() {
   const handleBack  = () => { if (step > 0) setStep(step - 1); else router.back(); };
   const handleStart = async () => {
     if (!completedSession) return;
-    // Write a unique key alongside the session so session.tsx can detect
-    // when a genuinely new session has been started (the screen is a Tab
-    // and never unmounts, so useEffect([]) only fires once on first mount).
     const sessionKey = Date.now().toString();
-    await AsyncStorage.multiSet([
+    const payload = sessionResult;
+    const writes: [string, string][] = [
       ['nemup_last_session', JSON.stringify(completedSession)],
       ['nemup_session_key', sessionKey],
-    ]);
+      ['nemup_last_session_id', payload?.sessionId ?? ''],
+    ];
+    // Store the full skill path (all missions) so session.tsx can navigate between them
+    if (payload?.pathId && Array.isArray(payload?.missions) && payload.missions.length > 0) {
+      writes.push(['nemup_skill_path', JSON.stringify({
+        pathId: payload.pathId,
+        totalMissions: payload.totalMissions,
+        missions: payload.missions,
+      })]);
+    }
+    await AsyncStorage.multiSet(writes);
     router.push('/modals/session' as any);
   };
 
@@ -680,12 +696,20 @@ export default function UploadFlowScreen() {
                 <Text style={s2.heroEmoji}>🎉</Text>
               </Animated.View>
             </Animated.View>
-            <Text style={s2.title}>¡Tu entrenamiento está listo!</Text>
+            <Text style={s2.title}>
+              {completedMissions.length > 1
+                ? `¡${completedMissions.length} misiones generadas!`
+                : '¡Tu entrenamiento está listo!'}
+            </Text>
           </Animated.View>
 
           {/* 2. Compact success badge */}
           <Animated.View style={[s2.successBadge, s2Entry2Style]}>
-            <Text style={s2.successText}>✅ Entrenamiento listo</Text>
+            <Text style={s2.successText}>
+              {completedMissions.length > 1
+                ? `✅ ${completedMissions.length} misiones · ruta de aprendizaje lista`
+                : '✅ Entrenamiento listo'}
+            </Text>
           </Animated.View>
 
           {/* 3. Rewards row */}
@@ -801,9 +825,11 @@ export default function UploadFlowScreen() {
             <Text style={s1.progressPct}>{displayPct}%</Text>
           </View>
 
-          {/* Reward pill — synced with stage */}
+          {/* Reward pill — synced with stage, or active mission label */}
           <Animated.View style={[s1.motivPill, motivAnimStyle]}>
-            <Text style={s1.motivPillText}>{MOTIV_PILLS[motivIdx]}</Text>
+            <Text style={s1.motivPillText}>
+              {activeMissionLabel ? `⚡ Misión ${activeMissionLabel}` : MOTIV_PILLS[motivIdx]}
+            </Text>
           </Animated.View>
         </View>
 

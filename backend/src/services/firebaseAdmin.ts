@@ -189,6 +189,22 @@ export async function saveDocumentMetadata(
 }
 
 /**
+ * Save a skill path (multi-mission learning path) to Firestore.
+ * Stores only the path metadata (no embedded session data — sessions are saved separately).
+ */
+export async function saveSkillPath(
+  userId: string,
+  pathId: string,
+  pathData: any
+): Promise<void> {
+  const ref = db.collection('users').doc(userId).collection('skillPaths').doc(pathId);
+  await ref.set({
+    ...pathData,
+    createdAt: admin.firestore.FieldValue.serverTimestamp(),
+  });
+}
+
+/**
  * Get user's session by ID
  */
 export async function getSession(userId: string, sessionId: string): Promise<any | null> {
