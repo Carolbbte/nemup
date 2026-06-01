@@ -79,6 +79,7 @@ router.post('/generate', upload.array('documents', 10), async (req, res) => {
     );
     transcription = results.map(r => r.transcription).filter(Boolean).join('\n\n');
     wordCount = results.reduce((sum, r) => sum + r.wordCount, 0);
+    console.log('[Sessions] Extraction reports:', JSON.stringify(results.map(r => r.report)));
   } catch (err: any) {
     console.error('[Sessions] Transcription error:', err?.message);
     sendSse(res, 'error', { code: 'TRANSCRIPTION_FAILED', message: `Error al leer el documento: ${err?.message}` });
