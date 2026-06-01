@@ -621,6 +621,21 @@ export function checkSemanticGrounding(
   slides: SummarySlide[],
 ): SemanticGroundingResult {
   const docKeywords = extractDocKeywords(transcription, 40);
+
+  // If the document is too keyword-sparse (math, numbers-heavy, very short text),
+  // there is not enough vocabulary to determine contamination — skip the check.
+  if (docKeywords.length < 8) {
+    return {
+      docKeywords,
+      slideScores: slides.map((slide, i) => ({
+        slideIndex: i, slideType: slide.type, overlap: 1, slideKeywords: [], contaminated: false,
+      })),
+      overallOverlap: 1,
+      contaminated: false,
+      contaminatedSlides: [],
+    };
+  }
+
   const docSet = new Set(docKeywords);
 
   const slideScores: SlideGroundingScore[] = slides.map((slide, i) => {
