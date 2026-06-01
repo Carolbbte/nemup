@@ -624,7 +624,14 @@ export default function UploadFlowScreen() {
   const handleBack  = () => { if (step > 0) setStep(step - 1); else router.back(); };
   const handleStart = async () => {
     if (!completedSession) return;
-    await AsyncStorage.setItem('nemup_last_session', JSON.stringify(completedSession));
+    // Write a unique key alongside the session so session.tsx can detect
+    // when a genuinely new session has been started (the screen is a Tab
+    // and never unmounts, so useEffect([]) only fires once on first mount).
+    const sessionKey = Date.now().toString();
+    await AsyncStorage.multiSet([
+      ['nemup_last_session', JSON.stringify(completedSession)],
+      ['nemup_session_key', sessionKey],
+    ]);
     router.push('/modals/session' as any);
   };
 

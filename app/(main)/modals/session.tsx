@@ -2,7 +2,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Colors } from '@/constants/Colors';
 import * as Haptics from 'expo-haptics';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useRouter } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
 import {
   ArrowLeft,
   Check,
@@ -13,7 +13,7 @@ import {
   X,
   Zap,
 } from 'lucide-react-native';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Dimensions,
   Pressable,
@@ -450,12 +450,63 @@ export default function SessionPlayerScreen() {
   const insets  = useSafeAreaInsets();
 
   const [session, setSession] = useState<Session | null>(null);
-  useEffect(() => {
-    AsyncStorage.getItem('nemup_last_session').then((raw) => {
-      if (!raw) return;
-      try { setSession(JSON.parse(raw)); } catch {}
-    });
-  }, []);
+  // Tracks which session key was last loaded — persists across focus cycles
+  // without causing re-renders (unlike state).
+  const loadedSessionKeyRef = useRef<string | null>(null);
+
+  // Tab screens are never unmounted by React Navigation, so useEffect([], [])
+  // only fires on the very first mount and misses subsequent sessions.
+  // useFocusEffect fires every time the screen gains focus; we guard with a
+  // per-session key written by upload.tsx so we only reset state when the
+  // user actually starts a NEW session, not when they navigate back mid-session.
+  useFocusEffect(
+    useCallback(() => {
+      let active = true;
+      async function loadIfNew() {
+        const [[, rawKey], [, rawSession]] = await AsyncStorage.multiGet([
+          'nemup_session_key',
+          'nemup_last_session',
+        ]);
+        if (!active) return;
+        const isNewSession = rawKey !== loadedSessionKeyRef.current;
+        if (!isNewSession) return;
+        loadedSessionKeyRef.current = rawKey;
+        if (!rawSession) return;
+        try {
+          const parsed: Session = JSON.parse(rawSession);
+          // Update session data
+          setSession(parsed);
+          // Reset ALL game state so no stale data from a previous session leaks in
+          setPhase('lobby');
+          setCompleted(new Set());
+          setSummaryIdx(0);
+          setQuizAnswers({});
+          setQuizIdx(0);
+          setSelected(null);
+          setQuizStep('answering');
+          setLives(MAX_LIVES);
+          setXpEarned(0);
+          setCorrectCount(0);
+          setStreak(0);
+          setMaxStreak(0);
+          setQuizDone(false);
+          setComboCount(0);
+          setStreakMsg('');
+          setMicroMsg('');
+          setSummaryRewardText(null);
+          setOrderTaps([]);
+          setNemiMsg('');
+          setMotivText(MOTIV_POOLS.start[0]);
+          setCardIdx(0);
+          setCardFlipped(false);
+          setCardsDone(false);
+          setCelebSrc('quiz');
+        } catch {}
+      }
+      loadIfNew();
+      return () => { active = false; };
+    }, []),
+  );
 
   // Derived from session — declared early so useEffect dependency arrays can reference them
   const questions     = session?.questions  ?? [];
