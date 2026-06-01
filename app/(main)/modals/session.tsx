@@ -13,7 +13,7 @@ import {
   X,
   Zap,
 } from 'lucide-react-native';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Dimensions,
   Pressable,
@@ -51,7 +51,7 @@ type Option  = { id: string; text: string };
 type Question = { id: string; text: string; options: Option[]; correctOptionId: string; explanation: string; sourceQuote: string };
 type Flashcard = { id: string; front: string; back: string };
 type SummarySlideType = 'concept' | 'key_fact' | 'important' | 'remember' | 'example' | 'curiosity' | 'wow_fact'
-  | 'mission' | 'main_concept' | 'comprehension' | 'key_relation' | 'mini_quiz' | 'process_flow' | 'application' | 'common_error' | 'final_challenge' | 'victory' | 'challenge' | 'decide';
+  | 'mission' | 'main_concept' | 'comprehension' | 'key_relation' | 'mini_quiz' | 'process_flow' | 'application' | 'common_error' | 'final_challenge' | 'victory' | 'challenge' | 'decide' | 'order_sequence';
 type IllustrationType = 'educational' | 'diagram' | 'concept' | 'timeline' | 'map' | 'process' | 'comparison';
 type BackendSlide = { type: SummarySlideType; emoji: string; title: string; definition: string; example: string; visualHint?: string; illustrationType?: IllustrationType; connector?: string | null; question?: string | null; options?: string[] | null; correctAnswer?: string | null };
 type LegacySection = { heading: string; content: string; keyPoints: string[] };
@@ -281,18 +281,95 @@ function buildSummarySlides(backendSlides: BackendSlide[], questions: Question[]
     return [{ type: 'concept', emoji: '📚', title: 'Resumen', definition: '', example: '' }];
   }
 
-  // Mission model: pass through directly without TikTok injection
+  // Mission model: quality pass before rendering
   if (backendSlides[0].type === 'mission') {
-    const INTERACTIVE = ['comprehension', 'mini_quiz', 'final_challenge', 'decide'];
-    const validSlides = backendSlides.filter(s => {
+    const INTER = ['comprehension', 'mini_quiz', 'final_challenge', 'decide', 'order_sequence'];
+    const isInteractive = (s: BackendSlide) =>
+      INTER.includes(s.type) || (s.type === 'wow_fact' && !!s.question?.trim());
+
+    // Helper: content words for redundancy check (Spanish stopwords removed, ≥3 chars)
+    const STOPS = new Set(['que', 'de', 'la', 'el', 'en', 'es', 'un', 'una', 'los', 'las', 'del',
+      'al', 'y', 'o', 'a', 'se', 'su', 'por', 'con', 'para', 'mas', 'pero', 'como', 'si',
+      'no', 'le', 'lo', 'hay', 'cada', 'vez', 'cuando', 'esto', 'este', 'eso', 'esa', 'son']);
+    const keyWords = (text: string): Set<string> =>
+      new Set(text.toLowerCase().replace(/[^a-záéíóúüñ\s]/g, ' ').split(/\s+/).filter(w => w.length >= 3 && !STOPS.has(w)));
+
+    // Step 1: validity + trim definitions > 45 words
+    let valid = backendSlides.filter(s => {
       const hasContent = !!(s.title?.trim() || s.definition?.trim());
-      const isInteractive = INTERACTIVE.includes(s.type);
-      const hasInteractiveContent = !isInteractive || !!(s.question?.trim() && s.options?.length);
-      const valid = hasContent && hasInteractiveContent;
-      if (!valid) console.warn(`[Summary] Skipping incomplete slide: type=${s.type}, hasContent=${hasContent}, hasInteractiveContent=${hasInteractiveContent}`);
-      return valid;
+      const interOk = !INTER.includes(s.type) || s.type === 'order_sequence' ||
+        (s.type === 'wow_fact') || !!(s.question?.trim() && s.options?.length);
+      if (!hasContent || !interOk) {
+        console.warn(`[Summary] Skipping incomplete slide: ${s.type}`);
+        return false;
+      }
+      return true;
+    }).map(s => {
+      if (!s.definition) return s;
+      const words = s.definition.trim().split(/\s+/);
+      return words.length > 45 ? { ...s, definition: words.slice(0, 45).join(' ') + '…' } : s;
     });
-    return validSlides as SummarySlide[];
+
+    // Step 2: redundancy — skip non-interactive slides with >70% word overlap vs prior
+    const noRedundant: BackendSlide[] = [];
+    let prevWords = new Set<string>();
+    for (const s of valid) {
+      if (!isInteractive(s) && s.type !== 'mission' && s.type !== 'victory') {
+        const words = keyWords(`${s.title ?? ''} ${s.definition ?? ''}`);
+        if (prevWords.size > 0 && words.size > 0) {
+          let hits = 0;
+          for (const w of words) if (prevWords.has(w)) hits++;
+          if (hits / Math.min(words.size, prevWords.size) > 0.70) {
+            console.warn(`[Summary] Redundant slide skipped: ${s.type} — ${s.title}`);
+            continue;
+          }
+        }
+        prevWords = words;
+      } else if (!isInteractive(s)) {
+        prevWords = new Set();
+      }
+      noRedundant.push(s);
+    }
+
+    // Step 3: convert first process_flow with 3–5 arrow-separated steps → order_sequence
+    let converted = false;
+    const withOrder: BackendSlide[] = noRedundant.map(s => {
+      if (!converted && s.type === 'process_flow' && s.definition?.includes('→')) {
+        const steps = s.definition.split('→').map(t => t.trim()).filter(Boolean);
+        if (steps.length >= 3 && steps.length <= 5) {
+          converted = true;
+          return { ...s, type: 'order_sequence' as SummarySlideType, options: steps };
+        }
+      }
+      return s;
+    });
+
+    // Step 4: max 2 consecutive non-interactive — inject from quiz pool if violated
+    const pool = questions.slice(0, 2);
+    let poolIdx = 0;
+    const enforced: BackendSlide[] = [];
+    let consec = 0;
+    for (const s of withOrder) {
+      if (isInteractive(s)) {
+        consec = 0;
+      } else {
+        if (consec >= 2 && poolIdx < pool.length) {
+          const q = pool[poolIdx++];
+          const correctLetter = LETTERS[q.options.findIndex(o => o.id === q.correctOptionId)] ?? 'A';
+          enforced.push({
+            type: 'comprehension', emoji: '🧩', title: '¿Comprendiste?',
+            definition: q.explanation || '', example: '', question: q.text,
+            options: q.options.slice(0, 4).map((o, i) => `${LETTERS[i]}. ${o.text}`),
+            correctAnswer: correctLetter,
+          } as BackendSlide);
+          consec = 0;
+        }
+        consec++;
+      }
+      enforced.push(s);
+    }
+
+    return enforced as SummarySlide[];
   }
 
   const out: SummarySlide[] = [];
@@ -394,6 +471,13 @@ export default function SessionPlayerScreen() {
         return out;
       });
 
+  // Pre-built slides (stable reference, recomputes only when session changes)
+  const missionSlides = useMemo(
+    () => buildSummarySlides(summarySlides, questions),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [session],
+  );
+
   const [phase, setPhase]           = useState<Phase>('lobby');
   const [completedModes, setCompleted] = useState<Set<string>>(new Set());
   const [celebSrc, setCelebSrc]     = useState<'summary' | 'quiz' | 'flashcards'>('quiz');
@@ -416,6 +500,7 @@ export default function SessionPlayerScreen() {
   const [streakMsg, setStreakMsg]         = useState('');
   const [microMsg, setMicroMsg]           = useState('');
   const [summaryRewardText, setSummaryRewardText] = useState<string | null>(null);
+  const [orderTaps, setOrderTaps]     = useState<number[]>([]); // original indices tapped in sequence
   const [nemiMsg, setNemiMsg]             = useState('');
   const [motivText, setMotivText]         = useState(MOTIV_POOLS.start[0]);
 
@@ -515,6 +600,44 @@ export default function SessionPlayerScreen() {
     slideX.value = withSpring(0, { damping: 22, stiffness: 220 });
     slideOpacity.value = withTiming(1, { duration: 240 });
   }, [summaryIdx, phase]);
+
+  // Reset order taps when slide changes
+  useEffect(() => { setOrderTaps([]); }, [summaryIdx]);
+
+  // Evaluate order_sequence when all items are tapped
+  useEffect(() => {
+    if (phase !== 'summary' || orderTaps.length === 0) return;
+    const slide = missionSlides[summaryIdx] as BackendSlide | undefined;
+    if (slide?.type !== 'order_sequence') return;
+    const opts = slide.options ?? [];
+    if (orderTaps.length < opts.length) return;
+
+    const isCorrect = orderTaps.every((origIdx, pos) => origIdx === pos);
+    if (isCorrect) {
+      setQuizAnswers(prev => ({ ...prev, [summaryIdx]: 'correct' }));
+      // Inline reward animation (showSummaryReward defined after if(!session) return)
+      const txt = SUMMARY_REWARDS[Math.floor(Math.random() * SUMMARY_REWARDS.length)];
+      setSummaryRewardText(txt);
+      summaryRewardOpSV.value = withSequence(
+        withSpring(1, { damping: 10, stiffness: 180 }),
+        withDelay(700, withTiming(0, { duration: 280 })),
+      );
+      summaryRewardYSV.value = withSequence(
+        withTiming(0, { duration: 200 }),
+        withDelay(700, withTiming(8, { duration: 280 })),
+      );
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
+    } else {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error).catch(() => {});
+      wrongShakeSV.value = withSequence(
+        withTiming(-7, { duration: 55 }), withTiming(7, { duration: 55 }),
+        withTiming(-4, { duration: 55 }), withTiming(4, { duration: 55 }),
+        withTiming(0,  { duration: 55 }),
+      );
+      setTimeout(() => setOrderTaps([]), 370);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [orderTaps]);
 
   // Motiv message cycling every 4 seconds while answering (FASE 1 / 12)
   useEffect(() => {
@@ -883,13 +1006,13 @@ export default function SessionPlayerScreen() {
   // SUMMARY — Screen 3 (story slides, NO SCROLL)
   // ══════════════════════════════════════════════════════════════
   if (phase === 'summary') {
-    const slides            = buildSummarySlides(summarySlides, questions);
+    const slides            = missionSlides;
     const slide             = slides[summaryIdx];
     const isLast            = summaryIdx >= slides.length - 1;
     const slideQuizAnswered = slide?.type === 'quiz' ? quizAnswers[summaryIdx] : undefined;
     // Stats for victory screen — computed once, used in victory card renderer
     const V_CONCEPT   = ['main_concept', 'key_relation', 'process_flow', 'application', 'common_error', 'challenge'];
-    const V_INTER     = ['comprehension', 'mini_quiz', 'final_challenge', 'decide'];
+    const V_INTER     = ['comprehension', 'mini_quiz', 'final_challenge', 'decide', 'order_sequence'];
     const vConcepts   = slides.filter(s => V_CONCEPT.includes(s.type)).length;
     const vInterTotal = slides.filter(s => V_INTER.includes(s.type)).length;
     const vCorrect    = slides.filter((s, i) => V_INTER.includes(s.type) && quizAnswers[i] === (s as BackendSlide).correctAnswer).length;
@@ -1316,6 +1439,72 @@ export default function SessionPlayerScreen() {
                   </View>
                 )}
               </View>
+            ) : slide?.type === 'order_sequence' ? (
+              // IIFE to define local shuffle vars inline
+              (() => {
+                const opts = (slide as BackendSlide).options ?? [];
+                // Deterministic shuffle seeded on summaryIdx so it's stable across re-renders
+                const shuffled: number[] = opts.map((_, i) => i);
+                let seed = ((summaryIdx + 1) * 137 + 7) >>> 0;
+                for (let k = shuffled.length - 1; k > 0; k--) {
+                  seed = (seed * 1664525 + 1013904223) >>> 0;
+                  const j = seed % (k + 1);
+                  [shuffled[k], shuffled[j]] = [shuffled[j], shuffled[k]];
+                }
+                const answered = quizAnswers[summaryIdx];
+                return (
+                  <Animated.View style={[sum.orderCard, wrongShakeStyle]}>
+                    <Text style={sum.orderLabel}>🔀 ORDENA LA SECUENCIA</Text>
+                    <Text style={sum.orderTitle}>{(slide as BackendSlide).title}</Text>
+                    <Text style={sum.orderHint}>
+                      {answered === 'correct'
+                        ? '✅ ¡Secuencia correcta!'
+                        : orderTaps.length === 0
+                          ? 'Toca los pasos en el orden correcto.'
+                          : `${orderTaps.length} / ${opts.length} seleccionados`}
+                    </Text>
+                    <View style={sum.orderItems}>
+                      {shuffled.map((origIdx, displayPos) => {
+                        const tapPos = orderTaps.indexOf(origIdx);
+                        const isSelected = tapPos !== -1;
+                        const isDone = answered === 'correct';
+                        return (
+                          <Pressable
+                            key={displayPos}
+                            onPress={() => {
+                              if (isDone) return;
+                              if (isSelected) {
+                                // Deselect this and all after it
+                                setOrderTaps(prev => prev.slice(0, tapPos));
+                              } else {
+                                setOrderTaps(prev => [...prev, origIdx]);
+                              }
+                            }}
+                            style={[
+                              sum.orderItem,
+                              isSelected && (isDone ? sum.orderItemCorrect : sum.orderItemSelected),
+                            ]}
+                          >
+                            <View style={[sum.orderNum, isSelected && (isDone ? sum.orderNumCorrect : sum.orderNumSelected)]}>
+                              {isSelected
+                                ? <Text style={sum.orderNumTxt}>{tapPos + 1}</Text>
+                                : <Text style={sum.orderNumTxtMuted}>?</Text>}
+                            </View>
+                            <Text style={[sum.orderItemTxt, isSelected && sum.orderItemTxtSelected]}>
+                              {opts[origIdx]}
+                            </Text>
+                          </Pressable>
+                        );
+                      })}
+                    </View>
+                    {answered === 'correct' && (
+                      <View style={sum.orderSuccessRow}>
+                        <Text style={sum.orderSuccessTxt}>¡Aprendiste el orden! 🎉</Text>
+                      </View>
+                    )}
+                  </Animated.View>
+                );
+              })()
             ) : slide?.type === 'challenge' ? (
               <View style={sum.challengeRefCard}>
                 <Text style={sum.challengeRefEmoji}>🤔</Text>
@@ -1454,7 +1643,7 @@ export default function SessionPlayerScreen() {
           {/* CTA */}
           <View style={[g.bottom, { paddingBottom: insets.bottom + 12 }]}>
             {((slide?.type === 'quiz' && !slideQuizAnswered) ||
-              ((slide?.type === 'comprehension' || slide?.type === 'mini_quiz' || slide?.type === 'final_challenge' || slide?.type === 'decide' || (slide?.type === 'wow_fact' && !!slide.question)) && !quizAnswers[summaryIdx])) ? (
+              ((slide?.type === 'comprehension' || slide?.type === 'mini_quiz' || slide?.type === 'final_challenge' || slide?.type === 'decide' || slide?.type === 'order_sequence' || (slide?.type === 'wow_fact' && !!slide.question)) && !quizAnswers[summaryIdx])) ? (
               <View style={g.ctaBtnOff}>
                 <Text style={g.ctaTextOff}>Elige una opción</Text>
               </View>
@@ -2185,6 +2374,25 @@ const sum = StyleSheet.create({
   challengeRefHintBox: { backgroundColor: 'white', borderRadius: 14, padding: SM ? 10 : 12, width: '100%' },
   challengeRefHintLbl: { fontSize: 9, fontWeight: '800', color: Colors.muted, letterSpacing: 1, marginBottom: 4, textTransform: 'uppercase' },
   challengeRefHintTxt: { fontSize: SM ? 13 : 14, color: Colors.ink2, lineHeight: SM ? 20 : 22, fontWeight: '500' },
+
+  // Order sequence card
+  orderCard:        { backgroundColor: 'white', borderRadius: 24, padding: SM ? 16 : 20, shadowColor: '#0B0B1A', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.09, shadowRadius: 20, elevation: 5 },
+  orderLabel:       { fontSize: 10, fontWeight: '900', color: '#7C5AFF', letterSpacing: 1.5, marginBottom: 8, textTransform: 'uppercase' },
+  orderTitle:       { fontSize: SM ? 15 : 17, fontWeight: '800', color: Colors.ink, lineHeight: SM ? 22 : 25, letterSpacing: -0.2, marginBottom: 6 },
+  orderHint:        { fontSize: SM ? 12 : 13, color: Colors.muted, fontWeight: '600', marginBottom: 14 },
+  orderItems:       { gap: 8, alignSelf: 'stretch' },
+  orderItem:        { flexDirection: 'row', alignItems: 'center', gap: 10, padding: SM ? 10 : 12, borderRadius: 14, borderWidth: 2, borderColor: Colors.line, backgroundColor: Colors.bgSoft },
+  orderItemSelected:{ borderColor: BRAND, backgroundColor: 'rgba(91,61,245,0.06)' },
+  orderItemCorrect: { borderColor: '#059669', backgroundColor: 'rgba(5,150,105,0.07)' },
+  orderNum:         { width: 28, height: 28, borderRadius: 8, backgroundColor: Colors.line2, alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
+  orderNumSelected: { backgroundColor: BRAND },
+  orderNumCorrect:  { backgroundColor: '#059669' },
+  orderNumTxt:      { fontSize: 13, fontWeight: '900', color: 'white' },
+  orderNumTxtMuted: { fontSize: 13, fontWeight: '700', color: Colors.muted },
+  orderItemTxt:     { flex: 1, fontSize: SM ? 13 : 14, color: Colors.ink2, fontWeight: '600', lineHeight: 19 },
+  orderItemTxtSelected: { color: Colors.ink, fontWeight: '700' },
+  orderSuccessRow:  { marginTop: 12, backgroundColor: 'rgba(5,150,105,0.08)', borderRadius: 10, paddingVertical: 8, paddingHorizontal: 12, borderWidth: 1, borderColor: 'rgba(5,150,105,0.2)', alignSelf: 'stretch', alignItems: 'center' },
+  orderSuccessTxt:  { fontSize: 13, fontWeight: '800', color: '#065F46' },
 });
 
 // ── Quiz ───────────────────────────────────────────────────────────
