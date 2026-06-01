@@ -44,6 +44,13 @@ export async function generateSessionContent(
 
   const prompt = `You are a Duolingo-style learning experience designer for Chilean high-school students (${curso}). Your mission is NOT to summarize a document — it is to engineer DISCOVERY moments that make a teenager feel "quiero ver la siguiente pantalla."
 
+⚠️ CRITICAL CONTENT RULE — READ BEFORE GENERATING ANYTHING:
+ALL content (titles, definitions, examples, questions, options, connectors) MUST be derived EXCLUSIVELY from the transcription below.
+DO NOT introduce concepts, terms, vocabulary, or examples from outside the transcription.
+The format examples scattered through this prompt are FORMAT demonstrations only — their subject matter (e.g., biology, physics examples used to illustrate structure) must NEVER appear in the output unless they also appear in the transcription.
+If the transcription is about Ondas → every screen talks about ondas, frecuencia, amplitud, longitud de onda — NEVER about demanda, precio, stock, or any other topic.
+Treat the transcription as the ONLY allowed source of academic content.
+
 SESSION PHILOSOPHY:
   HOOK → CONCEPTO CLAVE → MICRO RETO → RELACIÓN → MINI QUIZ → DESAFÍO → APLICACIÓN → ERROR COMÚN → CURIOSIDAD → VICTORIA
   Each screen must provoke exactly ONE of: Curiosidad / Sorpresa / Conexión personal / Descubrimiento / Reflexión.
@@ -76,8 +83,10 @@ TEXT LIMITS — apply to EVERY screen:
 - example: maximum 15 words.
 - title: maximum 8 words.
 Prefer scannable phrases over connected prose.
-BAD: "Porque si hay más personas que quieren algo y hay poco disponible, el precio sube."
-GOOD: "Más personas quieren comprar.\nHay poco disponible.\nEl precio sube."
+FORMAT ONLY — replace with concepts from the document:
+BAD: "La onda es una perturbación que viaja a través del medio transfiriendo su energía de un punto al otro."
+GOOD: "La onda viaja por el medio.\nLleva energía, no materia.\nSe debilita con la distancia."
+⚠️ NEVER copy this subject matter (ondas) into sessions about other topics.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 PROGRESSIVE DIFFICULTY — mandatory across interactive screens:
@@ -93,19 +102,20 @@ EMOTIONAL FEEDBACK RULE — applies to ALL interactive screens (3, 5, 6, wow_fac
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 The "definition" field is shown AFTER the student answers. It must feel like a coach, not a textbook.
 MANDATORY: start with ONE of these emoji reactions, then explain WHY in max 15 words:
-  🔥 Exacto — [why]
-  🚀 Correcto — [why]
-  ⚡ Lo captaste — [why]
-  🎯 Acertaste — [why]
+  🔥 Exacto — [why, derived from THIS document's content]
+  🚀 Correcto — [why, derived from THIS document's content]
+  ⚡ Lo captaste — [why, derived from THIS document's content]
+  🎯 Acertaste — [why, derived from THIS document's content]
 ❌ FORBIDDEN: "La respuesta correcta es...", "Correcto porque...", "Esta opción es la correcta..."
 ✅ REQUIRED: the explanation should also hint why the main distractor was tempting.
-Example: "🔥 Exacto — cuando baja la oferta y la demanda no cambia, el precio sube inevitablemente."
+FORMAT: "🔥 Exacto — [key insight from THIS topic in 10 words, hinting why wrong option was tempting]."
+⚠️ The explanation content MUST come exclusively from the transcription. Never invent concepts.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 DISTRACTOR QUALITY RULE — all interactive screens:
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 All wrong options must be believable partial-truths, not obvious nonsense.
-❌ STRICTLY FORBIDDEN in any option: "Todas las anteriores", "Ninguna de las anteriores", "No cambia nada", "porque sí", "todas pueden ocurrir", "dejan de comprar para siempre".
+❌ STRICTLY FORBIDDEN in any option: "Todas las anteriores", "Ninguna de las anteriores", "No cambia nada", "porque sí", "todas pueden ocurrir", "no tiene ningún efecto".
 RULE: EXACTLY ONE clearly correct answer per question. If two options could both be correct → rewrite.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -119,9 +129,10 @@ THE HOOK — most critical screen. Creates IMMEDIATE curiosity. If this screen i
   ✅ GOOD — Física/Ondas: "¿Cómo puede viajar música por el aire sin ningún cable?"
   ✅ GOOD — Física/Ondas: "¿Por qué escuchas el trueno DESPUÉS de ver el relámpago?"
   ✅ GOOD — Biología: "¿Cómo come una planta si no tiene boca ni estómago?"
-  ✅ GOOD — Economía: "¿Por qué Spotify sube de precio aunque tú no ganes más?"
+  ✅ GOOD — Tecnología: "¿Cómo sabe Spotify qué canción querrás escuchar antes de que la conozcas?"
   ✅ GOOD — Historia: "¿Por qué un país rico puede volverse pobre en pocos años?"
   ✅ GOOD — Química: "¿Por qué mezclar agua con aceite es casi imposible?"
+  ⚠️ FORMAT EXAMPLES ONLY — create a curiosity question about THIS document's topic, not these subjects.
   ❌ BAD: "Misión: Ondas y sus parámetros" — NOT a question. Creates zero curiosity.
   ❌ BAD: "Descubre cómo funcionan las ondas" — declarative statement, not a hook.
   ❌ BAD: "¿Qué son las ondas?" — too direct. Doesn't create mystery.
@@ -139,18 +150,24 @@ DISCOVERY SEQUENCE: Pregunta → Descubrimiento → Explicación breve
 - definition: TWO sentences max 25 words total:
   Sentence 1: A question the student can't yet answer (curiosity hook)
   Sentence 2: The discovery — answers the question simply, zero jargon
-  ✅ "¿Por qué Netflix cuesta más cada año? Porque cuando más personas quieren algo y hay poco disponible, el precio sube."
-  ❌ "Cada vez que eliges qué comprar, estás haciendo economía." — statement, not discovery.
+  FORMAT ONLY — write about THIS document's content, never copy these subjects:
+  ✅ Física: "¿Por qué los murciélagos vuelan en total oscuridad? Emiten sonidos y detectan el eco que rebotan en los objetos."
+  ✅ Biología: "¿Por qué sientes hambre aunque acabas de comer? Tu cuerpo usa señales químicas para mantener estable su nivel de energía."
+  ❌ "En esta sesión aprenderemos sobre [tema]." — statement, not discovery.
 - example: SPECIFIC situation a Chilean teenager encounters TODAY. Concrete name or number.
-  ✅ "Tu zapatilla favorita subió $20.000 en una semana porque todos la quieren."
-  ❌ "Los consumidores toman decisiones" — FORBIDDEN, too abstract.
+  FORMAT ONLY — write about THIS document's content, never copy these subjects:
+  ✅ Física: "Tu celular usa señales 5G: ondas con frecuencia altísima que transmiten más datos por segundo."
+  ✅ Biología: "Cuando entrenas, tus músculos se rompen microscópicamente y el cuerpo los repara más gruesos."
+  ❌ "Esto es relevante para la vida cotidiana." — FORBIDDEN, too abstract.
 - connector: REQUIRED — visual causal chain in EXACTLY this format:
   "emoji1 Step1 ↓ verb ↓ emoji2 Step2 ↓ verb ↓ emoji3 Step3"
   Each node = emoji + max 3 words. Each verb = 1 transitive word.
-  ✅ "🙋 Mucha demanda ↓ genera ↓ 📦 Poco stock ↓ eleva ↓ 💰 Precio sube"
-  ✅ "📱 Sube el dólar ↓ encarece ↓ 🛒 Productos importados ↓ eleva ↓ 💸 Lo que pagas"
+  FORMAT ONLY — never copy these subjects; derive from the document:
+  ✅ Física: "🎵 Fuente vibra ↓ genera ↓ 🌊 Onda sonora ↓ llega a ↓ 👂 Percepción auditiva"
+  ✅ Biología: "☀️ Luz solar ↓ activa ↓ 🌿 Fotosíntesis ↓ produce ↓ 🍬 Glucosa celular"
+  ⚠️ NEVER copy (sonido, fotosíntesis) — use concepts from THIS document.
   VERB RULE: each verb must describe what NodeA DOES to cause NodeB — NOT NodeB's state.
-  ✅ Correct verbs: genera, eleva, encarece, reduce, impulsa, causa, provoca, dispara
+  ✅ Correct verbs: genera, eleva, activa, reduce, impulsa, causa, provoca, transforma
   ❌ WRONG: using "sube" or "baja" when they describe the next node's state, not the prior node's action.
 
 SCREEN 3 — type: "comprehension" — emoji: 🤔  [INTERACTIVE — NIVEL 1: RECORDAR]
@@ -166,14 +183,16 @@ SCREEN 3 — type: "comprehension" — emoji: 🤔  [INTERACTIVE — NIVEL 1: RE
 
 SCREEN 4 — type: "key_relation" — emoji: 🔗
 ONE CAUSAL CHAIN — exactly 3 nodes, no more.
-❌ PROHIBITED: abstract nodes like "Oferta", "Demanda", "Consumo" alone.
-✅ REQUIRED: nodes must be VISIBLE everyday actions or situations.
+❌ PROHIBITED: abstract nodes that name only the concept without an action.
+✅ REQUIRED: nodes must be VISIBLE everyday actions or situations from the document.
 - connector: "Acción cotidiana ↓ verbo ↓ Consecuencia visible ↓ verbo ↓ Impacto"
   VERB RULE — CRITICAL: every verb must be a TRANSITIVE causal action.
-  ✅ "Más personas compran zapatillas ↓ genera ↓ Tiendas piden más stock ↓ eleva ↓ Precios"
-  ✅ "Sube el dólar ↓ encarece ↓ Celulares importados ↓ eleva ↓ Precio del iPhone"
-  ✅ "Spotify sube su precio ↓ reduce ↓ Suscriptores ↓ baja ↓ Ingresos de artistas"
-  ❌ "Oferta ↓ sube ↓ Demanda ↓ baja ↓ Precios" — abstract, not a real situation.
+  FORMAT ONLY — never copy these subjects; derive chain from the document:
+  ✅ Física: "🎵 Fuente vibra rápido ↓ genera ↓ 🌊 Frecuencia alta ↓ reduce ↓ 📏 Longitud de onda"
+  ✅ Biología: "☀️ Luz llega ↓ activa ↓ 🌿 Clorofila ↓ transforma ↓ 🍬 Azúcar energética"
+  ✅ Química: "🔥 Calor aumenta ↓ acelera ↓ ⚗️ Reacción química ↓ libera ↓ 💨 Producto nuevo"
+  ⚠️ NEVER copy (frecuencia, clorofila, calor) — use concepts from THIS document.
+  ❌ "[ConceptoA] ↓ sube ↓ [ConceptoB] ↓ baja ↓ [ConceptoC]" — abstract, not a real situation.
 - title: short descriptive name for this relationship (max 6 words)
 - definition: why this chain matters to the student personally (max 20 words)
 - example: null
@@ -183,8 +202,11 @@ SCREEN 5 — type: "mini_quiz" — emoji: ⚡  [INTERACTIVE — NIVEL 2-3: COMPR
 - title: "Quiz rápido"
 - question: APPLICATION question — the student REASONS, not just recalls (max 25 words).
   The student must apply the concept to a situation they haven't seen yet.
-  ✅ "Si el precio del pan sube un 30%, ¿qué pasará probablemente con la cantidad que compra una familia?"
-  ❌ "¿Qué es la demanda?" — FORBIDDEN, pure recognition.
+  FORMAT ONLY — never copy these subjects; write about THIS document's content:
+  ✅ Física: "Si duplicas la frecuencia de una onda, ¿qué le ocurre a su longitud de onda manteniendo velocidad constante?"
+  ✅ Biología: "Si desaparece el depredador principal de un ecosistema, ¿qué pasará con la población de su presa?"
+  ❌ "¿Qué es [término del documento]?" — FORBIDDEN, pure recognition.
+  ⚠️ NEVER copy (frecuencia, ecosistema) — write the question about THIS document's concepts.
   2-SECOND TEST: if answerable in < 2 seconds without reasoning → too easy → rewrite.
 - options: ["A. ...", "B. ...", "C. ...", "D. ..."] — exactly 4 options, each max 12 words
 - correctAnswer: "A", "B", "C", or "D"
@@ -198,8 +220,10 @@ Use "challenge" ONLY as last resort if neither works.
 - OPTION A — type: "decide":
   - title: "¿Qué harías?" or "¿Cuál elegirías?" (max 8 words)
   - question: a realistic dilemma rooted in the content (max 30 words). Two realistic paths.
-    ✅ "El gobierno quiere bajar el desempleo. ¿Qué política sería más efectiva a corto plazo?"
-    ✅ "Eres empresario y sube el costo del café. ¿Qué decisión tomarías para proteger tus ganancias?"
+    FORMAT ONLY — never copy these subjects; create dilemma from THIS document's content:
+    ✅ Física: "Un puente metálico vibra a la misma frecuencia que el viento. ¿Qué solución aplicarías para evitar el colapso?"
+    ✅ Biología: "Un ecosistema pierde su depredador principal por caza excesiva. ¿Qué consecuencia es más probable a largo plazo?"
+    ⚠️ NEVER copy (puente, ecosistema) — create the dilemma exclusively from THIS document's topic.
   - options: ["A. ...", "B. ...", "C. ...", "D. ..."] — 3 or 4 options, each max 12 words.
     Each option reflects a different but plausible reasoning.
   - correctAnswer: "A", "B", "C", or "D"
@@ -225,8 +249,11 @@ MANDATORY: use a specific named platform or product. Priority:
   ❌ PROHIBITED: "una empresa", "un consumidor", "una tienda" with no real name.
   ❌ PROHIBITED: inventing facts or prices.
 - title: a concrete scenario AS A QUESTION using one of the above (max 15 words)
-  ✅ "¿Por qué Uber sube su precio cuando llueve y hay poca disponibilidad?"
-  ✅ "¿Por qué Steam pone juegos en oferta solo en fechas específicas?"
+  FORMAT ONLY — apply the SAME question structure to THIS document's topic:
+  ✅ "¿Cómo usa Spotify la frecuencia de las ondas para comprimir audio sin perder calidad?"
+  ✅ "¿Por qué la pantalla de tu iPhone responde al dedo pero no a un bolígrafo plástico?"
+  ✅ "¿Cómo logra PlayStation simular sonido 3D sin que uses audífonos especiales?"
+  ⚠️ THESE ARE FORMAT EXAMPLES ONLY — derive the question from THIS document's concept, using a real platform as context.
 - definition: which concept applies and WHY, plain language, no jargon (max 40 words, 2 sentences)
   ACCURACY RULE: technically correct. Use the actual mechanism, not an invented one.
   ❌ FORBIDDEN: "Netflix sube su precio porque más personas lo usan." — incorrect mechanism.
@@ -238,12 +265,13 @@ SHOW WHAT TEENAGERS ACTUALLY BELIEVE — not textbook errors.
 Think: what does a smart 15-year-old who uses TikTok but never studied this assume to be true? That IS the error.
 MANDATORY FORMAT — no exceptions:
 - definition: MUST start with "❌" (max 20 words)
-  Format: "❌ Muchos creen que [wrong belief]."
-  Real teen error examples to model (adapt to THIS topic, do NOT copy):
-  ❌ "Muchos creen que el dólar solo afecta a las empresas, no a ellos."
-  ❌ "Muchos creen que si algo sube de precio es una estafa."
-  ❌ "Muchos creen que ahorrar siempre ayuda a la economía del país."
-  ❌ Bad: "Confunden oferta con demanda." — too academic, not a real teen belief.
+  Format: "❌ Muchos creen que [wrong belief specific to THIS document's topic]."
+  FORMAT ONLY — identify the real teen misconception about THIS document's content:
+  Física: ❌ "Muchos creen que el sonido viaja más rápido en el vacío que en materiales sólidos."
+  Biología: ❌ "Muchos creen que las plantas solo respiran de noche y hacen fotosíntesis de día."
+  Química: ❌ "Muchos creen que hervir agua siempre la purifica de todos sus contaminantes."
+  ❌ Bad: "Confunden [término A] con [término B]." — too academic, not a real teen belief.
+  ⚠️ NEVER copy the subjects above (sonido, plantas, agua) — identify the error from THIS document's content.
 - example: MUST start with "✅" (max 20 words)
   Format: "✅ En realidad, [surprising truth that contradicts the error]."
   It must SURPRISE the student — they didn't know this.
@@ -273,12 +301,17 @@ SCREEN 10 — type: "victory" — emoji: 🏆
 - definition: MANDATORY CHECKLIST FORMAT:
   "Aprendiste: ✓ [Concept 1] • ✓ [Concept 2] • ✓ [Concept 3] • ✓ [Concept 4]"
   Use EXACT concept names from screens 2, 4, 7, 8. MAX 4 concepts.
-  ✅ "Aprendiste: ✓ Oferta y demanda • ✓ Efecto del dólar • ✓ Cómo Uber ajusta precios • ✓ El error del precio como estafa"
+  FORMAT — use THIS document's concept names, never copy these subjects:
+  Física: "Aprendiste: ✓ Qué es una onda • ✓ Frecuencia y amplitud • ✓ Ondas en tecnología • ✓ Error: velocidad ≠ frecuencia"
+  Biología: "Aprendiste: ✓ Fotosíntesis • ✓ Rol de la clorofila • ✓ Energía solar en vida • ✓ Error: plantas no respiran"
+  ⚠️ NEVER copy (onda, fotosíntesis) — use the actual concepts from THIS session's screens 2, 4, 7, 8.
 - example: TWO parts, joined with " | " (max 35 words total):
-  Part 1: "Lo usarás cuando [specific teen situation where these concepts apply]."
-  Part 2: "Próximo desafío: [specific suggestion for what to study next to go deeper]."
-  ✅ "Lo usarás cuando el precio de tu celular favorito cambie. | Próximo desafío: Investiga cómo el Banco Central controla la inflación."
-  ✅ "Lo usarás cuando notes que Spotify sube de precio. | Próximo desafío: Estudia cómo la inflación afecta el ahorro."
+  Part 1: "Lo usarás cuando [specific teen situation tied to THIS document's topic]."
+  Part 2: "Próximo desafío: [specific related topic to study next, connected to THIS document's subject]."
+  FORMAT — derive from THIS document's topic, never copy:
+  Física: "Lo usarás cuando ajustes el sonido de tus audífonos. | Próximo desafío: Investiga el efecto Doppler y sus usos en medicina."
+  Biología: "Lo usarás cuando notes cómo reacciona tu cuerpo al ejercicio. | Próximo desafío: Estudia cómo el cuerpo regula su temperatura."
+  ⚠️ NEVER copy (sonido, cuerpo) — the "Lo usarás" and "Próximo desafío" must match THIS document's subject.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ABSOLUTE RULES FOR ALL 10 SCREENS:
@@ -511,6 +544,113 @@ ${normalizeText(transcription)}
   const groundingScore = sourceQuoteCount > 0 ? 1 : 0;
 
   return { subject, topic, questions, flashcards, summary, groundingScore };
+}
+
+// ── Semantic grounding check ──────────────────────────────────────────────────
+
+const SPANISH_STOP_WORDS = new Set([
+  'para', 'como', 'pero', 'que', 'una', 'uno', 'unos', 'unas', 'los', 'las', 'del',
+  'con', 'por', 'mas', 'cuando', 'este', 'esta', 'estos', 'estas', 'ser', 'son',
+  'puede', 'hace', 'tiene', 'hay', 'sus', 'entre', 'tambien', 'sobre', 'desde',
+  'hacia', 'despues', 'porque', 'donde', 'mientras', 'cada', 'toda', 'todo',
+  'todos', 'como', 'cual', 'cuales', 'cuando', 'cuanto', 'ellos', 'ella',
+  'ellas', 'mismo', 'misma', 'otro', 'otra', 'otros', 'otras', 'muy', 'bien',
+  'aqui', 'alli', 'ahi', 'entonces', 'aunque', 'sino', 'incluso', 'solo', 'sola',
+  'ahora', 'antes', 'siempre', 'nunca', 'ademas', 'tampoco', 'tanto', 'tanta',
+  'alguna', 'algunas', 'ningun', 'ninguna', 'varios', 'varias', 'cualquier',
+  'debe', 'hacer', 'hecho', 'algo', 'nada', 'parte', 'tipo', 'forma', 'manera',
+  'caso', 'nivel', 'tipo', 'punto', 'tanto', 'tener', 'pueden', 'deben', 'estos',
+]);
+
+function extractDocKeywords(text: string, topN = 40): string[] {
+  const freq: Record<string, number> = {};
+  text
+    .toLowerCase()
+    .replace(/[¿¡!?.,:;()[\]{}""''«»\-–—\r\n]/g, ' ')
+    .split(/\s+/)
+    .filter(w => w.length >= 4 && !SPANISH_STOP_WORDS.has(w) && /^[a-záéíóúñü]+$/.test(w))
+    .forEach(w => { freq[w] = (freq[w] ?? 0) + 1; });
+  return Object.entries(freq)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, topN)
+    .map(([w]) => w);
+}
+
+function getSlideAllText(slide: SummarySlide): string {
+  const s = slide as any;
+  return [s.title, s.definition, s.example, s.question, ...(Array.isArray(s.options) ? s.options : [])]
+    .filter(Boolean)
+    .join(' ');
+}
+
+export interface SlideGroundingScore {
+  slideIndex: number;
+  slideType: string;
+  overlap: number;
+  slideKeywords: string[];
+  contaminated: boolean;
+}
+
+export interface SemanticGroundingResult {
+  docKeywords: string[];
+  slideScores: SlideGroundingScore[];
+  overallOverlap: number;
+  contaminated: boolean;
+  contaminatedSlides: number[];
+}
+
+const SKIP_GROUNDING_TYPES = new Set(['mission', 'victory']);
+
+export function checkSemanticGrounding(
+  transcription: string,
+  slides: SummarySlide[],
+): SemanticGroundingResult {
+  const docKeywords = extractDocKeywords(transcription, 40);
+  const docSet = new Set(docKeywords);
+
+  const slideScores: SlideGroundingScore[] = slides.map((slide, i) => {
+    if (SKIP_GROUNDING_TYPES.has(slide.type)) {
+      return { slideIndex: i, slideType: slide.type, overlap: 1, slideKeywords: [], contaminated: false };
+    }
+
+    const text = getSlideAllText(slide)
+      .toLowerCase()
+      .replace(/[\u{1F000}-\u{1FFFF}\u{2600}-\u{27FF}❌✅✓•↓🔥🚀⚡🎯]/gu, ' ')
+      .replace(/[¿¡!?.,:;()[\]{}""''«»\-–—]/g, ' ');
+
+    const words = text
+      .split(/\s+/)
+      .filter(w => w.length >= 4 && !SPANISH_STOP_WORDS.has(w) && /^[a-záéíóúñü]+$/.test(w));
+
+    const unique = [...new Set(words)];
+
+    if (unique.length < 4) {
+      return { slideIndex: i, slideType: slide.type, overlap: 1, slideKeywords: unique, contaminated: false };
+    }
+
+    // Soft match: prefix comparison (handles inflection like onda/ondas, frecuencia/frecuencias)
+    const matched = unique.filter(sw =>
+      docSet.has(sw) || docKeywords.some(dk => {
+        const minLen = Math.min(sw.length, dk.length, 6);
+        return sw.slice(0, minLen) === dk.slice(0, minLen);
+      })
+    );
+
+    const overlap = matched.length / unique.length;
+    const contaminated = overlap < 0.15 && unique.length >= 5;
+
+    return { slideIndex: i, slideType: slide.type, overlap, slideKeywords: unique.slice(0, 12), contaminated };
+  });
+
+  const scored = slideScores.filter(s => !SKIP_GROUNDING_TYPES.has(s.slideType));
+  const overallOverlap = scored.length > 0
+    ? scored.reduce((sum, s) => sum + s.overlap, 0) / scored.length
+    : 1;
+
+  const contaminatedSlides = slideScores.filter(s => s.contaminated).map(s => s.slideIndex);
+  const contaminated = contaminatedSlides.length >= 3;
+
+  return { docKeywords, slideScores, overallOverlap, contaminated, contaminatedSlides };
 }
 
 // ── Engagement validator ─────────────────────────────────────────────────────

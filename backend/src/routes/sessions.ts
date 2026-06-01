@@ -12,6 +12,7 @@ import {
   validateGrounding,
   buildGeneratedSession,
   validateSessionEngagement,
+  checkSemanticGrounding,
 } from '../services/generationService.js';
 import {
   saveDocumentMetadata,
@@ -132,11 +133,39 @@ router.post('/generate', upload.array('documents', 10), async (req, res) => {
   }
 
   // Step 5: Build and persist session (best-effort)
-  const session = buildGeneratedSession(userId, documentId, transcription, wordCount, sessionConfig, {
+  let session = buildGeneratedSession(userId, documentId, transcription, wordCount, sessionConfig, {
     ...generation,
     groundingScore: validation.score,
   });
 
+  // ── Semantic grounding check ─────────────────────────────────────────────────
+  let semanticResult = checkSemanticGrounding(transcription, session.summary.slides as any);
+  console.log('[Sessions] Doc keywords (top 10):', semanticResult.docKeywords.slice(0, 10).join(', '));
+  console.log('[Sessions] Overall semantic overlap:', (semanticResult.overallOverlap * 100).toFixed(1) + '%');
+  semanticResult.slideScores.forEach(s => {
+    const flag = s.contaminated ? ' ⚠️ CONTAMINATED' : '';
+    console.log(`[Sessions] Slide ${s.slideIndex} (${s.slideType}): overlap=${(s.overlap * 100).toFixed(0)}%${flag} keywords=[${s.slideKeywords.slice(0, 6).join(', ')}]`);
+  });
+
+  if (semanticResult.contaminated) {
+    console.error('[Sessions] 🚨 CONTAMINATION DETECTED in slides:', semanticResult.contaminatedSlides, '— retrying generation');
+    try {
+      generation = await generateSessionContent(transcription, sessionConfig, curso);
+      const retryValidation = validateGrounding(generation, transcription);
+      session = buildGeneratedSession(userId, documentId, transcription, wordCount, sessionConfig, {
+        ...generation,
+        groundingScore: retryValidation.score,
+      });
+      semanticResult = checkSemanticGrounding(transcription, session.summary.slides as any);
+      console.log('[Sessions] After retry — overlap:', (semanticResult.overallOverlap * 100).toFixed(1) + '% contaminated:', semanticResult.contaminated);
+    } catch (retryErr: any) {
+      console.error('[Sessions] Retry generation failed:', retryErr?.message);
+    }
+  } else {
+    console.log('[Sessions] Semantic grounding OK');
+  }
+
+  // ── Engagement check ──────────────────────────────────────────────────────────
   const engagementReport = validateSessionEngagement(session.summary.slides as any, session.questions);
   if (!engagementReport.valid) {
     console.warn('[Sessions] Engagement issues:', engagementReport.issues);
