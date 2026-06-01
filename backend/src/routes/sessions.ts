@@ -13,6 +13,7 @@ import {
   buildGeneratedSession,
   validateSessionEngagement,
   checkSemanticGrounding,
+  validateQuestionConsistency,
 } from '../services/generationService.js';
 import {
   saveDocumentMetadata,
@@ -163,6 +164,18 @@ router.post('/generate', upload.array('documents', 10), async (req, res) => {
     }
   } else {
     console.log('[Sessions] Semantic grounding OK');
+  }
+
+  // ── Question consistency check ────────────────────────────────────────────────
+  const consistencyReport = validateQuestionConsistency(session.summary.slides as any);
+  if (!consistencyReport.allConsistent) {
+    consistencyReport.results.filter(r => !r.consistent).forEach(r => {
+      console.warn(`[Sessions] Inconsistency slide ${r.slideIndex} (${r.slideType}): ${r.issue}`);
+      console.warn(`[Sessions]   Q-keywords: [${r.questionKeywords.join(', ')}]`);
+      console.warn(`[Sessions]   F-keywords: [${r.feedbackKeywords.join(', ')}]`);
+    });
+  } else {
+    console.log('[Sessions] Question consistency OK');
   }
 
   // ── Engagement check ──────────────────────────────────────────────────────────

@@ -241,24 +241,32 @@ Use "challenge" ONLY as last resort if neither works.
   - question, options, correctAnswer: all null
 
 SCREEN 7 — type: "application" — emoji: 🌍
-THIS SCREEN ANSWERS: "¿Dónde veré esto HOY?"
-MANDATORY: use a specific named platform or product. Priority:
-  1st: PlayStation, iPhone, zapatillas de marca, conciertos, videojuegos, ropa de temporada
-  2nd: Uber, PedidosYa, Mercado Libre, Steam, TikTok, Samsung, Spotify
-  Last resort: Netflix (overused — only if nothing else fits)
-  ❌ PROHIBITED: "una empresa", "un consumidor", "una tienda" with no real name.
-  ❌ PROHIBITED: inventing facts or prices.
-- title: a concrete scenario AS A QUESTION using one of the above (max 15 words)
-  FORMAT ONLY — apply the SAME question structure to THIS document's topic:
-  ✅ "¿Cómo usa Spotify la frecuencia de las ondas para comprimir audio sin perder calidad?"
-  ✅ "¿Por qué la pantalla de tu iPhone responde al dedo pero no a un bolígrafo plástico?"
-  ✅ "¿Cómo logra PlayStation simular sonido 3D sin que uses audífonos especiales?"
-  ⚠️ THESE ARE FORMAT EXAMPLES ONLY — derive the question from THIS document's concept, using a real platform as context.
+THIS SCREEN ANSWERS: "¿Dónde se aplica esto en el mundo real?"
+DOCUMENT-FIRST RULE: identify the most direct, real-world application of the document's main concept.
+Use applications that NATURALLY follow from the subject in the transcription:
+  Física/Ondas: radio FM, radar meteorológico, ultrasonido médico, ecografía, sonares, instrumentos musicales, fibra óptica, señales WiFi, sísmica
+  Física/Electricidad: circuitos domésticos, generadores, motores eléctricos, electroimanes, paneles solares
+  Física/Óptica: lentes, microscopios, telescopios, cámaras, láseres, fibra óptica
+  Biología/Genética: análisis de ADN forense, pruebas de paternidad, ingeniería genética, diagnóstico médico
+  Biología/Célula: medicina, vacunas, nutrición deportiva
+  Química: procesos culinarios, combustión de motores, baterías recargables, fabricación de materiales
+  Matemáticas: ingeniería civil, arquitectura, estadísticas deportivas, presupuestos, navegación GPS
+  Historia: procesos y hechos reales del período estudiado, documentos históricos
+  Lenguaje: análisis de noticias reales, publicidad, discursos históricos, textos literarios
+❌ NEVER use brand names (Spotify, Netflix, TikTok, Uber, Instagram, Airbnb, Amazon, PedidosYa, Steam) unless they appear explicitly in the transcription.
+❌ PROHIBITED: "una empresa", "un consumidor" without a specific educational context.
+❌ PROHIBITED: inventing mechanisms or facts not derivable from the transcription.
+- title: a concrete real-world scenario that demonstrates the concept (max 15 words, preferably a question)
+  FORMAT ONLY — create from THIS document's subject, never copy these:
+  ✅ Física/Ondas: "¿Cómo detectan los médicos el corazón de un bebé antes de nacer con ultrasonido?"
+  ✅ Física/Electricidad: "¿Por qué los cables de alta tensión transportan electricidad a miles de voltios?"
+  ✅ Biología/ADN: "¿Cómo identifica la medicina forense a una persona con una sola célula encontrada?"
+  ✅ Matemáticas: "¿Cómo usan los ingenieros las derivadas para diseñar puentes que no colapsen?"
+  ⚠️ FORMAT ONLY — create the application scenario from THIS document's specific concept.
 - definition: which concept applies and WHY, plain language, no jargon (max 40 words, 2 sentences)
-  ACCURACY RULE: technically correct. Use the actual mechanism, not an invented one.
-  ❌ FORBIDDEN: "Netflix sube su precio porque más personas lo usan." — incorrect mechanism.
-  ✅ CORRECT: "Netflix sube su precio por aumento de costos de contenido y para financiar nuevas producciones."
-- example: connects this to the student's daily life (max 15 words)
+  ACCURACY RULE: technically correct. The mechanism must be derivable from the transcription content.
+  ❌ FORBIDDEN: "La tecnología usa este concepto para mejorar la experiencia." — too vague.
+- example: connects this to something the student can observe or verify (max 15 words)
 
 SCREEN 8 — type: "common_error" — emoji: ⚠️
 SHOW WHAT TEENAGERS ACTUALLY BELIEVE — not textbook errors.
@@ -284,10 +292,12 @@ The student must finish thinking: "No tenía idea de que eso pasaba."
 - title: "¿Sabías que...?" — MANDATORY, no alternatives, no exceptions.
 - definition: ONE surprising, counterintuitive fact. MAX 30 words. 100% accurate. Related directly to this topic.
   Structure: "Aunque parezca imposible, [counterintuitive fact]. Esto ocurre porque [simple real mechanism]."
-  ✅ Prices: "Subir el precio de un producto puede reducir las ganancias totales de la empresa."
-  ✅ Savings: "Cuando todos ahorran al mismo tiempo, el país puede entrar en recesión."
-  ✅ Waves: "Las ondas sísmicas permiten estudiar el interior de la Tierra sin excavar nada."
-  ✅ Electricity: "Un rayo puede ser más caliente que la superficie del Sol."
+  FORMAT ONLY — never copy these subjects; find the counterintuitive fact in THIS document:
+  ✅ Física/Ondas: "Las ondas sísmicas permiten estudiar el interior de la Tierra sin excavar nada."
+  ✅ Física/Electricidad: "Un rayo puede ser más caliente que la superficie del Sol."
+  ✅ Biología: "Tu cuerpo produce anticuerpos incluso antes de que una bacteria entre por primera vez."
+  ✅ Química: "El acero es más resistente que el hierro puro, aunque el hierro es su componente principal."
+  ⚠️ NEVER copy these subjects — find the counterintuitive fact from THIS document's content.
 - example: one sentence grounding this in a teen's everyday life (max 20 words)
 - OPTIONAL INTERACTIVE VERIFICATION: include ONLY if you can write a HIGH-QUALITY question about the wow fact:
   - question: tests if the student understood the COUNTERINTUITIVE aspect (max 20 words). NOT a repeat of earlier screens.
@@ -325,6 +335,9 @@ ABSOLUTE RULES FOR ALL 10 SCREENS:
 - NEVER copy text literally from the transcription.
 - NEVER create two consecutive non-interactive screens with only definitions — screens 3, 5, 6 enforce interaction.
 - NEVER use abstract nodes in causal chains — only visible real-world actions.
+- NEVER use brand names (Spotify, Netflix, TikTok, Uber, Instagram, Airbnb, Amazon) unless they appear explicitly in the transcription.
+- CONSISTENCY LAW: for every interactive slide (screens 3, 5, 6, 9-wow), the question, the correct answer option, and the feedback definition MUST address the SAME concept. Before finalizing each interactive slide, verify: "Does my feedback explain exactly why the correct answer answers this specific question?" If NO → rewrite the feedback.
+- DOCUMENT-FIRST LAW: 100% of academic content must be derivable from the transcription. If a concept, example, or application cannot be traced back to the transcription → remove it.
 - Reorganize content by PEDAGOGICAL IMPORTANCE, not document order.
 - INTERACTIVITY: minimum 4 interactive screens (3, 5, 6 mandatory + wow_fact optional = 3-4 total).
 - CONCEPTUAL BRIDGE: when moving from micro to macro concepts, write an explicit bridge sentence in the relevant screen's definition.
@@ -342,8 +355,10 @@ FINAL VALIDATION CHECKLIST — run before outputting JSON:
 6. All interactive screen definitions start with 🔥, 🚀, ⚡, or 🎯 → if NO, fix.
 7. No two consecutive non-interactive screens → if violation, swap or add comprehension.
 8. At least one screen produces the "No tenía idea de que eso pasaba" reaction → if NO, strengthen screen 9.
-9. Screen 7 (application) uses a specific named platform/product → if NO, rewrite.
+9. Screen 7 (application) uses a concrete real-world application derived from the document's concept, NO brand names unless in transcription → if NO, rewrite.
 10. Complexity matches ${curso} → if too hard for 1° Medio or too easy for 4° Medio, adjust.
+11. CONSISTENCY CHECK — for each interactive slide (3, 5, 6, wow_fact): does the feedback definition explain exactly why the correct answer is correct for THIS specific question? → if the feedback talks about a different concept, rewrite the feedback.
+12. DOCUMENT-FIRST CHECK — does any slide contain concepts not present in the transcription? → if YES, replace with content from the transcription.
 If any check fails → fix that screen before outputting.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -651,6 +666,77 @@ export function checkSemanticGrounding(
   const contaminated = contaminatedSlides.length >= 3;
 
   return { docKeywords, slideScores, overallOverlap, contaminated, contaminatedSlides };
+}
+
+// ── Question consistency validator ───────────────────────────────────────────
+
+export interface QuestionConsistencyResult {
+  slideIndex: number;
+  slideType: string;
+  consistent: boolean;
+  questionKeywords: string[];
+  feedbackKeywords: string[];
+  overlap: number;
+  issue?: string;
+}
+
+export interface QuestionConsistencyReport {
+  allConsistent: boolean;
+  results: QuestionConsistencyResult[];
+  inconsistentSlides: number[];
+}
+
+const INTERACTIVE_CHECK_TYPES = new Set(['comprehension', 'mini_quiz', 'decide', 'wow_fact']);
+
+export function validateQuestionConsistency(slides: SummarySlide[]): QuestionConsistencyReport {
+  const results: QuestionConsistencyResult[] = [];
+
+  for (let i = 0; i < slides.length; i++) {
+    const slide = slides[i] as any;
+    if (!INTERACTIVE_CHECK_TYPES.has(slide.type)) continue;
+
+    const question: string = typeof slide.question === 'string' ? slide.question : '';
+    const rawFeedback: string = typeof slide.definition === 'string' ? slide.definition : '';
+
+    if (!question.trim() || !rawFeedback.trim()) continue;
+
+    // Strip emoji prefix from feedback before keyword extraction
+    const feedback = rawFeedback.replace(/^[\u{1F000}-\u{1FFFF}\u{2600}-\u{27FF}🔥🚀⚡🎯]\s*\w+\s*—\s*/u, '');
+
+    const questionWords = extractDocKeywords(question, 15);
+    const feedbackWords = extractDocKeywords(feedback, 15);
+
+    if (questionWords.length < 2 || feedbackWords.length < 2) {
+      results.push({ slideIndex: i, slideType: slide.type, consistent: true, questionKeywords: questionWords, feedbackKeywords: feedbackWords, overlap: 1 });
+      continue;
+    }
+
+    const qSet = new Set(questionWords);
+    const matched = feedbackWords.filter(fw =>
+      qSet.has(fw) || questionWords.some(qw => {
+        const minLen = Math.min(fw.length, qw.length, 5);
+        return fw.slice(0, minLen) === qw.slice(0, minLen);
+      })
+    );
+
+    const overlap = matched.length / feedbackWords.length;
+    const consistent = overlap >= 0.10 || feedbackWords.length < 3;
+
+    results.push({
+      slideIndex: i,
+      slideType: slide.type,
+      consistent,
+      questionKeywords: questionWords.slice(0, 8),
+      feedbackKeywords: feedbackWords.slice(0, 8),
+      overlap,
+      issue: !consistent
+        ? `Feedback comparte solo ${(overlap * 100).toFixed(0)}% de keywords con la pregunta`
+        : undefined,
+    });
+  }
+
+  const inconsistentSlides = results.filter(r => !r.consistent).map(r => r.slideIndex);
+  return { allConsistent: inconsistentSlides.length === 0, results, inconsistentSlides };
 }
 
 // ── Engagement validator ─────────────────────────────────────────────────────
