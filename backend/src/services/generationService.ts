@@ -147,7 +147,8 @@ FOLLOW THE DISCOVERY SEQUENCE — Pregunta → Descubrimiento → Explicación b
   Format: "emoji1 Step1 ↓ verb ↓ emoji2 Step2 ↓ verb ↓ emoji3 Step3"
   Each step node = emoji + max 3 words. Each verb = 1 word.
   ✅ "🙋 Mucha demanda ↓ genera ↓ 📦 Poco stock ↓ eleva ↓ 💰 Precio sube"
-  ✅ "📱 Sube el dólar ↓ encarece ↓ 🛒 Productos importados ↓ sube ↓ 💸 Lo que pagas"
+  ✅ "📱 Sube el dólar ↓ encarece ↓ 🛒 Productos importados ↓ eleva ↓ 💸 Lo que pagas"
+  VERB RULE: each verb must transitively describe what the prior node CAUSES in the next. Use 'genera', 'eleva', 'encarece', 'reduce', 'impulsa' — not bare 'sube'/'baja' when they describe the next node's state rather than the prior node's action.
   This chain IS the main explanation. Keep definition ultra-short.
 
 SCREEN 3 — type: "comprehension" — emoji: 🤔  [INTERACTIVE — REQUIRED]
@@ -178,14 +179,19 @@ SHOW EXACTLY ONE CAUSAL CHAIN — ONE relationship, THREE steps maximum. No exte
 ❌ PROHIBITED: chains that go beyond 3 nodes (do NOT add "ventas bajan" or extra consequences after the result).
 ❌ PROHIBITED: abstract nodes like "Oferta", "Demanda", "Consumo" alone — these mean nothing to a teenager.
 ✅ REQUIRED: nodes must be VISIBLE EVERYDAY ACTIONS or SITUATIONS.
-CORRECT: Más personas quieren zapatillas ↓ sube ↓ Demanda ↓ sube ↓ Precio
+CORRECT: Más personas quieren zapatillas ↓ genera ↓ Tiendas piden más stock ↓ eleva ↓ Precios
 WRONG: Más personas compran ↓ sube ↓ Demanda ↓ sube ↓ Precio ↓ bajan ↓ Ventas ↓ cae ↓ Empresa
 - connector: chain in EXACTLY this format — situación real → consecuencia visible → impacto:
   "Acción cotidiana ↓ verbo ↓ Consecuencia visible ↓ verbo ↓ Impacto"
   Each node = max 4 words. Each verb = max 2 words. Use ↓ NOT →.
-  ✅ Good: "Más personas compran zapatillas ↓ sube ↓ Tiendas piden más stock ↓ suben ↓ Precios"
-  ✅ Good: "Sube el dólar ↓ encarece ↓ Celulares importados ↓ suben ↓ Precio del iPhone"
-  ✅ Good: "Spotify sube su precio ↓ bajan ↓ Suscriptores ↓ cae ↓ Ingresos de artistas"
+  VERB RULE — CRITICAL: Every verb must complete "NodeA [verb] NodeB" as a TRANSITIVE causal action.
+  The verb describes what NodeA DOES TO cause NodeB — it is NOT a description of NodeB's state.
+  ✅ Correct verbs: genera, impulsa, eleva, reduce, causa, provoca, encarece, dispara, baja, sube (only when transitively meaningful).
+  ❌ WRONG: using "sube", "bajan", "cae" when they describe NodeB's state, not NodeA's action on NodeB.
+  Example of the error to AVOID: "Más personas compran zapatillas ↓ sube ↓ Tiendas piden más stock" — "sube" does NOT describe what buying does to stores. CORRECT: "genera".
+  ✅ Good: "Más personas compran zapatillas ↓ genera ↓ Tiendas piden más stock ↓ eleva ↓ Precios"
+  ✅ Good: "Sube el dólar ↓ encarece ↓ Celulares importados ↓ eleva ↓ Precio del iPhone"
+  ✅ Good: "Spotify sube su precio ↓ reduce ↓ Suscriptores ↓ baja ↓ Ingresos de artistas"
   ❌ Bad: "Oferta ↓ sube ↓ Demanda ↓ baja ↓ Precios" — abstract, not a real situation.
 - title: a short descriptive name for this reaction (max 6 words)
 - definition: one sentence explaining WHY this chain matters to the student personally (max 20 words)
