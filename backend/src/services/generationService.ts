@@ -1,7 +1,11 @@
 /**
  * Generation service for study sessions using OpenAI.
  * Pedagogical philosophy: micro-learning gamificado estilo Duolingo.
- * Each session follows: HOOK → CONCEPTO → MICRO RETO → APLICACIÓN → ERROR → DESAFÍO → CURIOSIDAD → VICTORIA
+ * Routes to different prompt structures based on pedagogical type:
+ *   CONCEPTUAL  → 10-screen discovery mission (HOOK → CONCEPTO → … → VICTORIA)
+ *   PROCEDURAL  → 7-screen skills mission (GANCHO → MÉTODO → PRÁCTICA → … → VICTORIA)
+ *   MEMORIZATION → 8-screen memory mission (DATO → ASOCIACIÓN → RETO → … → VICTORIA)
+ *   MIXED       → CONCEPTUAL structure (safe fallback)
  */
 
 import OpenAI from 'openai';
@@ -16,6 +20,7 @@ import type {
   GeneratedSession,
 } from '../types.js';
 import { config } from '../config.js';
+import { classifyContent } from './pedagogicalClassifier.js';
 
 const openai = new OpenAI({ apiKey: config.openai_api_key });
 
@@ -35,14 +40,59 @@ export interface GenerationResult {
   groundingScore: number;
 }
 
-export async function generateSessionContent(
-  transcription: string,
-  configValues: SessionConfig,
-  curso: string = '1º Medio'
-): Promise<GenerationResult> {
-  console.log('[Generation] Curso utilizado para generar sesión:', curso);
+// ── Shared JSON schema (appended to all prompts) ─────────────────────────────
 
-  const prompt = `You are a Duolingo-style learning experience designer for Chilean high-school students (${curso}). Your mission is NOT to summarize a document — it is to engineer DISCOVERY moments that make a teenager feel "quiero ver la siguiente pantalla."
+const JSON_SCHEMA = `
+JSON SCHEMA — return ONLY this structure:
+{
+  "subject": string,
+  "topic": string,
+  "questions": [
+    {
+      "id": string,
+      "text": string,
+      "options": [{"id": string, "text": string}],
+      "correctOptionId": string,
+      "explanation": string,
+      "sourceQuote": string,
+      "difficulty": "easy" | "medium" | "hard"
+    }
+  ],
+  "flashcards": [
+    {
+      "id": string,
+      "front": string,
+      "back": string,
+      "sourceQuote": string,
+      "difficulty": "easy" | "medium" | "hard"
+    }
+  ],
+  "summary": {
+    "id": string,
+    "title": string,
+    "slides": [
+      {
+        "type": "mission"|"main_concept"|"comprehension"|"key_relation"|"mini_quiz"|"process_flow"|"decide"|"application"|"common_error"|"wow_fact"|"victory"|"challenge",
+        "emoji": string,
+        "title": string,
+        "definition": string,
+        "example": string | null,
+        "connector": string | null,
+        "visualHint": string | null,
+        "illustrationType": "educational"|"diagram"|"concept"|"timeline"|"map"|"process"|"comparison"|null,
+        "question": string | null,
+        "options": [string] | null,
+        "correctAnswer": string | null
+      }
+    ],
+    "sourceQuotes": [string]
+  }
+}`;
+
+// ── Prompt builders ───────────────────────────────────────────────────────────
+
+function buildConceptualPrompt(transcription: string, curso: string): string {
+  return `You are a Duolingo-style learning experience designer for Chilean high-school students (${curso}). Your mission is NOT to summarize a document — it is to engineer DISCOVERY moments that make a teenager feel "quiero ver la siguiente pantalla."
 
 ⚠️ CRITICAL CONTENT RULE — READ BEFORE GENERATING ANYTHING:
 ALL content (titles, definitions, examples, questions, options, connectors) MUST be derived EXCLUSIVELY from the transcription below.
@@ -377,64 +427,275 @@ FLASHCARDS:
 - back: direct, memorable answer (max 25 words)
 - Mix "what" cards with "how" and "why" cards. Avoid pure definition repetition.
 
-JSON SCHEMA — return ONLY this structure:
-{
-  "subject": string,
-  "topic": string,
-  "questions": [
-    {
-      "id": string,
-      "text": string,
-      "options": [{"id": string, "text": string}],
-      "correctOptionId": string,
-      "explanation": string,
-      "sourceQuote": string,
-      "difficulty": "easy" | "medium" | "hard"
-    }
-  ],
-  "flashcards": [
-    {
-      "id": string,
-      "front": string,
-      "back": string,
-      "sourceQuote": string,
-      "difficulty": "easy" | "medium" | "hard"
-    }
-  ],
-  "summary": {
-    "id": string,
-    "title": string,
-    "slides": [
-      {
-        "type": "mission"|"main_concept"|"comprehension"|"key_relation"|"mini_quiz"|"process_flow"|"decide"|"application"|"common_error"|"wow_fact"|"victory"|"challenge",
-        "emoji": string,
-        "title": string,
-        "definition": string,
-        "example": string | null,
-        "connector": string | null,
-        "visualHint": string | null,
-        "illustrationType": "educational"|"diagram"|"concept"|"timeline"|"map"|"process"|"comparison"|null,
-        "question": string | null,
-        "options": [string] | null,
-        "correctAnswer": string | null
-      }
-    ],
-    "sourceQuotes": [string]
-  }
-}
-
 If the transcription is shorter than 100 words, return a JSON with empty questions and flashcards and a minimal 10-screen summary using the same structure.
 
 Transcription:
 ${normalizeText(transcription)}
-`;
+${JSON_SCHEMA}`;
+}
 
-  const system = `Eres un diseñador de experiencias de aprendizaje gamificadas para jóvenes chilenos de enseñanza media. Tu filosofía: HOOK → DESCUBRIMIENTO → RETO → APLICACIÓN → ERROR → CURIOSIDAD → VICTORIA. Cada pantalla debe hacer que el estudiante quiera ver la siguiente. NO resúmenes escolares — misiones interactivas con progresión de dificultad. Genera exactamente 10 pantallas en el orden indicado. JSON válido únicamente. Todo en español.`;
+// ── PROCEDURAL prompt ─────────────────────────────────────────────────────────
+
+function buildProceduralPrompt(transcription: string, curso: string, skills: string[]): string {
+  const skillsLine = skills.length > 0
+    ? `HABILIDADES DETECTADAS EN EL DOCUMENTO: ${skills.join(' | ')}`
+    : 'El documento contiene procedimientos matemáticos o científicos. Identifica las habilidades específicas desde la transcripción.';
+
+  return `Eres un diseñador de sesiones de aprendizaje PROCEDIMENTAL para estudiantes chilenos de enseñanza media (${curso}).
+Este documento requiere que el estudiante aprenda a HACER algo, no solo a entender un concepto.
+Tu misión: enseñar el procedimiento paso a paso de forma que el estudiante pueda resolver ejercicios similares al finalizar.
+
+⚠️ REGLA CRÍTICA DE CONTENIDO: TODO el contenido (pasos, ejemplos, números, problemas) DEBE venir EXCLUSIVAMENTE de la transcripción.
+NO inventes ejercicios ajenos al documento. Usa los MISMOS tipos de problemas que aparecen en el material.
+
+${skillsLine}
+
+FILOSOFÍA: GANCHO → MÉTODO → PRÁCTICA → VERIFICACIÓN → ERROR → DESAFÍO → VICTORIA
+Cada pantalla debe construir COMPETENCIA, no solo conocimiento. Al terminar, el estudiante debe poder resolver un ejercicio del mismo tipo.
+
+RETORNA SOLO JSON VÁLIDO. Sin texto extra. Todo en español.
+
+PREGUNTAS Y FLASHCARDS (separadas de las pantallas):
+- Genera preguntas de APLICACIÓN: el estudiante resuelve un problema similar, no define conceptos.
+- Genera flashcards de PROCEDIMIENTO: frente = pregunta de procedimiento, reverso = pasos o resultado.
+- difficulty: "easy" = reconocer el método, "medium" = aplicar el método, "hard" = detectar errores en aplicación.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+LAS 7 PANTALLAS — generar EXACTAMENTE en este orden:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+PANTALLA 1 — type: "mission" — emoji: 🎯
+EL GANCHO — pregunta de curiosidad sobre un problema concreto que aprenderán a resolver.
+- title: Pregunta que despierta curiosidad sobre el procedimiento. DEBE terminar en "?". Max 14 palabras.
+  ✅ "¿Cómo transformas 4/15 a decimal sin que te salga un número infinito?"
+  ✅ "¿Puedes saber si un decimal es periódico sin hacer la división completa?"
+  ⚠️ SOLO EJEMPLOS DE FORMATO — usa el procedimiento de ESTE documento, no estos.
+  ❌ MAL: "Misión: Decimales periódicos" — no es pregunta. No genera curiosidad.
+- definition: Tease de lo que podrán HACER al terminar. Max 20 palabras.
+  ✅ "Al terminar esta misión, podrás resolver cualquier ejercicio de este tipo en segundos."
+- example: área temática en 3-5 palabras. Ej: "Matemáticas · 2° Medio"
+
+PANTALLA 2 — type: "process_flow" — emoji: ⚙️
+EL MÉTODO — algoritmo paso a paso del procedimiento principal del documento.
+FORMATO CRÍTICO: el campo definition DEBE ser exactamente "Paso 1: [acción] → Paso 2: [acción] → Paso 3: [acción] → Paso 4: [acción]"
+  - Cada paso: máximo 8 palabras, acción concreta (verbo + objeto específico)
+  - Entre 3 y 4 pasos (el frontend lo convierte en un juego interactivo de ordenamiento)
+  - Los pasos deben ser el ALGORITMO REAL del procedimiento, derivado del documento
+  ✅ Formato: "Paso 1: Divide numerador entre denominador → Paso 2: Escribe los decimales obtenidos → Paso 3: Detecta si hay cifras repetidas → Paso 4: Clasifica como periódico o no"
+  ⚠️ NUNCA copies este ejemplo — extrae los pasos del procedimiento de ESTE documento.
+- title: "Método: [nombre del procedimiento]" (max 6 palabras)
+- example: Un mini-ejemplo trabajado con números reales del documento (max 25 palabras).
+  Formato: "[Problema] → [Paso 1 aplicado] → [resultado] → [clasificación o conclusión]"
+- connector: null
+- question: null, options: null, correctAnswer: null
+
+PANTALLA 3 — type: "main_concept" — emoji: 📐
+EJEMPLO GUIADO — solución completa paso a paso de un problema concreto del documento.
+- title: "Ejemplo resuelto"
+- definition: Solución detallada usando el método de la pantalla 2.
+  Formato: "Problema: [enunciado concreto]\\nPaso 1: [acción con números reales]\\nPaso 2: [resultado intermedio]\\nPaso 3: [clasificación o resultado final]"
+  Max 70 palabras. Usa números y datos REALES de la transcripción cuando estén disponibles.
+- example: "✅ Resultado: [respuesta final con explicación breve de por qué es correcta]"
+- connector: null
+
+PANTALLA 4 — type: "mini_quiz" — emoji: ⚡  [INTERACTIVA — APLICAR EL MÉTODO]
+PRACTICA TÚ — el estudiante aplica el mismo método a un problema similar.
+- title: "Practica tú"
+- question: "Aplica el método: ¿[problema similar con números diferentes a la pantalla 3]?" Max 25 palabras.
+  DEBE ser un problema CONCRETO con números específicos. NO una pregunta de definición.
+- options: ["A. ...", "B. ...", "C. ...", "D. ..."] — exactamente 4 opciones
+  Los distractores deben ser errores PLAUSIBLES de cálculo (error en un paso, clasificación incorrecta, etc.)
+- correctAnswer: "A", "B", "C" o "D"
+- definition: feedback emocional. DEBE empezar con 🔥, 🚀, ⚡ o 🎯. Explica POR QUÉ ese resultado es correcto. Max 20 palabras.
+
+PANTALLA 5 — type: "common_error" — emoji: ⚠️
+ERROR FRECUENTE — el error más común al aplicar este procedimiento.
+- definition: DEBE empezar con "❌" (max 25 palabras)
+  Formato: "❌ Muchos cometen el error de [enfoque incorrecto específico a este procedimiento]."
+- example: DEBE empezar con "✅" (max 25 palabras)
+  Formato: "✅ La forma correcta es [paso o enfoque correcto]."
+Ambos deben ser ESPECÍFICOS al procedimiento del documento, no genéricos.
+- title: "Error frecuente"
+- question: null, options: null, correctAnswer: null
+
+PANTALLA 6 — type: "decide" — emoji: 🏆  [INTERACTIVA — DESAFÍO]
+EL DESAFÍO — el estudiante elige el resultado correcto para un NUEVO problema no visto antes.
+- title: "¿Cuál es correcto?"
+- question: "¿Cuál resultado es correcto para [nuevo problema DIFERENTE a las pantallas 3 y 4]?" Max 30 palabras.
+  Usa un problema NUEVO del mismo tipo que los anteriores.
+- options: ["A. ...", "B. ...", "C. ...", "D. ..."] — 3 o 4 opciones
+  Cada opción es un posible resultado. Solo uno es correcto. Los demás son errores plausibles de aplicación.
+- correctAnswer: "A", "B", "C" o "D"
+- definition: feedback emocional empezando con 🔥, 🚀, ⚡ o 🎯. Max 20 palabras.
+
+PANTALLA 7 — type: "victory" — emoji: 🏆
+RESUMEN DE HABILIDADES
+- title: "¡Habilidades dominadas!"
+- definition: FORMATO CHECKLIST OBLIGATORIO usando las habilidades del documento:
+  "Aprendiste: ✓ [Habilidad 1] • ✓ [Habilidad 2] • ✓ [Habilidad 3]"
+  Usa las HABILIDADES REALES de esta sesión (las detectadas o derivadas del documento). Max 4 ítems.
+- example: "Lo usarás cuando [situación escolar concreta]. | Próximo desafío: [habilidad relacionada a practicar]."
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+REGLAS ABSOLUTAS:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+- Generar EXACTAMENTE 7 pantallas en el orden indicado.
+- La pantalla 1 DEBE terminar en "?".
+- La pantalla 2 DEBE usar formato "Paso 1: X → Paso 2: X → Paso 3: X" con 3-4 pasos.
+- La pantalla 5 definition DEBE empezar con "❌". La pantalla 5 example DEBE empezar con "✅".
+- Las pantallas 4 y 6 DEBEN tener question + options completos.
+- La pantalla 7 DEBE usar formato ✓ checklist.
+- NUNCA copiar texto literalmente de la transcripción.
+- NUNCA usar nombres de marcas a menos que aparezcan en la transcripción.
+- TODO el contenido académico (pasos, ejemplos, números) debe derivarse de la transcripción.
+
+Transcripción:
+${normalizeText(transcription)}
+${JSON_SCHEMA}`;
+}
+
+// ── MEMORIZATION prompt ───────────────────────────────────────────────────────
+
+function buildMemorizationPrompt(transcription: string, curso: string): string {
+  return `Eres un diseñador de sesiones de aprendizaje por MEMORIZACIÓN para estudiantes chilenos de enseñanza media (${curso}).
+Este documento requiere que el estudiante RECUERDE datos, definiciones, fechas o vocabulario específico.
+Tu misión: crear una sesión con técnicas de memoria (asociaciones, imágenes mentales, conexiones) que hagan los datos memorables.
+
+⚠️ REGLA CRÍTICA: TODO el contenido DEBE venir EXCLUSIVAMENTE de la transcripción. No inventes datos.
+
+FILOSOFÍA: DATO → ASOCIACIÓN → RETO → APLICACIÓN → REPASO → CURIOSIDAD → VICTORIA
+Cada pantalla debe hacer que el dato se "pegue" en la memoria del estudiante.
+
+RETORNA SOLO JSON VÁLIDO. Sin texto extra. Todo en español.
+
+PREGUNTAS Y FLASHCARDS:
+- Preguntas de RECONOCIMIENTO y ASOCIACIÓN, no de procedimiento.
+- Flashcards: frente = el dato a memorizar, reverso = la asociación o contexto que lo hace memorable.
+- difficulty: "easy" = reconocimiento directo, "medium" = aplicar en contexto, "hard" = distinguir entre conceptos similares.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+LAS 8 PANTALLAS — generar EXACTAMENTE en este orden:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+PANTALLA 1 — type: "mission" — emoji: 🎯
+EL GANCHO — pregunta que genera curiosidad sobre el dato que aprenderán.
+- title: Pregunta curiosa sobre el dato principal. DEBE terminar en "?". Max 14 palabras.
+  ✅ "¿Sabes cuántos elementos tiene la tabla periódica y por qué ese número importa?"
+  ✅ "¿Por qué los griegos inventaron el nombre que le damos a este concepto hoy?"
+  ⚠️ SOLO EJEMPLOS DE FORMATO — crea una pregunta sobre ESTE documento.
+- definition: Anticipa el descubrimiento sin revelarlo. Max 20 palabras.
+- example: área temática en 3-5 palabras.
+
+PANTALLA 2 — type: "main_concept" — emoji: 💡
+EL DATO CLAVE — el dato principal que hay que memorizar.
+- title: nombre corto del concepto o dato (max 5 palabras)
+- definition: El dato a memorizar, expresado de forma memorable. Max 25 palabras.
+  No solo la definición seca — añade UNA característica que lo hace único o sorprendente.
+- example: Contexto real donde aparece este dato (max 15 palabras).
+- connector: null
+
+PANTALLA 3 — type: "key_relation" — emoji: 🔗
+LA ASOCIACIÓN MENTAL — técnica de memoria para recordar el dato.
+CRÍTICO: usa el campo connector para mostrar la cadena de asociación.
+- connector: "emoji1 [Ancla mental] ↓ recuerda ↓ emoji2 [El dato] ↓ conecta ↓ emoji3 [Aplicación]"
+  Cada nodo: emoji + max 4 palabras. La cadena debe ser una HISTORIA que ayuda a recordar.
+  ✅ Ejemplo formato (no copiar): "🏛️ Imperio Romano ↓ cayó en ↓ 📅 476 d.C. ↓ marca el fin de ↓ 🌑 Edad Antigua"
+  ⚠️ NUNCA copies este ejemplo — crea la asociación desde ESTE documento.
+- title: "Truco para recordarlo" (max 5 palabras)
+- definition: Explica por qué esta asociación funciona (max 20 palabras).
+- example: null
+
+PANTALLA 4 — type: "comprehension" — emoji: 🤔  [INTERACTIVA — RECONOCIMIENTO]
+PREGUNTA RÁPIDA — reconocer el dato en contexto.
+- title: "¿Lo recuerdas?"
+- question: Presenta el dato en una situación y pide identificarlo o completarlo. Max 25 palabras.
+  No preguntar la definición literal — preguntar en contexto.
+- options: ["A. ...", "B. ...", "C. ...", "D. ..."] — exactamente 4 opciones
+- correctAnswer: "A", "B", "C" o "D"
+- definition: feedback emocional empezando con 🔥, 🚀, ⚡ o 🎯. Max 20 palabras.
+
+PANTALLA 5 — type: "mini_quiz" — emoji: ⚡  [INTERACTIVA — APLICACIÓN EN CONTEXTO]
+MINI RETO — aplicar el dato memorizado en una situación nueva.
+- title: "Mini reto"
+- question: El estudiante usa el dato para razonar, no solo recordar. Max 25 palabras.
+- options: ["A. ...", "B. ...", "C. ...", "D. ..."] — exactamente 4 opciones
+- correctAnswer: "A", "B", "C" o "D"
+- definition: feedback emocional empezando con 🔥, 🚀, ⚡ o 🎯. Max 20 palabras.
+
+PANTALLA 6 — type: "application" — emoji: 🌍
+DÓNDE LO VERÁS — contexto real donde este dato aparece o importa.
+- title: Escenario concreto donde se usa este dato (max 15 palabras, preferiblemente pregunta).
+- definition: Por qué este dato es relevante fuera del aula. Max 40 palabras.
+- example: Conexión con algo que el estudiante puede observar o verificar (max 15 palabras).
+
+PANTALLA 7 — type: "wow_fact" — emoji: 🤯
+CURIOSIDAD — el hecho más sorprendente relacionado con este dato.
+- title: "¿Sabías que...?" — OBLIGATORIO, sin alternativas.
+- definition: Hecho contraintuitivo o sorprendente directamente relacionado al dato principal. Max 30 palabras.
+- example: Conexión con la vida del estudiante (max 20 palabras).
+- PREGUNTA OPCIONAL: solo si es de alta calidad, incluye question/options/correctAnswer/definition.
+  Si la pregunta sería trivial → deja question/options/correctAnswer/definition como null.
+
+PANTALLA 8 — type: "victory" — emoji: 🏆
+REPASO FINAL
+- title: "¡Datos dominados!"
+- definition: FORMATO CHECKLIST:
+  "Aprendiste: ✓ [Dato 1] • ✓ [Dato 2] • ✓ [Dato 3]"
+  Usa los datos REALES de esta sesión. Max 4 ítems.
+- example: "Lo recordarás cuando [situación concreta]. | Próximo desafío: [tema relacionado a estudiar]."
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+REGLAS ABSOLUTAS:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+- Generar EXACTAMENTE 8 pantallas en el orden indicado.
+- Pantalla 1 DEBE terminar en "?".
+- Pantalla 3 DEBE tener campo connector con formato "↓".
+- Pantallas 4 y 5 DEBEN tener question + options completos.
+- Pantalla 7 title DEBE ser "¿Sabías que...?".
+- Pantalla 8 DEBE usar formato ✓ checklist.
+- TODO el contenido académico debe derivarse de la transcripción.
+
+Transcripción:
+${normalizeText(transcription)}
+${JSON_SCHEMA}`;
+}
+
+// ── Main generation function ──────────────────────────────────────────────────
+
+export async function generateSessionContent(
+  transcription: string,
+  configValues: SessionConfig,
+  curso: string = '1º Medio'
+): Promise<GenerationResult> {
+  console.log('[Generation] Curso utilizado para generar sesión:', curso);
+
+  // Classify content type before selecting prompt
+  const classification = classifyContent(transcription);
+  console.log(`[Generation] Tipo pedagógico: ${classification.type} (confianza: ${(classification.confidence * 100).toFixed(0)}%)`);
+  console.log(`[Generation] Scores — conceptual: ${(classification.scores.conceptual * 100).toFixed(0)}%, procedimental: ${(classification.scores.procedural * 100).toFixed(0)}%, memorización: ${(classification.scores.memorization * 100).toFixed(0)}%`);
+  if (classification.detectedSkills.length > 0) {
+    console.log(`[Generation] Habilidades detectadas: ${classification.detectedSkills.join(', ')}`);
+  }
+
+  let prompt: string;
+  let systemMsg: string;
+
+  if (classification.type === 'PROCEDURAL') {
+    prompt = buildProceduralPrompt(transcription, curso, classification.detectedSkills);
+    systemMsg = `Eres un diseñador de sesiones de aprendizaje procedimental para estudiantes chilenos de enseñanza media. Tu filosofía: GANCHO → MÉTODO → PRÁCTICA → ERROR → DESAFÍO → VICTORIA. Cada pantalla construye competencia para resolver ejercicios del mismo tipo. NO explicaciones conceptuales abstractas — pasos concretos con ejemplos reales. Genera exactamente 7 pantallas en el orden indicado. JSON válido únicamente. Todo en español.`;
+  } else if (classification.type === 'MEMORIZATION') {
+    prompt = buildMemorizationPrompt(transcription, curso);
+    systemMsg = `Eres un diseñador de sesiones de aprendizaje por memorización para estudiantes chilenos de enseñanza media. Tu filosofía: DATO → ASOCIACIÓN → RETO → REPASO → CURIOSIDAD → VICTORIA. Cada pantalla usa técnicas de memoria para que los datos sean inolvidables. Genera exactamente 8 pantallas en el orden indicado. JSON válido únicamente. Todo en español.`;
+  } else {
+    // CONCEPTUAL and MIXED → current discovery-mission structure
+    prompt = buildConceptualPrompt(transcription, curso);
+    systemMsg = `Eres un diseñador de experiencias de aprendizaje gamificadas para jóvenes chilenos de enseñanza media. Tu filosofía: HOOK → DESCUBRIMIENTO → RETO → APLICACIÓN → ERROR → CURIOSIDAD → VICTORIA. Cada pantalla debe hacer que el estudiante quiera ver la siguiente. NO resúmenes escolares — misiones interactivas con progresión de dificultad. Genera exactamente 10 pantallas en el orden indicado. JSON válido únicamente. Todo en español.`;
+  }
 
   const response = await openai.chat.completions.create({
     model: config.openai_model,
     messages: [
-      { role: 'system', content: system },
+      { role: 'system', content: systemMsg },
       { role: 'user', content: prompt },
     ],
     temperature: 0.25,
