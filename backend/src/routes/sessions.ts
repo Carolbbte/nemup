@@ -11,6 +11,7 @@ import {
   generateSessionContent,
   validateGrounding,
   buildGeneratedSession,
+  validateSessionEngagement,
 } from '../services/generationService.js';
 import {
   saveDocumentMetadata,
@@ -135,6 +136,13 @@ router.post('/generate', upload.array('documents', 10), async (req, res) => {
     ...generation,
     groundingScore: validation.score,
   });
+
+  const engagementReport = validateSessionEngagement(session.summary.slides as any, session.questions);
+  if (!engagementReport.valid) {
+    console.warn('[Sessions] Engagement issues:', engagementReport.issues);
+  } else {
+    console.log('[Sessions] Engagement OK — interactions:', engagementReport.interactionCount);
+  }
 
   Promise.all([
     saveGeneratedSession(userId, sessionId, session),

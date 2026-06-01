@@ -1,5 +1,7 @@
 /**
  * Generation service for study sessions using OpenAI.
+ * Pedagogical philosophy: micro-learning gamificado estilo Duolingo.
+ * Each session follows: HOOK → CONCEPTO → MICRO RETO → APLICACIÓN → ERROR → DESAFÍO → CURIOSIDAD → VICTORIA
  */
 
 import OpenAI from 'openai';
@@ -7,6 +9,7 @@ import type {
   MultipleChoiceQuestion,
   Flashcard,
   Summary,
+  SummarySlide,
   SummarySlideType,
   IllustrationType,
   SessionConfig,
@@ -39,316 +42,292 @@ export async function generateSessionContent(
 ): Promise<GenerationResult> {
   console.log('[Generation] Curso utilizado para generar sesión:', curso);
 
-  const prompt = `You are a Duolingo-style learning experience designer for Chilean high-school students. Your mission is NOT to summarize a document. Your mission is to engineer DISCOVERY moments.
+  const prompt = `You are a Duolingo-style learning experience designer for Chilean high-school students (${curso}). Your mission is NOT to summarize a document — it is to engineer DISCOVERY moments that make a teenager feel "quiero ver la siguiente pantalla."
 
-THE FUNDAMENTAL RULE OF THIS SESSION:
-  ❌ WRONG sequence: Concepto → explicación → pregunta
-  ✅ RIGHT sequence: Pregunta → descubrimiento → explicación breve
+SESSION PHILOSOPHY:
+  HOOK → CONCEPTO CLAVE → MICRO RETO → RELACIÓN → MINI QUIZ → DESAFÍO → APLICACIÓN → ERROR COMÚN → CURIOSIDAD → VICTORIA
+  Each screen must provoke exactly ONE of: Curiosidad / Sorpresa / Conexión personal / Descubrimiento / Reflexión.
+  A screen that only INFORMS is invalid. It must make the student FEEL something.
 
-The student must DISCOVER the concept, not receive it. Each screen must make them feel:
-  Curiosidad → Descubrimiento → Relación → Aplicación → Refuerzo
+RETURN ONLY VALID JSON. No extra text. All content in Spanish.
 
-RETURN ONLY VALID JSON. No extra text.
-
-CURSO DEL ESTUDIANTE: ${curso}
-
-ADAPT EVERYTHING to this academic level:
-- 1º Medio: very simple language, everyday examples, recognition questions, no inference.
+CURSO ADAPTATION (MANDATORY):
+- 1º Medio: very simple language, recognition questions, everyday examples, no inference.
 - 2º Medio: plain language, basic application, conceptual understanding.
 - 3º Medio: relational analysis, reasoning, real consequences.
 - 4º Medio: critical thinking, complex application, pre-university depth.
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-EMOTIONAL VALIDATION — apply to EVERY screen before writing it:
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-Ask yourself: "¿Un adolescente chileno diría 'ah, por eso pasa eso' o 'no sabía eso'?"
-If NO → rewrite the screen.
-
-Each screen must provoke exactly ONE of these:
-- Curiosidad: "¿Por qué pasa eso?"
-- Sorpresa: "No sabía que..."
-- Conexión personal: "Eso me pasa a mí"
-- Descubrimiento: "Ah, entonces por eso..."
-- Reflexión: "¿Y si...?"
-
-A screen that only INFORMS is NOT valid. It must make the student FEEL something.
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-WOW RULE — mandatory for every session:
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-At least ONE screen must produce the reaction: "Ah, por eso pasa eso."
-This is the WOW moment — a counterintuitive fact the student would NOT have guessed before the session.
-WOW moment examples (adapt to your topic, do NOT copy verbatim):
-  "Una subida de precio puede REDUCIR las ventas Y las ganancias al mismo tiempo."
-  "Ahorrar mucho puede en realidad ralentizar la economía de un país."
-  "Un producto puede subir de precio aunque ninguna persona haya ganado más dinero."
-  "Cuando todos venden al mismo tiempo, todos pierden — aunque cada uno actúe de forma racional."
-If no screen produces this reaction → rewrite the most informational screen with a counterintuitive angle.
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-INTERNAL ANALYSIS — do this mentally BEFORE generating the JSON:
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-Ask yourself:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+INTERNAL ANALYSIS — do this mentally BEFORE generating JSON:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 1. What 2-3 concepts MUST the student grasp to pass the exam?
-2. How do these concepts connect causally (not just relationally)?
-3. Is there a chain reaction or domino effect in the material?
-4. What would a student who only uses TikTok and watches Netflix incorrectly believe about this?
-5. Which real teen situation (Spotify, zapatillas, celular, bencina) makes this concept land?
-6. What is the single most surprising or counterintuitive fact in this material? → this becomes the WOW screen.
-7. If the material has diagrams — what real-world chain of events do they represent?
+2. What is the causal chain? (A causes B causes C — not just "A relates to B")
+3. What would a smart 15-year-old who only uses TikTok WRONGLY believe about this topic?
+4. Which real teen situation (Spotify, zapatillas, celular, bencina, videojuego) makes this LAND?
+5. What is the single most counterintuitive fact? → this becomes screen 9 (wow_fact).
+6. Which concept can be turned into a genuine dilemma? → this becomes screen 6 (decide).
+7. Are any two concepts nearly identical? If YES → only include the more interesting one.
+NO-REPETITION LAW: Each of the 10 screens must teach something DIFFERENT. Before writing each screen ask: "Did I already show this idea?" If YES → use a different concept.
 
-8. Which concept from the material is most counterintuitive? → assign it to ONE screen, do NOT dilute across multiple.
-9. Am I about to repeat the same idea in two different screens? If YES → use the second screen for a different concept.
-
-NO-REPETITION LAW: Each of the 10 screens must teach something DIFFERENT. Before writing each screen, ask:
-"Have I already shown this idea in a previous screen?" If YES → use a different concept for this screen.
-The same cause-effect relationship (e.g., demand rises → price rises) must appear in AT MOST ONE screen.
-
-DO NOT include this analysis in the JSON. Use it to build the 10 screens below.
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 TEXT LIMITS — apply to EVERY screen:
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-- definition: maximum 2 sentences OR 30 words — whichever is shorter. No exceptions.
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+- definition: maximum 2 sentences OR 30 words — whichever is shorter.
 - example: maximum 15 words.
 - title: maximum 8 words.
-Prefer scannable short phrases over connected prose. If you have 3 ideas, split into 3 lines.
+Prefer scannable phrases over connected prose.
 BAD: "Porque si hay más personas que quieren algo y hay poco disponible, el precio sube."
 GOOD: "Más personas quieren comprar.\nHay poco disponible.\nEl precio sube."
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-THE 10 SCREENS — generate EXACTLY in this order
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+PROGRESSIVE DIFFICULTY — mandatory across interactive screens:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Screen 3 (comprehension) → NIVEL 1: RECORDAR — recognition. Did they absorb the concept?
+Screen 5 (mini_quiz)     → NIVEL 2-3: COMPRENDER + APLICAR — must reason, not just recall.
+Screen 6 (decide)        → NIVEL 3-4: APLICAR + ANALIZAR — choice with consequences.
+wow_fact question        → NIVEL 4: ANALIZAR — reason about the counterintuitive outcome.
+Each successive interactive screen MUST be harder than the previous one.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+EMOTIONAL FEEDBACK RULE — applies to ALL interactive screens (3, 5, 6, wow_fact):
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+The "definition" field is shown AFTER the student answers. It must feel like a coach, not a textbook.
+MANDATORY: start with ONE of these emoji reactions, then explain WHY in max 15 words:
+  🔥 Exacto — [why]
+  🚀 Correcto — [why]
+  ⚡ Lo captaste — [why]
+  🎯 Acertaste — [why]
+❌ FORBIDDEN: "La respuesta correcta es...", "Correcto porque...", "Esta opción es la correcta..."
+✅ REQUIRED: the explanation should also hint why the main distractor was tempting.
+Example: "🔥 Exacto — cuando baja la oferta y la demanda no cambia, el precio sube inevitablemente."
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+DISTRACTOR QUALITY RULE — all interactive screens:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+All wrong options must be believable partial-truths, not obvious nonsense.
+❌ STRICTLY FORBIDDEN in any option: "Todas las anteriores", "Ninguna de las anteriores", "No cambia nada", "porque sí", "todas pueden ocurrir", "dejan de comprar para siempre".
+RULE: EXACTLY ONE clearly correct answer per question. If two options could both be correct → rewrite.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+THE 10 SCREENS — generate EXACTLY in this order:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 SCREEN 1 — type: "mission" — emoji: 🎯
-- title: active mission title (e.g., "Misión: Agentes Económicos")
-- definition: the learning objective as an active mission statement (1 sentence, max 25 words).
-  Example: "En esta misión aprenderás cómo interactúan familias, empresas y Estado en la economía."
-  DO NOT write "Aprenderás sobre..." — make it exciting and specific.
-- example: null
+THE HOOK — most critical screen. Creates IMMEDIATE curiosity. If this screen is boring, the student stops.
+- title: A CURIOSITY QUESTION about the topic. MAX 14 words. MUST end with "?".
+  The student reads it and thinks: "Hm, I want to know the answer to that."
+  ✅ GOOD — Física/Ondas: "¿Cómo puede viajar música por el aire sin ningún cable?"
+  ✅ GOOD — Física/Ondas: "¿Por qué escuchas el trueno DESPUÉS de ver el relámpago?"
+  ✅ GOOD — Biología: "¿Cómo come una planta si no tiene boca ni estómago?"
+  ✅ GOOD — Economía: "¿Por qué Spotify sube de precio aunque tú no ganes más?"
+  ✅ GOOD — Historia: "¿Por qué un país rico puede volverse pobre en pocos años?"
+  ✅ GOOD — Química: "¿Por qué mezclar agua con aceite es casi imposible?"
+  ❌ BAD: "Misión: Ondas y sus parámetros" — NOT a question. Creates zero curiosity.
+  ❌ BAD: "Descubre cómo funcionan las ondas" — declarative statement, not a hook.
+  ❌ BAD: "¿Qué son las ondas?" — too direct. Doesn't create mystery.
+  RULE: The title MUST be an indirect curiosity question, NOT a direct "¿Qué es X?" question.
+- definition: ONE sentence that teases the discovery — what will they understand by the end? Max 20 words.
+  DO NOT reveal the answer. Create anticipation.
+  ✅ "Al terminar esta misión, entenderás por qué esto afecta tu vida más de lo que crees."
+  ✅ "Descubrirás algo sobre este tema que contradice lo que la mayoría da por sentado."
+  ❌ "Aprenderás sobre las ondas y sus parámetros" — boring, informational, no anticipation.
+- example: subject area in 3-5 words. Example: "Física · 2° Medio" or "Biología · 3° Medio"
 
 SCREEN 2 — type: "main_concept" — emoji: fitting to content
-FOLLOW THE DISCOVERY SEQUENCE — Pregunta → Descubrimiento → Explicación breve:
-  Part 1 — HOOK QUESTION: Start with a question that provokes curiosity. The student does NOT know the answer yet.
-    Must make the student think "hm, why does that happen?"
-    ✅ Good: "¿Por qué Netflix cuesta más cada año aunque la plata sea la misma?"
-    ✅ Good: "¿Por qué la palta sube de precio justo cuando más quieres comer?"
-    ❌ Bad: "Cada vez que eliges qué comprar, estás haciendo economía." — this is a statement, not a hook.
-  Part 2 — DISCOVERY: One plain sentence that ANSWERS the hook question and reveals the concept. Zero academic jargon.
-    Example: "Porque cuando más personas quieren algo y hay poco disponible, el precio sube — eso es oferta y demanda."
-  Part 3 — in example field: A SPECIFIC situation a Chilean teenager encounters TODAY.
-    Must be concrete: a platform, a product, a real scenario with a number or name.
-    ✅ "Tu zapatilla favorita subió $20.000 en una semana porque todos la quieren."
-    ❌ "Los consumidores toman decisiones" — too abstract, FORBIDDEN.
-- title: the concept name (max 5 words)
-- definition: Part 1 + Part 2 combined (max 25 words total, 2 sentences: hook question then discovery answer)
-- example: Part 3 — max 12 words. One concrete fact or price from real life.
-- connector: REQUIRED — visual causal chain showing HOW this concept works in 3 steps.
-  Format: "emoji1 Step1 ↓ verb ↓ emoji2 Step2 ↓ verb ↓ emoji3 Step3"
-  Each step node = emoji + max 3 words. Each verb = 1 word.
+DISCOVERY SEQUENCE: Pregunta → Descubrimiento → Explicación breve
+- title: concept name (max 5 words)
+- definition: TWO sentences max 25 words total:
+  Sentence 1: A question the student can't yet answer (curiosity hook)
+  Sentence 2: The discovery — answers the question simply, zero jargon
+  ✅ "¿Por qué Netflix cuesta más cada año? Porque cuando más personas quieren algo y hay poco disponible, el precio sube."
+  ❌ "Cada vez que eliges qué comprar, estás haciendo economía." — statement, not discovery.
+- example: SPECIFIC situation a Chilean teenager encounters TODAY. Concrete name or number.
+  ✅ "Tu zapatilla favorita subió $20.000 en una semana porque todos la quieren."
+  ❌ "Los consumidores toman decisiones" — FORBIDDEN, too abstract.
+- connector: REQUIRED — visual causal chain in EXACTLY this format:
+  "emoji1 Step1 ↓ verb ↓ emoji2 Step2 ↓ verb ↓ emoji3 Step3"
+  Each node = emoji + max 3 words. Each verb = 1 transitive word.
   ✅ "🙋 Mucha demanda ↓ genera ↓ 📦 Poco stock ↓ eleva ↓ 💰 Precio sube"
   ✅ "📱 Sube el dólar ↓ encarece ↓ 🛒 Productos importados ↓ eleva ↓ 💸 Lo que pagas"
-  VERB RULE: each verb must transitively describe what the prior node CAUSES in the next. Use 'genera', 'eleva', 'encarece', 'reduce', 'impulsa' — not bare 'sube'/'baja' when they describe the next node's state rather than the prior node's action.
-  This chain IS the main explanation. Keep definition ultra-short.
+  VERB RULE: each verb must describe what NodeA DOES to cause NodeB — NOT NodeB's state.
+  ✅ Correct verbs: genera, eleva, encarece, reduce, impulsa, causa, provoca, dispara
+  ❌ WRONG: using "sube" or "baja" when they describe the next node's state, not the prior node's action.
 
-SCREEN 3 — type: "comprehension" — emoji: 🤔  [INTERACTIVE — REQUIRED]
+SCREEN 3 — type: "comprehension" — emoji: 🤔  [INTERACTIVE — NIVEL 1: RECORDAR]
 - title: "¿Comprendiste?"
-STRICT QUESTION RULES — any violation means rewrite:
-  ❌ PROHIBIDO preguntar definiciones: "¿Qué es la inflación?" — FORBIDDEN
-  ❌ PROHIBIDO preguntar conceptos literales: "¿Qué estudia la microeconomía?" — FORBIDDEN
-  ❌ PROHIBIDO preguntar exactamente lo que apareció en la tarjeta anterior — FORBIDDEN
-  ✅ Las preguntas deben plantear SITUACIONES que requieren aplicar el concepto.
-  ✅ Good: "¿Cuál de estas situaciones es un ejemplo de oferta y demanda?"
-  ✅ Good: "Si el precio de las bebidas sube en todo Chile, ¿qué está ocurriendo?"
-  ✅ Good: "¿Qué pasaría si todas las tiendas de zapatillas subieran sus precios al mismo tiempo?"
-- question: a SITUATIONAL question — present a scenario, ask what concept applies or what would happen (max 25 words)
+- question: SITUATIONAL — present a scenario, ask what concept applies (max 25 words). NOT a definition question.
+  ✅ "¿Cuál de estas situaciones describe mejor el concepto anterior?"
+  ✅ "Si el precio de las bebidas sube en todo Chile, ¿qué está ocurriendo probablemente?"
+  ❌ "¿Qué es la demanda?" — FORBIDDEN, pure definition.
 - options: ["A. ...", "B. ...", "C. ...", "D. ..."] — exactly 4 options, each max 12 words
 - correctAnswer: "A", "B", "C", or "D"
-- definition: one sentence explaining why the answer is correct (max 15 words)
-- DISTRACTOR QUALITY — all 4 options must be believable partial-truths. Model:
-  Example: "Si el precio del pan sube, ¿qué harán probablemente las familias?"
-  A. Comprarán menos pan           ← correct
-  B. Comprarán marcas más baratas  ← plausible (substitution)
-  C. Gastarán menos en otras cosas ← plausible (budget effect)
-  D. Buscarán ofertas en internet  ← plausible (price search)
-  ❌ STRICTLY FORBIDDEN options: "Todas las anteriores", "Todas las opciones", "Ninguna de las anteriores", "Todas pueden ocurrir", "porque sí", "no cambia nada", "dejan de comprar para siempre"
-  RULE: There must be EXACTLY ONE clearly correct answer. If two options could both be correct → rewrite.
+- definition: emotional feedback (see EMOTIONAL FEEDBACK RULE above). Max 20 words total.
+  Must start with 🔥, 🚀, ⚡, or 🎯.
 
 SCREEN 4 — type: "key_relation" — emoji: 🔗
-SHOW EXACTLY ONE CAUSAL CHAIN — ONE relationship, THREE steps maximum. No extensions.
-❌ PROHIBITED: chains that go beyond 3 nodes (do NOT add "ventas bajan" or extra consequences after the result).
-❌ PROHIBITED: abstract nodes like "Oferta", "Demanda", "Consumo" alone — these mean nothing to a teenager.
-✅ REQUIRED: nodes must be VISIBLE EVERYDAY ACTIONS or SITUATIONS.
-CORRECT: Más personas quieren zapatillas ↓ genera ↓ Tiendas piden más stock ↓ eleva ↓ Precios
-WRONG: Más personas compran ↓ sube ↓ Demanda ↓ sube ↓ Precio ↓ bajan ↓ Ventas ↓ cae ↓ Empresa
-- connector: chain in EXACTLY this format — situación real → consecuencia visible → impacto:
-  "Acción cotidiana ↓ verbo ↓ Consecuencia visible ↓ verbo ↓ Impacto"
-  Each node = max 4 words. Each verb = max 2 words. Use ↓ NOT →.
-  VERB RULE — CRITICAL: Every verb must complete "NodeA [verb] NodeB" as a TRANSITIVE causal action.
-  The verb describes what NodeA DOES TO cause NodeB — it is NOT a description of NodeB's state.
-  ✅ Correct verbs: genera, impulsa, eleva, reduce, causa, provoca, encarece, dispara, baja, sube (only when transitively meaningful).
-  ❌ WRONG: using "sube", "bajan", "cae" when they describe NodeB's state, not NodeA's action on NodeB.
-  Example of the error to AVOID: "Más personas compran zapatillas ↓ sube ↓ Tiendas piden más stock" — "sube" does NOT describe what buying does to stores. CORRECT: "genera".
-  ✅ Good: "Más personas compran zapatillas ↓ genera ↓ Tiendas piden más stock ↓ eleva ↓ Precios"
-  ✅ Good: "Sube el dólar ↓ encarece ↓ Celulares importados ↓ eleva ↓ Precio del iPhone"
-  ✅ Good: "Spotify sube su precio ↓ reduce ↓ Suscriptores ↓ baja ↓ Ingresos de artistas"
-  ❌ Bad: "Oferta ↓ sube ↓ Demanda ↓ baja ↓ Precios" — abstract, not a real situation.
-- title: a short descriptive name for this reaction (max 6 words)
-- definition: one sentence explaining WHY this chain matters to the student personally (max 20 words)
+ONE CAUSAL CHAIN — exactly 3 nodes, no more.
+❌ PROHIBITED: abstract nodes like "Oferta", "Demanda", "Consumo" alone.
+✅ REQUIRED: nodes must be VISIBLE everyday actions or situations.
+- connector: "Acción cotidiana ↓ verbo ↓ Consecuencia visible ↓ verbo ↓ Impacto"
+  VERB RULE — CRITICAL: every verb must be a TRANSITIVE causal action.
+  ✅ "Más personas compran zapatillas ↓ genera ↓ Tiendas piden más stock ↓ eleva ↓ Precios"
+  ✅ "Sube el dólar ↓ encarece ↓ Celulares importados ↓ eleva ↓ Precio del iPhone"
+  ✅ "Spotify sube su precio ↓ reduce ↓ Suscriptores ↓ baja ↓ Ingresos de artistas"
+  ❌ "Oferta ↓ sube ↓ Demanda ↓ baja ↓ Precios" — abstract, not a real situation.
+- title: short descriptive name for this relationship (max 6 words)
+- definition: why this chain matters to the student personally (max 20 words)
 - example: null
-- FALLBACK: If no concrete real-world chain exists → use type "comprehension" instead.
+- FALLBACK: If no concrete chain exists → use type "comprehension" instead.
 
-SCREEN 5 — type: "mini_quiz" — emoji: ⚡  [INTERACTIVE — REQUIRED]
+SCREEN 5 — type: "mini_quiz" — emoji: ⚡  [INTERACTIVE — NIVEL 2-3: COMPRENDER + APLICAR]
 - title: "Quiz rápido"
-- question: an APPLICATION question — the student must REASON using the concept, not just remember it (max 25 words).
-  Good: "Si el precio del pan sube un 30%, ¿qué pasará probablemente con la cantidad que compra una familia?"
-  Bad: "¿Qué es la demanda?" — this is pure recognition, FORBIDDEN.
+- question: APPLICATION question — the student REASONS, not just recalls (max 25 words).
+  The student must apply the concept to a situation they haven't seen yet.
+  ✅ "Si el precio del pan sube un 30%, ¿qué pasará probablemente con la cantidad que compra una familia?"
+  ❌ "¿Qué es la demanda?" — FORBIDDEN, pure recognition.
+  2-SECOND TEST: if answerable in < 2 seconds without reasoning → too easy → rewrite.
 - options: ["A. ...", "B. ...", "C. ...", "D. ..."] — exactly 4 options, each max 12 words
 - correctAnswer: "A", "B", "C", or "D"
-- definition: one sentence explanation WHY the correct answer is right (max 20 words)
-- CRITICAL — CORRECT ANSWER must NOT be obvious from the question wording.
-- CRITICAL — ALL 4 options must seem plausible at first glance — partial-truths, not absurdities.
-  ❌ STRICTLY FORBIDDEN: "Todas las anteriores", "Todas las opciones", "Ninguna de las anteriores", "Todas pueden ocurrir", "porque sí", "no cambia nada"
-  ✅ REQUIRED: each wrong option represents a real but incomplete or slightly-off reasoning.
-  SINGLE CORRECT ANSWER: if two options could both be correct → rewrite the question.
-- CRITICAL — Prioritize REASONING over memorization. If a student can answer without understanding, rewrite.
-- 2-SECOND TEST: If the correct answer can be identified in less than 2 seconds without reasoning → the question is too easy → rewrite it.
+- definition: emotional feedback (see EMOTIONAL FEEDBACK RULE). Max 20 words.
+  Must start with 🔥, 🚀, ⚡, or 🎯.
 
-SCREEN 6 — type: "process_flow" OR "decide" OR "challenge" — emoji: 🔄 or 🤔
-- OPTION A — type: "process_flow" — if the material has a clear sequence or flow:
-  - title: name of the process or flow (max 6 words)
-  - definition: the steps written as "Step1 → Step2 → Step3 → Step4" (max 4 steps, max 5 words each). Show a CAUSAL chain — each step causes the next.
-  - example: real-world instance of this process (max 20 words)
-- OPTION B — type: "decide" — PREFERRED if no clear process but a dilemma or choice can be posed:  [INTERACTIVE]
-  Use this to force the student to APPLY the concept by choosing between two realistic paths.
-  - title: "¿Qué harías?" or "¿Cuál elegirías?" or similar (max 8 words)
-  - question: a realistic dilemma rooted in the content (max 30 words). Describe a real scenario with two possible choices.
-    ✅ Good: "El gobierno quiere bajar el desempleo. ¿Qué política sería más efectiva a corto plazo?"
-    ✅ Good: "Eres empresario y sube el costo del café. ¿Qué decisión tomarías para proteger tus ganancias?"
-  - options: ["A. ...", "B. ...", "C. ...", "D. ..."] — exactly 3 or 4 options (each max 12 words)
-    Each option must reflect a different but plausible economic/conceptual reasoning.
-  - correctAnswer: "A", "B", "C", or "D" — the option that best demonstrates understanding of the concept.
-  - definition: one sentence explaining WHY that answer shows correct conceptual understanding (max 20 words)
+SCREEN 6 — type: "decide" — emoji: 🤔  [INTERACTIVE — NIVEL 3-4: APLICAR + ANALIZAR]  ← PREFERRED
+Use "decide" whenever a realistic dilemma can be posed from the material.
+Use "process_flow" ONLY if there is a clear sequential process (flow A→B→C→D) in the material AND no good dilemma exists.
+Use "challenge" ONLY as last resort if neither works.
+- OPTION A — type: "decide":
+  - title: "¿Qué harías?" or "¿Cuál elegirías?" (max 8 words)
+  - question: a realistic dilemma rooted in the content (max 30 words). Two realistic paths.
+    ✅ "El gobierno quiere bajar el desempleo. ¿Qué política sería más efectiva a corto plazo?"
+    ✅ "Eres empresario y sube el costo del café. ¿Qué decisión tomarías para proteger tus ganancias?"
+  - options: ["A. ...", "B. ...", "C. ...", "D. ..."] — 3 or 4 options, each max 12 words.
+    Each option reflects a different but plausible reasoning.
+  - correctAnswer: "A", "B", "C", or "D"
+  - definition: emotional feedback (see EMOTIONAL FEEDBACK RULE). Max 20 words.
+    Must start with 🔥, 🚀, ⚡, or 🎯.
   - example: null
   ❌ FORBIDDEN options: "Todas las anteriores", "Ninguna de las anteriores", "No haría nada"
-- OPTION C — type: "challenge" — only if NEITHER process NOR dilemma works for this material:
+- OPTION B — type: "process_flow":
+  - title: name of the process (max 6 words)
+  - definition: "Step1 → Step2 → Step3 → Step4" (max 4 steps, max 5 words each). Each step causes the next.
+  - example: real-world instance (max 20 words)
+- OPTION C — type: "challenge" (last resort):
   - title: "Reflexiona"
-  - definition: an open-ended "what if" or "why" question that requires applying the concepts (max 30 words)
-    Example: "Si desaparecieran los impuestos, ¿qué servicio público podría verse más afectado y por qué?"
-  - example: null
+  - definition: open-ended "what if" question that requires applying concepts (max 30 words)
   - question, options, correctAnswer: all null
 
 SCREEN 7 — type: "application" — emoji: 🌍
-THIS SCREEN MUST ANSWER: "¿Dónde veré esto hoy?"
-The student must leave this screen thinking "eso pasa en algo que uso todos los días."
-MANDATORY: use a specific named platform or product. Priority order:
-  1st choice: PlayStation, iPhone, zapatillas de marca, conciertos, videojuegos, ropa de temporada
-  2nd choice: Uber, PedidosYa, Mercado Libre, Steam, TikTok, Samsung, Spotify
+THIS SCREEN ANSWERS: "¿Dónde veré esto HOY?"
+MANDATORY: use a specific named platform or product. Priority:
+  1st: PlayStation, iPhone, zapatillas de marca, conciertos, videojuegos, ropa de temporada
+  2nd: Uber, PedidosYa, Mercado Libre, Steam, TikTok, Samsung, Spotify
   Last resort: Netflix (overused — only if nothing else fits)
-  ❌ PROHIBITED: generic examples — "una empresa", "un consumidor", "una tienda", "los productores" with no real name.
-  ❌ PROHIBITED: examples from books or school contexts.
-  ❌ PROHIBITED: inventing prices or facts — only use real economic mechanisms.
+  ❌ PROHIBITED: "una empresa", "un consumidor", "una tienda" with no real name.
+  ❌ PROHIBITED: inventing facts or prices.
 - title: a concrete scenario AS A QUESTION using one of the above (max 15 words)
   ✅ "¿Por qué Uber sube su precio cuando llueve y hay poca disponibilidad?"
-  ✅ "¿Por qué Mercado Libre muestra precios distintos para el mismo celular?"
   ✅ "¿Por qué Steam pone juegos en oferta solo en fechas específicas?"
-- definition: answer explaining WHICH concept applies and WHY — plain language, no jargon (max 2 sentences, 40 words)
-- example: one sentence connecting this to the student's daily life (max 15 words)
-- ACCURACY RULE: The explanation must be TECHNICALLY CORRECT. Do NOT invent causes.
-  Use the actual mechanism: costos de producción, competencia, oferta y demanda, inflación, estrategia comercial — whichever actually applies.
-  ❌ FORBIDDEN: "Netflix sube su precio porque más personas lo usan." — this is incorrect.
+- definition: which concept applies and WHY, plain language, no jargon (max 40 words, 2 sentences)
+  ACCURACY RULE: technically correct. Use the actual mechanism, not an invented one.
+  ❌ FORBIDDEN: "Netflix sube su precio porque más personas lo usan." — incorrect mechanism.
   ✅ CORRECT: "Netflix sube su precio por aumento de costos de contenido y para financiar nuevas producciones."
+- example: connects this to the student's daily life (max 15 words)
 
 SCREEN 8 — type: "common_error" — emoji: ⚠️
 SHOW WHAT TEENAGERS ACTUALLY BELIEVE — not textbook errors.
-Think: what does a smart 15-year-old who uses TikTok but never studied this assume to be true? That assumption IS the error.
-Real teen error examples to model (adapt to this topic, do NOT copy verbatim):
-  ❌ "El dólar solo afecta a las empresas, no a mí"
-  ❌ "La inflación es culpa de una tienda que quiere ganar más"
-  ❌ "Ahorrar siempre ayuda a la economía"
-  ❌ "Si algo sube de precio es una estafa"
-RULES:
-1. definition = the WRONG belief phrased as what "mucha gente cree" or "muchos piensan" (1 sentence, max 20 words).
-   ✅ Good: "Muchos creen que si el dólar sube, el gobierno puede simplemente bajar su precio."
-   ❌ Bad: "Confunden oferta con demanda." — too academic, not a real teen belief.
-2. example = the CORRECT reality stated as a surprising fact (1 sentence, max 20 words).
-   It must SURPRISE the student — they didn't know this.
-3. BOTH fields are REQUIRED. If no real teen misconception exists, replace with type "comprehension".
-4. The error must be specific to THIS topic and believable for a smart teenager.
+Think: what does a smart 15-year-old who uses TikTok but never studied this assume to be true? That IS the error.
+MANDATORY FORMAT — no exceptions:
+- definition: MUST start with "❌" (max 20 words)
+  Format: "❌ Muchos creen que [wrong belief]."
+  Real teen error examples to model (adapt to THIS topic, do NOT copy):
+  ❌ "Muchos creen que el dólar solo afecta a las empresas, no a ellos."
+  ❌ "Muchos creen que si algo sube de precio es una estafa."
+  ❌ "Muchos creen que ahorrar siempre ayuda a la economía del país."
+  ❌ Bad: "Confunden oferta con demanda." — too academic, not a real teen belief.
+- example: MUST start with "✅" (max 20 words)
+  Format: "✅ En realidad, [surprising truth that contradicts the error]."
+  It must SURPRISE the student — they didn't know this.
+BOTH fields required. The error must be specific to THIS topic and believable for a smart teenager.
+If no real teen misconception exists → replace with type "comprehension".
 
 SCREEN 9 — type: "wow_fact" — emoji: 🤯
-THIS IS THE WOW INSIGHT SCREEN — the single most counterintuitive or surprising fact from this topic.
-The student must finish this screen thinking: "No tenía idea de que eso pasaba."
-- title: "¿Sabías que...?" (or a short intriguing phrase, max 6 words)
-- definition: ONE surprising, counterintuitive fact that challenges what the student assumed. MAX 3 lines / 30 words. No more.
-  Must be 100% accurate. Must relate directly to this session's topic.
-  Model structure: "Aunque parezca imposible, [hecho contraintuitivo]. Esto ocurre porque [mecanismo real simple]."
-  ✅ Topic: precios → "Subir el precio de un producto puede reducir las ganancias totales de la empresa."
-  ✅ Topic: ahorro → "Cuando todos ahorran al mismo tiempo, el país puede entrar en recesión."
-  ✅ Topic: dólar → "Chile puede exportar más cuando el peso se DEBILITA, no cuando se fortalece."
-  ✅ Topic: inflación → "Un poco de inflación es intencional — sin ella la economía se congela."
+THE SINGLE MOST COUNTERINTUITIVE FACT from this topic.
+The student must finish thinking: "No tenía idea de que eso pasaba."
+- title: "¿Sabías que...?" — MANDATORY, no alternatives, no exceptions.
+- definition: ONE surprising, counterintuitive fact. MAX 30 words. 100% accurate. Related directly to this topic.
+  Structure: "Aunque parezca imposible, [counterintuitive fact]. Esto ocurre porque [simple real mechanism]."
+  ✅ Prices: "Subir el precio de un producto puede reducir las ganancias totales de la empresa."
+  ✅ Savings: "Cuando todos ahorran al mismo tiempo, el país puede entrar en recesión."
+  ✅ Waves: "Las ondas sísmicas permiten estudiar el interior de la Tierra sin excavar nada."
+  ✅ Electricity: "Un rayo puede ser más caliente que la superficie del Sol."
 - example: one sentence grounding this in a teen's everyday life (max 20 words)
-- OPTIONAL INTERACTIVE VERIFICATION: If you can write a HIGH-QUALITY verification question about the wow fact, include:
-  - question: ONE question that directly tests if the student understood the counterintuitive fact (max 20 words). Must be about the wow fact itself, not a repeat of earlier screens.
-  - options: ["A. ...", "B. ...", "C. ..."] — exactly 3 options (each max 10 words), one clearly correct
+- OPTIONAL INTERACTIVE VERIFICATION: include ONLY if you can write a HIGH-QUALITY question about the wow fact:
+  - question: tests if the student understood the COUNTERINTUITIVE aspect (max 20 words). NOT a repeat of earlier screens.
+  - options: ["A. ...", "B. ...", "C. ..."] — exactly 3 options, each max 10 words
   - correctAnswer: "A", "B", or "C"
-  If the question would be trivial, repetitive, or low-quality → leave question/options/correctAnswer as null.
+  - definition: emotional feedback (see EMOTIONAL FEEDBACK RULE). Must start with 🔥, 🚀, ⚡, or 🎯.
+  If the question would be trivial or repeat previous screens → leave question/options/correctAnswer/definition as null.
 
 SCREEN 10 — type: "victory" — emoji: 🏆
 - title: "¡Misión cumplida!"
-- definition: MANDATORY CHECKLIST FORMAT — list the specific concepts mastered in this session.
-  Format: "Aprendiste: ✓ [Concepto 1] • ✓ [Concepto 2] • ✓ [Concepto 3] • ✓ [Concepto 4]"
-  Use the EXACT names of the concepts covered in screens 2, 4, 6, 7, 8, 9.
-  Example: "Aprendiste: ✓ Oferta y demanda • ✓ Inflación • ✓ Cómo afectan los precios • ✓ Relación micro y macro"
-  MAX 4 concepts in the checklist.
-- example: MANDATORY — start with "Lo usarás cuando..." and name a specific teen situation (max 20 words).
-  Example: "Lo usarás cuando el precio de tu celular favorito cambie y entiendas por qué."
+- definition: MANDATORY CHECKLIST FORMAT:
+  "Aprendiste: ✓ [Concept 1] • ✓ [Concept 2] • ✓ [Concept 3] • ✓ [Concept 4]"
+  Use EXACT concept names from screens 2, 4, 7, 8. MAX 4 concepts.
+  ✅ "Aprendiste: ✓ Oferta y demanda • ✓ Efecto del dólar • ✓ Cómo Uber ajusta precios • ✓ El error del precio como estafa"
+- example: TWO parts, joined with " | " (max 35 words total):
+  Part 1: "Lo usarás cuando [specific teen situation where these concepts apply]."
+  Part 2: "Próximo desafío: [specific suggestion for what to study next to go deeper]."
+  ✅ "Lo usarás cuando el precio de tu celular favorito cambie. | Próximo desafío: Investiga cómo el Banco Central controla la inflación."
+  ✅ "Lo usarás cuando notes que Spotify sube de precio. | Próximo desafío: Estudia cómo la inflación afecta el ahorro."
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ABSOLUTE RULES FOR ALL 10 SCREENS:
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 - Generate EXACTLY 10 slides in the exact order above. No type may be duplicated.
+- Screen 1 title MUST be a curiosity question ending with "?". No exceptions.
+- Screens 3 and 5 MUST have complete question + options (not null).
+- Screen 8 definition MUST start with "❌". Screen 8 example MUST start with "✅".
+- Screen 9 title MUST be "¿Sabías que...?".
+- Screen 10 definition MUST use ✓ checklist format.
 - NEVER copy text literally from the transcription.
-- NEVER create two consecutive informational screens with definitions only.
-- NEVER ignore diagrams, flows, or visual structures in the material — convert them into screen 6 (process_flow) or screen 4 (key_relation).
-- NEVER create empty or vague slides. If a type cannot be filled with quality content, use the FALLBACK types specified above.
-- Reorganize content by PEDAGOGICAL IMPORTANCE, not by document order.
-- Prioritize: understanding → application → retention. NOT total content coverage.
-- The 2 interactive screens (screens 3, 5) are MANDATORY. They must always be comprehension/mini_quiz with real questions and options.
-- INTERACTIVITY TARGET: At least 35% of screens must be interactive. With 10 screens = minimum 3-4 interactive screens. Screens 3 and 5 are mandatory. Use "decide" for screen 6 and/or interactive wow_fact (screen 9) to reach this target. Prefer "decide" over "challenge" whenever a realistic dilemma can be posed.
-- Screen 9 (wow_fact) CAN optionally be interactive if a high-quality verification question exists.
-- CONCEPTUAL BRIDGE: When the session moves from micro-level concepts (individual choices, product prices) to macro-level concepts (inflation, GDP, Banco Central, monetary policy), write an explicit bridge in the definition field of the transition screen. Example bridge: "Lo que ocurre con el precio de la palta también pasa a escala de toda la economía — así funcionan los precios a nivel macro."
-- CURSO ADAPTATION is MANDATORY. The complexity of vocabulary, the depth of reasoning required, and the length of explanations must match the student's curso level: ${curso}. A 1º Medio session must feel simpler than a 4º Medio session in every screen.
+- NEVER create two consecutive non-interactive screens with only definitions — screens 3, 5, 6 enforce interaction.
+- NEVER use abstract nodes in causal chains — only visible real-world actions.
+- Reorganize content by PEDAGOGICAL IMPORTANCE, not document order.
+- INTERACTIVITY: minimum 4 interactive screens (3, 5, 6 mandatory + wow_fact optional = 3-4 total).
+- CONCEPTUAL BRIDGE: when moving from micro to macro concepts, write an explicit bridge sentence in the relevant screen's definition.
+- CORSO ADAPTATION is MANDATORY: complexity, vocabulary, depth must match ${curso}.
+- WOW RULE: at least one screen (preferably screen 9) must produce "No tenía idea de que eso pasaba."
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-FINAL VALIDATION — run this checklist before outputting JSON:
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-1. ¿Hay curiosidad? → ¿Al menos una tarjeta provoca "¿por qué pasa eso?"
-2. ¿Hay descubrimiento? → ¿El estudiante aprende algo que no sabía, no que le repiten algo?
-3. ¿Las preguntas requieren pensar? → ¿No se pueden responder en menos de 2 segundos sin razonar?
-4. ¿Los ejemplos son adolescentes? → ¿Aparece Netflix, Spotify, TikTok, Uber, Steam, iPhone, PedidosYa, o Mercado Libre — no "una empresa" genérica?
-5. ¿Existe al menos un momento WOW? → ¿La tarjeta 9 (wow_fact) contiene un hecho contraintuitivo que sorprendería a un adolescente?
-6. ¿Las preguntas interactivas (screens 3 y 5) tienen question y options completas? → Si NO → reescribir esa pantalla completa.
-7. ¿La tarjeta 10 (victory) tiene el checklist de conceptos en formato ✓ ? → Si NO → regenerar.
-8. ¿El nivel de complejidad es correcto para ${curso}? → Si el lenguaje parece universitario para 1º Medio, simplificar.
-If any answer is NO → rewrite the failing screen before outputting.
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+FINAL VALIDATION CHECKLIST — run before outputting JSON:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+1. Screen 1 title is a curiosity question ending with "?" → if NO, rewrite.
+2. Screens 3 and 5 have complete question + options → if NO, rewrite that screen.
+3. Screen 8 definition starts with "❌" and example starts with "✅" → if NO, rewrite.
+4. Screen 9 title is exactly "¿Sabías que...?" → if NO, fix.
+5. Screen 10 definition uses ✓ checklist format → if NO, rewrite.
+6. All interactive screen definitions start with 🔥, 🚀, ⚡, or 🎯 → if NO, fix.
+7. No two consecutive non-interactive screens → if violation, swap or add comprehension.
+8. At least one screen produces the "No tenía idea de que eso pasaba" reaction → if NO, strengthen screen 9.
+9. Screen 7 (application) uses a specific named platform/product → if NO, rewrite.
+10. Complexity matches ${curso} → if too hard for 1° Medio or too easy for 4° Medio, adjust.
+If any check fails → fix that screen before outputting.
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 QUIZ QUESTIONS (separate from summary screens):
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-- Generate questions that test understanding and application, not just memorization.
-- Each question must have exactly 4 options.
-- Distractors must be plausible — related to the topic, could seem correct at first glance.
-- Mix difficulty: recognition (1°), application (2°-3°), reasoning and interpretation (4°).
-- explanation: why the correct answer is right AND why the main distractor is wrong.
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Generate questions that test understanding and application, not memorization.
+Each question: exactly 4 options. Distractors: plausible partial-truths.
+Mix difficulty: recognition (1°), application (2°-3°), reasoning and interpretation (4°).
+difficulty field: "easy" for recognition, "medium" for application, "hard" for reasoning/inference.
+explanation: why correct answer is right AND why the main distractor is wrong.
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 FLASHCARDS:
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 - front: concise question or concept (max 10 words)
 - back: direct, memorable answer (max 25 words)
-- Mix "what" cards with "how" and "why" cards.
-- Avoid pure definition repetition.
+- Mix "what" cards with "how" and "why" cards. Avoid pure definition repetition.
 
 JSON SCHEMA — return ONLY this structure:
 {
@@ -396,33 +375,32 @@ JSON SCHEMA — return ONLY this structure:
   }
 }
 
-If the transcription is shorter than 100 words, return a JSON with an empty questions and flashcards list and a minimal 10-screen summary using the same structure.
+If the transcription is shorter than 100 words, return a JSON with empty questions and flashcards and a minimal 10-screen summary using the same structure.
 
 Transcription:
 ${normalizeText(transcription)}
 `;
 
-  const system = `Eres un diseñador de experiencias de aprendizaje estilo Duolingo para jóvenes de enseñanza media chilena. Tu objetivo NO es resumir un documento — es crear momentos de DESCUBRIMIENTO. Cada pantalla debe provocar curiosidad, sorpresa o una conexión personal. Un adolescente debe terminar la sesión pensando "no sabía eso" o "ah, por eso pasa". Construye misiones interactivas, NO resúmenes escolares. Genera exactamente 10 pantallas en el orden indicado. Proporciona JSON válido. Todo el contenido en español.`;
+  const system = `Eres un diseñador de experiencias de aprendizaje gamificadas para jóvenes chilenos de enseñanza media. Tu filosofía: HOOK → DESCUBRIMIENTO → RETO → APLICACIÓN → ERROR → CURIOSIDAD → VICTORIA. Cada pantalla debe hacer que el estudiante quiera ver la siguiente. NO resúmenes escolares — misiones interactivas con progresión de dificultad. Genera exactamente 10 pantallas en el orden indicado. JSON válido únicamente. Todo en español.`;
+
   const response = await openai.chat.completions.create({
     model: config.openai_model,
     messages: [
       { role: 'system', content: system },
       { role: 'user', content: prompt },
     ],
-    temperature: 0.2,
+    temperature: 0.25,
     max_tokens: 6500,
   });
 
-  const raw = response.choices?.[0]?.message?.content ?? response.choices?.[0]?.message?.content?.toString?.() ?? '';
+  const raw = response.choices?.[0]?.message?.content ?? '';
   const resultText = normalizeText(raw);
   let parsed;
   try {
     parsed = JSON.parse(resultText);
-  } catch (error) {
+  } catch {
     const fallback = raw.match(/\{[\s\S]*\}/);
-    if (!fallback) {
-      throw new Error('No se pudo parsear la respuesta de OpenAI.');
-    }
+    if (!fallback) throw new Error('No se pudo parsear la respuesta de OpenAI.');
     parsed = JSON.parse(fallback[0]);
   }
 
@@ -451,19 +429,13 @@ ${normalizeText(transcription)}
   })) as Flashcard[];
 
   const VALID_SLIDE_TYPES: SummarySlideType[] = [
-    // Structured mission screens (primary — current generation)
     'mission', 'main_concept', 'comprehension', 'key_relation',
     'mini_quiz', 'process_flow', 'decide', 'application', 'common_error', 'wow_fact', 'victory',
-    'challenge',
-    // Kept for backward compatibility with older sessions
-    'final_challenge',
-    // Legacy types
+    'challenge', 'final_challenge',
     'concept', 'key_fact', 'important', 'remember', 'example', 'curiosity',
     'did_you_know', 'true_false', 'observe', 'compare', 'partial_summary',
   ];
   const VALID_ILLUSTRATION_TYPES: IllustrationType[] = ['educational', 'diagram', 'concept', 'timeline', 'map', 'process', 'comparison'];
-
-  // Interactive types that require question + options (wow_fact optional, victory never needs them)
   const INTERACTIVE_SLIDE_TYPES = ['comprehension', 'mini_quiz', 'final_challenge', 'decide'];
 
   const rawSlides = (parsed.summary?.slides || []).map((slide: any, i: number) => ({
@@ -483,7 +455,6 @@ ${normalizeText(transcription)}
   const isMissionModel = rawSlides.length > 0 && rawSlides[0].type === 'mission';
 
   const validatedSlides = rawSlides.map((slide: any, i: number) => {
-    // Interactive slides must have question + options — convert to 'challenge' if missing
     if (isMissionModel && INTERACTIVE_SLIDE_TYPES.includes(slide.type)) {
       const hasQuestion = typeof slide.question === 'string' && slide.question.trim().length > 0;
       const hasOptions = Array.isArray(slide.options) && slide.options.length >= 2;
@@ -492,23 +463,20 @@ ${normalizeText(transcription)}
         return {
           ...slide,
           type: 'challenge' as SummarySlideType,
-          definition: slide.definition?.trim() || slide.title || 'Reflexiona sobre los conceptos aprendidos en esta sesión.',
+          definition: slide.definition?.trim() || slide.title || 'Reflexiona sobre los conceptos aprendidos.',
           question: null,
           options: null,
           correctAnswer: null,
         };
       }
     }
-    // wow_fact with partial interactive fields — clean up if incomplete
     if (isMissionModel && slide.type === 'wow_fact') {
       const hasQ = typeof slide.question === 'string' && slide.question.trim().length > 0;
       const hasOpts = Array.isArray(slide.options) && slide.options.length >= 2;
       if (hasQ !== hasOpts) {
-        // Partial — strip interactive fields rather than leaving broken state
         return { ...slide, question: null, options: null, correctAnswer: null };
       }
     }
-    // wow_fact slide (screen 9) must have a definition — patch if missing
     if (isMissionModel && slide.type === 'wow_fact' && !slide.definition?.trim()) {
       console.warn(`[Generation] wow_fact slide ${i} missing definition — applying fallback`);
       return {
@@ -516,13 +484,12 @@ ${normalizeText(transcription)}
         definition: `Un hecho sorprendente sobre ${topic}: los conceptos de esta sesión tienen efectos que van más allá de lo que parece a primera vista.`,
       };
     }
-    // victory slide must have a definition — patch if missing
     if (isMissionModel && slide.type === 'victory' && !slide.definition?.trim()) {
       console.warn(`[Generation] victory slide ${i} missing definition — applying fallback`);
       return {
         ...slide,
         definition: `Aprendiste los conceptos clave de esta sesión sobre ${topic}.`,
-        example: slide.example || `Lo usarás cuando notes cómo los precios y decisiones económicas afectan tu vida diaria.`,
+        example: slide.example || `Lo usarás cuando notes cómo estos conceptos afectan tu vida diaria. | Próximo desafío: Profundiza en los temas relacionados.`,
       };
     }
     return slide;
@@ -543,15 +510,119 @@ ${normalizeText(transcription)}
 
   const groundingScore = sourceQuoteCount > 0 ? 1 : 0;
 
+  return { subject, topic, questions, flashcards, summary, groundingScore };
+}
+
+// ── Engagement validator ─────────────────────────────────────────────────────
+
+export interface EngagementReport {
+  valid: boolean;
+  interactionCount: number;
+  maxConsecutiveNonInteractive: number;
+  hasHook: boolean;
+  hasRealApplication: boolean;
+  hasCommonError: boolean;
+  hasWowFact: boolean;
+  hasDifficultyProgression: boolean;
+  issues: string[];
+}
+
+const REAL_BRAND_PATTERNS = [
+  'spotify', 'netflix', 'uber', 'playstation', 'iphone', 'tiktok', 'steam',
+  'samsung', 'mercado libre', 'pedidosya', 'zapatilla', 'concierto', 'videojuego',
+  'android', 'ipad', 'youtube', 'twitch', 'amazon',
+];
+
+const INTERACTIVE_TYPES = new Set([
+  'comprehension', 'mini_quiz', 'decide', 'final_challenge', 'order_sequence',
+]);
+
+/**
+ * Validates that a generated session meets minimum engagement standards.
+ * Logs warnings when standards are not met — does NOT block session delivery.
+ */
+export function validateSessionEngagement(
+  slides: SummarySlide[],
+  _questions: MultipleChoiceQuestion[],
+): EngagementReport {
+  const issues: string[] = [];
+
+  // ── Interaction count & consecutive non-interactive ───────────────────────
+  let interactionCount = 0;
+  let maxConsec = 0;
+  let consec = 0;
+
+  for (const slide of slides) {
+    const slideAny = slide as any;
+    const isInteractive =
+      INTERACTIVE_TYPES.has(slide.type) && typeof slideAny.question === 'string' && slideAny.question.trim().length > 0;
+    const isWowInteractive =
+      slide.type === 'wow_fact' && typeof slideAny.question === 'string' && slideAny.question.trim().length > 0;
+
+    if (isInteractive || isWowInteractive) {
+      interactionCount++;
+      consec = 0;
+    } else if (slide.type !== 'mission' && slide.type !== 'victory') {
+      consec++;
+      maxConsec = Math.max(maxConsec, consec);
+    }
+  }
+
+  if (interactionCount < 3) {
+    issues.push(`Solo ${interactionCount} interacciones (mínimo 3)`);
+  }
+  if (maxConsec > 2) {
+    issues.push(`${maxConsec} pantallas informativas consecutivas (máximo 2)`);
+  }
+
+  // ── Hook in screen 1 ──────────────────────────────────────────────────────
+  const missionSlide = slides.find(s => s.type === 'mission') as any;
+  const hasHook = !!(
+    missionSlide?.title?.trim().endsWith('?') ||
+    missionSlide?.definition?.includes('?')
+  );
+  if (!hasHook) issues.push('Screen 1 sin pregunta de curiosidad (hook)');
+
+  // ── Real application (screen 7) ───────────────────────────────────────────
+  const appSlide = slides.find(s => s.type === 'application') as any;
+  const appText = `${appSlide?.title ?? ''} ${appSlide?.definition ?? ''} ${appSlide?.example ?? ''}`.toLowerCase();
+  const hasRealApplication = !appSlide || REAL_BRAND_PATTERNS.some(b => appText.includes(b));
+  if (!hasRealApplication) issues.push('Aplicación real sin marca/plataforma específica (screen 7)');
+
+  // ── Common error ❌ format ─────────────────────────────────────────────────
+  const errorSlide = slides.find(s => s.type === 'common_error') as any;
+  const hasCommonError = !errorSlide || !!(
+    errorSlide.definition?.startsWith('❌') ||
+    errorSlide.definition?.toLowerCase().includes('muchos creen')
+  );
+  if (!hasCommonError) issues.push('Error común sin formato ❌ (screen 8)');
+
+  // ── Wow fact present ──────────────────────────────────────────────────────
+  const wowSlide = slides.find(s => s.type === 'wow_fact') as any;
+  const hasWowFact = !!(wowSlide?.definition?.trim());
+  if (!hasWowFact) issues.push('Sin dato sorprendente (wow_fact, screen 9)');
+
+  // ── Difficulty progression (screens 3 → 5 → 6 present) ───────────────────
+  const hasComprehension = slides.some(s => s.type === 'comprehension');
+  const hasMiniQuiz = slides.some(s => s.type === 'mini_quiz');
+  const hasDifficultyProgression = hasComprehension && hasMiniQuiz;
+  if (!hasDifficultyProgression) issues.push('Sin progresión de dificultad (faltan comprehension + mini_quiz)');
+
+  const valid = issues.length === 0;
   return {
-    subject,
-    topic,
-    questions,
-    flashcards,
-    summary,
-    groundingScore,
+    valid,
+    interactionCount,
+    maxConsecutiveNonInteractive: maxConsec,
+    hasHook,
+    hasRealApplication,
+    hasCommonError,
+    hasWowFact,
+    hasDifficultyProgression,
+    issues,
   };
 }
+
+// ── Grounding validator ───────────────────────────────────────────────────────
 
 export interface GroundingValidationResult {
   validated: boolean;
@@ -570,14 +641,12 @@ export function validateGrounding(
     ...result.summary.sourceQuotes,
   ].filter(Boolean);
 
-  // No quotes generated → consider valid (LLM omitted them but content is there)
   if (allQuotes.length === 0) {
     return { validated: true, score: 1, missingQuotes: [] };
   }
 
   const matchedCount = allQuotes.reduce((count, quote) => {
     const normalizedQuote = normalizeText(quote).toLowerCase();
-    // Accept if the quote appears verbatim OR if most words overlap (fuzzy match)
     if (normalized.includes(normalizedQuote)) return count + 1;
     const words = normalizedQuote.split(/\s+/).filter((w) => w.length > 3);
     const matchedWords = words.filter((w) => normalized.includes(w)).length;
@@ -593,12 +662,10 @@ export function validateGrounding(
     return matchedWords / Math.max(words.length, 1) < 0.7;
   });
 
-  return {
-    validated: score >= 0.5,
-    score,
-    missingQuotes,
-  };
+  return { validated: score >= 0.5, score, missingQuotes };
 }
+
+// ── Session builder ───────────────────────────────────────────────────────────
 
 export function buildGeneratedSession(
   userId: string,
