@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Generation service for study sessions using OpenAI.
  * Pedagogical philosophy: micro-learning gamificado estilo Duolingo.
  * Routes to different prompt structures based on pedagogical type:
@@ -20,7 +20,7 @@ import type {
   GeneratedSession,
 } from '../types.js';
 import { config } from '../config.js';
-import { classifyContent } from './pedagogicalClassifier.js';
+import { classifyContent, type DetectedSkill } from './pedagogicalClassifier.js';
 
 const openai = new OpenAI({ apiKey: config.openai_api_key });
 
@@ -38,6 +38,9 @@ export interface GenerationResult {
   flashcards: Flashcard[];
   summary: Summary;
   groundingScore: number;
+  pedagogicalType?: string;
+  primarySkill?: DetectedSkill;
+  learningPath?: DetectedSkill[];
 }
 
 // ── Shared JSON schema (appended to all prompts) ─────────────────────────────
@@ -434,125 +437,243 @@ ${normalizeText(transcription)}
 ${JSON_SCHEMA}`;
 }
 
-// ── PROCEDURAL prompt ─────────────────────────────────────────────────────────
+// ── Skill-specific algorithms embedded in the procedural prompt ───────────────
+// Gives the model the REAL algorithm for each skill so it can teach step-by-step.
 
-function buildProceduralPrompt(transcription: string, curso: string, skills: string[]): string {
-  const skillsLine = skills.length > 0
-    ? `HABILIDADES DETECTADAS EN EL DOCUMENTO: ${skills.join(' | ')}`
-    : 'El documento contiene procedimientos matemáticos o científicos. Identifica las habilidades específicas desde la transcripción.';
+const SKILL_ALGORITHMS: Record<string, string> = {
+  SKILL_CLASSIFY_DECIMAL: `
+ALGORITMO PARA CLASIFICAR DECIMALES:
+Paso 1: Realiza la división (si el número es fracción) o analiza las cifras decimales dadas.
+Paso 2: Observa si los decimales terminan o continúan indefinidamente.
+  → Si terminan → DECIMAL EXACTO (ej: 0,25 = 1/4)
+  → Si continúan → DECIMAL PERIÓDICO
+Paso 3: Si es periódico:
+  → ¿Se repite desde la primera cifra decimal? → PERIÓDICO PURO (ej: 0,333... período: 3)
+  → ¿Hay una parte que no se repite antes? → SEMIPERIÓDICO (ej: 0,1666... anteperíodo: 1, período: 6)
+TRUCO: en la división larga, cuando aparece el mismo residuo dos veces → empieza el período.`,
+
+  SKILL_ORDER_DECIMALS: `
+ALGORITMO PARA ORDENAR DECIMALES:
+Paso 1: Escribe todos los decimales alineando la coma vertical.
+Paso 2: Agrega ceros a la derecha hasta que todos tengan el mismo número de cifras decimales.
+Paso 3: Compara como si fueran números enteros (ignora la coma).
+Paso 4: Ordena de menor a mayor o mayor a menor según lo pedido.
+EJEMPLO: Ordenar 0,3 — 0,25 — 0,307
+→ Con 3 decimales: 0,300 — 0,250 — 0,307
+→ Como enteros: 250 < 300 < 307
+→ Resultado: 0,25 < 0,3 < 0,307`,
+
+  SKILL_FRACTION_TO_DECIMAL: `
+ALGORITMO PARA CONVERTIR FRACCIÓN A DECIMAL (división larga):
+Paso 1: Divide el numerador entre el denominador.
+Paso 2: Si numerador < denominador → escribe "0," y continúa: multiplica el residuo por 10.
+Paso 3: Divide y anota cada cifra decimal en el cociente.
+Paso 4: Continúa hasta residuo 0 (exacto) o hasta detectar repetición del residuo.
+Paso 5: Si el mismo residuo aparece dos veces → hay período. El número es periódico.
+EJEMPLO: 4 ÷ 15
+4 ÷ 15 = 0 resto 4 → 40 ÷ 15 = 2 resto 10 → 100 ÷ 15 = 6 resto 10 → residuo 10 se repite
+Resultado: 0,2(6) = 0,2666... → semiperiódico (anteperíodo: 2, período: 6)`,
+
+  SKILL_DECIMAL_TO_FRACTION: `
+ALGORITMO PARA CONVERTIR DECIMAL PERIÓDICO A FRACCIÓN:
+CASO A — PERIÓDICO PURO (ej: 0,666...):
+Paso 1: Sea x = 0,666...
+Paso 2: Multiplica por 10^n (n = cifras del período): 10x = 6,666...
+Paso 3: Resta: 10x − x = 6 → 9x = 6
+Paso 4: x = 6/9 → Simplifica: 2/3
+
+CASO B — SEMIPERIÓDICO (ej: 2,1(3) = 2,1333...):
+Paso 1: Sea x = 2,1333...
+Paso 2: Multiplica por 10 (para sacar anteperíodo): 10x = 21,333...
+Paso 3: Multiplica por 100 (para sacar período): 100x = 213,333...
+Paso 4: Resta: 100x − 10x = 192 → 90x = 192
+Paso 5: x = 192/90 → Simplifica: 32/15`,
+
+  SKILL_OPERATIONS_DECIMALS: `
+ALGORITMO PARA OPERAR CON DECIMALES:
+SUMA/RESTA: alinea las comas decimales → opera columna por columna → el resultado conserva la coma.
+MULTIPLICACIÓN: multiplica ignorando la coma → cuenta total de cifras decimales de los factores → coloca la coma en el resultado.
+DIVISIÓN: si el divisor tiene decimales → multiplica ambos por 10/100 para convertirlo en entero → divide normalmente.
+EJEMPLO MULTIPLICACIÓN: 0,3 × 0,25 = 075 → 2 decimales + 2 decimales = 4 decimales → 0,0075`,
+
+  SKILL_SIMPLIFY_FRACTIONS: `
+ALGORITMO PARA SIMPLIFICAR FRACCIONES:
+Paso 1: Encuentra el MCD (Máximo Común Divisor) de numerador y denominador.
+  Método: descomposición en factores primos o algoritmo de Euclides.
+Paso 2: Divide numerador y denominador por el MCD.
+Paso 3: La fracción resultante es irreducible.
+EJEMPLO: 12/18 → MCD(12,18) = 6 → 12÷6 / 18÷6 = 2/3`,
+
+  SKILL_OPERATIONS_FRACTIONS: `
+ALGORITMO PARA OPERAR CON FRACCIONES:
+SUMA/RESTA (mismo denominador): suma/resta numeradores, conserva denominador.
+SUMA/RESTA (distinto denominador): calcula el MCM → convierte ambas fracciones → suma/resta numeradores.
+MULTIPLICACIÓN: multiplica numeradores entre sí y denominadores entre sí → simplifica.
+DIVISIÓN: multiplica por la fracción inversa del divisor → simplifica.`,
+
+  SKILL_FACTORIZATION: `
+ALGORITMO PARA FACTORIZAR:
+Paso 1: Identifica el tipo:
+  → Diferencia de cuadrados: a²−b² = (a+b)(a−b)
+  → Cuadrado perfecto: a²±2ab+b² = (a±b)²
+  → Trinomio ax²+bx+c: busca dos factores de a·c que sumen b
+Paso 2: Aplica la fórmula → escribe los factores.
+Paso 3: Verifica multiplicando los factores.`,
+
+  SKILL_EQUATIONS: `
+ALGORITMO PARA RESOLVER ECUACIONES:
+Paso 1: Agrupa términos con la incógnita en un lado y constantes en el otro (cambio de signo al pasar).
+Paso 2: Combina términos semejantes.
+Paso 3: Despeja la incógnita dividiendo por su coeficiente.
+Paso 4: Verifica sustituyendo el valor en la ecuación original.`,
+
+  SKILL_DERIVATIVES: `
+ALGORITMO PARA DERIVAR:
+Regla de la potencia: (xⁿ)' = n·xⁿ⁻¹
+Derivada de constante: k' = 0
+Suma/Resta: derivar término a término.
+Producto: (f·g)' = f'·g + f·g'
+Cadena: [f(g(x))]' = f'(g(x))·g'(x)
+EJEMPLO: f(x) = 3x² + 2x − 5 → f'(x) = 6x + 2`,
+};
+
+// ── PROCEDURAL prompt (focused on ONE skill) ──────────────────────────────────
+
+function buildFocusedProceduralPrompt(
+  transcription: string,
+  curso: string,
+  primarySkill: DetectedSkill,
+  learningPath: DetectedSkill[],
+): string {
+  const algorithm = SKILL_ALGORITHMS[primarySkill.skillId] ?? '';
+
+  // Build "upcoming missions" text for the victory screen
+  const upcoming = learningPath
+    .filter(s => s.skillId !== primarySkill.skillId)
+    .slice(0, 4)
+    .map((s, i) => `${i + 2}️⃣ ${s.skillLabel}`)
+    .join(' • ');
+  const upcomingLine = upcoming
+    ? `Próximas misiones: ${upcoming}`
+    : 'Próximo desafío: explora habilidades relacionadas en tu guía.';
 
   return `Eres un diseñador de sesiones de aprendizaje PROCEDIMENTAL para estudiantes chilenos de enseñanza media (${curso}).
-Este documento requiere que el estudiante aprenda a HACER algo, no solo a entender un concepto.
-Tu misión: enseñar el procedimiento paso a paso de forma que el estudiante pueda resolver ejercicios similares al finalizar.
 
-⚠️ REGLA CRÍTICA DE CONTENIDO: TODO el contenido (pasos, ejemplos, números, problemas) DEBE venir EXCLUSIVAMENTE de la transcripción.
-NO inventes ejercicios ajenos al documento. Usa los MISMOS tipos de problemas que aparecen en el material.
+⚠️ REGLA DE ENFOQUE ÚNICO — LEE ANTES DE GENERAR CUALQUIER COSA:
+Esta misión enseña ÚNICAMENTE la habilidad: "${primarySkill.skillLabel}"
+PROHIBIDO incluir ejercicios, preguntas o contenido de otras habilidades.
+TODAS las pantallas (método, ejemplos, preguntas, desafío) deben tratar exclusivamente "${primarySkill.skillLabel}".
+Si el documento contiene otras habilidades (ordenar, convertir, clasificar, etc.) → IGNORARLAS en esta misión.
 
-${skillsLine}
+⚠️ REGLA DE CONTENIDO: TODO el contenido (pasos, números, ejemplos) DEBE derivarse de la transcripción.
+No inventes ejercicios ajenos al documento. Usa los MISMOS tipos de problemas del material.
 
-FILOSOFÍA: GANCHO → MÉTODO → PRÁCTICA → VERIFICACIÓN → ERROR → DESAFÍO → VICTORIA
-Cada pantalla debe construir COMPETENCIA, no solo conocimiento. Al terminar, el estudiante debe poder resolver un ejercicio del mismo tipo.
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ALGORITMO REAL PARA ESTA HABILIDAD:
+(Usa este algoritmo en el método y en el ejemplo guiado. Adapta los números al documento.)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+${algorithm || 'Extrae los pasos del procedimiento directamente desde la transcripción.'}
 
 RETORNA SOLO JSON VÁLIDO. Sin texto extra. Todo en español.
 
-PREGUNTAS Y FLASHCARDS (separadas de las pantallas):
-- Genera preguntas de APLICACIÓN: el estudiante resuelve un problema similar, no define conceptos.
-- Genera flashcards de PROCEDIMIENTO: frente = pregunta de procedimiento, reverso = pasos o resultado.
-- difficulty: "easy" = reconocer el método, "medium" = aplicar el método, "hard" = detectar errores en aplicación.
+PREGUNTAS Y FLASHCARDS:
+- TODAS sobre "${primarySkill.skillLabel}" EXCLUSIVAMENTE. Ninguna de otra habilidad.
+- Preguntas: el estudiante aplica el procedimiento a un problema concreto (NO definiciones).
+- Flashcards: frente = un paso o situación del procedimiento; reverso = la acción o resultado correcto.
+- difficulty: "easy" = identificar el método, "medium" = aplicarlo, "hard" = detectar error en la aplicación.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 LAS 7 PANTALLAS — generar EXACTAMENTE en este orden:
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 PANTALLA 1 — type: "mission" — emoji: 🎯
-EL GANCHO — pregunta de curiosidad sobre un problema concreto que aprenderán a resolver.
-- title: Pregunta que despierta curiosidad sobre el procedimiento. DEBE terminar en "?". Max 14 palabras.
-  ✅ "¿Cómo transformas 4/15 a decimal sin que te salga un número infinito?"
-  ✅ "¿Puedes saber si un decimal es periódico sin hacer la división completa?"
-  ⚠️ SOLO EJEMPLOS DE FORMATO — usa el procedimiento de ESTE documento, no estos.
-  ❌ MAL: "Misión: Decimales periódicos" — no es pregunta. No genera curiosidad.
-- definition: Tease de lo que podrán HACER al terminar. Max 20 palabras.
-  ✅ "Al terminar esta misión, podrás resolver cualquier ejercicio de este tipo en segundos."
+EL GANCHO — pregunta concreta sobre el problema que aprenderán a resolver.
+- title: Pregunta sobre "${primarySkill.skillLabel}". DEBE terminar en "?". Max 14 palabras.
+  ✅ Ejemplos de FORMATO (no copiar — crea uno para ESTA habilidad):
+  "¿Cómo transformas 4/15 a decimal sin que te salga un número infinito?"
+  "¿Puedes ordenar 0,3 y 0,25 de menor a mayor sin equivocarte?"
+  "¿Sabes cuándo un decimal deja de ser exacto y se convierte en periódico?"
+- definition: Anticipa lo que PODRÁN HACER al terminar (no lo que aprenderán). Max 20 palabras.
+  ✅ "Al terminar esta misión, resolverás cualquier ejercicio de este tipo en segundos."
 - example: área temática en 3-5 palabras. Ej: "Matemáticas · 2° Medio"
 
 PANTALLA 2 — type: "process_flow" — emoji: ⚙️
-EL MÉTODO — algoritmo paso a paso del procedimiento principal del documento.
-FORMATO CRÍTICO: el campo definition DEBE ser exactamente "Paso 1: [acción] → Paso 2: [acción] → Paso 3: [acción] → Paso 4: [acción]"
-  - Cada paso: máximo 8 palabras, acción concreta (verbo + objeto específico)
-  - Entre 3 y 4 pasos (el frontend lo convierte en un juego interactivo de ordenamiento)
-  - Los pasos deben ser el ALGORITMO REAL del procedimiento, derivado del documento
-  ✅ Formato: "Paso 1: Divide numerador entre denominador → Paso 2: Escribe los decimales obtenidos → Paso 3: Detecta si hay cifras repetidas → Paso 4: Clasifica como periódico o no"
-  ⚠️ NUNCA copies este ejemplo — extrae los pasos del procedimiento de ESTE documento.
-- title: "Método: [nombre del procedimiento]" (max 6 palabras)
-- example: Un mini-ejemplo trabajado con números reales del documento (max 25 palabras).
-  Formato: "[Problema] → [Paso 1 aplicado] → [resultado] → [clasificación o conclusión]"
-- connector: null
-- question: null, options: null, correctAnswer: null
+EL MÉTODO — algoritmo paso a paso para "${primarySkill.skillLabel}".
+FORMATO CRÍTICO: definition DEBE ser exactamente "Paso 1: [acción] → Paso 2: [acción] → Paso 3: [acción] → Paso 4: [acción]"
+  - Cada paso: verbo concreto + objeto específico, máximo 8 palabras por paso.
+  - Entre 3 y 4 pasos (el frontend convierte esto en un juego interactivo de ordenamiento).
+  - Los pasos DEBEN ser el algoritmo REAL de arriba, adaptado en forma clara.
+  ✅ Formato obligatorio: "Paso 1: Alinea las comas decimales verticalmente → Paso 2: Agrega ceros hasta igualar cifras → Paso 3: Compara como números enteros → Paso 4: Ordena el resultado"
+  ⚠️ NUNCA copies este ejemplo — usa el algoritmo de ESTA habilidad.
+- title: "Método: ${primarySkill.skillLabel}" (o versión corta si es larga)
+- example: Un mini-ejemplo con números reales del documento (max 25 palabras).
+  Formato: "[Problema real del documento] → Paso 1 aplicado → resultado → conclusión"
 
 PANTALLA 3 — type: "main_concept" — emoji: 📐
-EJEMPLO GUIADO — solución completa paso a paso de un problema concreto del documento.
+EJEMPLO GUIADO — solución completa de un problema concreto del documento.
 - title: "Ejemplo resuelto"
-- definition: Solución detallada usando el método de la pantalla 2.
-  Formato: "Problema: [enunciado concreto]\\nPaso 1: [acción con números reales]\\nPaso 2: [resultado intermedio]\\nPaso 3: [clasificación o resultado final]"
-  Max 70 palabras. Usa números y datos REALES de la transcripción cuando estén disponibles.
-- example: "✅ Resultado: [respuesta final con explicación breve de por qué es correcta]"
+- definition: Solución detallada usando EXACTAMENTE el método de la pantalla 2.
+  Formato obligatorio:
+  "Problema: [enunciado concreto con números del documento]\\nPaso 1: [acción exacta con números]\\nPaso 2: [resultado intermedio]\\nPaso 3: [siguiente acción]\\nResultado: [respuesta final]"
+  Max 80 palabras. USA NÚMEROS REALES del documento cuando estén disponibles.
+- example: "✅ Comprobación: [por qué la respuesta es correcta, en max 15 palabras]"
 - connector: null
 
-PANTALLA 4 — type: "mini_quiz" — emoji: ⚡  [INTERACTIVA — APLICAR EL MÉTODO]
-PRACTICA TÚ — el estudiante aplica el mismo método a un problema similar.
+PANTALLA 4 — type: "mini_quiz" — emoji: ⚡  [INTERACTIVA]
+PRACTICA TÚ — aplica el método a un nuevo problema del mismo tipo.
 - title: "Practica tú"
-- question: "Aplica el método: ¿[problema similar con números diferentes a la pantalla 3]?" Max 25 palabras.
-  DEBE ser un problema CONCRETO con números específicos. NO una pregunta de definición.
-- options: ["A. ...", "B. ...", "C. ...", "D. ..."] — exactamente 4 opciones
-  Los distractores deben ser errores PLAUSIBLES de cálculo (error en un paso, clasificación incorrecta, etc.)
+- question: "Aplica el método: [problema similar con números DIFERENTES al de la pantalla 3]" Max 25 palabras.
+  DEBE ser un problema CONCRETO sobre "${primarySkill.skillLabel}". NO sobre otra habilidad.
+- options: ["A. ...", "B. ...", "C. ...", "D. ..."] — exactamente 4 opciones.
+  Los distractores deben ser errores PLAUSIBLES de aplicación (error en un paso específico).
 - correctAnswer: "A", "B", "C" o "D"
-- definition: feedback emocional. DEBE empezar con 🔥, 🚀, ⚡ o 🎯. Explica POR QUÉ ese resultado es correcto. Max 20 palabras.
+- definition: feedback emocional. DEBE empezar con 🔥, 🚀, ⚡ o 🎯. Explica por qué el resultado es correcto. Max 20 palabras.
 
 PANTALLA 5 — type: "common_error" — emoji: ⚠️
-ERROR FRECUENTE — el error más común al aplicar este procedimiento.
+ERROR FRECUENTE al aplicar "${primarySkill.skillLabel}".
 - definition: DEBE empezar con "❌" (max 25 palabras)
-  Formato: "❌ Muchos cometen el error de [enfoque incorrecto específico a este procedimiento]."
+  "❌ Muchos cometen el error de [enfoque incorrecto específico de este procedimiento]."
 - example: DEBE empezar con "✅" (max 25 palabras)
-  Formato: "✅ La forma correcta es [paso o enfoque correcto]."
-Ambos deben ser ESPECÍFICOS al procedimiento del documento, no genéricos.
+  "✅ La forma correcta es [paso o acción correcta del algoritmo]."
 - title: "Error frecuente"
 - question: null, options: null, correctAnswer: null
 
 PANTALLA 6 — type: "decide" — emoji: 🏆  [INTERACTIVA — DESAFÍO]
-EL DESAFÍO — el estudiante elige el resultado correcto para un NUEVO problema no visto antes.
-- title: "¿Cuál es correcto?"
-- question: "¿Cuál resultado es correcto para [nuevo problema DIFERENTE a las pantallas 3 y 4]?" Max 30 palabras.
-  Usa un problema NUEVO del mismo tipo que los anteriores.
-- options: ["A. ...", "B. ...", "C. ...", "D. ..."] — 3 o 4 opciones
-  Cada opción es un posible resultado. Solo uno es correcto. Los demás son errores plausibles de aplicación.
+NUEVO EJERCICIO — problema diferente a las pantallas 3 y 4. Mismo tipo de habilidad.
+- title: "Desafío"
+- question: "[Problema nuevo sobre ${primarySkill.skillLabel}]" Max 30 palabras.
+  Usa números DISTINTOS a pantallas 3 y 4. Mismo tipo de procedimiento.
+- options: ["A. ...", "B. ...", "C. ...", "D. ..."] — 3 o 4 opciones.
+  Solo una correcta. Las demás son errores plausibles de aplicación.
 - correctAnswer: "A", "B", "C" o "D"
 - definition: feedback emocional empezando con 🔥, 🚀, ⚡ o 🎯. Max 20 palabras.
 
 PANTALLA 7 — type: "victory" — emoji: 🏆
-RESUMEN DE HABILIDADES
-- title: "¡Habilidades dominadas!"
-- definition: FORMATO CHECKLIST OBLIGATORIO usando las habilidades del documento:
-  "Aprendiste: ✓ [Habilidad 1] • ✓ [Habilidad 2] • ✓ [Habilidad 3]"
-  Usa las HABILIDADES REALES de esta sesión (las detectadas o derivadas del documento). Max 4 ítems.
-- example: "Lo usarás cuando [situación escolar concreta]. | Próximo desafío: [habilidad relacionada a practicar]."
+VICTORIA — certifica la habilidad REALMENTE enseñada en esta sesión.
+- title: "¡Habilidad dominada!"
+- definition: FORMATO CHECKLIST — ÚNICAMENTE lo que se enseñó en ESTA sesión:
+  "Aprendiste: ✓ ${primarySkill.skillLabel}"
+  NO incluir otras habilidades que no se hayan enseñado en esta sesión.
+- example: "Lo aplicarás en pruebas y ejercicios de matemáticas. | ${upcomingLine}"
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 REGLAS ABSOLUTAS:
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 - Generar EXACTAMENTE 7 pantallas en el orden indicado.
-- La pantalla 1 DEBE terminar en "?".
-- La pantalla 2 DEBE usar formato "Paso 1: X → Paso 2: X → Paso 3: X" con 3-4 pasos.
-- La pantalla 5 definition DEBE empezar con "❌". La pantalla 5 example DEBE empezar con "✅".
-- Las pantallas 4 y 6 DEBEN tener question + options completos.
-- La pantalla 7 DEBE usar formato ✓ checklist.
-- NUNCA copiar texto literalmente de la transcripción.
-- NUNCA usar nombres de marcas a menos que aparezcan en la transcripción.
-- TODO el contenido académico (pasos, ejemplos, números) debe derivarse de la transcripción.
+- Pantalla 1 DEBE terminar en "?".
+- Pantalla 2 DEBE usar formato "Paso 1: X → Paso 2: X → Paso 3: X" con 3-4 pasos.
+- Pantalla 3 DEBE mostrar la solución paso a paso con números reales.
+- Pantallas 4 y 6 DEBEN tener question + options completos y ser sobre "${primarySkill.skillLabel}" ÚNICAMENTE.
+- Pantalla 5 definition DEBE empezar con "❌". example DEBE empezar con "✅".
+- Pantalla 7 definition DEBE certificar SOLO las habilidades enseñadas.
+- TODO el contenido académico deriva de la transcripción. NUNCA inventar ejercicios de otro tipo.
+- NUNCA mezclar habilidades: si esta misión es "${primarySkill.skillLabel}", CERO contenido de otras habilidades.
 
 Transcripción:
 ${normalizeText(transcription)}
 ${JSON_SCHEMA}`;
 }
+
 
 // ── MEMORIZATION prompt ───────────────────────────────────────────────────────
 
@@ -673,16 +794,23 @@ export async function generateSessionContent(
   const classification = classifyContent(transcription);
   console.log(`[Generation] Tipo pedagógico: ${classification.type} (confianza: ${(classification.confidence * 100).toFixed(0)}%)`);
   console.log(`[Generation] Scores — conceptual: ${(classification.scores.conceptual * 100).toFixed(0)}%, procedimental: ${(classification.scores.procedural * 100).toFixed(0)}%, memorización: ${(classification.scores.memorization * 100).toFixed(0)}%`);
-  if (classification.detectedSkills.length > 0) {
-    console.log(`[Generation] Habilidades detectadas: ${classification.detectedSkills.join(', ')}`);
+  const primarySkill = classification.detectedSkills[0];
+  const learningPath = classification.detectedSkills;
+
+  if (learningPath.length > 0) {
+    console.log(`[Generation] Habilidades detectadas (${learningPath.length}): ${learningPath.map(s => `${s.skillId}(${(s.confidence * 100).toFixed(0)}%)`).join(', ')}`);
+    console.log(`[Generation] Habilidad primaria: ${primarySkill?.skillLabel ?? 'ninguna'}`);
+    if (learningPath.length > 1) {
+      console.log(`[Generation] Ruta de aprendizaje: ${learningPath.slice(1).map(s => s.skillLabel).join(' -> ')}`);
+    }
   }
 
   let prompt: string;
   let systemMsg: string;
 
-  if (classification.type === 'PROCEDURAL') {
-    prompt = buildProceduralPrompt(transcription, curso, classification.detectedSkills);
-    systemMsg = `Eres un diseñador de sesiones de aprendizaje procedimental para estudiantes chilenos de enseñanza media. Tu filosofía: GANCHO → MÉTODO → PRÁCTICA → ERROR → DESAFÍO → VICTORIA. Cada pantalla construye competencia para resolver ejercicios del mismo tipo. NO explicaciones conceptuales abstractas — pasos concretos con ejemplos reales. Genera exactamente 7 pantallas en el orden indicado. JSON válido únicamente. Todo en español.`;
+  if (classification.type === 'PROCEDURAL' && primarySkill) {
+    prompt = buildFocusedProceduralPrompt(transcription, curso, primarySkill, learningPath);
+    systemMsg = `Eres un diseñador de sesiones de aprendizaje procedimental para estudiantes chilenos de enseñanza media. Esta misión enseña UNA SOLA habilidad. Tu filosofía: GANCHO → MÉTODO PASO A PASO → EJEMPLO RESUELTO → PRÁCTICA → ERROR COMÚN → DESAFÍO → VICTORIA. Cada pantalla construye competencia para resolver ejercicios de la habilidad específica. NO mezcles habilidades distintas. Genera exactamente 7 pantallas en el orden indicado. JSON válido únicamente. Todo en español.`;
   } else if (classification.type === 'MEMORIZATION') {
     prompt = buildMemorizationPrompt(transcription, curso);
     systemMsg = `Eres un diseñador de sesiones de aprendizaje por memorización para estudiantes chilenos de enseñanza media. Tu filosofía: DATO → ASOCIACIÓN → RETO → REPASO → CURIOSIDAD → VICTORIA. Cada pantalla usa técnicas de memoria para que los datos sean inolvidables. Genera exactamente 8 pantallas en el orden indicado. JSON válido únicamente. Todo en español.`;
@@ -819,7 +947,7 @@ export async function generateSessionContent(
 
   const groundingScore = sourceQuoteCount > 0 ? 1 : 0;
 
-  return { subject, topic, questions, flashcards, summary, groundingScore };
+  return { subject, topic, questions, flashcards, summary, groundingScore, pedagogicalType: classification.type, primarySkill, learningPath };
 }
 
 // ── Semantic grounding check ──────────────────────────────────────────────────
@@ -1199,6 +1327,10 @@ export function buildGeneratedSession(
       processedAt: new Date().toISOString(),
       groundingValidated: generation.groundingScore >= 0.5,
       groundingScore: generation.groundingScore,
+      pedagogicalType: generation.pedagogicalType,
+      primarySkillId: generation.primarySkill?.skillId,
+      primarySkillLabel: generation.primarySkill?.skillLabel,
+      learningPath: generation.learningPath?.slice(1).map(s => ({ skillId: s.skillId, skillLabel: s.skillLabel, priority: s.priority })),
     },
     xpReward,
     gemReward,

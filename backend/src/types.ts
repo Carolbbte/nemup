@@ -4,6 +4,13 @@
 
 export type SessionFormat = 'quizzes' | 'flashcards' | 'summary' | 'mindmap';
 
+export interface DetectedSkill {
+  skillId: string;
+  skillLabel: string;
+  confidence: number;
+  priority: number;
+}
+
 export type DifficultyLevel = 'easy' | 'adaptive' | 'hard';
 
 export interface SessionConfig {
@@ -90,6 +97,10 @@ export interface GeneratedSession {
     processedAt: string;
     groundingValidated: boolean;
     groundingScore: number;
+    pedagogicalType?: string;
+    primarySkillId?: string;
+    primarySkillLabel?: string;
+    learningPath?: Pick<DetectedSkill, 'skillId' | 'skillLabel' | 'priority'>[];
   };
   xpReward: number;
   gemReward: number;
