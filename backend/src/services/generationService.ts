@@ -679,11 +679,15 @@ Ejercicio NIVEL 2. Más complejo que pantalla 4. Practica "${skill}" con número
 - correctAnswer: "A", "B", "C" o "D" — verifica que sea matemáticamente correcto.
 - definition: feedback emocional. DEBE empezar con 🔥, 🚀, ⚡ o 🎯. Max 20 palabras.
 
-PANTALLA 8 — type: "challenge" — emoji: 💭  [REFLEXIÓN sobre "${skill}"]
-Momento de reflexión no interactiva.
-- title: "Reflexiona"
-- definition: pregunta abierta sobre "${skill}" conectada con la vida real o con otra asignatura. Max 30 palabras.
-  Formula una pregunta del tipo "¿Qué pasaría si...?" o "¿Cómo aplicarías ${skill}...?".
+PANTALLA 8 — type: "challenge" — emoji: 🧠  [CONFUSIÓN CONCEPTUAL sobre "${skill}"]
+Explica la confusión conceptual más frecuente cometida por estudiantes al trabajar "${skill}".
+REGLA CRÍTICA: NO repitas la respuesta correcta de pantallas anteriores. NO empieces con "Recuerda:".
+ESTRUCTURA OBLIGATORIA:
+  1. Describe qué es lo que los estudiantes suelen creer erróneamente (la confusión).
+  2. Explica en una frase por qué esa confusión parece razonable.
+  3. Muestra en una frase la distinción correcta que la deshace.
+- title: elige UNO de: "🤔 ¿Por qué ocurre este error?", "💡 La clave está aquí", "🧠 El error más común"
+- definition: 2-3 frases. Entre 30 y 80 palabras. Lenguaje simple y directo.
 - question: null, options: null, correctAnswer: null
 
 PANTALLA 9 — type: "final_challenge" — emoji: 🏆  [INTERACTIVA — NIVEL 3 de "${skill}"]
