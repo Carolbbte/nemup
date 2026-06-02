@@ -295,16 +295,38 @@ function buildSummarySlides(backendSlides: BackendSlide[], questions: Question[]
     const keyWords = (text: string): Set<string> =>
       new Set(text.toLowerCase().replace(/[^a-záéíóúüñ\s]/g, ' ').split(/\s+/).filter(w => w.length >= 3 && !STOPS.has(w)));
 
-    // Step 1: validity + trim definitions > 45 words
-    let valid = backendSlides.filter(s => {
-      const hasContent = !!(s.title?.trim() || s.definition?.trim());
-      const interOk = !INTER.includes(s.type) || s.type === 'order_sequence' ||
-        (s.type === 'wow_fact') || !!(s.question?.trim() && s.options?.length);
-      if (!hasContent || !interOk) {
-        console.warn(`[Summary] Skipping incomplete slide: ${s.type}`);
-        return false;
+    // Step 1: sanitise — never drop, always convert/fallback
+    const SLIDE_CONTENT_FALLBACKS: Record<string, { title: string; definition: string }> = {
+      mission: { title: '¡Comienza la misión!', definition: 'Al terminar, podrás aplicar lo aprendido con confianza.' },
+      main_concept: { title: 'Concepto principal', definition: 'Este es el concepto central que debes comprender bien.' },
+      comprehension: { title: '¿Comprendiste?', definition: '🎯 Reflexiona sobre lo que acabas de ver.' },
+      mini_quiz: { title: 'Quiz rápido', definition: '⚡ Aplica lo que aprendiste.' },
+      process_flow: { title: 'El método', definition: 'Paso 1: Analiza → Paso 2: Aplica → Paso 3: Verifica' },
+      application: { title: '¿Dónde se aplica?', definition: 'Este concepto tiene aplicaciones concretas en la vida real.' },
+      common_error: { title: 'Error frecuente', definition: '❌ Muchos cometen este error. ✅ La forma correcta es aplicar el método.' },
+      decide: { title: '¿Cuál es correcto?', definition: '🔥 Analiza las opciones y decide cuál es la correcta.' },
+      final_challenge: { title: 'Desafío final', definition: '🏆 Demuestra tu dominio aplicando todo lo aprendido.' },
+      challenge: { title: 'Reflexiona', definition: 'Piensa en cómo aplicarías este concepto en una situación real.' },
+      victory: { title: '¡Misión completada!', definition: 'Aprendiste los conceptos clave de esta sesión.' },
+    };
+    const applyFallback = (s: BackendSlide): BackendSlide => {
+      const fb = SLIDE_CONTENT_FALLBACKS[s.type] ?? { title: 'Contenido', definition: 'Revisa este concepto con tu material.' };
+      return {
+        ...s,
+        title: s.title?.trim() ? s.title : fb.title,
+        definition: s.definition?.trim() ? s.definition : fb.definition,
+      };
+    };
+
+    let valid = backendSlides.map(s => {
+      // Convert interactive slides with missing question/options to non-interactive
+      if (INTER.includes(s.type) && s.type !== 'order_sequence' && s.type !== 'wow_fact') {
+        if (!s.question?.trim() || !s.options?.length) {
+          console.warn(`[Summary] Interactive slide ${s.type} missing question/options — converting to challenge`);
+          return applyFallback({ ...s, type: 'challenge' as SummarySlideType, question: null, options: null, correctAnswer: null });
+        }
       }
-      return true;
+      return applyFallback(s);
     }).map(s => {
       if (!s.definition) return s;
       const words = s.definition.trim().split(/\s+/);
@@ -530,12 +552,12 @@ export default function SessionPlayerScreen() {
         return out;
       });
 
-  // Pre-built slides (stable reference, recomputes only when session changes)
-  const missionSlides = useMemo(
-    () => buildSummarySlides(summarySlides, questions),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [session],
-  );
+  // Pre-built slides — useState so adaptive correction can inject remedial slides
+  const [missionSlides, setMissionSlides] = useState<SummarySlide[]>([]);
+  useEffect(() => {
+    setMissionSlides(buildSummarySlides(summarySlides, questions));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [session]);
 
   const [phase, setPhase]           = useState<Phase>('lobby');
   const [completedModes, setCompleted] = useState<Set<string>>(new Set());
@@ -670,7 +692,7 @@ export default function SessionPlayerScreen() {
     if (slide?.type !== 'victory') return;
     if (masteryLevel !== null) return; // already computed
 
-    const V_INTER = ['comprehension', 'mini_quiz', 'final_challenge', 'decide', 'order_sequence'];
+    const V_INTER = ['comprehension', 'mini_quiz', 'final_challenge', 'decide', 'order_sequence', 'common_error'];
     const interSlides = missionSlides.map((s, i) => ({ s, i })).filter(({ s }) => V_INTER.includes(s.type));
     const interTotal = interSlides.length;
     const interCorrect = interSlides.filter(({ s, i }) =>
@@ -1116,10 +1138,10 @@ export default function SessionPlayerScreen() {
     const slideQuizAnswered = slide?.type === 'quiz' ? quizAnswers[summaryIdx] : undefined;
     // Stats for victory screen — computed once, used in victory card renderer
     const V_CONCEPT   = ['main_concept', 'key_relation', 'process_flow', 'application', 'common_error', 'challenge'];
-    const V_INTER     = ['comprehension', 'mini_quiz', 'final_challenge', 'decide', 'order_sequence'];
+    const V_INTER     = ['comprehension', 'mini_quiz', 'final_challenge', 'decide', 'order_sequence', 'common_error'];
     const vConcepts   = slides.filter(s => V_CONCEPT.includes(s.type)).length;
-    const vInterTotal = slides.filter(s => V_INTER.includes(s.type)).length;
-    const vCorrect    = slides.filter((s, i) => V_INTER.includes(s.type) && quizAnswers[i] === (s as BackendSlide).correctAnswer).length;
+    const vInterTotal = slides.filter((s, i) => V_INTER.includes(s.type) && !!(s as BackendSlide).correctAnswer).length;
+    const vCorrect    = slides.filter((s, i) => V_INTER.includes(s.type) && !!(s as BackendSlide).correctAnswer && quizAnswers[i] === (s as BackendSlide).correctAnswer).length;
 
     const goNext = () => {
       Vibration.vibrate(18);
@@ -1134,6 +1156,26 @@ export default function SessionPlayerScreen() {
         if (done) runOnJS(setSummaryIdx)(summaryIdx - 1);
       });
       slideOpacity.value = withTiming(0, { duration: 180 });
+    };
+
+    // Adaptive correction: insert a remedial slide after a wrong answer
+    const insertCorrectiveSlide = (wrongSlide: BackendSlide) => {
+      const corrective: BackendSlide = {
+        type: 'challenge' as SummarySlideType,
+        emoji: '💡',
+        title: 'Repasemos',
+        definition: wrongSlide.definition?.trim()
+          ? `Recuerda: ${wrongSlide.title}. ${wrongSlide.definition.slice(0, 80)}`
+          : `Repasa el concepto "${wrongSlide.title}" antes de continuar.`,
+        example: wrongSlide.example ?? null,
+        question: null, options: null, correctAnswer: null,
+      };
+      setMissionSlides(prev => {
+        const insertAt = summaryIdx + 1;
+        // Don't insert if a corrective slide is already there
+        if (prev[insertAt]?.type === 'challenge' && prev[insertAt]?.title === 'Repasemos') return prev;
+        return [...prev.slice(0, insertAt), corrective as SummarySlide, ...prev.slice(insertAt)];
+      });
     };
 
     return (
@@ -1241,41 +1283,66 @@ export default function SessionPlayerScreen() {
                 </LinearGradient>
               </View>
             ) : slide?.type === 'main_concept' ? (
-              <View style={sum.mainCard}>
-                <View style={sum.mainCardHeader}>
-                  <Text style={sum.mainCardLabel}>💡 CONCEPTO PRINCIPAL</Text>
+              (() => {
+              // Detect step-by-step format: lines starting with "Paso N:" or "Problema:" or "Resultado:"
+              const STEP_RE = /^(Problema|Paso\s*\d+|Resultado)\s*:/i;
+              const defLines = (slide.definition ?? '').split(/\\n|\n/).map(l => l.trim()).filter(Boolean);
+              const isProcedural = defLines.length >= 3 && defLines.some(l => STEP_RE.test(l));
+              return (
+                <View style={sum.mainCard}>
+                  <View style={sum.mainCardHeader}>
+                    <Text style={sum.mainCardLabel}>📐 EJEMPLO GUIADO</Text>
+                  </View>
+                  <View style={sum.mainCardBody}>
+                    <Text style={sum.mainCardEmoji}>{slide.emoji}</Text>
+                    <Text style={sum.mainCardTitle}>{slide.title}</Text>
+                    {slide.connector?.includes('↓') ? (
+                      <View style={sum.chainContainer}>
+                        {slide.connector.split('↓').map((part, i) => {
+                          const text = part.trim();
+                          if (!text) return null;
+                          return i % 2 === 0 ? (
+                            <View key={i} style={sum.chainNode}>
+                              <Text style={sum.chainNodeText}>{text}</Text>
+                            </View>
+                          ) : (
+                            <View key={i} style={sum.chainLink}>
+                              <Text style={sum.chainLinkArrow}>↓</Text>
+                              <Text style={sum.chainLinkText}>{text}</Text>
+                            </View>
+                          );
+                        })}
+                      </View>
+                    ) : isProcedural ? (
+                      <View style={sum.stepsContainer}>
+                        {defLines.map((line, i) => {
+                          const isResult = /^Resultado\s*:/i.test(line);
+                          const isProblem = /^Problema\s*:/i.test(line);
+                          const label = line.split(':')[0].trim();
+                          const content = line.slice(line.indexOf(':') + 1).trim();
+                          return (
+                            <View key={i} style={[sum.stepRow, isResult && sum.stepRowResult, isProblem && sum.stepRowProblem]}>
+                              <View style={[sum.stepBadge, isResult && sum.stepBadgeResult, isProblem && sum.stepBadgeProblem]}>
+                                <Text style={sum.stepBadgeText}>{label}</Text>
+                              </View>
+                              <Text style={[sum.stepContent, isResult && sum.stepContentResult]}>{content}</Text>
+                            </View>
+                          );
+                        })}
+                      </View>
+                    ) : (
+                      !!slide.definition && <Text style={sum.mainCardDef}>{slide.definition}</Text>
+                    )}
+                    {!!slide.example && (
+                      <View style={sum.exampleBox}>
+                        <Text style={sum.exampleLabel}>✅ Comprobación</Text>
+                        <Text style={sum.exampleText}>{slide.example}</Text>
+                      </View>
+                    )}
+                  </View>
                 </View>
-                <View style={sum.mainCardBody}>
-                  <Text style={sum.mainCardEmoji}>{slide.emoji}</Text>
-                  <Text style={sum.mainCardTitle}>{slide.title}</Text>
-                  {slide.connector?.includes('↓') ? (
-                    <View style={sum.chainContainer}>
-                      {slide.connector.split('↓').map((part, i) => {
-                        const text = part.trim();
-                        if (!text) return null;
-                        return i % 2 === 0 ? (
-                          <View key={i} style={sum.chainNode}>
-                            <Text style={sum.chainNodeText}>{text}</Text>
-                          </View>
-                        ) : (
-                          <View key={i} style={sum.chainLink}>
-                            <Text style={sum.chainLinkArrow}>↓</Text>
-                            <Text style={sum.chainLinkText}>{text}</Text>
-                          </View>
-                        );
-                      })}
-                    </View>
-                  ) : (
-                    !!slide.definition && <Text style={sum.mainCardDef}>{slide.definition}</Text>
-                  )}
-                  {!!slide.example && (
-                    <View style={sum.exampleBox}>
-                      <Text style={sum.exampleLabel}>📌 En tu vida</Text>
-                      <Text style={sum.exampleText}>{slide.example}</Text>
-                    </View>
-                  )}
-                </View>
-              </View>
+              );
+              })()
             ) : slide?.type === 'comprehension' ? (
               <View style={sum.quizCard}>
                 <Text style={[sum.quizLabel, { color: '#7C5AFF' }]}>🧩 COMPRENSIÓN</Text>
@@ -1290,7 +1357,7 @@ export default function SessionPlayerScreen() {
                     const dimmed    = !!answered && !isCorrect && answered !== letter;
                     return (
                       <Pressable key={i}
-                        onPress={() => { if (!answered) { setQuizAnswers(prev => ({ ...prev, [summaryIdx]: letter })); if (isCorrect) showSummaryReward(); } }}
+                        onPress={() => { if (!answered) { setQuizAnswers(prev => ({ ...prev, [summaryIdx]: letter })); if (isCorrect) showSummaryReward(); else insertCorrectiveSlide(slide as BackendSlide); } }}
                         style={[sum.quizOption, showGreen && sum.quizOptCorrect, showRed && sum.quizOptWrong, { opacity: dimmed ? 0.35 : 1 }]}
                       >
                         <View style={[sum.quizLetter, showGreen && sum.quizLetterGreen, showRed && sum.quizLetterRed]}>
@@ -1365,7 +1432,7 @@ export default function SessionPlayerScreen() {
                     const dimmed    = !!answered && !isCorrect && answered !== letter;
                     return (
                       <Pressable key={i}
-                        onPress={() => { if (!answered) { setQuizAnswers(prev => ({ ...prev, [summaryIdx]: letter })); if (isCorrect) showSummaryReward(); } }}
+                        onPress={() => { if (!answered) { setQuizAnswers(prev => ({ ...prev, [summaryIdx]: letter })); if (isCorrect) showSummaryReward(); else insertCorrectiveSlide(slide as BackendSlide); } }}
                         style={[sum.quizOption, showGreen && sum.quizOptCorrect, showRed && sum.quizOptWrong, { opacity: dimmed ? 0.35 : 1 }]}
                       >
                         <View style={[sum.quizLetter, showGreen && sum.quizLetterGreen, showRed && sum.quizLetterRed]}>
@@ -1432,7 +1499,53 @@ export default function SessionPlayerScreen() {
                 </View>
               </View>
             ) : slide?.type === 'common_error' ? (
-              !slide.definition || !slide.example ? (
+              // Interactive "find the error" when question + options present
+              slide.question && slide.options?.length ? (
+                <View style={sum.errorCard}>
+                  <View style={sum.errorHeader}>
+                    <Text style={sum.errorIcon}>⚠️</Text>
+                    <Text style={sum.errorHeaderLabel}>Encuentra el Error</Text>
+                  </View>
+                  <View style={sum.errorBody}>
+                    {!!slide.definition && (
+                      <View style={sum.errorWrongBox}>
+                        <Text style={sum.errorWrongLabel}>Analiza esta solución</Text>
+                        <Text style={sum.errorWrongText}>{slide.definition}</Text>
+                      </View>
+                    )}
+                    <Text style={[sum.quizQuestion, { marginTop: 10 }]}>{slide.question}</Text>
+                    <View style={{ gap: 8, marginTop: 8 }}>
+                      {slide.options.map((opt, i) => {
+                        const letter = LETTERS[i];
+                        const answered = quizAnswers[summaryIdx];
+                        const isCorrect = slide.correctAnswer === letter;
+                        const showGreen = !!answered && isCorrect;
+                        const showRed = answered === letter && !isCorrect;
+                        const dimmed = !!answered && !isCorrect && answered !== letter;
+                        return (
+                          <Pressable key={i}
+                            onPress={() => { if (!answered) { setQuizAnswers(prev => ({ ...prev, [summaryIdx]: letter })); if (isCorrect) showSummaryReward(); else insertCorrectiveSlide(slide as BackendSlide); } }}
+                            style={[sum.quizOption, showGreen && sum.quizOptCorrect, showRed && sum.quizOptWrong, { opacity: dimmed ? 0.35 : 1 }]}
+                          >
+                            <View style={[sum.quizLetter, showGreen && sum.quizLetterGreen, showRed && sum.quizLetterRed]}>
+                              {showGreen ? <Check size={12} color="white" strokeWidth={3} /> :
+                               showRed   ? <X    size={12} color="white" strokeWidth={3} /> :
+                               <Text style={sum.quizLetterText}>{letter}</Text>}
+                            </View>
+                            <Text style={[sum.quizOptText, showGreen && { color: '#065F46', fontWeight: '700' }, showRed && { color: '#991B1B', fontWeight: '700' }]}>{opt}</Text>
+                          </Pressable>
+                        );
+                      })}
+                    </View>
+                    {!!quizAnswers[summaryIdx] && !!slide.example && (
+                      <View style={[sum.errorRightBox, { marginTop: 10 }]}>
+                        <Text style={sum.errorRightLabel}>✅ Solución correcta</Text>
+                        <Text style={sum.errorRightText}>{slide.example}</Text>
+                      </View>
+                    )}
+                  </View>
+                </View>
+              ) : !slide.definition || !slide.example ? (
                 <View style={sum.introCard}>
                   <Text style={sum.slideEmoji}>{slide.emoji}</Text>
                   <Text style={sum.introHeading}>{slide.title}</Text>
@@ -1476,7 +1589,7 @@ export default function SessionPlayerScreen() {
                       const dimmed    = !!answered && !isCorrect && answered !== letter;
                       return (
                         <Pressable key={i}
-                          onPress={() => !answered && setQuizAnswers(prev => ({ ...prev, [summaryIdx]: letter }))}
+                          onPress={() => { if (!answered) { setQuizAnswers(prev => ({ ...prev, [summaryIdx]: letter })); if (slide.correctAnswer !== letter) insertCorrectiveSlide(slide as BackendSlide); } }}
                           style={[sum.quizOption, showGreen && sum.quizOptCorrect, showRed && sum.quizOptWrong, { opacity: dimmed ? 0.35 : 1 }]}
                         >
                           <View style={[sum.quizLetter, showGreen && sum.quizLetterGreen, showRed && sum.quizLetterRed]}>
@@ -1517,7 +1630,7 @@ export default function SessionPlayerScreen() {
                     const dimmed    = !!answered && !isCorrect && answered !== letter;
                     return (
                       <Pressable key={i}
-                        onPress={() => { if (!answered) { setQuizAnswers(prev => ({ ...prev, [summaryIdx]: letter })); if (isCorrect) showSummaryReward(); } }}
+                        onPress={() => { if (!answered) { setQuizAnswers(prev => ({ ...prev, [summaryIdx]: letter })); if (isCorrect) showSummaryReward(); else insertCorrectiveSlide(slide as BackendSlide); } }}
                         style={[sum.quizOption, showGreen && sum.quizOptCorrect, showRed && sum.quizOptWrong, { opacity: dimmed ? 0.35 : 1 }]}
                       >
                         <View style={[sum.quizLetter, showGreen && sum.quizLetterGreen, showRed && sum.quizLetterRed]}>
@@ -1633,7 +1746,7 @@ export default function SessionPlayerScreen() {
                 : null;
 
               // Intelligent reflection — based on which slides were answered wrong
-              const V_INTER = ['comprehension', 'mini_quiz', 'final_challenge', 'decide', 'order_sequence'];
+              const V_INTER = ['comprehension', 'mini_quiz', 'final_challenge', 'decide', 'order_sequence', 'common_error'];
               const wrongSlides = missionSlides
                 .map((s, i) => ({ s: s as BackendSlide, i }))
                 .filter(({ s, i }) =>
@@ -1794,7 +1907,7 @@ export default function SessionPlayerScreen() {
                       const dimmed    = !!answered && !isCorrect && answered !== letter;
                       return (
                         <Pressable key={i}
-                          onPress={() => { if (!answered) { setQuizAnswers(prev => ({ ...prev, [summaryIdx]: letter })); if (isCorrect) showSummaryReward(); } }}
+                          onPress={() => { if (!answered) { setQuizAnswers(prev => ({ ...prev, [summaryIdx]: letter })); if (isCorrect) showSummaryReward(); else insertCorrectiveSlide(slide as BackendSlide); } }}
                           style={[sum.quizOption, showGreen && sum.quizOptCorrect, showRed && sum.quizOptWrong, { opacity: dimmed ? 0.35 : 1 }]}
                         >
                           <View style={[sum.quizLetter, showGreen && sum.quizLetterGreen, showRed && sum.quizLetterRed]}>
@@ -1862,7 +1975,7 @@ export default function SessionPlayerScreen() {
           {/* CTA */}
           <View style={[g.bottom, { paddingBottom: insets.bottom + 12 }]}>
             {((slide?.type === 'quiz' && !slideQuizAnswered) ||
-              ((slide?.type === 'comprehension' || slide?.type === 'mini_quiz' || slide?.type === 'final_challenge' || slide?.type === 'decide' || slide?.type === 'order_sequence' || (slide?.type === 'wow_fact' && !!slide.question)) && !quizAnswers[summaryIdx])) ? (
+              ((slide?.type === 'comprehension' || slide?.type === 'mini_quiz' || slide?.type === 'final_challenge' || slide?.type === 'decide' || slide?.type === 'order_sequence' || (slide?.type === 'common_error' && !!slide.question) || (slide?.type === 'wow_fact' && !!slide.question)) && !quizAnswers[summaryIdx])) ? (
               <View style={g.ctaBtnOff}>
                 <Text style={g.ctaTextOff}>Elige una opción</Text>
               </View>
@@ -2508,6 +2621,18 @@ const sum = StyleSheet.create({
   mainCardEmoji:  { fontSize: SM ? 36 : 44, marginBottom: 10 },
   mainCardTitle:  { fontSize: SM ? 20 : 24, fontWeight: '900', color: Colors.ink, letterSpacing: -0.4, lineHeight: SM ? 26 : 30, marginBottom: 8 },
   mainCardDef:    { fontSize: SM ? 14 : 15, color: Colors.ink2, lineHeight: SM ? 21 : 24, fontWeight: '500' },
+
+  // Step-by-step renderer (main_concept procedural)
+  stepsContainer: { gap: 8, marginTop: 4 },
+  stepRow:        { flexDirection: 'row', alignItems: 'flex-start', gap: 10, backgroundColor: 'rgba(91,61,245,0.05)', borderRadius: 12, padding: 10, borderLeftWidth: 3, borderLeftColor: BRAND },
+  stepRowProblem: { backgroundColor: 'rgba(0,0,0,0.04)', borderLeftColor: '#888' },
+  stepRowResult:  { backgroundColor: 'rgba(5,150,105,0.08)', borderLeftColor: '#059669' },
+  stepBadge:      { backgroundColor: BRAND, borderRadius: 8, paddingHorizontal: 8, paddingVertical: 3, minWidth: 54, alignItems: 'center' },
+  stepBadgeProblem: { backgroundColor: '#888' },
+  stepBadgeResult:{ backgroundColor: '#059669' },
+  stepBadgeText:  { fontSize: 10, fontWeight: '900', color: 'white', letterSpacing: 0.5 },
+  stepContent:    { flex: 1, fontSize: SM ? 13 : 14, color: Colors.ink2, lineHeight: 20, fontWeight: '500' },
+  stepContentResult: { color: '#065F46', fontWeight: '700' },
 
   // Key relation card
   relationCard:       { backgroundColor: 'white', borderRadius: 24, padding: SM ? 20 : 24, shadowColor: '#0B0B1A', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.09, shadowRadius: 20, elevation: 5 },

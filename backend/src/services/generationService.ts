@@ -542,7 +542,7 @@ Cadena: [f(g(x))]' = f'(g(x))·g'(x)
 EJEMPLO: f(x) = 3x² + 2x − 5 → f'(x) = 6x + 2`,
 };
 
-// ── PROCEDURAL prompt (focused on ONE skill) ──────────────────────────────────
+// ── PROCEDURAL prompt (multi-skill, new pedagogical structure) ────────────────
 
 function buildFocusedProceduralPrompt(
   transcription: string,
@@ -552,187 +552,165 @@ function buildFocusedProceduralPrompt(
 ): string {
   const algorithm = SKILL_ALGORITHMS[primarySkill.skillId] ?? '';
 
-  // Build "upcoming missions" text for the victory screen
-  const upcoming = learningPath
-    .filter(s => s.skillId !== primarySkill.skillId)
-    .slice(0, 4)
-    .map((s, i) => `${i + 2}️⃣ ${s.skillLabel}`)
-    .join(' • ');
-  const upcomingLine = upcoming
-    ? `Próximas misiones: ${upcoming}`
-    : 'Próximo desafío: explora habilidades relacionadas en tu guía.';
+  // All skills for this mission (up to 3)
+  const allSkills = learningPath.slice(0, 3);
+  const skill1 = allSkills[0];
+  const skill2 = allSkills[1] ?? null;
+  const skill3 = allSkills[2] ?? null;
+  const coverageTarget = Math.ceil(allSkills.length * 0.8);
+  const skillsList = allSkills.map((s, i) => `  ${i + 1}. ${s.skillLabel}`).join('\n');
+
+  // Screen 7 and 9 skill assignments for multi-skill coverage
+  const screen7skill = skill2 ? skill2.skillLabel : skill1.skillLabel;
+  const screen9skill = skill3 ? skill3.skillLabel : (skill2 ? `${skill1.skillLabel} + ${skill2.skillLabel}` : skill1.skillLabel);
+  const victoryChecklist = allSkills.map(s => `✓ ${s.skillLabel}`).join(' • ');
 
   return `Eres un diseñador de sesiones de aprendizaje PROCEDIMENTAL para estudiantes chilenos de enseñanza media (${curso}).
 
-⚠️ REGLA DE ENFOQUE ÚNICO — LEE ANTES DE GENERAR CUALQUIER COSA:
-Esta misión enseña ÚNICAMENTE la habilidad: "${primarySkill.skillLabel}"
-PROHIBIDO incluir ejercicios, preguntas o contenido de otras habilidades.
-TODAS las pantallas (método, ejemplos, preguntas, desafío) deben tratar exclusivamente "${primarySkill.skillLabel}".
-Si el documento contiene otras habilidades (ordenar, convertir, clasificar, etc.) → IGNORARLAS en esta misión.
-
-⚠️ REGLA DE CONTENIDO: TODO el contenido (pasos, números, ejemplos) DEBE derivarse de la transcripción.
-No inventes ejercicios ajenos al documento. Usa los MISMOS tipos de problemas del material.
+RETORNA SOLO JSON VÁLIDO. Sin texto extra. Todo en español.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-ALGORITMO REAL PARA ESTA HABILIDAD:
-(Usa este algoritmo en el método y en el ejemplo guiado. Adapta los números al documento.)
+HABILIDADES A CUBRIR EN ESTA MISIÓN:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+${skillsList}
+COBERTURA MÍNIMA: esta misión DEBE enseñar al menos ${coverageTarget} de las ${allSkills.length} habilidades listadas.
+Distribuye los ejercicios interactivos entre habilidades distintas cuando hay más de una.
+
+REGLA DE CONTENIDO: TODO el contenido (pasos, números, ejemplos) DEBE derivarse de la transcripción.
+No inventes ejercicios que no estén en el documento. Usa los MISMOS tipos de problemas del material.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ALGORITMO PARA "${skill1.skillLabel}":
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ${algorithm || 'Extrae los pasos del procedimiento directamente desde la transcripción.'}
 
-RETORNA SOLO JSON VÁLIDO. Sin texto extra. Todo en español.
-
 PREGUNTAS Y FLASHCARDS:
-- TODAS sobre "${primarySkill.skillLabel}" EXCLUSIVAMENTE. Ninguna de otra habilidad.
+- Cubren TODAS las habilidades de la misión (no solo una).
 - Preguntas: el estudiante aplica el procedimiento a un problema concreto (NO definiciones).
-- Flashcards: frente = un paso o situación del procedimiento; reverso = la acción o resultado correcto.
+- Flashcards: frente = un paso o situación; reverso = la acción o resultado correcto.
 - difficulty: "easy" = identificar el método, "medium" = aplicarlo, "hard" = detectar error en la aplicación.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-ANÁLISIS PREVIO OBLIGATORIO — haz esto ANTES de escribir el JSON:
+ANÁLISIS PREVIO (completa mentalmente ANTES de escribir el JSON):
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-1. Extrae de la transcripción TODOS los ejercicios o problemas mencionados con sus números reales.
-2. Asigna niveles de dificultad a esos ejercicios:
-   - NIVEL 1 (RECONOCER): estructura más simple del documento, máx 2 cifras decimales o fracciones sencillas.
-   - NIVEL 2 (COMPRENDER): estructura media, 2-3 cifras decimales o fracciones con denominadores distintos.
-   - NIVEL 3 (APLICAR): estructura compleja, 3+ cifras decimales, valores límite, casos especiales.
-   - NIVEL 4 (RESOLVER): el problema más difícil del documento, puede combinar 2 variantes del método.
-3. Asigna: pantalla 4 = NIVEL 1, pantalla 5 = NIVEL 2, pantalla 7 = NIVEL 3, pantalla 9 = NIVEL 4.
-4. Verifica que los 4 problemas usen números DISTINTOS entre sí (ningún par de ejercicios equivalentes).
+1. Extrae de la transcripción TODOS los ejercicios con sus números reales.
+2. Asigna niveles: NIVEL 1 (más simple) → NIVEL 3 (más complejo).
+3. Pantalla 4 = NIVEL 1 sobre "${skill1.skillLabel}".
+4. Pantalla 7 = NIVEL 2 sobre "${screen7skill}" (habilidad diferente si hay más de una).
+5. Pantalla 9 = NIVEL 3 sobre "${screen9skill}" (el más difícil o combinado).
+6. Los tres problemas DEBEN usar números DISTINTOS entre sí.
 
-⚠️ REGLA DE NO REPETICIÓN — CRÍTICA:
-Dos ejercicios son EQUIVALENTES si:
-- Usan los mismos números aunque en diferente orden.
-- Sus opciones de respuesta son las mismas reordenadas.
-EJEMPLO PROHIBIDO:
-❌ Pantalla 4: "Ordena 0,4 y 0,45 de menor a mayor" → respuesta: 0,4 < 0,45
-❌ Pantalla 5: "Ordena 0,45 y 0,4 de mayor a menor" → respuesta: 0,45 > 0,4
-Estos son el MISMO ejercicio. PROHIBIDO.
-EJEMPLO CORRECTO:
-✅ Pantalla 4: "Ordena 0,3 y 0,25 de menor a mayor" (nivel 1 — 2 números, 2 dec)
-✅ Pantalla 5: "Ordena 0,307 ; 0,31 y 0,3 de menor a mayor" (nivel 2 — 3 números, 3 dec)
-✅ Pantalla 7: "Ordena 0,405 ; 0,450 y 0,456 de menor a mayor" (nivel 3 — similar magnitud)
-✅ Pantalla 9: "Ordena 0,4050 ; 0,4500 ; 0,4056 y 0,4560 de menor a mayor" (nivel 4 — 4 números confusos)
+CRITERIO DE NO REPETICIÓN:
+❌ Prohibido: pantalla 4 "Ordena 0,4 y 0,45" y pantalla 7 "Ordena 0,45 y 0,4" — mismos números reordenados.
+✅ Correcto: pantalla 4 usa valores simples, pantalla 7 usa más cifras, pantalla 9 usa el caso más complejo.
 
-⚠️ REGLA NUNCA-VACÍO:
-Cada pantalla DEBE tener title ≥ 3 palabras y definition ≥ 10 palabras. Antes de finalizar, revisa las 10 pantallas.
+CRITERIO NUNCA-VACÍO:
+Cada pantalla DEBE tener title con ≥ 3 palabras y definition con ≥ 10 palabras. Sin excepción.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-LAS 10 PANTALLAS — generar EXACTAMENTE en este orden:
+LAS 10 PANTALLAS — ESTRUCTURA PEDAGÓGICA FIJA:
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-PANTALLA 1 — type: "mission" — emoji: 🎯
-EL GANCHO — pregunta concreta sobre el problema que aprenderán a resolver.
-- title: Pregunta sobre "${primarySkill.skillLabel}". DEBE terminar en "?". Max 14 palabras.
-  ✅ Ejemplos de FORMATO (no copiar — crea uno para ESTA habilidad):
-  "¿Cómo transformas 4/15 a decimal sin que te salga un número infinito?"
-  "¿Puedes ordenar 0,3 y 0,25 de menor a mayor sin equivocarte?"
-  "¿Sabes cuándo un decimal deja de ser exacto y se convierte en periódico?"
-- definition: Anticipa lo que PODRÁN HACER al terminar (no lo que aprenderán). Max 20 palabras.
-  ✅ "Al terminar esta misión, resolverás cualquier ejercicio de este tipo en segundos."
-- example: área temática en 3-5 palabras. Ej: "Matemáticas · 2° Medio"
+PANTALLA 1 — type: "mission" — emoji: 🎯  [GANCHO]
+- title: pregunta motivadora sobre la habilidad principal. DEBE terminar en "?". Max 14 palabras.
+  Escribe una pregunta concreta que genere curiosidad sobre "${skill1.skillLabel}".
+  El estudiante debe pensar "nunca supe cómo hacer esto" o "esto me pasa en clase".
+- definition: lo que PODRÁN HACER al terminar la misión. Max 20 palabras. Empieza con "Al terminar...".
+- example: área temática en 3-5 palabras (ej: "Matemáticas · 2° Medio").
 
-PANTALLA 2 — type: "process_flow" — emoji: ⚙️
-EL MÉTODO — algoritmo paso a paso para "${primarySkill.skillLabel}".
-FORMATO CRÍTICO: definition DEBE ser exactamente "Paso 1: [acción] → Paso 2: [acción] → Paso 3: [acción] → Paso 4: [acción]"
-  - Cada paso: verbo concreto + objeto específico, máximo 8 palabras por paso.
-  - Entre 3 y 4 pasos (el frontend convierte esto en un juego interactivo de ordenamiento).
-  - Los pasos DEBEN ser el algoritmo REAL de arriba, adaptado en forma clara.
-  ✅ Formato obligatorio: "Paso 1: Alinea las comas decimales verticalmente → Paso 2: Agrega ceros hasta igualar cifras → Paso 3: Compara como números enteros → Paso 4: Ordena el resultado"
-  ⚠️ NUNCA copies este ejemplo — usa el algoritmo de ESTA habilidad.
-- title: "Método: ${primarySkill.skillLabel}" (o versión corta si es larga)
-- example: Un mini-ejemplo con números reales del documento (max 25 palabras).
-  Formato: "[Problema real del documento] → Paso 1 aplicado → resultado → conclusión"
+PANTALLA 2 — type: "process_flow" — emoji: ⚙️  [MÉTODO]
+- title: "Método: ${skill1.skillLabel}" (o nombre corto del algoritmo)
+- definition: algoritmo paso a paso en formato EXACTO:
+  "Paso 1: [verbo + acción concreta] → Paso 2: [verbo + acción concreta] → Paso 3: [verbo + acción concreta] → Paso 4: [verbo + acción concreta]"
+  Usa entre 3 y 4 pasos. Máximo 8 palabras por paso. Este texto se convierte en un juego de ordenamiento.
+  NO uses corchetes en el contenido real: escribe los pasos concretos del algoritmo de esta habilidad.
+- example: mini-ejemplo de aplicación con números reales del documento (max 25 palabras).
 
-PANTALLA 3 — type: "main_concept" — emoji: 📐
-EJEMPLO GUIADO — solución completa de un problema concreto del documento.
+PANTALLA 3 — type: "main_concept" — emoji: 📐  [EJEMPLO GUIADO]
 - title: "Ejemplo resuelto"
-- definition: Solución detallada usando EXACTAMENTE el método de la pantalla 2.
-  Formato obligatorio:
-  "Problema: [enunciado concreto con números del documento]\\nPaso 1: [acción exacta con números]\\nPaso 2: [resultado intermedio]\\nPaso 3: [siguiente acción]\\nResultado: [respuesta final]"
-  Max 80 palabras. USA NÚMEROS REALES del documento cuando estén disponibles.
-- example: "✅ Comprobación: [por qué la respuesta es correcta, en max 15 palabras]"
+- definition: solución completa PASO A PASO con números reales del documento. Formato exacto:
+  "Problema: [enunciado con números reales]\\nPaso 1: [acción con esos números]\\nPaso 2: [resultado intermedio]\\nPaso 3: [siguiente acción]\\nResultado: [respuesta final]"
+  Usa \\n para separar cada paso. Max 80 palabras. Usa los MISMOS pasos del método de pantalla 2.
+- example: "✅ Comprobación: [verificación de por qué la respuesta es correcta, max 15 palabras]"
 - connector: null
 
-PANTALLA 4 — type: "comprehension" — emoji: 🧩  [INTERACTIVA — NIVEL 1: RECONOCER]
-TU TURNO (guiado) — NIVEL 1: el problema MÁS SIMPLE de la sesión. Mismo tipo del ejemplo pero con valores del análisis previo nivel 1.
+PANTALLA 4 — type: "comprehension" — emoji: 🧩  [INTERACTIVA — COMPRENSIÓN]
+Ejercicio NIVEL 1 sobre "${skill1.skillLabel}". El más simple de la misión.
 - title: "Tu turno"
-- question: "[Problema de ${primarySkill.skillLabel} — NIVEL 1, números simples distintos al ejemplo]" Max 25 palabras.
-  Usa valores DISTINTOS a pantalla 3 y MENOS complejos que pantallas 5, 7 y 9.
-- options: ["A. ...", "B. ...", "C. ...", "D. ..."] — exactamente 4 opciones.
-  Incluye: resultado correcto, error en paso 1, error en paso 2, error conceptual clásico.
+- question: Escribe un problema concreto de NIVEL 1 sobre "${skill1.skillLabel}" con valores simples del documento. Max 25 palabras. NO uses corchetes — escribe el problema real.
+- options: exactamente 4 opciones numeradas A, B, C, D. Incluye: respuesta correcta, error en paso 1, error en paso 2, error conceptual clásico.
 - correctAnswer: "A", "B", "C" o "D"
-- definition: Explica qué paso falla quien se equivoca. Empieza con 🎯 o ⚡. Max 20 palabras.
+- definition: explica qué paso falla quien se equivoca. DEBE empezar con 🎯 o ⚡. Max 20 palabras.
 
-PANTALLA 5 — type: "mini_quiz" — emoji: ⚡  [INTERACTIVA — NIVEL 2: COMPRENDER]
-PRACTICA TÚ — NIVEL 2: dificultad MEDIA. Más cifras o valores que pantalla 4, menos que 7 y 9.
-- title: "Mini Quiz"
-- question: "[Problema de ${primarySkill.skillLabel} — NIVEL 2, complejidad media, DISTINTOS números a pantallas 3 y 4]" Max 25 palabras.
-  VERIFICA: ¿Los números son distintos a pantalla 4? Si son los mismos reordenados → REESCRIBE.
-- options: ["A. ...", "B. ...", "C. ...", "D. ..."] — exactamente 4 opciones.
-  Distractores: errores plausibles de aplicación en pasos específicos del método.
+PANTALLA 5 — type: "application" — emoji: 🌍  [APLICACIÓN]
+Contexto real donde se usa "${skill1.skillLabel}". NO interactiva.
+- title: escenario concreto y cotidiano donde aplica esta habilidad. Max 15 palabras, preferiblemente pregunta.
+  Piensa: ¿dónde un adolescente usaría esto en su vida real o en otra asignatura?
+- definition: por qué esta habilidad importa fuera del aula. Max 40 palabras. Específico y concreto.
+- example: conexión con algo que el estudiante puede observar o hacer (max 15 palabras).
+- question: null, options: null, correctAnswer: null
+
+PANTALLA 6 — type: "common_error" — emoji: ⚠️  [ENCUENTRA EL ERROR — INTERACTIVA]
+El alumno identifica qué paso tiene un error en una solución incorrecta.
+- title: "Encuentra el error"
+- definition: solución INCORRECTA que el alumno debe analizar. DEBE empezar con "❌". Max 40 palabras.
+  Escribe una solución completa pero con UN error concreto en un paso específico.
+  Formato: "❌ Solución incorrecta: [solución con el error incluido paso a paso]"
+- example: solución CORRECTA. DEBE empezar con "✅". Max 30 palabras.
+  Formato: "✅ La solución correcta: [pasos correctos del procedimiento]"
+- question: "¿En qué paso está el error?" (máx 10 palabras)
+- options: exactamente 4 opciones que identifican el paso erróneo.
+  Escribe opciones concretas relacionadas con los pasos del método, no textos genéricos.
+  Una opción es correcta (identifica el paso con error real), las otras tres son incorrectas.
+  La cuarta opción SIEMPRE es: "D. El procedimiento no tiene errores" (esta es siempre incorrecta).
+- correctAnswer: "A", "B", o "C" (la que identifica el paso real con error)
+
+PANTALLA 7 — type: "decide" — emoji: 🤔  [INTERACTIVA — DESAFÍO]
+Ejercicio NIVEL 2 sobre "${screen7skill}". Más complejo que pantalla 4.
+- title: "¿Cuál es correcto?"
+- question: problema concreto de NIVEL 2 sobre "${screen7skill}" con números distintos a pantallas 3 y 4. Max 30 palabras. NO uses corchetes — escribe el problema real.
+  Si "${screen7skill}" es una habilidad diferente a pantalla 4, usa ejercicios de ESA habilidad.
+- options: 4 opciones (A, B, C, D). Una correcta. Tres errores plausibles.
 - correctAnswer: "A", "B", "C" o "D"
 - definition: feedback emocional. DEBE empezar con 🔥, 🚀, ⚡ o 🎯. Max 20 palabras.
 
-PANTALLA 6 — type: "common_error" — emoji: ⚠️
-ERROR FRECUENTE al aplicar "${primarySkill.skillLabel}".
-- definition: DEBE empezar con "❌" (max 25 palabras)
-  "❌ Muchos cometen el error de [enfoque incorrecto específico de este procedimiento]."
-- example: DEBE empezar con "✅" (max 25 palabras)
-  "✅ La forma correcta es [paso o acción correcta del algoritmo]."
-- title: "Error frecuente"
+PANTALLA 8 — type: "challenge" — emoji: 🤔  [REFLEXIÓN]
+Momento de reflexión no interactiva.
+- title: "Reflexiona"
+- definition: pregunta abierta que conecta lo aprendido con la vida real o con otra asignatura. Max 30 palabras.
+  Formula una pregunta del tipo "¿Qué pasaría si...?" o "¿Cómo aplicarías...?" relacionada con las habilidades de la misión.
 - question: null, options: null, correctAnswer: null
 
-PANTALLA 7 — type: "decide" — emoji: 🤔  [INTERACTIVA — NIVEL 3: APLICAR]
-DECIDE — NIVEL 3: más complejo que pantallas 4 y 5. Valores con mayor número de cifras o casos límite.
-- title: "¿Cuál es correcto?"
-- question: "[Situación de ${primarySkill.skillLabel} — NIVEL 3, números más complejos que pantallas 4 y 5]" Max 30 palabras.
-  VERIFICA: ¿Los números son distintos a pantallas 3, 4 y 5? ¿No son los mismos reordenados? Si NO → REESCRIBE.
-- options: ["A. ...", "B. ...", "C. ...", "D. ..."] — 4 opciones.
-  Una correcta. Tres errores plausibles de aplicación del método en casos complejos.
-- correctAnswer: "A", "B", "C" o "D"
-- definition: feedback emocional empezando con 🔥, 🚀, ⚡ o 🎯. Max 20 palabras.
-
-PANTALLA 8 — type: "application" — emoji: 🌍
-APLICACIÓN REAL — dónde usarán esta habilidad fuera del aula.
-- title: Escenario concreto donde se usa "${primarySkill.skillLabel}" (max 15 palabras, preferiblemente pregunta).
-- definition: Por qué esta habilidad es relevante. Max 40 palabras. NO abstracta — situación concreta del mundo real.
-- example: Conexión con algo cotidiano del estudiante (max 15 palabras).
-- question: null, options: null, correctAnswer: null
-
-PANTALLA 9 — type: "final_challenge" — emoji: 🏆  [INTERACTIVA — NIVEL 4: RESOLVER]
-DESAFÍO FINAL — NIVEL 4: el problema MÁS COMPLEJO y DISTINTO de toda la sesión. Requiere dominio completo.
+PANTALLA 9 — type: "final_challenge" — emoji: 🏆  [INTERACTIVA — EVALUACIÓN FINAL]
+Ejercicio NIVEL 3 sobre "${screen9skill}". El más difícil de toda la misión.
 - title: "Desafío final"
-- question: "[Problema de ${primarySkill.skillLabel} — NIVEL 4, el más complejo: más cifras, caso límite o combinación de variantes]" Max 35 palabras.
-  VERIFICA: ¿Los números son distintos a pantallas 3, 4, 5 y 7? ¿No hay ejercicios equivalentes? Si NO → REESCRIBE con valores más difíciles.
-  Puede combinar 2 variantes del método (pero NO mezclar otra habilidad distinta).
-- options: ["A. ...", "B. ...", "C. ...", "D. ..."] — exactamente 4 opciones.
-  Un correcto. Tres distractores que representan errores específicos en distintos pasos del método.
+- question: problema NIVEL 3 sobre "${screen9skill}" con números distintos a pantallas 3, 4 y 7. Max 35 palabras. NO uses corchetes — escribe el problema real.
+  Si hay 3 habilidades, combina o usa la habilidad 3. Si hay 1-2, usa el caso más complejo del material.
+- options: 4 opciones (A, B, C, D). Una correcta. Tres distractores con errores en distintos pasos.
 - correctAnswer: "A", "B", "C" o "D"
-- definition: Explica el proceso correcto paso a paso. Empieza con 🏆. Max 25 palabras.
+- definition: explica el proceso correcto paso a paso. DEBE empezar con 🏆. Max 25 palabras.
 
-PANTALLA 10 — type: "victory" — emoji: 🏆
-VICTORIA — certifica el trabajo realizado en esta sesión.
+PANTALLA 10 — type: "victory" — emoji: 🏆  [RESULTADO]
 - title: "¡Misión completada!"
-- definition: FORMATO CHECKLIST — ÚNICAMENTE lo que se enseñó en ESTA sesión:
-  "Aprendiste: ✓ ${primarySkill.skillLabel}"
-  NO incluir otras habilidades que no se hayan enseñado en esta sesión.
-- example: "Lo aplicarás en pruebas y ejercicios de matemáticas. | ${upcomingLine}"
+- definition: "Aprendiste: ${victoryChecklist}"
+  Lista SOLO las habilidades realmente enseñadas en esta sesión.
+- example: "Lo aplicarás en pruebas y ejercicios del colegio. | Próximo desafío: profundiza en los temas relacionados de tu guía."
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-REGLAS ABSOLUTAS:
+REGLAS ABSOLUTAS — verifica ANTES de outputtar el JSON:
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-- Generar EXACTAMENTE 10 pantallas en el orden indicado.
-- Pantalla 1 DEBE terminar en "?".
-- Pantalla 2 DEBE usar formato "Paso 1: X → Paso 2: X → Paso 3: X" con 3-4 pasos.
-- Pantalla 3 DEBE mostrar la solución paso a paso con números reales.
-- Pantallas 4, 5, 7 y 9 DEBEN tener question + options + correctAnswer completos sobre "${primarySkill.skillLabel}" ÚNICAMENTE.
-- Pantalla 6 definition DEBE empezar con "❌". example DEBE empezar con "✅".
-- Pantalla 10 definition DEBE certificar SOLO las habilidades enseñadas.
-- TODO el contenido académico deriva de la transcripción. NUNCA inventar ejercicios de otro tipo.
-- NUNCA mezclar habilidades: si esta misión es "${primarySkill.skillLabel}", CERO contenido de otras habilidades.
-- PROGRESIÓN OBLIGATORIA: pantalla 4 < pantalla 5 < pantalla 7 < pantalla 9 en dificultad. Verificar antes de finalizar.
-- NO REPETICIÓN OBLIGATORIA: las 4 pantallas interactivas deben usar números DISTINTOS. Ejercicios con los mismos números reordenados son INVÁLIDOS.
-- NUNCA-VACÍO: cada pantalla debe tener title ≥ 3 palabras y definition ≥ 10 palabras.
+1. Genera EXACTAMENTE 10 pantallas en el orden indicado (mission→process_flow→main_concept→comprehension→application→common_error→decide→challenge→final_challenge→victory).
+2. Pantalla 1 title DEBE terminar en "?".
+3. Pantalla 2 definition DEBE ser "Paso 1: X → Paso 2: X → Paso 3: X" con 3-4 pasos.
+4. Pantalla 3 definition DEBE usar \\n para separar pasos (Problema → Paso 1 → Paso 2 → Resultado).
+5. Pantallas 4, 7 y 9 DEBEN tener question + options + correctAnswer reales (no textos genéricos ni corchetes).
+6. Pantalla 6 DEBE tener question + options + correctAnswer (es interactiva). definition empieza con ❌. example empieza con ✅.
+7. Pantalla 6 definition DEBE contener una solución incorrecta real (no solo describir el error en abstracto).
+8. Pantalla 8 (challenge) NO tiene question/options.
+9. Pantalla 10 definition DEBE listar las habilidades cubiertas con ✓.
+10. NUNCA escribir corchetes como [texto] en los campos question, options, definition. Escribe el contenido real.
+11. NUNCA-VACÍO: title ≥ 3 palabras, definition ≥ 10 palabras en TODAS las pantallas.
+12. COBERTURA: pantallas 4, 7, 9 deben ejercitar habilidades distintas si hay más de una en la lista.
 
 Transcripción:
 ${normalizeText(transcription)}
@@ -903,15 +881,72 @@ function isEquivalentExercise(a: any, b: any): boolean {
 function logEquivalentExercises(slides: any[]): void {
   const interactive = slides
     .map((s, i) => ({ ...s, _idx: i }))
-    .filter(s => ['comprehension', 'mini_quiz', 'decide', 'final_challenge'].includes(s.type) && s.question);
+    .filter(s => ['comprehension', 'mini_quiz', 'decide', 'final_challenge', 'common_error'].includes(s.type) && s.question);
 
   for (let i = 0; i < interactive.length; i++) {
     for (let j = i + 1; j < interactive.length; j++) {
       if (isEquivalentExercise(interactive[i], interactive[j])) {
-        console.warn(`[Generation] ⚠️ Ejercicios equivalentes detectados: slides ${interactive[i]._idx} (${interactive[i].type}) y ${interactive[j]._idx} (${interactive[j].type})`);
+        console.warn(`[Generation] ⚠️ Ejercicios equivalentes: slides ${interactive[i]._idx} (${interactive[i].type}) y ${interactive[j]._idx} (${interactive[j].type})`);
       }
     }
   }
+}
+
+// ── Interaction diversity validator ──────────────────────────────────────────
+// Logs a warning if the mission has fewer than 2 distinct interaction types.
+function validateInteractionDiversity(slides: any[]): void {
+  const typeMap: Record<string, string> = {
+    comprehension: 'multiple_choice',
+    mini_quiz: 'multiple_choice',
+    decide: 'multiple_choice',
+    final_challenge: 'multiple_choice',
+    order_sequence: 'sequence',
+    common_error: 'find_error',
+    challenge: 'reflection',
+    wow_fact: 'multiple_choice',
+  };
+  const usedCategories = new Set(
+    slides.filter(s => typeMap[s.type]).map(s => typeMap[s.type])
+  );
+  if (usedCategories.size < 2) {
+    console.warn(`[Generation] ⚠️ Baja diversidad de interacción: solo categorías ${[...usedCategories].join(', ')}`);
+  } else {
+    console.log(`[Generation] Interaction diversity OK: ${[...usedCategories].join(', ')}`);
+  }
+  // Check no more than 60% of interactive slides are the same category
+  const interactive = slides.filter(s => typeMap[s.type]);
+  const cats: Record<string, number> = {};
+  for (const s of interactive) {
+    const c = typeMap[s.type];
+    cats[c] = (cats[c] ?? 0) + 1;
+  }
+  const total = interactive.length;
+  for (const [cat, count] of Object.entries(cats)) {
+    if (total > 0 && count / total > 0.6) {
+      console.warn(`[Generation] ⚠️ Sobrerepresentación de "${cat}": ${count}/${total} slides interactivos`);
+    }
+  }
+}
+
+// ── Template-placeholder detector ────────────────────────────────────────────
+// Detects when the AI returned literal instruction brackets or "..." placeholders.
+function stripTemplatePlaceholders(slide: any): any {
+  const isPlaceholder = (val: unknown): boolean => {
+    if (typeof val !== 'string') return false;
+    const s = val.trim();
+    return /^\[.*\]$/.test(s) || /^\.{2,}$/.test(s) || s === '...' || s === '[...]';
+  };
+  const optionsHavePlaceholders = Array.isArray(slide.options) &&
+    slide.options.some((o: unknown) => isPlaceholder(o) || (typeof o === 'string' && o.replace(/^[A-D]\.\s*/, '').trim() === '...'));
+
+  let s = { ...slide };
+  if (isPlaceholder(s.question) || optionsHavePlaceholders) {
+    console.warn(`[Generation] Placeholder en campos interactivos de slide ${s.type} — eliminando`);
+    s = { ...s, question: null, options: null, correctAnswer: null };
+  }
+  if (isPlaceholder(s.title)) s = { ...s, title: '' };
+  if (isPlaceholder(s.definition)) s = { ...s, definition: '' };
+  return s;
 }
 
 // ── Shared slide-type validation constants ───────────────────────────────────
@@ -978,19 +1013,22 @@ async function callOpenAIAndBuildResult(
     difficulty: card.difficulty || 'easy',
   })) as Flashcard[];
 
-  const rawSlides = (parsed.summary?.slides || []).map((slide: any, i: number) => ({
-    type: VALID_SLIDE_TYPES.includes(slide.type) ? slide.type : 'concept',
-    emoji: slide.emoji || '📚',
-    title: slide.title || `Concepto ${i + 1}`,
-    definition: slide.definition || slide.content || '',
-    example: slide.example || null,
-    visualHint: slide.visualHint || undefined,
-    illustrationType: VALID_ILLUSTRATION_TYPES.includes(slide.illustrationType) ? slide.illustrationType : undefined,
-    connector: slide.connector ?? null,
-    question: slide.question ?? null,
-    options: Array.isArray(slide.options) && slide.options.length > 0 ? slide.options : null,
-    correctAnswer: slide.correctAnswer ?? null,
-  }));
+  const rawSlides = (parsed.summary?.slides || []).map((slide: any, i: number) => {
+    const clean = stripTemplatePlaceholders(slide);
+    return {
+      type: VALID_SLIDE_TYPES.includes(clean.type) ? clean.type : 'concept',
+      emoji: clean.emoji || '📚',
+      title: clean.title || `Concepto ${i + 1}`,
+      definition: clean.definition || clean.content || '',
+      example: clean.example || null,
+      visualHint: clean.visualHint || undefined,
+      illustrationType: VALID_ILLUSTRATION_TYPES.includes(clean.illustrationType) ? clean.illustrationType : undefined,
+      connector: clean.connector ?? null,
+      question: clean.question ?? null,
+      options: Array.isArray(clean.options) && clean.options.length > 0 ? clean.options : null,
+      correctAnswer: clean.correctAnswer ?? null,
+    };
+  });
 
   const isMissionModel = rawSlides.length > 0 && rawSlides[0].type === 'mission';
 
@@ -1039,7 +1077,10 @@ async function callOpenAIAndBuildResult(
   const guardedSlides = validatedSlides.map((slide: any, i: number) =>
     ensureSlideContent(slide, i, topic)
   );
-  if (isMissionModel) logEquivalentExercises(guardedSlides);
+  if (isMissionModel) {
+    logEquivalentExercises(guardedSlides);
+    validateInteractionDiversity(guardedSlides);
+  }
 
   const summary: Summary = {
     id: parsed.summary?.id || 'summary-1',
@@ -1110,7 +1151,7 @@ export async function generateSkillMission(
   learningPath: DetectedSkill[],
 ): Promise<GenerationResult> {
   const prompt = buildFocusedProceduralPrompt(transcription, curso, primarySkill, learningPath);
-  const systemMsg = `Eres un diseñador de sesiones de aprendizaje procedimental para estudiantes chilenos de enseñanza media. Esta misión enseña UNA SOLA habilidad: "${primarySkill.skillLabel}". Tu filosofía: GANCHO → MÉTODO → EJEMPLO → 4 RONDAS DE PRÁCTICA → ERROR → APLICACIÓN → DESAFÍO → VICTORIA. NO mezcles habilidades distintas. Genera exactamente 10 pantallas en el orden indicado. JSON válido únicamente. Todo en español.`;
+  const systemMsg = `Eres un diseñador de sesiones de aprendizaje procedimental para estudiantes chilenos de enseñanza media. Esta misión cubre las habilidades: ${learningPath.slice(0, 3).map(s => s.skillLabel).join(', ')}. Estructura FIJA: GANCHO → MÉTODO → EJEMPLO GUIADO → COMPRENSIÓN → APLICACIÓN → ENCUENTRA EL ERROR → DESAFÍO → REFLEXIÓN → EVALUACIÓN FINAL → VICTORIA. Genera exactamente 10 pantallas en ese orden. Pantalla 6 (common_error) es INTERACTIVA: incluye question + options + correctAnswer. Nunca escribas corchetes como [instrucción] — escribe el contenido real. JSON válido únicamente. Todo en español.`;
   const base = await callOpenAIAndBuildResult(prompt, systemMsg, sessionConfig, 8000);
   return { ...base, pedagogicalType: 'PROCEDURAL', primarySkill, learningPath };
 }
