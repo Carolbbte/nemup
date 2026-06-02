@@ -1137,12 +1137,14 @@ export default function SessionPlayerScreen() {
     const slide             = slides[summaryIdx];
     const isLast            = summaryIdx >= slides.length - 1;
     const slideQuizAnswered = slide?.type === 'quiz' ? quizAnswers[summaryIdx] : undefined;
-    // Stats for victory screen — computed once, used in victory card renderer
-    const V_CONCEPT   = ['main_concept', 'key_relation', 'process_flow', 'application', 'common_error', 'challenge'];
-    const V_INTER     = ['comprehension', 'mini_quiz', 'final_challenge', 'decide', 'order_sequence', 'common_error', 'application', 'challenge', 'wow_fact'];
-    const vConcepts   = slides.filter(s => V_CONCEPT.includes(s.type)).length;
-    const vInterTotal = slides.filter((s, i) => V_INTER.includes(s.type) && !!(s as BackendSlide).correctAnswer).length;
-    const vCorrect    = slides.filter((s, i) => V_INTER.includes(s.type) && !!(s as BackendSlide).correctAnswer && quizAnswers[i] === (s as BackendSlide).correctAnswer).length;
+    // Stats for victory screen — computed once, used in victory card renderer and CTA button
+    const V_CONCEPT          = ['main_concept', 'key_relation', 'process_flow', 'application', 'common_error', 'challenge'];
+    const V_INTER            = ['comprehension', 'mini_quiz', 'final_challenge', 'decide', 'order_sequence', 'common_error', 'application', 'challenge', 'wow_fact'];
+    const vConcepts          = slides.filter(s => V_CONCEPT.includes(s.type)).length;
+    const vInterTotal        = slides.filter((s, i) => V_INTER.includes(s.type) && !!(s as BackendSlide).correctAnswer).length;
+    const vCorrect           = slides.filter((s, i) => V_INTER.includes(s.type) && !!(s as BackendSlide).correctAnswer && quizAnswers[i] === (s as BackendSlide).correctAnswer).length;
+    const answeredInteractive = slides.filter((s, i) => V_INTER.includes(s.type) && !!(s as BackendSlide).correctAnswer && !!quizAnswers[i]).length;
+    const noInteractionsAttempted = vInterTotal > 0 && answeredInteractive === 0;
 
     const goNext = () => {
       Vibration.vibrate(18);
@@ -1821,17 +1823,13 @@ export default function SessionPlayerScreen() {
                 : null;
 
               // Reflection — based on slides actually ANSWERED wrong (not unanswered)
-              const V_INTER = ['comprehension', 'mini_quiz', 'final_challenge', 'decide', 'order_sequence', 'common_error', 'application', 'challenge', 'wow_fact'];
-              const answeredInteractive = missionSlides.filter((s, i) =>
-                V_INTER.includes(s.type) && !!(s as BackendSlide).correctAnswer && !!quizAnswers[i]
-              ).length;
-              const noInteractionsAttempted = vInterTotal > 0 && answeredInteractive === 0;
+              const V_INTER_LOCAL = ['comprehension', 'mini_quiz', 'final_challenge', 'decide', 'order_sequence', 'common_error', 'application', 'challenge', 'wow_fact'];
               const wrongSlides = missionSlides
                 .map((s, i) => ({ s: s as BackendSlide, i }))
                 .filter(({ s, i }) =>
-                  V_INTER.includes(s.type) &&
+                  V_INTER_LOCAL.includes(s.type) &&
                   !!s.correctAnswer &&
-                  !!quizAnswers[i] &&           // must have been answered
+                  !!quizAnswers[i] &&
                   quizAnswers[i] !== s.correctAnswer
                 );
               const reflectionMsg: string | null = noInteractionsAttempted || wrongSlides.length === 0
@@ -1863,7 +1861,7 @@ export default function SessionPlayerScreen() {
               const nextMission = skillPath && currentMissionIdx >= 0 && currentMissionIdx < skillPath.missions.length - 1
                 ? skillPath.missions[currentMissionIdx + 1]
                 : null;
-              const missionProgress = skillPath && skillPath.totalMissions > 1
+              const missionProgress = skillPath && skillPath.totalMissions > 1 && currentMissionIdx >= 0
                 ? `Misión ${currentMissionIdx + 1} de ${skillPath.totalMissions}`
                 : null;
               const loadNextMission = async () => {
@@ -2011,8 +2009,8 @@ export default function SessionPlayerScreen() {
                     </Pressable>
                   </View>
                 )}
-                {/* Upcoming missions from path */}
-                {skillPath && skillPath.totalMissions > 1 && (
+                {/* Upcoming missions from path — only when this session belongs to the path */}
+                {skillPath && skillPath.totalMissions > 1 && currentMissionIdx >= 0 && (
                   <View style={sum.upcomingBlock}>
                     {skillPath.missions.map((m, i) => {
                       const isCurrent = m.sessionId === currentSessionId;
@@ -2141,7 +2139,7 @@ export default function SessionPlayerScreen() {
               >
                 <LinearGradient colors={[BRAND, NEON]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={g.ctaBtn}>
                   <Text style={g.ctaText}>
-                    {isLast && slide?.type === 'victory' ? '🏆 ¡Misión completada!' :
+                    {isLast && slide?.type === 'victory' ? (noInteractionsAttempted ? 'Cerrar misión' : '🏆 ¡Misión completada!') :
                      isLast ? '✅ Completar resumen' :
                      slide?.type === 'mission' ? '¡Comenzar! →' :
                      (slide?.type === 'challenge' && !(slide as BackendSlide).correctAnswer) ? '🤔 Lo pensé →' :
