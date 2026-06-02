@@ -69,6 +69,7 @@ export interface SummarySlide {
   question?: string | null;
   options?: string[] | null;
   correctAnswer?: string | null;
+  wrongAnswerHints?: Record<string, string> | null;
 }
 
 export interface Summary {

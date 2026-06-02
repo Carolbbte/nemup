@@ -85,7 +85,8 @@ JSON SCHEMA — return ONLY this structure:
         "illustrationType": "educational"|"diagram"|"concept"|"timeline"|"map"|"process"|"comparison"|null,
         "question": string | null,
         "options": [string] | null,
-        "correctAnswer": string | null
+        "correctAnswer": string | null,
+        "wrongAnswerHints": { "<letter>": string } | null
       }
     ],
     "sourceQuotes": [string]
@@ -408,6 +409,8 @@ ABSOLUTE RULES FOR ALL 10 SCREENS:
 - NEVER use abstract nodes in causal chains — only visible real-world actions.
 - NEVER use brand names (Spotify, Netflix, TikTok, Uber, Instagram, Airbnb, Amazon) unless they appear explicitly in the transcription.
 - CONSISTENCY LAW: for every interactive slide (screens 3, 5, 6, 9-wow), the question, the correct answer option, and the feedback definition MUST address the SAME concept. Before finalizing each interactive slide, verify: "Does my feedback explain exactly why the correct answer answers this specific question?" If NO → rewrite the feedback.
+- WRONG-ANSWER HINTS (MANDATORY): Every slide that has options MUST include "wrongAnswerHints". Keys = each incorrect option letter (e.g. "B", "C", "D"). Value = 1–2 sentences, max 40 words, explaining WHY that specific wrong option seems reasonable and what conceptual confusion it represents. Must NOT repeat the correct answer text. Must NOT say "this is wrong because the correct answer is...". Focus on the mental error: what did the student assume that led them there?
+  Example format: {"B": "Confundir macroeconomía con microeconomía ocurre porque ambas estudian precios — pero la macroeconomía analiza tendencias nacionales, no decisiones individuales de un vendedor.", "C": "Pensar que la oferta global afecta el precio de un solo puesto confunde el nivel de análisis: la macroeconomía actúa sobre el país, no sobre cada vendedor."}
 - DOCUMENT-FIRST LAW: 100% of academic content must be derivable from the transcription. If a concept, example, or application cannot be traced back to the transcription → remove it.
 - COVERAGE LAW: if the document has N ≥ 3 distinct concepts, at least ⌈N × 0.8⌉ must appear across slides. A session that uses only 1 of 5 available concepts is INVALID.
 - NON-EQUIVALENCE LAW: interactive screens 3, 5, 6, and 9 must each test a DIFFERENT concept from the document. Check: "Is this question testing the same idea as a previous interactive slide?" If YES → rewrite using a different concept.
@@ -435,6 +438,7 @@ FINAL VALIDATION CHECKLIST — run before outputting JSON:
 10. Complexity matches ${curso} → if too hard for 1° Medio or too easy for 4° Medio, adjust.
 11. CONSISTENCY CHECK — for each interactive slide (3, 5, 6, wow_fact): does the feedback definition explain exactly why the correct answer is correct for THIS specific question? → if the feedback talks about a different concept, rewrite the feedback.
 12. DOCUMENT-FIRST CHECK — does any slide contain concepts not present in the transcription? → if YES, replace with content from the transcription.
+13. Every interactive slide (with options) has wrongAnswerHints with one entry per incorrect option → if NO, add them.
 If any check fails → fix that screen before outputting.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -718,6 +722,7 @@ REGLAS ABSOLUTAS — verifica ANTES de outputtar el JSON:
 10. NUNCA-VACÍO: title ≥ 3 palabras, definition ≥ 10 palabras en TODAS las pantallas.
 11. ENFOQUE: pantallas 4, 7 y 9 son todas sobre "${skill}" — distintos niveles, misma habilidad.
 12. MATEMÁTICAS: todas las respuestas correctas y equivalencias numéricas son matemáticamente correctas.
+13. WRONG-ANSWER HINTS (OBLIGATORIO): Toda pantalla con options DEBE incluir "wrongAnswerHints". Claves = letras de opciones incorrectas. Valor = 1–2 frases, max 40 palabras, que explican la confusión conceptual detrás de esa elección incorrecta. NO repetir la respuesta correcta. NO decir "esto es incorrecto porque la respuesta es...". Explicar qué asumió el estudiante que lo llevó a ese error.
 
 Transcripción:
 ${normalizeText(transcription)}

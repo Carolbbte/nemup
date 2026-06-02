@@ -53,7 +53,7 @@ type Flashcard = { id: string; front: string; back: string };
 type SummarySlideType = 'concept' | 'key_fact' | 'important' | 'remember' | 'example' | 'curiosity' | 'wow_fact'
   | 'mission' | 'main_concept' | 'comprehension' | 'key_relation' | 'mini_quiz' | 'process_flow' | 'application' | 'common_error' | 'final_challenge' | 'victory' | 'challenge' | 'decide' | 'order_sequence';
 type IllustrationType = 'educational' | 'diagram' | 'concept' | 'timeline' | 'map' | 'process' | 'comparison';
-type BackendSlide = { type: SummarySlideType; emoji: string; title: string; definition: string; example: string; visualHint?: string; illustrationType?: IllustrationType; connector?: string | null; question?: string | null; options?: string[] | null; correctAnswer?: string | null };
+type BackendSlide = { type: SummarySlideType; emoji: string; title: string; definition: string; example: string; visualHint?: string; illustrationType?: IllustrationType; connector?: string | null; question?: string | null; options?: string[] | null; correctAnswer?: string | null; wrongAnswerHints?: Record<string, string> | null };
 type LegacySection = { heading: string; content: string; keyPoints: string[] };
 type Session = {
   id?: string; userId?: string;
@@ -1161,22 +1161,24 @@ export default function SessionPlayerScreen() {
       slideOpacity.value = withTiming(0, { duration: 180 });
     };
 
-    // Adaptive correction: insert a remedial slide after a wrong answer
-    const insertCorrectiveSlide = (wrongSlide: BackendSlide) => {
+    // Adaptive correction: insert a conceptual-confusion slide after a wrong answer.
+    // Uses the backend-generated wrongAnswerHints — specific explanation for each wrong option.
+    // Per REGLA FINAL: skips entirely if no domain-specific hint is available.
+    const insertCorrectiveSlide = (wrongSlide: BackendSlide, selectedKey: string) => {
+      const hint = wrongSlide.wrongAnswerHints?.[selectedKey];
+      if (!hint) return;
+
       const corrective: BackendSlide = {
         type: 'challenge' as SummarySlideType,
-        emoji: '💡',
-        title: 'Repasemos',
-        definition: wrongSlide.definition?.trim()
-          ? `Recuerda: ${wrongSlide.title}. ${wrongSlide.definition.slice(0, 80)}`
-          : `Repasa el concepto "${wrongSlide.title}" antes de continuar.`,
-        example: wrongSlide.example ?? null,
+        emoji: '🧠',
+        title: `err:${selectedKey}`,
+        definition: hint,
+        example: null,
         question: null, options: null, correctAnswer: null,
       };
       setMissionSlides(prev => {
         const insertAt = summaryIdx + 1;
-        // Don't insert if a corrective slide is already there
-        if (prev[insertAt]?.type === 'challenge' && prev[insertAt]?.title === 'Repasemos') return prev;
+        if (prev[insertAt]?.type === 'challenge' && (prev[insertAt] as BackendSlide)?.title?.startsWith('err:')) return prev;
         return [...prev.slice(0, insertAt), corrective as SummarySlide, ...prev.slice(insertAt)];
       });
     };
@@ -1360,7 +1362,7 @@ export default function SessionPlayerScreen() {
                     const dimmed    = !!answered && !isCorrect && answered !== letter;
                     return (
                       <Pressable key={i}
-                        onPress={() => { if (!answered) { setQuizAnswers(prev => ({ ...prev, [summaryIdx]: letter })); if (isCorrect) showSummaryReward(); else insertCorrectiveSlide(slide as BackendSlide); } }}
+                        onPress={() => { if (!answered) { setQuizAnswers(prev => ({ ...prev, [summaryIdx]: letter })); if (isCorrect) showSummaryReward(); else insertCorrectiveSlide(slide as BackendSlide, letter); } }}
                         style={[sum.quizOption, showGreen && sum.quizOptCorrect, showRed && sum.quizOptWrong, { opacity: dimmed ? 0.35 : 1 }]}
                       >
                         <View style={[sum.quizLetter, showGreen && sum.quizLetterGreen, showRed && sum.quizLetterRed]}>
@@ -1435,7 +1437,7 @@ export default function SessionPlayerScreen() {
                     const dimmed    = !!answered && !isCorrect && answered !== letter;
                     return (
                       <Pressable key={i}
-                        onPress={() => { if (!answered) { setQuizAnswers(prev => ({ ...prev, [summaryIdx]: letter })); if (isCorrect) showSummaryReward(); else insertCorrectiveSlide(slide as BackendSlide); } }}
+                        onPress={() => { if (!answered) { setQuizAnswers(prev => ({ ...prev, [summaryIdx]: letter })); if (isCorrect) showSummaryReward(); else insertCorrectiveSlide(slide as BackendSlide, letter); } }}
                         style={[sum.quizOption, showGreen && sum.quizOptCorrect, showRed && sum.quizOptWrong, { opacity: dimmed ? 0.35 : 1 }]}
                       >
                         <View style={[sum.quizLetter, showGreen && sum.quizLetterGreen, showRed && sum.quizLetterRed]}>
@@ -1506,7 +1508,7 @@ export default function SessionPlayerScreen() {
                         const dimmed = !!answered && !isCorrect && answered !== letter;
                         return (
                           <Pressable key={i}
-                            onPress={() => { if (!answered) { setQuizAnswers(prev => ({ ...prev, [summaryIdx]: letter })); if (isCorrect) showSummaryReward(); else insertCorrectiveSlide(slide as BackendSlide); } }}
+                            onPress={() => { if (!answered) { setQuizAnswers(prev => ({ ...prev, [summaryIdx]: letter })); if (isCorrect) showSummaryReward(); else insertCorrectiveSlide(slide as BackendSlide, letter); } }}
                             style={[sum.quizOption, showGreen && sum.quizOptCorrect, showRed && sum.quizOptWrong, { opacity: dimmed ? 0.35 : 1 }]}
                           >
                             <View style={[sum.quizLetter, showGreen && sum.quizLetterGreen, showRed && sum.quizLetterRed]}>
@@ -1560,7 +1562,7 @@ export default function SessionPlayerScreen() {
                         const dimmed = !!answered && !isCorrect && answered !== letter;
                         return (
                           <Pressable key={i}
-                            onPress={() => { if (!answered) { setQuizAnswers(prev => ({ ...prev, [summaryIdx]: letter })); if (isCorrect) showSummaryReward(); else insertCorrectiveSlide(slide as BackendSlide); } }}
+                            onPress={() => { if (!answered) { setQuizAnswers(prev => ({ ...prev, [summaryIdx]: letter })); if (isCorrect) showSummaryReward(); else insertCorrectiveSlide(slide as BackendSlide, letter); } }}
                             style={[sum.quizOption, showGreen && sum.quizOptCorrect, showRed && sum.quizOptWrong, { opacity: dimmed ? 0.35 : 1 }]}
                           >
                             <View style={[sum.quizLetter, showGreen && sum.quizLetterGreen, showRed && sum.quizLetterRed]}>
@@ -1625,7 +1627,7 @@ export default function SessionPlayerScreen() {
                       const dimmed    = !!answered && !isCorrect && answered !== letter;
                       return (
                         <Pressable key={i}
-                          onPress={() => { if (!answered) { setQuizAnswers(prev => ({ ...prev, [summaryIdx]: letter })); if (slide.correctAnswer !== letter) insertCorrectiveSlide(slide as BackendSlide); } }}
+                          onPress={() => { if (!answered) { setQuizAnswers(prev => ({ ...prev, [summaryIdx]: letter })); if (slide.correctAnswer !== letter) insertCorrectiveSlide(slide as BackendSlide, letter); } }}
                           style={[sum.quizOption, showGreen && sum.quizOptCorrect, showRed && sum.quizOptWrong, { opacity: dimmed ? 0.35 : 1 }]}
                         >
                           <View style={[sum.quizLetter, showGreen && sum.quizLetterGreen, showRed && sum.quizLetterRed]}>
@@ -1666,7 +1668,7 @@ export default function SessionPlayerScreen() {
                     const dimmed    = !!answered && !isCorrect && answered !== letter;
                     return (
                       <Pressable key={i}
-                        onPress={() => { if (!answered) { setQuizAnswers(prev => ({ ...prev, [summaryIdx]: letter })); if (isCorrect) showSummaryReward(); else insertCorrectiveSlide(slide as BackendSlide); } }}
+                        onPress={() => { if (!answered) { setQuizAnswers(prev => ({ ...prev, [summaryIdx]: letter })); if (isCorrect) showSummaryReward(); else insertCorrectiveSlide(slide as BackendSlide, letter); } }}
                         style={[sum.quizOption, showGreen && sum.quizOptCorrect, showRed && sum.quizOptWrong, { opacity: dimmed ? 0.35 : 1 }]}
                       >
                         <View style={[sum.quizLetter, showGreen && sum.quizLetterGreen, showRed && sum.quizLetterRed]}>
@@ -1776,7 +1778,7 @@ export default function SessionPlayerScreen() {
                       const dimmed = !!answered && !isCorrect && answered !== letter;
                       return (
                         <Pressable key={i}
-                          onPress={() => { if (!answered) { setQuizAnswers(prev => ({ ...prev, [summaryIdx]: letter })); if (isCorrect) showSummaryReward(); else insertCorrectiveSlide(slide as BackendSlide); } }}
+                          onPress={() => { if (!answered) { setQuizAnswers(prev => ({ ...prev, [summaryIdx]: letter })); if (isCorrect) showSummaryReward(); else insertCorrectiveSlide(slide as BackendSlide, letter); } }}
                           style={[sum.quizOption, showGreen && sum.quizOptCorrect, showRed && sum.quizOptWrong, { opacity: dimmed ? 0.35 : 1 }]}
                         >
                           <View style={[sum.quizLetter, showGreen && sum.quizLetterGreen, showRed && sum.quizLetterRed]}>
@@ -2060,7 +2062,7 @@ export default function SessionPlayerScreen() {
                       const dimmed    = !!answered && !isCorrect && answered !== letter;
                       return (
                         <Pressable key={i}
-                          onPress={() => { if (!answered) { setQuizAnswers(prev => ({ ...prev, [summaryIdx]: letter })); if (isCorrect) showSummaryReward(); else insertCorrectiveSlide(slide as BackendSlide); } }}
+                          onPress={() => { if (!answered) { setQuizAnswers(prev => ({ ...prev, [summaryIdx]: letter })); if (isCorrect) showSummaryReward(); else insertCorrectiveSlide(slide as BackendSlide, letter); } }}
                           style={[sum.quizOption, showGreen && sum.quizOptCorrect, showRed && sum.quizOptWrong, { opacity: dimmed ? 0.35 : 1 }]}
                         >
                           <View style={[sum.quizLetter, showGreen && sum.quizLetterGreen, showRed && sum.quizLetterRed]}>
