@@ -181,7 +181,7 @@ router.post('/generate', upload.array('documents', 10), async (req, res) => {
     saveSkillPath(userId, pathId, skillPath)
       .catch(err => console.warn('[Sessions] Skill path save error:', err?.message));
 
-    applyUserRewards(userId, allMissions[0].session.xpReward, allMissions[0].session.gemReward)
+    applyUserRewards(userId, allMissions[0].session.baseXpReward, 0)
       .catch(err => console.warn('[Sessions] Rewards error:', err?.message));
 
     sendSse(res, 'progress', createProgressPayload('done', 100, `${allMissions.length} misiones listas.`));
@@ -253,12 +253,29 @@ router.post('/generate', upload.array('documents', 10), async (req, res) => {
 
   Promise.all([
     saveGeneratedSession(userId, sessionId, session),
-    applyUserRewards(userId, session.xpReward, session.gemReward),
+    applyUserRewards(userId, session.baseXpReward, 0),
   ]).catch((err) => console.warn('[Sessions] Persistence error (non-fatal):', err?.message));
 
   sendSse(res, 'progress', createProgressPayload('done', 100, 'Sesión lista.'));
   sendSse(res, 'complete', { pathId: null, totalMissions: 1, missions: [{ missionIndex: 0, skillId: null, skillLabel: null, sessionId, session }], sessionId, session });
   return res.end();
+});
+
+// ── Performance-based reward endpoint ────────────────────────────────────────
+// Called by frontend when student reaches the victory screen.
+// Body: { userId, xp, gems }
+router.post('/rewards/apply', async (req, res) => {
+  const { userId, xp, gems } = req.body ?? {};
+  if (!userId || typeof xp !== 'number' || typeof gems !== 'number') {
+    return res.status(400).json({ error: 'userId, xp (number) and gems (number) required.' });
+  }
+  try {
+    await applyUserRewards(userId, Math.max(0, Math.round(xp)), Math.max(0, Math.round(gems)));
+    res.json({ ok: true });
+  } catch (err: any) {
+    console.error('[Sessions] /rewards/apply error:', err?.message);
+    res.status(500).json({ error: 'Failed to apply rewards.' });
+  }
 });
 
 export default router;

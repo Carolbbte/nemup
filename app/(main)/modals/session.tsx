@@ -56,8 +56,9 @@ type IllustrationType = 'educational' | 'diagram' | 'concept' | 'timeline' | 'ma
 type BackendSlide = { type: SummarySlideType; emoji: string; title: string; definition: string; example: string; visualHint?: string; illustrationType?: IllustrationType; connector?: string | null; question?: string | null; options?: string[] | null; correctAnswer?: string | null };
 type LegacySection = { heading: string; content: string; keyPoints: string[] };
 type Session = {
+  id?: string; userId?: string;
   subject: string; topic: string; estimatedDuration: number; difficulty: string;
-  xpReward: number; gemReward: number; questions: Question[]; flashcards: Flashcard[];
+  xpReward: number; baseXpReward?: number; gemReward: number; questions: Question[]; flashcards: Flashcard[];
   summary: { title: string; slides?: BackendSlide[]; sections?: LegacySection[] };
 };
 type Phase     = 'lobby' | 'mode-select' | 'summary' | 'quiz' | 'flashcards' | 'celebration' | 'complete';
@@ -452,7 +453,9 @@ export default function SessionPlayerScreen() {
   const [session, setSession] = useState<Session | null>(null);
   const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
   const [skillPath, setSkillPath] = useState<{ pathId: string; totalMissions: number; missions: Array<{ missionIndex: number; skillId: string | null; skillLabel: string | null; sessionId: string; session: Session }> } | null>(null);
-  const [masteryLevel, setMasteryLevel] = useState<'needs_practice' | 'in_progress' | 'mastered' | null>(null);
+  const [masteryLevel, setMasteryLevel] = useState<'needs_practice' | 'in_progress' | 'good_mastery' | 'mastered' | null>(null);
+  const [masteryPct, setMasteryPct] = useState<number | null>(null);
+  const [earnedXp, setEarnedXp] = useState<number | null>(null);
   const loadedSessionKeyRef = useRef<string | null>(null);
 
   // Tab screens are never unmounted by React Navigation, so useEffect([], [])
@@ -666,15 +669,41 @@ export default function SessionPlayerScreen() {
     const slide = missionSlides[summaryIdx] as BackendSlide | undefined;
     if (slide?.type !== 'victory') return;
     if (masteryLevel !== null) return; // already computed
+
     const V_INTER = ['comprehension', 'mini_quiz', 'final_challenge', 'decide', 'order_sequence'];
-    const interTotal = missionSlides.filter(s => V_INTER.includes(s.type)).length;
-    const interCorrect = missionSlides.filter((s, i) => V_INTER.includes(s.type) && quizAnswers[i] === (s as BackendSlide).correctAnswer).length;
+    const interSlides = missionSlides.map((s, i) => ({ s, i })).filter(({ s }) => V_INTER.includes(s.type));
+    const interTotal = interSlides.length;
+    const interCorrect = interSlides.filter(({ s, i }) =>
+      quizAnswers[i] === (s as BackendSlide).correctAnswer
+    ).length;
     const pct = interTotal > 0 ? Math.round((interCorrect / interTotal) * 100) : 100;
-    const level: 'needs_practice' | 'in_progress' | 'mastered' = pct >= 80 ? 'mastered' : pct >= 40 ? 'in_progress' : 'needs_practice';
+
+    const level: 'needs_practice' | 'in_progress' | 'good_mastery' | 'mastered' =
+      pct >= 90 ? 'mastered' :
+      pct >= 70 ? 'good_mastery' :
+      pct >= 40 ? 'in_progress' : 'needs_practice';
+
+    const maxXp = session?.xpReward ?? 100;
+    const computed = Math.round(maxXp * pct / 100);
+    const computedGems = pct >= 70 ? Math.round((session?.gemReward ?? 10) * pct / 100) : 0;
+
     setMasteryLevel(level);
-    // Persist mastery so next session can read it
+    setMasteryPct(pct);
+    setEarnedXp(computed);
+
+    // Persist mastery for next-mission flow
     if (currentSessionId) {
       AsyncStorage.setItem(`nemup_mastery_${currentSessionId}`, JSON.stringify({ level, pct })).catch(() => {});
+    }
+
+    // Apply performance-based rewards to backend
+    const uid = session?.userId;
+    if (uid && computed > 0) {
+      fetch('https://nemup-production.up.railway.app/sessions/rewards/apply', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: uid, xp: computed, gems: computedGems }),
+      }).catch(() => {});
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [summaryIdx, phase]);
@@ -1594,12 +1623,29 @@ export default function SessionPlayerScreen() {
               </View>
             ) : slide?.type === 'victory' ? ((() => {
               const masteryConfig = masteryLevel === 'mastered'
-                ? { bg: 'rgba(5,150,105,0.12)', border: 'rgba(5,150,105,0.3)', color: '#065F46', label: '🏆 Dominada', emoji: '🥇' }
+                ? { bg: 'rgba(5,150,105,0.12)', border: 'rgba(5,150,105,0.3)', color: '#065F46', label: '🏆 Habilidad dominada', sub: `${masteryPct ?? 100}% correcto` }
+                : masteryLevel === 'good_mastery'
+                ? { bg: 'rgba(59,130,246,0.10)', border: 'rgba(59,130,246,0.3)', color: '#1E40AF', label: '📈 Buen dominio', sub: `${masteryPct ?? 0}% correcto` }
                 : masteryLevel === 'in_progress'
-                ? { bg: 'rgba(245,158,11,0.10)', border: 'rgba(245,158,11,0.3)', color: '#92400E', label: '🎯 En progreso', emoji: '📈' }
+                ? { bg: 'rgba(245,158,11,0.10)', border: 'rgba(245,158,11,0.3)', color: '#92400E', label: '🎯 En progreso', sub: `${masteryPct ?? 0}% correcto` }
                 : masteryLevel === 'needs_practice'
-                ? { bg: 'rgba(239,68,68,0.08)', border: 'rgba(239,68,68,0.2)', color: '#991B1B', label: '💪 Necesita práctica', emoji: '🔄' }
+                ? { bg: 'rgba(239,68,68,0.08)', border: 'rgba(239,68,68,0.2)', color: '#991B1B', label: '💪 Necesita más práctica', sub: `${masteryPct ?? 0}% correcto` }
                 : null;
+
+              // Intelligent reflection — based on which slides were answered wrong
+              const V_INTER = ['comprehension', 'mini_quiz', 'final_challenge', 'decide', 'order_sequence'];
+              const wrongSlides = missionSlides
+                .map((s, i) => ({ s: s as BackendSlide, i }))
+                .filter(({ s, i }) =>
+                  V_INTER.includes(s.type) &&
+                  !!s.correctAnswer &&
+                  quizAnswers[i] !== s.correctAnswer
+                );
+              const reflectionMsg: string | null = wrongSlides.length === 0
+                ? null
+                : wrongSlides.length === 1
+                ? `Notamos que la pregunta "${(wrongSlides[0].s.question ?? '').slice(0, 50)}..." fue la más difícil. Repasa ese concepto antes de la siguiente misión.`
+                : `Fallaste ${wrongSlides.length} preguntas. Repasa especialmente: "${(wrongSlides[0].s.question ?? '').slice(0, 40)}..."${wrongSlides.length > 1 ? ` y "${(wrongSlides[1].s.question ?? '').slice(0, 40)}..."` : ''}.`;
               // Find next mission in skill path
               const currentMissionIdx = skillPath?.missions?.findIndex(m => m.sessionId === currentSessionId) ?? -1;
               const nextMission = skillPath && currentMissionIdx >= 0 && currentMissionIdx < skillPath.missions.length - 1
@@ -1621,6 +1667,8 @@ export default function SessionPlayerScreen() {
                 setSession(nextSession);
                 setCurrentSessionId(nextMission.sessionId);
                 setMasteryLevel(null);
+                setMasteryPct(null);
+                setEarnedXp(null);
                 setPhase('lobby');
                 setCompleted(new Set());
                 setSummaryIdx(0);
@@ -1655,6 +1703,7 @@ export default function SessionPlayerScreen() {
                 {!!masteryConfig && (
                   <View style={[sum.masteryBadge, { backgroundColor: masteryConfig.bg, borderColor: masteryConfig.border }]}>
                     <Text style={[sum.masteryBadgeText, { color: masteryConfig.color }]}>{masteryConfig.label}</Text>
+                    <Text style={[sum.masteryBadgeSub, { color: masteryConfig.color }]}>{masteryConfig.sub}</Text>
                   </View>
                 )}
                 <View style={sum.victoryStats}>
@@ -1668,16 +1717,22 @@ export default function SessionPlayerScreen() {
                       <Text style={sum.victoryStatLbl}>correctas</Text>
                     </View>
                     <View style={sum.victoryStat}>
-                      <Text style={[sum.victoryStatVal, { color: BRAND }]}>+{session.xpReward}</Text>
+                      <Text style={[sum.victoryStatVal, { color: BRAND }]}>+{earnedXp ?? session.xpReward}</Text>
                       <Text style={sum.victoryStatLbl}>XP</Text>
                     </View>
                     <View style={sum.victoryStat}>
-                      <Text style={[sum.victoryStatVal, { color: '#FF7A2B' }]}>+{session.gemReward}</Text>
+                      <Text style={[sum.victoryStatVal, { color: '#FF7A2B' }]}>+{(masteryPct ?? 0) >= 70 ? Math.round((session.gemReward ?? 10) * (masteryPct ?? 0) / 100) : 0}</Text>
                       <Text style={sum.victoryStatLbl}>💎</Text>
                     </View>
                   </View>
                 </View>
                 {!!slide.example && <Text style={sum.victoryNote}>{slide.example.split(' | ')[0]}</Text>}
+                {/* Intelligent reflection */}
+                {!!reflectionMsg && (
+                  <View style={sum.reflectionBlock}>
+                    <Text style={sum.reflectionText}>{reflectionMsg}</Text>
+                  </View>
+                )}
                 {/* Next mission button */}
                 {!!nextMission && (
                   <Pressable onPress={loadNextMission} style={sum.nextMissionBtn}>
@@ -2523,8 +2578,11 @@ const sum = StyleSheet.create({
   victoryNote:      { fontSize: SM ? 11 : 12, color: Colors.muted, textAlign: 'center', fontWeight: '600', marginTop: 2 },
 
   // Mastery badge
-  masteryBadge:     { borderRadius: 100, borderWidth: 1.5, paddingVertical: 6, paddingHorizontal: 18, marginBottom: 10 },
+  masteryBadge:     { borderRadius: 100, borderWidth: 1.5, paddingVertical: 6, paddingHorizontal: 18, marginBottom: 10, alignItems: 'center' },
   masteryBadgeText: { fontSize: 13, fontWeight: '800', letterSpacing: 0.3 },
+  masteryBadgeSub:  { fontSize: 11, fontWeight: '600', marginTop: 2, opacity: 0.8 },
+  reflectionBlock:  { backgroundColor: 'rgba(245,158,11,0.08)', borderRadius: 12, borderWidth: 1, borderColor: 'rgba(245,158,11,0.25)', paddingVertical: 10, paddingHorizontal: 14, marginTop: 8, marginBottom: 4, alignSelf: 'stretch' },
+  reflectionText:   { fontSize: 12, color: '#92400E', fontWeight: '600', lineHeight: 18 },
 
   // Next mission button
   nextMissionBtn:   { width: '100%', borderRadius: 16, overflow: 'hidden', marginBottom: 12 },

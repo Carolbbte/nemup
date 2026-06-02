@@ -120,14 +120,16 @@ CURSO ADAPTATION (MANDATORY):
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 INTERNAL ANALYSIS — do this mentally BEFORE generating JSON:
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-1. What 2-3 concepts MUST the student grasp to pass the exam?
-2. What is the causal chain? (A causes B causes C — not just "A relates to B")
-3. What would a smart 15-year-old who only uses TikTok WRONGLY believe about this topic?
-4. Which real teen situation (Spotify, zapatillas, celular, bencina, videojuego) makes this LAND?
+1. List ALL distinct concepts and topics present in this document (exhaustive — no skipping). Count them. Then confirm your session will cover ≥80% of them (if 5 concepts → minimum 4 must appear in slides). Write the list now before generating JSON.
+2. Assign each key concept to a specific screen BEFORE writing JSON. Interactive screens (3, 5, 6) must each test a DIFFERENT concept.
+3. What is the causal chain? (A causes B causes C — not just "A relates to B")
+4. What would a smart 15-year-old WRONGLY believe about this topic?
 5. What is the single most counterintuitive fact? → this becomes screen 9 (wow_fact).
 6. Which concept can be turned into a genuine dilemma? → this becomes screen 6 (decide).
 7. Are any two concepts nearly identical? If YES → only include the more interesting one.
 NO-REPETITION LAW: Each of the 10 screens must teach something DIFFERENT. Before writing each screen ask: "Did I already show this idea?" If YES → use a different concept.
+COVERAGE LAW: If the document has N distinct concepts, at least ⌈N × 0.8⌉ must appear in the session. A single-concept session from a multi-concept document is INVALID.
+NEVER-EMPTY LAW: Every slide MUST have title ≥ 3 words and definition ≥ 10 words. Check each slide before including it in the JSON.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 TEXT LIMITS — apply to EVERY screen:
@@ -391,6 +393,9 @@ ABSOLUTE RULES FOR ALL 10 SCREENS:
 - NEVER use brand names (Spotify, Netflix, TikTok, Uber, Instagram, Airbnb, Amazon) unless they appear explicitly in the transcription.
 - CONSISTENCY LAW: for every interactive slide (screens 3, 5, 6, 9-wow), the question, the correct answer option, and the feedback definition MUST address the SAME concept. Before finalizing each interactive slide, verify: "Does my feedback explain exactly why the correct answer answers this specific question?" If NO → rewrite the feedback.
 - DOCUMENT-FIRST LAW: 100% of academic content must be derivable from the transcription. If a concept, example, or application cannot be traced back to the transcription → remove it.
+- COVERAGE LAW: if the document has N ≥ 3 distinct concepts, at least ⌈N × 0.8⌉ must appear across slides. A session that uses only 1 of 5 available concepts is INVALID.
+- NON-EQUIVALENCE LAW: interactive screens 3, 5, 6, and 9 must each test a DIFFERENT concept from the document. Check: "Is this question testing the same idea as a previous interactive slide?" If YES → rewrite using a different concept.
+- NEVER-EMPTY LAW: every slide must have title ≥ 3 words and definition ≥ 10 words. Before finalizing, scan all 10 slides and verify none are empty.
 - Reorganize content by PEDAGOGICAL IMPORTANCE, not document order.
 - INTERACTIVITY: minimum 4 interactive screens (3, 5, 6 mandatory + wow_fact optional = 3-4 total).
 - CONCEPTUAL BRIDGE: when moving from micro to macro concepts, write an explicit bridge sentence in the relevant screen's definition.
@@ -583,6 +588,35 @@ PREGUNTAS Y FLASHCARDS:
 - difficulty: "easy" = identificar el método, "medium" = aplicarlo, "hard" = detectar error en la aplicación.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ANÁLISIS PREVIO OBLIGATORIO — haz esto ANTES de escribir el JSON:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+1. Extrae de la transcripción TODOS los ejercicios o problemas mencionados con sus números reales.
+2. Asigna niveles de dificultad a esos ejercicios:
+   - NIVEL 1 (RECONOCER): estructura más simple del documento, máx 2 cifras decimales o fracciones sencillas.
+   - NIVEL 2 (COMPRENDER): estructura media, 2-3 cifras decimales o fracciones con denominadores distintos.
+   - NIVEL 3 (APLICAR): estructura compleja, 3+ cifras decimales, valores límite, casos especiales.
+   - NIVEL 4 (RESOLVER): el problema más difícil del documento, puede combinar 2 variantes del método.
+3. Asigna: pantalla 4 = NIVEL 1, pantalla 5 = NIVEL 2, pantalla 7 = NIVEL 3, pantalla 9 = NIVEL 4.
+4. Verifica que los 4 problemas usen números DISTINTOS entre sí (ningún par de ejercicios equivalentes).
+
+⚠️ REGLA DE NO REPETICIÓN — CRÍTICA:
+Dos ejercicios son EQUIVALENTES si:
+- Usan los mismos números aunque en diferente orden.
+- Sus opciones de respuesta son las mismas reordenadas.
+EJEMPLO PROHIBIDO:
+❌ Pantalla 4: "Ordena 0,4 y 0,45 de menor a mayor" → respuesta: 0,4 < 0,45
+❌ Pantalla 5: "Ordena 0,45 y 0,4 de mayor a menor" → respuesta: 0,45 > 0,4
+Estos son el MISMO ejercicio. PROHIBIDO.
+EJEMPLO CORRECTO:
+✅ Pantalla 4: "Ordena 0,3 y 0,25 de menor a mayor" (nivel 1 — 2 números, 2 dec)
+✅ Pantalla 5: "Ordena 0,307 ; 0,31 y 0,3 de menor a mayor" (nivel 2 — 3 números, 3 dec)
+✅ Pantalla 7: "Ordena 0,405 ; 0,450 y 0,456 de menor a mayor" (nivel 3 — similar magnitud)
+✅ Pantalla 9: "Ordena 0,4050 ; 0,4500 ; 0,4056 y 0,4560 de menor a mayor" (nivel 4 — 4 números confusos)
+
+⚠️ REGLA NUNCA-VACÍO:
+Cada pantalla DEBE tener title ≥ 3 palabras y definition ≥ 10 palabras. Antes de finalizar, revisa las 10 pantallas.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 LAS 10 PANTALLAS — generar EXACTAMENTE en este orden:
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
@@ -619,24 +653,23 @@ EJEMPLO GUIADO — solución completa de un problema concreto del documento.
 - example: "✅ Comprobación: [por qué la respuesta es correcta, en max 15 palabras]"
 - connector: null
 
-PANTALLA 4 — type: "comprehension" — emoji: 🧩  [INTERACTIVA — EJERCICIO GUIADO]
-TU TURNO (guiado) — problema nuevo con pista integrada en las opciones.
+PANTALLA 4 — type: "comprehension" — emoji: 🧩  [INTERACTIVA — NIVEL 1: RECONOCER]
+TU TURNO (guiado) — NIVEL 1: el problema MÁS SIMPLE de la sesión. Mismo tipo del ejemplo pero con valores del análisis previo nivel 1.
 - title: "Tu turno"
-- question: "[Problema de ${primarySkill.skillLabel} con números DISTINTOS al ejemplo]" Max 25 palabras.
-  Usa el mismo tipo de problema de la pantalla 3 pero con valores diferentes.
+- question: "[Problema de ${primarySkill.skillLabel} — NIVEL 1, números simples distintos al ejemplo]" Max 25 palabras.
+  Usa valores DISTINTOS a pantalla 3 y MENOS complejos que pantallas 5, 7 y 9.
 - options: ["A. ...", "B. ...", "C. ...", "D. ..."] — exactamente 4 opciones.
-  Las opciones DEBEN incluir el resultado correcto Y errores típicos de cada paso del método.
-  Formato sugerido: "A. [resultado correcto]", "B. [error en paso 1]", "C. [error en paso 2]", "D. [error conceptual]"
+  Incluye: resultado correcto, error en paso 1, error en paso 2, error conceptual clásico.
 - correctAnswer: "A", "B", "C" o "D"
-- definition: Feedback que EXPLICA el paso donde se equivocan los que fallan. Empieza con 🎯 o ⚡. Max 20 palabras.
+- definition: Explica qué paso falla quien se equivoca. Empieza con 🎯 o ⚡. Max 20 palabras.
 
-PANTALLA 5 — type: "mini_quiz" — emoji: ⚡  [INTERACTIVA — MINI QUIZ 1]
-PRACTICA TÚ — aplica el método de forma independiente.
+PANTALLA 5 — type: "mini_quiz" — emoji: ⚡  [INTERACTIVA — NIVEL 2: COMPRENDER]
+PRACTICA TÚ — NIVEL 2: dificultad MEDIA. Más cifras o valores que pantalla 4, menos que 7 y 9.
 - title: "Mini Quiz"
-- question: "[Problema sobre ${primarySkill.skillLabel} con números distintos a pantallas 3 y 4]" Max 25 palabras.
-  DEBE ser un problema CONCRETO sobre "${primarySkill.skillLabel}". NO sobre otra habilidad.
+- question: "[Problema de ${primarySkill.skillLabel} — NIVEL 2, complejidad media, DISTINTOS números a pantallas 3 y 4]" Max 25 palabras.
+  VERIFICA: ¿Los números son distintos a pantalla 4? Si son los mismos reordenados → REESCRIBE.
 - options: ["A. ...", "B. ...", "C. ...", "D. ..."] — exactamente 4 opciones.
-  Los distractores deben ser errores PLAUSIBLES de aplicación (error en un paso específico).
+  Distractores: errores plausibles de aplicación en pasos específicos del método.
 - correctAnswer: "A", "B", "C" o "D"
 - definition: feedback emocional. DEBE empezar con 🔥, 🚀, ⚡ o 🎯. Max 20 palabras.
 
@@ -649,13 +682,13 @@ ERROR FRECUENTE al aplicar "${primarySkill.skillLabel}".
 - title: "Error frecuente"
 - question: null, options: null, correctAnswer: null
 
-PANTALLA 7 — type: "decide" — emoji: 🤔  [INTERACTIVA — MINI QUIZ 2]
-DECIDE — problema diferente a pantallas 3, 4 y 5. Mismo tipo de habilidad.
+PANTALLA 7 — type: "decide" — emoji: 🤔  [INTERACTIVA — NIVEL 3: APLICAR]
+DECIDE — NIVEL 3: más complejo que pantallas 4 y 5. Valores con mayor número de cifras o casos límite.
 - title: "¿Cuál es correcto?"
-- question: "[Situación donde deben elegir el procedimiento o resultado correcto para ${primarySkill.skillLabel}]" Max 30 palabras.
-  Usa números DISTINTOS a todas las pantallas anteriores. Mismo tipo de procedimiento.
+- question: "[Situación de ${primarySkill.skillLabel} — NIVEL 3, números más complejos que pantallas 4 y 5]" Max 30 palabras.
+  VERIFICA: ¿Los números son distintos a pantallas 3, 4 y 5? ¿No son los mismos reordenados? Si NO → REESCRIBE.
 - options: ["A. ...", "B. ...", "C. ...", "D. ..."] — 4 opciones.
-  Solo una correcta. Las demás son errores plausibles de aplicación.
+  Una correcta. Tres errores plausibles de aplicación del método en casos complejos.
 - correctAnswer: "A", "B", "C" o "D"
 - definition: feedback emocional empezando con 🔥, 🚀, ⚡ o 🎯. Max 20 palabras.
 
@@ -666,20 +699,20 @@ APLICACIÓN REAL — dónde usarán esta habilidad fuera del aula.
 - example: Conexión con algo cotidiano del estudiante (max 15 palabras).
 - question: null, options: null, correctAnswer: null
 
-PANTALLA 9 — type: "final_challenge" — emoji: 🏆  [INTERACTIVA — DESAFÍO FINAL]
-DESAFÍO FINAL — el problema más difícil de la sesión. Exige dominio completo.
+PANTALLA 9 — type: "final_challenge" — emoji: 🏆  [INTERACTIVA — NIVEL 4: RESOLVER]
+DESAFÍO FINAL — NIVEL 4: el problema MÁS COMPLEJO y DISTINTO de toda la sesión. Requiere dominio completo.
 - title: "Desafío final"
-- question: "[Problema complejo de ${primarySkill.skillLabel} que requiere aplicar TODOS los pasos del método]" Max 35 palabras.
-  Usa números y contexto DISTINTOS a todas las pantallas anteriores.
-  Puede combinar 2 pasos del método (pero NO mezclar otra habilidad distinta).
+- question: "[Problema de ${primarySkill.skillLabel} — NIVEL 4, el más complejo: más cifras, caso límite o combinación de variantes]" Max 35 palabras.
+  VERIFICA: ¿Los números son distintos a pantallas 3, 4, 5 y 7? ¿No hay ejercicios equivalentes? Si NO → REESCRIBE con valores más difíciles.
+  Puede combinar 2 variantes del método (pero NO mezclar otra habilidad distinta).
 - options: ["A. ...", "B. ...", "C. ...", "D. ..."] — exactamente 4 opciones.
-  Un correcto. Tres distractores que representan errores distintos del método.
+  Un correcto. Tres distractores que representan errores específicos en distintos pasos del método.
 - correctAnswer: "A", "B", "C" o "D"
-- definition: Feedback completo. Explica el proceso correcto completo. Empieza con 🏆. Max 25 palabras.
+- definition: Explica el proceso correcto paso a paso. Empieza con 🏆. Max 25 palabras.
 
 PANTALLA 10 — type: "victory" — emoji: 🏆
-VICTORIA — certifica la habilidad REALMENTE enseñada en esta sesión.
-- title: "¡Habilidad dominada!"
+VICTORIA — certifica el trabajo realizado en esta sesión.
+- title: "¡Misión completada!"
 - definition: FORMATO CHECKLIST — ÚNICAMENTE lo que se enseñó en ESTA sesión:
   "Aprendiste: ✓ ${primarySkill.skillLabel}"
   NO incluir otras habilidades que no se hayan enseñado en esta sesión.
@@ -697,6 +730,9 @@ REGLAS ABSOLUTAS:
 - Pantalla 10 definition DEBE certificar SOLO las habilidades enseñadas.
 - TODO el contenido académico deriva de la transcripción. NUNCA inventar ejercicios de otro tipo.
 - NUNCA mezclar habilidades: si esta misión es "${primarySkill.skillLabel}", CERO contenido de otras habilidades.
+- PROGRESIÓN OBLIGATORIA: pantalla 4 < pantalla 5 < pantalla 7 < pantalla 9 en dificultad. Verificar antes de finalizar.
+- NO REPETICIÓN OBLIGATORIA: las 4 pantallas interactivas deben usar números DISTINTOS. Ejercicios con los mismos números reordenados son INVÁLIDOS.
+- NUNCA-VACÍO: cada pantalla debe tener title ≥ 3 palabras y definition ≥ 10 palabras.
 
 Transcripción:
 ${normalizeText(transcription)}
@@ -808,6 +844,74 @@ REGLAS ABSOLUTAS:
 Transcripción:
 ${normalizeText(transcription)}
 ${JSON_SCHEMA}`;
+}
+
+// ── Empty-slide guard ─────────────────────────────────────────────────────────
+
+const SLIDE_FALLBACKS: Record<string, { title: string; definition: string }> = {
+  mission:        { title: '¿Listo para esta misión?', definition: 'Al terminar, podrás aplicar lo aprendido con confianza.' },
+  main_concept:   { title: 'Concepto principal', definition: 'Este es el concepto central que debes comprender.' },
+  comprehension:  { title: '¿Comprendiste?', definition: '🎯 Reflexiona sobre lo que acabas de ver.' },
+  mini_quiz:      { title: 'Quiz rápido', definition: '⚡ Aplica lo que aprendiste.' },
+  process_flow:   { title: 'El método', definition: 'Paso 1: Analiza → Paso 2: Aplica → Paso 3: Verifica' },
+  key_relation:   { title: 'Relación clave', definition: 'Estos conceptos están directamente conectados.' },
+  decide:         { title: '¿Qué harías?', definition: '🔥 Analiza la situación y toma una decisión informada.' },
+  application:    { title: '¿Dónde se aplica?', definition: 'Este concepto tiene aplicaciones concretas en la vida real.' },
+  common_error:   { title: 'Error frecuente', definition: '❌ Muchos cometen este error.\n✅ La forma correcta es aplicar el método paso a paso.' },
+  wow_fact:       { title: '¿Sabías que...?', definition: 'Este tema tiene aspectos que sorprenden a la mayoría.' },
+  final_challenge:{ title: 'Desafío final', definition: '🏆 Demuestra tu dominio aplicando todo lo aprendido.' },
+  victory:        { title: '¡Misión completada!', definition: 'Aprendiste los conceptos clave de esta sesión.' },
+  challenge:      { title: 'Reflexiona', definition: 'Piensa en cómo aplicarías este concepto en una situación real.' },
+};
+
+function ensureSlideContent(slide: any, index: number, topic: string): any {
+  const hasTitle = typeof slide.title === 'string' && slide.title.trim().length >= 2;
+  const hasDef   = typeof slide.definition === 'string' && slide.definition.trim().length >= 5;
+  if (hasTitle && hasDef) return slide;
+
+  const fb = SLIDE_FALLBACKS[slide.type] ?? {
+    title: `Concepto ${index + 1}`,
+    definition: `Contenido relacionado con ${topic}.`,
+  };
+  console.warn(`[Generation] Slide ${index} (${slide.type}) empty — applying fallback`);
+  return {
+    ...slide,
+    title:      hasTitle ? slide.title      : fb.title,
+    definition: hasDef   ? slide.definition : fb.definition,
+  };
+}
+
+// ── Equivalent-exercise detector ──────────────────────────────────────────────
+
+function extractNumbers(text: string): string[] {
+  return (text.match(/\d+[,.]?\d*/g) ?? []).map(n => n.replace(',', '.'));
+}
+
+function isEquivalentExercise(a: any, b: any): boolean {
+  if (!a?.question || !b?.question) return false;
+  const numsA = extractNumbers(a.question).sort().join('|');
+  const numsB = extractNumbers(b.question).sort().join('|');
+  if (numsA.length > 2 && numsA === numsB) return true;
+  if (a.options && b.options) {
+    const strip = (opts: string[]) =>
+      opts.map((o: string) => o.replace(/^[A-D]\.\s*/, '').trim().toLowerCase()).sort().join('||');
+    if (strip(a.options) === strip(b.options)) return true;
+  }
+  return false;
+}
+
+function logEquivalentExercises(slides: any[]): void {
+  const interactive = slides
+    .map((s, i) => ({ ...s, _idx: i }))
+    .filter(s => ['comprehension', 'mini_quiz', 'decide', 'final_challenge'].includes(s.type) && s.question);
+
+  for (let i = 0; i < interactive.length; i++) {
+    for (let j = i + 1; j < interactive.length; j++) {
+      if (isEquivalentExercise(interactive[i], interactive[j])) {
+        console.warn(`[Generation] ⚠️ Ejercicios equivalentes detectados: slides ${interactive[i]._idx} (${interactive[i].type}) y ${interactive[j]._idx} (${interactive[j].type})`);
+      }
+    }
+  }
 }
 
 // ── Shared slide-type validation constants ───────────────────────────────────
@@ -931,10 +1035,16 @@ async function callOpenAIAndBuildResult(
     return slide;
   });
 
+  // ── Post-gen guards ────────────────────────────────────────────────────────
+  const guardedSlides = validatedSlides.map((slide: any, i: number) =>
+    ensureSlideContent(slide, i, topic)
+  );
+  if (isMissionModel) logEquivalentExercises(guardedSlides);
+
   const summary: Summary = {
     id: parsed.summary?.id || 'summary-1',
     title: parsed.summary?.title || `Resumen de ${topic}`,
-    slides: validatedSlides,
+    slides: guardedSlides,
     sourceQuotes: parsed.summary?.sourceQuotes || parsed.summary?.citas || [],
   };
 
@@ -1360,8 +1470,9 @@ export function buildGeneratedSession(
   configValues: SessionConfig,
   generation: GenerationResult
 ): GeneratedSession {
-  const xpReward = Math.max(20, Math.min(120, Math.round(wordCount / 8)));
-  const gemReward = Math.max(5, Math.min(25, Math.round(xpReward / 10)));
+  const xpReward = Math.max(50, Math.min(200, Math.round(wordCount / 5)));
+  const baseXpReward = Math.round(xpReward * 0.2);
+  const gemReward = Math.max(5, Math.min(40, Math.round(xpReward / 6)));
 
   return {
     id: `${documentId}-${Date.now()}`,
@@ -1388,6 +1499,7 @@ export function buildGeneratedSession(
       learningPath: generation.learningPath?.slice(1).map(s => ({ skillId: s.skillId, skillLabel: s.skillLabel, priority: s.priority })),
     },
     xpReward,
+    baseXpReward,
     gemReward,
   };
 }

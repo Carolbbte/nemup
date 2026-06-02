@@ -102,11 +102,12 @@ export interface GeneratedSession {
     primarySkillLabel?: string;
     learningPath?: Pick<DetectedSkill, 'skillId' | 'skillLabel' | 'priority'>[];
   };
-  xpReward: number;
-  gemReward: number;
+  xpReward: number;       // max possible XP (earned at 100% score)
+  baseXpReward: number;   // XP awarded just for attempting (20% of max)
+  gemReward: number;      // max gems (awarded only if score ≥ 70%)
 }
 
-export type MasteryLevel = 'needs_practice' | 'in_progress' | 'mastered';
+export type MasteryLevel = 'needs_practice' | 'in_progress' | 'good_mastery' | 'mastered';
 
 export interface SkillPathEntry {
   missionIndex: number;
