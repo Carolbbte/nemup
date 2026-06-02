@@ -1759,10 +1759,16 @@ export default function SessionPlayerScreen() {
                 : wrongSlides.length === 1
                 ? `Notamos que la pregunta "${(wrongSlides[0].s.question ?? '').slice(0, 50)}..." fue la más difícil. Repasa ese concepto antes de la siguiente misión.`
                 : `Fallaste ${wrongSlides.length} preguntas. Repasa especialmente: "${(wrongSlides[0].s.question ?? '').slice(0, 40)}..."${wrongSlides.length > 1 ? ` y "${(wrongSlides[1].s.question ?? '').slice(0, 40)}..."` : ''}.`;
-              // Find next mission in skill path
+              // Skill path context
               const currentMissionIdx = skillPath?.missions?.findIndex(m => m.sessionId === currentSessionId) ?? -1;
+              const currentSkillLabel = skillPath && currentMissionIdx >= 0
+                ? (skillPath.missions[currentMissionIdx]?.skillLabel ?? null)
+                : null;
               const nextMission = skillPath && currentMissionIdx >= 0 && currentMissionIdx < skillPath.missions.length - 1
                 ? skillPath.missions[currentMissionIdx + 1]
+                : null;
+              const missionProgress = skillPath && skillPath.totalMissions > 1
+                ? `Misión ${currentMissionIdx + 1} de ${skillPath.totalMissions}`
                 : null;
               const loadNextMission = async () => {
                 if (!nextMission) return;
@@ -1811,6 +1817,16 @@ export default function SessionPlayerScreen() {
               <View style={sum.victoryCard}>
                 <Text style={sum.victoryEmoji}>{slide.emoji}</Text>
                 <Text style={sum.victoryTitle}>{slide.title}</Text>
+                {/* Mission progress indicator */}
+                {!!missionProgress && (
+                  <Text style={sum.missionProgress}>{missionProgress}</Text>
+                )}
+                {/* Skill dominance chip */}
+                {!!currentSkillLabel && (
+                  <View style={sum.skillDominatedChip}>
+                    <Text style={sum.skillDominatedText}>✓ Dominaste: {currentSkillLabel}</Text>
+                  </View>
+                )}
                 {!!slide.definition && <Text style={sum.victorySub}>{slide.definition}</Text>}
                 {/* Mastery badge */}
                 {!!masteryConfig && (
@@ -1846,15 +1862,19 @@ export default function SessionPlayerScreen() {
                     <Text style={sum.reflectionText}>{reflectionMsg}</Text>
                   </View>
                 )}
-                {/* Next mission button */}
+                {/* Next mission button — skill transition */}
                 {!!nextMission && (
-                  <Pressable onPress={loadNextMission} style={sum.nextMissionBtn}>
-                    <LinearGradient colors={[BRAND, NEON]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={sum.nextMissionGrad}>
-                      <Text style={sum.nextMissionText}>
-                        ⚡ Siguiente: {nextMission.skillLabel ?? 'Próxima misión'} →
-                      </Text>
-                    </LinearGradient>
-                  </Pressable>
+                  <View style={sum.nextMissionWrapper}>
+                    <Text style={sum.nextMissionLabel}>Siguiente habilidad</Text>
+                    <Pressable onPress={loadNextMission} style={sum.nextMissionBtn}>
+                      <LinearGradient colors={[BRAND, NEON]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={sum.nextMissionGrad}>
+                        <Text style={sum.nextMissionText}>
+                          ⚡ {nextMission.skillLabel ?? 'Próxima misión'}
+                        </Text>
+                        <Text style={sum.nextMissionArrow}>Continuar →</Text>
+                      </LinearGradient>
+                    </Pressable>
+                  </View>
                 )}
                 {/* Upcoming missions from path */}
                 {skillPath && skillPath.totalMissions > 1 && (
@@ -2709,10 +2729,18 @@ const sum = StyleSheet.create({
   reflectionBlock:  { backgroundColor: 'rgba(245,158,11,0.08)', borderRadius: 12, borderWidth: 1, borderColor: 'rgba(245,158,11,0.25)', paddingVertical: 10, paddingHorizontal: 14, marginTop: 8, marginBottom: 4, alignSelf: 'stretch' },
   reflectionText:   { fontSize: 12, color: '#92400E', fontWeight: '600', lineHeight: 18 },
 
-  // Next mission button
-  nextMissionBtn:   { width: '100%', borderRadius: 16, overflow: 'hidden', marginBottom: 12 },
-  nextMissionGrad:  { paddingVertical: 14, paddingHorizontal: 20, alignItems: 'center', justifyContent: 'center' },
-  nextMissionText:  { fontSize: 15, fontWeight: '900', color: 'white', letterSpacing: -0.2 },
+  // Skill dominance chip + mission progress
+  missionProgress:    { fontSize: 11, fontWeight: '700', color: Colors.muted, letterSpacing: 0.5, textTransform: 'uppercase', marginBottom: 6 },
+  skillDominatedChip: { backgroundColor: 'rgba(5,150,105,0.10)', borderRadius: 20, paddingHorizontal: 14, paddingVertical: 5, borderWidth: 1.5, borderColor: 'rgba(5,150,105,0.3)', marginBottom: 10 },
+  skillDominatedText: { fontSize: 12, fontWeight: '800', color: '#065F46', letterSpacing: 0.2 },
+
+  // Next mission button — skill transition
+  nextMissionWrapper: { width: '100%', marginBottom: 12 },
+  nextMissionLabel:   { fontSize: 10, fontWeight: '700', color: Colors.muted, letterSpacing: 1, textTransform: 'uppercase', textAlign: 'center', marginBottom: 6 },
+  nextMissionBtn:     { width: '100%', borderRadius: 16, overflow: 'hidden' },
+  nextMissionGrad:    { paddingVertical: 14, paddingHorizontal: 20, alignItems: 'center', justifyContent: 'center', gap: 2 },
+  nextMissionText:    { fontSize: 16, fontWeight: '900', color: 'white', letterSpacing: -0.3 },
+  nextMissionArrow:   { fontSize: 11, fontWeight: '700', color: 'rgba(255,255,255,0.75)', letterSpacing: 0.5 },
 
   // Upcoming missions list
   upcomingBlock:        { width: '100%', backgroundColor: Colors.bgSoft, borderRadius: 14, padding: 12, borderWidth: 1, borderColor: Colors.line, gap: 8 },
