@@ -1135,6 +1135,8 @@ async function callOpenAIAndBuildResult(
       question: clean.question ?? null,
       options: Array.isArray(clean.options) && clean.options.length > 0 ? clean.options : null,
       correctAnswer: clean.correctAnswer ?? null,
+      wrongAnswerHints: (clean.wrongAnswerHints && typeof clean.wrongAnswerHints === 'object' && !Array.isArray(clean.wrongAnswerHints))
+        ? clean.wrongAnswerHints : null,
     };
   });
 
