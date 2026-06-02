@@ -409,8 +409,22 @@ ABSOLUTE RULES FOR ALL 10 SCREENS:
 - NEVER use abstract nodes in causal chains — only visible real-world actions.
 - NEVER use brand names (Spotify, Netflix, TikTok, Uber, Instagram, Airbnb, Amazon) unless they appear explicitly in the transcription.
 - CONSISTENCY LAW: for every interactive slide (screens 3, 5, 6, 9-wow), the question, the correct answer option, and the feedback definition MUST address the SAME concept. Before finalizing each interactive slide, verify: "Does my feedback explain exactly why the correct answer answers this specific question?" If NO → rewrite the feedback.
-- WRONG-ANSWER HINTS (MANDATORY): Every slide that has options MUST include "wrongAnswerHints". Keys = each incorrect option letter (e.g. "B", "C", "D"). Value = 1–2 sentences, max 40 words, explaining WHY that specific wrong option seems reasonable and what conceptual confusion it represents. Must NOT repeat the correct answer text. Must NOT say "this is wrong because the correct answer is...". Focus on the mental error: what did the student assume that led them there?
-  Example format: {"B": "Confundir macroeconomía con microeconomía ocurre porque ambas estudian precios — pero la macroeconomía analiza tendencias nacionales, no decisiones individuales de un vendedor.", "C": "Pensar que la oferta global afecta el precio de un solo puesto confunde el nivel de análisis: la macroeconomía actúa sobre el país, no sobre cada vendedor."}
+- WRONG-ANSWER HINTS (MANDATORY): Every slide that has options MUST include "wrongAnswerHints". Keys = each incorrect option letter (e.g. "B", "C", "D"). Value = EXACTLY 1–2 sentences, 15–40 words total, acting as a micro conceptual correction — like a teacher's clarification, not a motivational message.
+  STRUCTURE for each wrong option:
+    Sentence 1 — Name what the wrong option actually IS (its real category or domain) OR state the false assumption behind it. Do NOT start from "it's wrong because".
+    Sentence 2 — State the correct conceptual distinction: what the question was actually testing and why this option misses it.
+  QUALITY GATE — before writing each hint ask: "Could this same sentence apply to a different question about a different topic?" If YES → rewrite it. Every hint must be specific to THIS question and THIS wrong option.
+  FORBIDDEN phrases — reject and rewrite if you use any of these:
+    ❌ "Es posible, pero..." / "Es una X, pero no..." / "No es exactamente..." / "Aunque es correcto que..."
+    ❌ "A veces este concepto..." / "Aunque parece..." / "Identifica qué razonamiento..."
+    ❌ Any phrase about learning, motivation, effort, or the student's thought process
+    ❌ Repeating the correct answer text verbatim
+    ❌ Repeating the question text
+  CORRECT examples — for question "¿Cuál situación muestra la interacción entre familias y empresas en el mercado de bienes?":
+    ✅ "B" (El Estado cobra impuestos a las familias): "Los impuestos representan una relación entre el Estado y las familias, no una transacción de mercado entre privados. El mercado de bienes ocurre cuando familias compran productos o servicios que ofrecen las empresas."
+    ✅ "C" (Empresas reciben subsidios del Estado): "Los subsidios son transferencias del Estado a empresas, no intercambios entre familias y empresas. El mercado de bienes involucra compras y ventas directas entre hogares y productores privados."
+    ❌ "B": "Es una interacción, pero no entre familias y empresas." — TOO VAGUE, forbidden.
+    ❌ "C": "Es posible, pero no es un efecto directo." — FORBIDDEN pattern.
 - DOCUMENT-FIRST LAW: 100% of academic content must be derivable from the transcription. If a concept, example, or application cannot be traced back to the transcription → remove it.
 - COVERAGE LAW: if the document has N ≥ 3 distinct concepts, at least ⌈N × 0.8⌉ must appear across slides. A session that uses only 1 of 5 available concepts is INVALID.
 - NON-EQUIVALENCE LAW: interactive screens 3, 5, 6, and 9 must each test a DIFFERENT concept from the document. Check: "Is this question testing the same idea as a previous interactive slide?" If YES → rewrite using a different concept.
@@ -722,7 +736,17 @@ REGLAS ABSOLUTAS — verifica ANTES de outputtar el JSON:
 10. NUNCA-VACÍO: title ≥ 3 palabras, definition ≥ 10 palabras en TODAS las pantallas.
 11. ENFOQUE: pantallas 4, 7 y 9 son todas sobre "${skill}" — distintos niveles, misma habilidad.
 12. MATEMÁTICAS: todas las respuestas correctas y equivalencias numéricas son matemáticamente correctas.
-13. WRONG-ANSWER HINTS (OBLIGATORIO): Toda pantalla con options DEBE incluir "wrongAnswerHints". Claves = letras de opciones incorrectas. Valor = 1–2 frases, max 40 palabras, que explican la confusión conceptual detrás de esa elección incorrecta. NO repetir la respuesta correcta. NO decir "esto es incorrecto porque la respuesta es...". Explicar qué asumió el estudiante que lo llevó a ese error.
+13. WRONG-ANSWER HINTS (OBLIGATORIO): Toda pantalla con options DEBE incluir "wrongAnswerHints". Claves = letras de opciones incorrectas. Valor = EXACTAMENTE 1–2 frases, entre 15 y 40 palabras, que funcionen como micro-corrección conceptual — como la aclaración de un profesor, no un mensaje motivacional.
+    ESTRUCTURA por cada opción incorrecta:
+      Frase 1: Nombra a qué categoría o concepto PERTENECE la opción incorrecta, o señala el supuesto falso detrás de ella. NO empezar desde "está mal porque".
+      Frase 2: Establece la distinción conceptual correcta — qué evaluaba la pregunta y por qué esa opción no aplica.
+    CRITERIO DE CALIDAD: ¿Esta frase podría usarse para una pregunta diferente de otro tema? Si SÍ → reescribir. Cada hint debe ser específico para ESTA pregunta y ESTA opción.
+    FRASES PROHIBIDAS — rechazar y reescribir si aparecen:
+      ❌ "Es posible, pero..." / "Es una X, pero no..." / "No es exactamente..." / "Aunque es correcto..."
+      ❌ "A veces..." / "Aunque parece..." / "Identifica qué razonamiento..."
+      ❌ Frases sobre el proceso de aprendizaje, motivación o esfuerzo
+      ❌ Repetir textualmente la respuesta correcta
+      ❌ Repetir el enunciado de la pregunta
 
 Transcripción:
 ${normalizeText(transcription)}
