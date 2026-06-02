@@ -1809,30 +1809,52 @@ export default function SessionPlayerScreen() {
                 </View>
               )
             ) : slide?.type === 'victory' ? ((() => {
+              // Labels per spec: Dominado / Buen dominio / Vas avanzando / Necesita más práctica
               const masteryConfig = masteryLevel === 'mastered'
-                ? { bg: 'rgba(5,150,105,0.12)', border: 'rgba(5,150,105,0.3)', color: '#065F46', label: '🏆 Habilidad dominada', sub: `${masteryPct ?? 100}% correcto` }
+                ? { bg: 'rgba(5,150,105,0.12)', border: 'rgba(5,150,105,0.3)', color: '#065F46', label: '🏆 Dominado', sub: `${masteryPct ?? 100}% correcto` }
                 : masteryLevel === 'good_mastery'
                 ? { bg: 'rgba(59,130,246,0.10)', border: 'rgba(59,130,246,0.3)', color: '#1E40AF', label: '📈 Buen dominio', sub: `${masteryPct ?? 0}% correcto` }
                 : masteryLevel === 'in_progress'
-                ? { bg: 'rgba(245,158,11,0.10)', border: 'rgba(245,158,11,0.3)', color: '#92400E', label: '🎯 En progreso', sub: `${masteryPct ?? 0}% correcto` }
+                ? { bg: 'rgba(245,158,11,0.10)', border: 'rgba(245,158,11,0.3)', color: '#92400E', label: '🔄 Vas avanzando', sub: `${masteryPct ?? 0}% correcto` }
                 : masteryLevel === 'needs_practice'
                 ? { bg: 'rgba(239,68,68,0.08)', border: 'rgba(239,68,68,0.2)', color: '#991B1B', label: '💪 Necesita más práctica', sub: `${masteryPct ?? 0}% correcto` }
                 : null;
 
-              // Intelligent reflection — based on which slides were answered wrong
+              // Reflection — based on slides actually ANSWERED wrong (not unanswered)
               const V_INTER = ['comprehension', 'mini_quiz', 'final_challenge', 'decide', 'order_sequence', 'common_error', 'application', 'challenge', 'wow_fact'];
+              const answeredInteractive = missionSlides.filter((s, i) =>
+                V_INTER.includes(s.type) && !!(s as BackendSlide).correctAnswer && !!quizAnswers[i]
+              ).length;
+              const noInteractionsAttempted = vInterTotal > 0 && answeredInteractive === 0;
               const wrongSlides = missionSlides
                 .map((s, i) => ({ s: s as BackendSlide, i }))
                 .filter(({ s, i }) =>
                   V_INTER.includes(s.type) &&
                   !!s.correctAnswer &&
+                  !!quizAnswers[i] &&           // must have been answered
                   quizAnswers[i] !== s.correctAnswer
                 );
-              const reflectionMsg: string | null = wrongSlides.length === 0
+              const reflectionMsg: string | null = noInteractionsAttempted || wrongSlides.length === 0
                 ? null
                 : wrongSlides.length === 1
-                ? `Notamos que la pregunta "${(wrongSlides[0].s.question ?? '').slice(0, 50)}..." fue la más difícil. Repasa ese concepto antes de la siguiente misión.`
-                : `Fallaste ${wrongSlides.length} preguntas. Repasa especialmente: "${(wrongSlides[0].s.question ?? '').slice(0, 40)}..."${wrongSlides.length > 1 ? ` y "${(wrongSlides[1].s.question ?? '').slice(0, 40)}..."` : ''}.`;
+                ? `La pregunta "${(wrongSlides[0].s.question ?? '').slice(0, 50)}..." fue la más difícil. Repásala antes de seguir.`
+                : `Repasa especialmente: "${(wrongSlides[0].s.question ?? '').slice(0, 40)}..."${wrongSlides.length > 1 ? ` y "${(wrongSlides[1].s.question ?? '').slice(0, 40)}..."` : ''}.`;
+
+              // "Aprendiste" → "Conceptos trabajados" when performance is insufficient
+              const victoryDefinition = (() => {
+                if (!slide.definition) return null;
+                if (noInteractionsAttempted) return null;
+                const pct = masteryPct ?? 100;
+                if (pct >= 70) return slide.definition;
+                return slide.definition.replace(/^(✓\s*)?Aprendiste:?\s*/i, 'Conceptos trabajados: ');
+              })();
+
+              // Victory note: only first part of example (no cross-mission "Próximo desafío")
+              const victoryNote = (() => {
+                if (!slide.example) return null;
+                if (noInteractionsAttempted) return null;
+                return slide.example.split(' | ')[0].trim();
+              })();
               // Skill path context
               const currentMissionIdx = skillPath?.missions?.findIndex(m => m.sessionId === currentSessionId) ?? -1;
               const currentSkillLabel = skillPath && currentMissionIdx >= 0
@@ -1887,11 +1909,11 @@ export default function SessionPlayerScreen() {
                 setCardsDone(false);
                 loadedSessionKeyRef.current = newKey;
               };
-              // Override victory title when performance is inconsistent with "¡Misión cumplida!"
+              // Override victory title to be consistent with actual performance
               const effectiveVictoryTitle = (() => {
+                if (noInteractionsAttempted) return '¡Intento registrado!';
                 if (vInterTotal === 0) return slide.title;
                 const pct = masteryPct ?? 100;
-                if (pct === 0) return '¡Intento registrado!';
                 if (pct < 30) return '¡Misión completada!';
                 return slide.title;
               })();
@@ -1904,46 +1926,76 @@ export default function SessionPlayerScreen() {
                 {!!missionProgress && (
                   <Text style={sum.missionProgress}>{missionProgress}</Text>
                 )}
-                {/* Skill dominance chip */}
-                {!!currentSkillLabel && (
+                {/* Skill dominance chip — only when evidence of learning exists */}
+                {!!currentSkillLabel && !noInteractionsAttempted && (masteryPct ?? 0) >= 70 && (
                   <View style={sum.skillDominatedChip}>
                     <Text style={sum.skillDominatedText}>✓ Dominaste: {currentSkillLabel}</Text>
                   </View>
                 )}
-                {!!slide.definition && <Text style={sum.victorySub}>{slide.definition}</Text>}
-                {/* Mastery badge */}
-                {!!masteryConfig && (
-                  <View style={[sum.masteryBadge, { backgroundColor: masteryConfig.bg, borderColor: masteryConfig.border }]}>
-                    <Text style={[sum.masteryBadgeText, { color: masteryConfig.color }]}>{masteryConfig.label}</Text>
-                    <Text style={[sum.masteryBadgeSub, { color: masteryConfig.color }]}>{masteryConfig.sub}</Text>
-                  </View>
-                )}
-                <View style={sum.victoryStats}>
-                  <View style={sum.victoryStatRow}>
-                    <View style={sum.victoryStat}>
-                      <Text style={sum.victoryStatVal}>{vConcepts}</Text>
-                      <Text style={sum.victoryStatLbl}>conceptos</Text>
-                    </View>
-                    <View style={sum.victoryStat}>
-                      <Text style={[sum.victoryStatVal, { color: '#059669' }]}>{vCorrect}/{vInterTotal}</Text>
-                      <Text style={sum.victoryStatLbl}>correctas</Text>
-                    </View>
-                    <View style={sum.victoryStat}>
-                      <Text style={[sum.victoryStatVal, { color: BRAND }]}>+{earnedXp ?? session.xpReward}</Text>
-                      <Text style={sum.victoryStatLbl}>XP</Text>
-                    </View>
-                    <View style={sum.victoryStat}>
-                      <Text style={[sum.victoryStatVal, { color: '#FF7A2B' }]}>+{(masteryPct ?? 0) >= 70 ? Math.round((session.gemReward ?? 10) * (masteryPct ?? 0) / 100) : 0}</Text>
-                      <Text style={sum.victoryStatLbl}>💎</Text>
+                {/* "Conceptos trabajados" / "Aprendiste" — suppressed when no interactions */}
+                {!!victoryDefinition && <Text style={sum.victorySub}>{victoryDefinition}</Text>}
+
+                {noInteractionsAttempted ? (
+                  /* CASO 1: Sin respuestas — no hay evidencia de aprendizaje */
+                  <View style={sum.noInteractionBlock}>
+                    <Text style={sum.noInteractionText}>
+                      Recorriste el contenido, pero no respondiste actividades suficientes para evaluar tu comprensión.
+                    </Text>
+                    <View style={sum.noInteractionStats}>
+                      <View style={sum.victoryStat}>
+                        <Text style={sum.victoryStatVal}>{vConcepts}</Text>
+                        <Text style={sum.victoryStatLbl}>pantallas</Text>
+                      </View>
+                      <View style={sum.victoryStat}>
+                        <Text style={[sum.victoryStatVal, { color: Colors.muted }]}>0/{vInterTotal}</Text>
+                        <Text style={sum.victoryStatLbl}>respondidas</Text>
+                      </View>
+                      <View style={sum.victoryStat}>
+                        <Text style={[sum.victoryStatVal, { color: Colors.muted }]}>+0</Text>
+                        <Text style={sum.victoryStatLbl}>XP</Text>
+                      </View>
                     </View>
                   </View>
-                </View>
-                {!!slide.example && <Text style={sum.victoryNote}>{slide.example.split(' | ')[0]}</Text>}
-                {/* Intelligent reflection */}
-                {!!reflectionMsg && (
-                  <View style={sum.reflectionBlock}>
-                    <Text style={sum.reflectionText}>{reflectionMsg}</Text>
-                  </View>
+                ) : (
+                  /* CASO 2-4: Hay respuestas — mostrar desempeño real */
+                  <>
+                    {/* Mastery badge */}
+                    {!!masteryConfig && (
+                      <View style={[sum.masteryBadge, { backgroundColor: masteryConfig.bg, borderColor: masteryConfig.border }]}>
+                        <Text style={[sum.masteryBadgeText, { color: masteryConfig.color }]}>{masteryConfig.label}</Text>
+                        <Text style={[sum.masteryBadgeSub, { color: masteryConfig.color }]}>{masteryConfig.sub}</Text>
+                      </View>
+                    )}
+                    {/* Performance stats */}
+                    <View style={sum.victoryStats}>
+                      <View style={sum.victoryStatRow}>
+                        <View style={sum.victoryStat}>
+                          <Text style={sum.victoryStatVal}>{vConcepts}</Text>
+                          <Text style={sum.victoryStatLbl}>conceptos</Text>
+                        </View>
+                        <View style={sum.victoryStat}>
+                          <Text style={[sum.victoryStatVal, { color: '#059669' }]}>{vCorrect}/{vInterTotal}</Text>
+                          <Text style={sum.victoryStatLbl}>correctas</Text>
+                        </View>
+                        <View style={sum.victoryStat}>
+                          <Text style={[sum.victoryStatVal, { color: BRAND }]}>+{earnedXp ?? 0}</Text>
+                          <Text style={sum.victoryStatLbl}>XP</Text>
+                        </View>
+                        <View style={sum.victoryStat}>
+                          <Text style={[sum.victoryStatVal, { color: '#FF7A2B' }]}>+{(masteryPct ?? 0) >= 70 ? Math.round((session.gemReward ?? 10) * (masteryPct ?? 0) / 100) : 0}</Text>
+                          <Text style={sum.victoryStatLbl}>💎</Text>
+                        </View>
+                      </View>
+                    </View>
+                    {/* "Lo usarás..." note — first part only, no cross-mission recommendations */}
+                    {!!victoryNote && <Text style={sum.victoryNote}>{victoryNote}</Text>}
+                    {/* Intelligent reflection — only for answered-wrong slides */}
+                    {!!reflectionMsg && (
+                      <View style={sum.reflectionBlock}>
+                        <Text style={sum.reflectionText}>{reflectionMsg}</Text>
+                      </View>
+                    )}
+                  </>
                 )}
                 {/* Next mission button — skill transition */}
                 {!!nextMission && (
@@ -2811,6 +2863,9 @@ const sum = StyleSheet.create({
   masteryBadgeSub:  { fontSize: 11, fontWeight: '600', marginTop: 2, opacity: 0.8 },
   reflectionBlock:  { backgroundColor: 'rgba(245,158,11,0.08)', borderRadius: 12, borderWidth: 1, borderColor: 'rgba(245,158,11,0.25)', paddingVertical: 10, paddingHorizontal: 14, marginTop: 8, marginBottom: 4, alignSelf: 'stretch' },
   reflectionText:   { fontSize: 12, color: '#92400E', fontWeight: '600', lineHeight: 18 },
+  noInteractionBlock: { width: '100%', backgroundColor: 'rgba(0,0,0,0.04)', borderRadius: 14, padding: 14, borderWidth: 1, borderColor: Colors.line, alignItems: 'center', gap: 12 },
+  noInteractionText:  { fontSize: 13, color: Colors.muted, fontWeight: '500', textAlign: 'center', lineHeight: 19 },
+  noInteractionStats: { flexDirection: 'row', gap: 16, justifyContent: 'center' },
 
   // Skill dominance chip + mission progress
   missionProgress:    { fontSize: 11, fontWeight: '700', color: Colors.muted, letterSpacing: 0.5, textTransform: 'uppercase', marginBottom: 6 },
