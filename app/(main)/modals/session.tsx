@@ -692,8 +692,9 @@ export default function SessionPlayerScreen() {
     if (slide?.type !== 'victory') return;
     if (masteryLevel !== null) return; // already computed
 
-    const V_INTER = ['comprehension', 'mini_quiz', 'final_challenge', 'decide', 'order_sequence', 'common_error'];
-    const interSlides = missionSlides.map((s, i) => ({ s, i })).filter(({ s }) => V_INTER.includes(s.type));
+    const V_INTER = ['comprehension', 'mini_quiz', 'final_challenge', 'decide', 'order_sequence', 'common_error', 'application', 'challenge', 'wow_fact'];
+    const interSlides = missionSlides.map((s, i) => ({ s, i }))
+      .filter(({ s }) => V_INTER.includes(s.type) && !!(s as BackendSlide).correctAnswer);
     const interTotal = interSlides.length;
     const interCorrect = interSlides.filter(({ s, i }) =>
       quizAnswers[i] === (s as BackendSlide).correctAnswer
@@ -1138,7 +1139,7 @@ export default function SessionPlayerScreen() {
     const slideQuizAnswered = slide?.type === 'quiz' ? quizAnswers[summaryIdx] : undefined;
     // Stats for victory screen — computed once, used in victory card renderer
     const V_CONCEPT   = ['main_concept', 'key_relation', 'process_flow', 'application', 'common_error', 'challenge'];
-    const V_INTER     = ['comprehension', 'mini_quiz', 'final_challenge', 'decide', 'order_sequence', 'common_error'];
+    const V_INTER     = ['comprehension', 'mini_quiz', 'final_challenge', 'decide', 'order_sequence', 'common_error', 'application', 'challenge', 'wow_fact'];
     const vConcepts   = slides.filter(s => V_CONCEPT.includes(s.type)).length;
     const vInterTotal = slides.filter((s, i) => V_INTER.includes(s.type) && !!(s as BackendSlide).correctAnswer).length;
     const vCorrect    = slides.filter((s, i) => V_INTER.includes(s.type) && !!(s as BackendSlide).correctAnswer && quizAnswers[i] === (s as BackendSlide).correctAnswer).length;
@@ -1490,12 +1491,45 @@ export default function SessionPlayerScreen() {
                 <View style={sum.appBody}>
                   <Text style={sum.appTitle}>{slide.title}</Text>
                   {!!slide.definition && <Text style={sum.appSit}>{slide.definition}</Text>}
-                  {!!slide.example && (
+                  {slide.question && slide.options?.length ? (
+                    // Interactive version
+                    <View style={{ marginTop: 10, gap: 8 }}>
+                      <Text style={sum.quizQuestion}>{slide.question}</Text>
+                      {slide.options.map((opt, i) => {
+                        const letter = LETTERS[i];
+                        const answered = quizAnswers[summaryIdx];
+                        const isCorrect = (slide as BackendSlide).correctAnswer === letter;
+                        const showGreen = !!answered && isCorrect;
+                        const showRed = answered === letter && !isCorrect;
+                        const dimmed = !!answered && !isCorrect && answered !== letter;
+                        return (
+                          <Pressable key={i}
+                            onPress={() => { if (!answered) { setQuizAnswers(prev => ({ ...prev, [summaryIdx]: letter })); if (isCorrect) showSummaryReward(); else insertCorrectiveSlide(slide as BackendSlide); } }}
+                            style={[sum.quizOption, showGreen && sum.quizOptCorrect, showRed && sum.quizOptWrong, { opacity: dimmed ? 0.35 : 1 }]}
+                          >
+                            <View style={[sum.quizLetter, showGreen && sum.quizLetterGreen, showRed && sum.quizLetterRed]}>
+                              {showGreen ? <Check size={12} color="white" strokeWidth={3} /> :
+                               showRed   ? <X    size={12} color="white" strokeWidth={3} /> :
+                               <Text style={sum.quizLetterText}>{letter}</Text>}
+                            </View>
+                            <Text style={[sum.quizOptText, showGreen && { color: '#065F46', fontWeight: '700' }, showRed && { color: '#991B1B', fontWeight: '700' }]}>{opt}</Text>
+                          </Pressable>
+                        );
+                      })}
+                      {!!quizAnswers[summaryIdx] && !!slide.example && (
+                        <View style={sum.appAnswerBox}>
+                          <Text style={sum.appAnswerLabel}>Cómo aplica</Text>
+                          <Text style={sum.appAnswerText}>{slide.example}</Text>
+                        </View>
+                      )}
+                    </View>
+                  ) : !!slide.example ? (
+                    // Passive version
                     <View style={sum.appAnswerBox}>
                       <Text style={sum.appAnswerLabel}>Cómo aplica</Text>
                       <Text style={sum.appAnswerText}>{slide.example}</Text>
                     </View>
-                  )}
+                  ) : null}
                 </View>
               </View>
             ) : slide?.type === 'common_error' ? (
@@ -1723,17 +1757,57 @@ export default function SessionPlayerScreen() {
                 );
               })()
             ) : slide?.type === 'challenge' ? (
-              <View style={sum.challengeRefCard}>
-                <Text style={sum.challengeRefEmoji}>🤔</Text>
-                <Text style={sum.challengeRefLabel}>REFLEXIONA</Text>
-                <Text style={sum.challengeRefQ}>{slide.definition || slide.title}</Text>
-                {!!slide.example && (
-                  <View style={sum.challengeRefHintBox}>
-                    <Text style={sum.challengeRefHintLbl}>Pista</Text>
-                    <Text style={sum.challengeRefHintTxt}>{slide.example}</Text>
+              slide.question && slide.options?.length ? (
+                // Interactive version
+                <View style={sum.challengeRefCard}>
+                  <Text style={sum.challengeRefEmoji}>🤔</Text>
+                  <Text style={sum.challengeRefLabel}>REFLEXIONA</Text>
+                  {!!slide.definition && <Text style={sum.challengeRefQ}>{slide.definition}</Text>}
+                  <View style={{ gap: 8, marginTop: 10, width: '100%' }}>
+                    <Text style={sum.quizQuestion}>{slide.question}</Text>
+                    {slide.options.map((opt, i) => {
+                      const letter = LETTERS[i];
+                      const answered = quizAnswers[summaryIdx];
+                      const isCorrect = (slide as BackendSlide).correctAnswer === letter;
+                      const showGreen = !!answered && isCorrect;
+                      const showRed = answered === letter && !isCorrect;
+                      const dimmed = !!answered && !isCorrect && answered !== letter;
+                      return (
+                        <Pressable key={i}
+                          onPress={() => { if (!answered) { setQuizAnswers(prev => ({ ...prev, [summaryIdx]: letter })); if (isCorrect) showSummaryReward(); else insertCorrectiveSlide(slide as BackendSlide); } }}
+                          style={[sum.quizOption, showGreen && sum.quizOptCorrect, showRed && sum.quizOptWrong, { opacity: dimmed ? 0.35 : 1 }]}
+                        >
+                          <View style={[sum.quizLetter, showGreen && sum.quizLetterGreen, showRed && sum.quizLetterRed]}>
+                            {showGreen ? <Check size={12} color="white" strokeWidth={3} /> :
+                             showRed   ? <X    size={12} color="white" strokeWidth={3} /> :
+                             <Text style={sum.quizLetterText}>{letter}</Text>}
+                          </View>
+                          <Text style={[sum.quizOptText, showGreen && { color: '#065F46', fontWeight: '700' }, showRed && { color: '#991B1B', fontWeight: '700' }]}>{opt}</Text>
+                        </Pressable>
+                      );
+                    })}
+                    {!!quizAnswers[summaryIdx] && !!slide.example && (
+                      <View style={sum.challengeRefHintBox}>
+                        <Text style={sum.challengeRefHintLbl}>Reflexión</Text>
+                        <Text style={sum.challengeRefHintTxt}>{slide.example}</Text>
+                      </View>
+                    )}
                   </View>
-                )}
-              </View>
+                </View>
+              ) : (
+                // Passive version
+                <View style={sum.challengeRefCard}>
+                  <Text style={sum.challengeRefEmoji}>🤔</Text>
+                  <Text style={sum.challengeRefLabel}>REFLEXIONA</Text>
+                  <Text style={sum.challengeRefQ}>{slide.definition || slide.title}</Text>
+                  {!!slide.example && (
+                    <View style={sum.challengeRefHintBox}>
+                      <Text style={sum.challengeRefHintLbl}>Pista</Text>
+                      <Text style={sum.challengeRefHintTxt}>{slide.example}</Text>
+                    </View>
+                  )}
+                </View>
+              )
             ) : slide?.type === 'victory' ? ((() => {
               const masteryConfig = masteryLevel === 'mastered'
                 ? { bg: 'rgba(5,150,105,0.12)', border: 'rgba(5,150,105,0.3)', color: '#065F46', label: '🏆 Habilidad dominada', sub: `${masteryPct ?? 100}% correcto` }
@@ -1746,7 +1820,7 @@ export default function SessionPlayerScreen() {
                 : null;
 
               // Intelligent reflection — based on which slides were answered wrong
-              const V_INTER = ['comprehension', 'mini_quiz', 'final_challenge', 'decide', 'order_sequence', 'common_error'];
+              const V_INTER = ['comprehension', 'mini_quiz', 'final_challenge', 'decide', 'order_sequence', 'common_error', 'application', 'challenge', 'wow_fact'];
               const wrongSlides = missionSlides
                 .map((s, i) => ({ s: s as BackendSlide, i }))
                 .filter(({ s, i }) =>
@@ -1813,10 +1887,19 @@ export default function SessionPlayerScreen() {
                 setCardsDone(false);
                 loadedSessionKeyRef.current = newKey;
               };
+              // Override victory title when performance is inconsistent with "¡Misión cumplida!"
+              const effectiveVictoryTitle = (() => {
+                if (vInterTotal === 0) return slide.title;
+                const pct = masteryPct ?? 100;
+                if (pct === 0) return '¡Intento registrado!';
+                if (pct < 30) return '¡Misión completada!';
+                return slide.title;
+              })();
+
               return (
               <View style={sum.victoryCard}>
                 <Text style={sum.victoryEmoji}>{slide.emoji}</Text>
-                <Text style={sum.victoryTitle}>{slide.title}</Text>
+                <Text style={sum.victoryTitle}>{effectiveVictoryTitle}</Text>
                 {/* Mission progress indicator */}
                 {!!missionProgress && (
                   <Text style={sum.missionProgress}>{missionProgress}</Text>
@@ -1995,7 +2078,7 @@ export default function SessionPlayerScreen() {
           {/* CTA */}
           <View style={[g.bottom, { paddingBottom: insets.bottom + 12 }]}>
             {((slide?.type === 'quiz' && !slideQuizAnswered) ||
-              ((slide?.type === 'comprehension' || slide?.type === 'mini_quiz' || slide?.type === 'final_challenge' || slide?.type === 'decide' || slide?.type === 'order_sequence' || (slide?.type === 'common_error' && !!slide.question) || (slide?.type === 'wow_fact' && !!slide.question)) && !quizAnswers[summaryIdx])) ? (
+              ((slide?.type === 'comprehension' || slide?.type === 'mini_quiz' || slide?.type === 'final_challenge' || slide?.type === 'decide' || slide?.type === 'order_sequence' || (slide?.type === 'common_error' && !!slide.question) || (slide?.type === 'wow_fact' && !!slide.question) || (slide?.type === 'application' && !!slide.question) || (slide?.type === 'challenge' && !!slide.question)) && !quizAnswers[summaryIdx])) ? (
               <View style={g.ctaBtnOff}>
                 <Text style={g.ctaTextOff}>Elige una opción</Text>
               </View>
@@ -2009,7 +2092,7 @@ export default function SessionPlayerScreen() {
                     {isLast && slide?.type === 'victory' ? '🏆 ¡Misión completada!' :
                      isLast ? '✅ Completar resumen' :
                      slide?.type === 'mission' ? '¡Comenzar! →' :
-                     slide?.type === 'challenge' ? '🤔 Lo pensé →' :
+                     (slide?.type === 'challenge' && !(slide as BackendSlide).correctAnswer) ? '🤔 Lo pensé →' :
                      slide?.type === 'decide' ? '✅ Decidido →' :
                      slide?.type === 'motivation' ? '¡Seguimos! →' :
                      slide?.type === 'prediction' ? '🧠 Entendido →' :

@@ -292,11 +292,14 @@ Use "challenge" ONLY as last resort if neither works.
   - example: real-world instance (max 20 words)
 - OPTION C — type: "challenge" (last resort):
   - title: "Reflexiona"
-  - definition: open-ended "what if" question that requires applying concepts (max 30 words)
-  - question, options, correctAnswer: all null
+  - definition: brief context that frames the choice (max 20 words). NOT the question itself.
+  - question: a simple choice the student must make based on the concept (max 25 words). Example: "¿Qué consecuencia tiene esto en la práctica?"
+  - options: exactly 3 options ("A. ...", "B. ...", "C. ..."). One clearly correct, two plausible distractors. Each max 12 words.
+  - correctAnswer: "A", "B", or "C"
+  - example: emotional feedback after answering. Starts with 🔥, 🚀, ⚡, or 🎯. Max 15 words.
 
-SCREEN 7 — type: "application" — emoji: 🌍
-THIS SCREEN ANSWERS: "¿Dónde se aplica esto en el mundo real?"
+SCREEN 7 — type: "application" — emoji: 🌍  [INTERACTIVE — NIVEL 3: APLICAR]
+THIS SCREEN ANSWERS: "¿Dónde se aplica esto en el mundo real?" — and the student must confirm they can apply it.
 DOCUMENT-FIRST RULE: identify the most direct, real-world application of the document's main concept.
 Use applications that NATURALLY follow from the subject in the transcription:
   Física/Ondas: radio FM, radar meteorológico, ultrasonido médico, ecografía, sonares, instrumentos musicales, fibra óptica, señales WiFi, sísmica
@@ -309,36 +312,49 @@ Use applications that NATURALLY follow from the subject in the transcription:
   Historia: procesos y hechos reales del período estudiado, documentos históricos
   Lenguaje: análisis de noticias reales, publicidad, discursos históricos, textos literarios
 ❌ NEVER use brand names (Spotify, Netflix, TikTok, Uber, Instagram, Airbnb, Amazon, PedidosYa, Steam) unless they appear explicitly in the transcription.
-❌ PROHIBITED: "una empresa", "un consumidor" without a specific educational context.
 ❌ PROHIBITED: inventing mechanisms or facts not derivable from the transcription.
-- title: a concrete real-world scenario that demonstrates the concept (max 15 words, preferably a question)
-  FORMAT ONLY — create from THIS document's subject, never copy these:
-  ✅ Física/Ondas: "¿Cómo detectan los médicos el corazón de un bebé antes de nacer con ultrasonido?"
-  ✅ Física/Electricidad: "¿Por qué los cables de alta tensión transportan electricidad a miles de voltios?"
-  ✅ Biología/ADN: "¿Cómo identifica la medicina forense a una persona con una sola célula encontrada?"
-  ✅ Matemáticas: "¿Cómo usan los ingenieros las derivadas para diseñar puentes que no colapsen?"
-  ⚠️ FORMAT ONLY — create the application scenario from THIS document's specific concept.
-- definition: which concept applies and WHY, plain language, no jargon (max 40 words, 2 sentences)
-  ACCURACY RULE: technically correct. The mechanism must be derivable from the transcription content.
-  ❌ FORBIDDEN: "La tecnología usa este concepto para mejorar la experiencia." — too vague.
-- example: connects this to something the student can observe or verify (max 15 words)
+- title: concrete real-world scenario (max 15 words, question format preferred). Creates context for the question.
+  FORMAT ONLY — create from THIS document's concept:
+  ✅ "¿Cómo detectan los médicos el corazón de un bebé antes de nacer?" (Física/Ondas)
+  ✅ "¿Cómo identifica la medicina forense a una persona con una sola célula?" (Biología/ADN)
+  ⚠️ FORMAT ONLY — create from THIS document.
+- definition: which concept applies and WHY (max 30 words, plain language, no jargon).
+  This is shown BEFORE the question as context.
+- question: MANDATORY — a simple situational question the student must answer by applying the concept. Max 20 words.
+  Format: "Si [situation], ¿qué ocurrirá?" or "¿Qué concepto explica [real outcome]?"
+  FORMAT ONLY — create from THIS document:
+  ✅ "Si una cuerda vibra más rápido, ¿qué ocurrirá con el tono producido?" (Física/Ondas)
+  ✅ "Si duplicas la concentración de reactivos, ¿qué sucede con la velocidad de reacción?" (Química)
+  ⚠️ FORMAT ONLY — write the question about THIS document's concept.
+- options: exactly 3 options ("A. ...", "B. ...", "C. ..."). One correct. Two plausible distractors. Max 10 words each.
+- correctAnswer: "A", "B", or "C"
+- example: post-answer reveal — what actually happens in this real context. Starts with 🌍. Max 20 words.
+  Shown to the student AFTER they answer. Connects the correct answer to the real mechanism.
 
-SCREEN 8 — type: "common_error" — emoji: ⚠️
+SCREEN 8 — type: "common_error" — emoji: ⚠️  [INTERACTIVE — ERROR DETECTION]
 SHOW WHAT TEENAGERS ACTUALLY BELIEVE — not textbook errors.
+The student reads the misconception and identifies WHAT is wrong — this is NOT passive reading.
 Think: what does a smart 15-year-old who uses TikTok but never studied this assume to be true? That IS the error.
-MANDATORY FORMAT — no exceptions:
-- definition: MUST start with "❌" (max 20 words)
+MANDATORY FORMAT — all fields required:
+- definition: MUST start with "❌" (max 25 words)
   Format: "❌ Muchos creen que [wrong belief specific to THIS document's topic]."
   FORMAT ONLY — identify the real teen misconception about THIS document's content:
   Física: ❌ "Muchos creen que el sonido viaja más rápido en el vacío que en materiales sólidos."
   Biología: ❌ "Muchos creen que las plantas solo respiran de noche y hacen fotosíntesis de día."
   Química: ❌ "Muchos creen que hervir agua siempre la purifica de todos sus contaminantes."
   ❌ Bad: "Confunden [término A] con [término B]." — too academic, not a real teen belief.
-  ⚠️ NEVER copy the subjects above (sonido, plantas, agua) — identify the error from THIS document's content.
-- example: MUST start with "✅" (max 20 words)
+  ⚠️ NEVER copy the subjects above — identify the error from THIS document's content.
+- question: MANDATORY — ask the student to identify what is incorrect. Max 15 words.
+  Format: "¿Qué tiene de incorrecto esta afirmación?" or "¿Por qué esta creencia está equivocada?"
+- options: MANDATORY — exactly 3 options ("A. ...", "B. ...", "C. ..."). Max 12 words each.
+  One option correctly identifies the specific flaw in the misconception.
+  The other two are plausible but wrong diagnoses.
+  ❌ FORBIDDEN options: "Todo está correcto", "Nada está mal", "Es completamente falso".
+- correctAnswer: "A", "B", or "C"
+- example: MANDATORY — MUST start with "✅" (max 20 words).
   Format: "✅ En realidad, [surprising truth that contradicts the error]."
-  It must SURPRISE the student — they didn't know this.
-BOTH fields required. The error must be specific to THIS topic and believable for a smart teenager.
+  Shown AFTER the student answers. Must SURPRISE them.
+The error must be specific to THIS topic and believable for a smart teenager.
 If no real teen misconception exists → replace with type "comprehension".
 
 SCREEN 9 — type: "wow_fact" — emoji: 🤯
@@ -384,7 +400,7 @@ ABSOLUTE RULES FOR ALL 10 SCREENS:
 - Generate EXACTLY 10 slides in the exact order above. No type may be duplicated.
 - Screen 1 title MUST be a curiosity question ending with "?". No exceptions.
 - Screens 3 and 5 MUST have complete question + options (not null).
-- Screen 8 definition MUST start with "❌". Screen 8 example MUST start with "✅".
+- Screen 8 definition MUST start with "❌". Screen 8 example MUST start with "✅". Screen 8 MUST have question + options + correctAnswer.
 - Screen 9 title MUST be "¿Sabías que...?".
 - Screen 10 definition MUST use ✓ checklist format.
 - NEVER copy text literally from the transcription.
@@ -397,7 +413,8 @@ ABSOLUTE RULES FOR ALL 10 SCREENS:
 - NON-EQUIVALENCE LAW: interactive screens 3, 5, 6, and 9 must each test a DIFFERENT concept from the document. Check: "Is this question testing the same idea as a previous interactive slide?" If YES → rewrite using a different concept.
 - NEVER-EMPTY LAW: every slide must have title ≥ 3 words and definition ≥ 10 words. Before finalizing, scan all 10 slides and verify none are empty.
 - Reorganize content by PEDAGOGICAL IMPORTANCE, not document order.
-- INTERACTIVITY: minimum 4 interactive screens (3, 5, 6 mandatory + wow_fact optional = 3-4 total).
+- INTERACTIVITY: minimum 6 interactive screens. Screens 3, 5, 6, 7, 8 are MANDATORY interactive. Screen 9 (wow_fact) is optional. After the guided example (screen 2), at least 70% of screens must require a student action (choice, detection, or application).
+- PASSIVE SCREENS LIMIT: no more than 2 consecutive non-interactive screens after screen 2.
 - CONCEPTUAL BRIDGE: when moving from micro to macro concepts, write an explicit bridge sentence in the relevant screen's definition.
 - CORSO ADAPTATION is MANDATORY: complexity, vocabulary, depth must match ${curso}.
 - WOW RULE: at least one screen (preferably screen 9) must produce "No tenía idea de que eso pasaba."
@@ -413,7 +430,8 @@ FINAL VALIDATION CHECKLIST — run before outputting JSON:
 6. All interactive screen definitions start with 🔥, 🚀, ⚡, or 🎯 → if NO, fix.
 7. No two consecutive non-interactive screens → if violation, swap or add comprehension.
 8. At least one screen produces the "No tenía idea de que eso pasaba" reaction → if NO, strengthen screen 9.
-9. Screen 7 (application) uses a concrete real-world application derived from the document's concept, NO brand names unless in transcription → if NO, rewrite.
+9. Screen 7 (application) has question + options + correctAnswer → if NO, rewrite to add them.
+9b. Screen 8 (common_error) has question + options + correctAnswer → if NO, rewrite to add them.
 10. Complexity matches ${curso} → if too hard for 1° Medio or too easy for 4° Medio, adjust.
 11. CONSISTENCY CHECK — for each interactive slide (3, 5, 6, wow_fact): does the feedback definition explain exactly why the correct answer is correct for THIS specific question? → if the feedback talks about a different concept, rewrite the feedback.
 12. DOCUMENT-FIRST CHECK — does any slide contain concepts not present in the transcription? → if YES, replace with content from the transcription.
