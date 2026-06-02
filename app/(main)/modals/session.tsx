@@ -1941,7 +1941,7 @@ export default function SessionPlayerScreen() {
                     </Text>
                     <View style={sum.noInteractionStats}>
                       <View style={sum.victoryStat}>
-                        <Text style={sum.victoryStatVal}>{vConcepts}</Text>
+                        <Text style={sum.victoryStatVal}>{slides.length}</Text>
                         <Text style={sum.victoryStatLbl}>pantallas</Text>
                       </View>
                       <View style={sum.victoryStat}>
