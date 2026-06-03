@@ -467,15 +467,15 @@ If any check fails → fix that screen before outputting.
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 QUIZ QUESTIONS (separate from summary screens):
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-GOAL: Questions that evaluate comprehension, application and reasoning — NOT memorization or definitions.
-TARGET STANDARD: SIMCE / PAES quality. The correct answer must NOT be detectable by visual patterns or elimination.
+CORE GOAL: Every question must make the student THINK. All 4 options must compete — the correct answer is not detectable by elimination, length, or position.
+STANDARD: A quality modern school exam (SIMCE/PAES level), NOT a memorization worksheet.
 
 ── RULE 0: COURSE-LEVEL PROFILE — MANDATORY FIRST STEP ──────────
 Before writing ANY question, lock in the cognitive profile for ${curso}.
 This profile overrides everything else — quality rules apply WITHIN this level, not above it.
 
   1º Medio  → simple everyday vocabulary | one concept per question | situations from daily life
-              (family, school, neighborhood) | recognition + basic application only | NO multi-variable analysis.
+              (family, school, neighborhood) | recognition + basic application | NO multi-variable analysis.
   2º Medio  → plain language | basic application | single cause-effect step | familiar Chilean contexts.
   3º Medio  → relational analysis | consequences of actions | two-variable reasoning | slightly technical vocabulary.
   4º Medio  → critical thinking | pre-university depth | comparing two concepts | complex scenarios.
@@ -485,83 +485,97 @@ This profile overrides everything else — quality rules apply WITHIN this level
 ❌ NEVER simplify 3°/4° Medio questions down to pure recognition — they must require reasoning.
 All rules below apply WITHIN the profile above. If a rule conflicts with the student's level, the level wins.
 
-── RULE 1: SCENARIO-BASED QUESTIONS ─────────────────────────────
-Every question must start from a concrete situation, NOT a direct concept question.
-❌ BAD: "¿Qué es la inflación?"
-✅ GOOD: "Una familia nota que con el mismo dinero compra menos alimentos que hace seis meses. ¿Qué fenómeno explica mejor esta situación?"
-The student must understand the content — not just recall a definition.
+── RULE 1: MINI-CASE FORMAT ──────────────────────────────────────
+Every question must present an observable situation, then ask for the most probable cause, consequence, or best decision.
+❌ WEAK: "¿Qué pasa si baja la tasa de interés?"
+✅ STRONG: "El Banco Central reduce la tasa de interés. Meses después aumentan las solicitudes de crédito. ¿Cuál es la explicación más probable?"
+Pattern: [OBSERVABLE SITUATION in 1-2 sentences] + [ONE question about cause / consequence / decision / explanation].
+Preferred question openings: "¿Cuál es la causa más probable?", "¿Qué efecto es más probable?", "¿Cuál de estas explica mejor X?", "¿Qué decisión es más adecuada?"
 
-── RULE 2: PLAUSIBLE DISTRACTORS ────────────────────────────────
-Every wrong option must be a plausible reasoning error a student who doesn't fully understand the topic might make.
-❌ FORBIDDEN: absurd, obviously false, or unrelated options.
-❌ Bad (question about tasa de interés): "B. producción de palta", "C. desaparece del mapa"
-✅ Good: each distractor reflects a real misconception or partial understanding of THIS topic.
+── RULE 2: ALL OPTIONS IN THE SAME CONCEPTUAL UNIVERSE ──────────
+⚠️ THIS IS THE MOST CRITICAL RULE. Apply it before writing a single option.
 
-── RULE 3: SAME CONCEPTUAL UNIVERSE ─────────────────────────────
-ALL 4 options MUST belong to the same conceptual domain as the correct answer.
-Example — question about inflation: every option must be a plausible explanation OR effect of inflation.
-❌ FORBIDDEN: mixing concepts from unrelated topics in the same question.
-If you cannot write 3 plausible same-domain distractors → reframe the question.
+FOR EACH DISTRACTOR, answer this test:
+"¿Puede un estudiante eliminar esta opción SIN haber comprendido el tema de la pregunta?"
+→ If YES → the distractor is in the wrong domain → rewrite it.
 
-── RULE 4: DISTRIBUTE CORRECT ANSWER POSITION ───────────────────
-Assign correctOptionId evenly: ~25% A, 25% B, 25% C, 25% D across all questions.
-❌ FORBIDDEN: placing the correct answer in position A for most questions.
-Before writing the final question: verify correct answers are spread across A, B, C, D.
+❌ CRITICAL FAILURE example — question about oferta y demanda:
+  "B. El Banco Central cambió la tasa." / "C. El PIB creció." / "D. El dólar bajó."
+  → A student who knows nothing about oferta y demanda immediately eliminates B, C, D. NO reasoning required.
 
-── RULE 5: OPTION LENGTH PARITY ─────────────────────────────────
-All 4 options must be visually similar in length (max ~20% difference between shortest and longest).
-❌ FORBIDDEN: the correct option is consistently longer, more detailed, or contains more qualifiers.
-If the correct option stands out visually → rewrite ALL options to match its length.
+✅ CORRECT example — question about why the price of palta rose:
+  "A. Aumentó la demanda."  /  "B. Disminuyó la oferta."
+  "C. Subieron los costos de transporte."  /  "D. Hubo menor producción agrícola."
+  → All 4 options are plausible price-increase explanations. The student MUST reason to choose.
 
-── RULE 6: MINIMUM 70% APPLICATION QUESTIONS ────────────────────
-At least 70% of questions must evaluate APPLICATION — not definitions or isolated recall.
-Allowed types (prefer these):
-  ✅ Analysis of a situation ("dado este escenario, ¿qué ocurre?")
-  ✅ Most likely consequence ("si X cambia, ¿qué pasa con Y?")
-  ✅ Best decision in context ("¿qué haría un actor racional?")
-  ✅ Interpretation of data or results
-  ✅ Most probable cause given observed effects
-  ✅ Cause-effect relationship between two concepts
-Avoid (max 1 per question set):
-  ❌ Definitions ("¿Qué es X?")
-  ❌ Isolated memorization ("¿En qué año...?")
-  ❌ Concept recognition without context
+Rule: if you cannot write 3 plausible same-domain distractors → REFRAME the question until you can.
 
-── RULE 7: DISTRACTORS FROM REAL STUDENT ERRORS ─────────────────
-Build each distractor from a real misconception about THIS topic.
-  ✅ If correct answer is "Inflation reduces purchasing power" →
-     Distractor: "La inflación eleva automáticamente todos los salarios." ← real student belief
-❌ Do NOT invent distractors with no conceptual basis in this subject.
+── RULE 3: PLAUSIBLE DISTRACTORS — THE PARTIAL-UNDERSTANDING TEST ─
+For EACH wrong option, verify: "¿Un estudiante que entendió PARCIALMENTE la materia podría elegirla?"
+→ If NO → the distractor is too weak → rewrite.
 
-── RULE 8: CHILEAN CONTEXT WHEN MATERIAL ALLOWS ─────────────────
-If the material has Chilean context (economy, geography, history, society), ground questions in it.
-Preferred anchors:
-  ✅ "Una pyme en Chile..." / "El Banco Central decide..." / "Una familia en Santiago..."
-  ✅ "En una feria libre..." / "Una salmonera del sur..." / "El transporte público..."
-  ✅ "Un emprendimiento local..." / "El ahorro familiar..."
-❌ Do NOT force Chilean context where unnatural. Use only when it fits the content.
+Build distractors from real student errors and partial-truths about THIS specific topic:
+  ✅ Correct = "Oferta baja → precio sube" → Distractor = "Demanda baja → precio sube" (confuses direction, same mechanism)
+❌ FORBIDDEN: absurd, obviously false, or cross-domain options that any student eliminates immediately.
 
-── RULE 9: AVOID INVOLUNTARY CUES ───────────────────────────────
-❌ Do NOT make the correct option the most detailed or longest one.
-❌ Do NOT use absolute words ("siempre", "nunca", "todos", "ninguno") in correct options.
-❌ Do NOT repeat the same question structure ("Si X, ¿qué pasa con Y?") more than twice.
-❌ Do NOT create patterns: correct answer always has a number, or always uses a specific verb tense.
-The correct answer must NOT be identifiable by visual pattern or process of elimination.
+── RULE 4: NO BINARY QUESTIONS ──────────────────────────────────
+A question becomes "binary" when only one option is domain-relevant and the other three can be eliminated by topic alone.
+❌ BINARY (bad): "¿Qué ocurre cuando aumenta la demanda?" + [3 unrelated options] + [correct] → answerable by elimination.
+✅ ANALYTIC (good): All 4 options describe effects on price → student must reason which one this specific change causes.
+REQUIREMENT: At least 2 options must seem genuinely plausible to someone who studied the topic but isn't sure of the answer.
 
-── RULE 10: INTERNAL VALIDATION BEFORE ACCEPTING EACH QUESTION ──
-Before finalizing each question, answer all 5 checks:
-  1. Can the correct answer be identified just by being the longest? → If YES → rewrite options.
-  2. Can the correct answer be identified by position (always A or B)? → If YES → rebalance.
-  3. Can the correct answer be found by eliminating obviously absurd options? → If YES → rewrite distractors.
-  4. Do all 4 options seem reasonable to a student who hasn't mastered this topic? → If NO → rewrite weak distractors.
-  5. Does answering require understanding the content (fails 2-second recall test)? → If NO → rewrite question.
-If ANY answer is NO → rewrite before including. No exceptions.
+── RULE 5: REQUIRE AT LEAST ONE INFERENCE ───────────────────────
+Every question must require reasoning — not just recognition or recall.
+Accepted question types (use a variety across the 4 questions):
+  ✅ Causa probable | ✅ Consecuencia probable | ✅ Decisión más adecuada
+  ✅ Explicación más razonable | ✅ Interpretación de una situación
+❌ FORBIDDEN: definitions, isolated concept questions, anything answerable by reading the options without thinking.
+
+── RULE 6: SITUATIONAL GROUNDING AND CHILEAN CONTEXT ────────────
+Ground every question in a situation that feels real to the student.
+Preferred actors and contexts for ${curso}:
+  ✅ Familias, estudiantes, ferias, supermercados, emprendimientos, pymes, transporte, ahorro, consumo
+  ✅ If material contains Chilean context: Banco Central, salmoneras, pymes, mercado local
+❌ Do NOT force Chilean context where unnatural. Only use it when the material supports it.
+
+── RULE 7: NO VISUAL CUES ────────────────────────────────────────
+❌ Correct option must NOT be: the longest | the most detailed | the most technical | always position A.
+All 4 options must be similar in length (max ~20% difference).
+Distribute correctOptionId: ~25% A, 25% B, 25% C, 25% D across the 4-question set.
+Verify position spread before writing the last question.
+
+── RULE 8: DISTRACTORS FROM REAL STUDENT MISCONCEPTIONS ─────────
+Each wrong option should reflect a plausible reasoning error students actually make about this topic.
+  ✅ Example: correct = "Oferta baja → precio sube" → distractor = "Demanda baja → precio sube" (wrong variable, same logic)
+❌ Do NOT invent distractors that have no conceptual basis in this subject.
+
+── RULE 9: QUALITY GATE — RUN FOR EVERY QUESTION BEFORE ACCEPTING ─
+Answer all 5 checks. If ANY fails → rewrite before including:
+  1. ¿Puede la correcta detectarse por ser la más larga o detallada? → Si SÍ → reescribir opciones.
+  2. ¿Puede la correcta detectarse por su posición (A la mayoría)? → Si SÍ → redistribuir.
+  3. ¿Pueden eliminarse 2 o más opciones sin comprender el tema? → Si SÍ → reescribir esas opciones.
+  4. ¿Al menos 2 opciones parecen genuinamente plausibles? → Si NO → reescribir las débiles.
+  5. ¿Responder requiere comprender el contenido (falla test de 2 segundos)? → Si NO → reescribir la pregunta.
+
+── REFERENCE EXAMPLE — anchor all distractor writing to this ─────
+❌ BAD — cross-domain distractors, answerable by elimination:
+  "Si muchas familias ahorran más, ¿qué pasa?"
+  A. Crece menos la economía.   B. Baja el dólar.   C. Baja la palta.   D. Cambia la tasa.
+  → A student eliminates B, C, D immediately. No economic knowledge needed.
+
+✅ GOOD — all options are plausible economic effects, student must reason:
+  "Durante varios meses las familias chilenas deciden gastar menos y ahorrar más. ¿Cuál es el efecto más probable sobre la economía?"
+  A. Menor consumo y menor crecimiento económico.
+  B. Mayor inflación por exceso de compras.
+  C. Más importaciones por aumento del gasto.
+  D. Menor ahorro disponible en los bancos.
+  → All 4 are plausible economic effects. Student must understand savings vs. consumption to choose correctly.
 
 ── DIFFICULTY ────────────────────────────────────────────────────
-difficulty "easy" = apply a single concept in a familiar context (NOT memory recall).
+difficulty "easy" = apply one concept in a familiar context (NOT memory recall).
 difficulty "medium" = multi-step reasoning or inference between two concepts.
-difficulty "hard" = evaluation, counter-intuitive case, or choosing between two plausible options.
-❌ "easy" does NOT mean "define X". Even easy questions require applying a concept in context.
+difficulty "hard" = choose between two plausible explanations, or counter-intuitive case.
+❌ "easy" does NOT mean "define X". Even easy questions require applying a concept in a real situation.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 FLASHCARDS:
@@ -717,8 +731,7 @@ Cubren ÚNICAMENTE la habilidad "${skill}". El estudiante APLICA el procedimient
 Flashcards: frente = un paso o situación de "${skill}"; reverso = la acción o resultado correcto.
 difficulty: "easy" = identificar el método, "medium" = aplicarlo, "hard" = detectar un error en la aplicación.
 
-ESTÁNDAR: cada pregunta debe sentirse como una evaluación escolar de calidad (SIMCE/PAES).
-La respuesta correcta NO debe detectarse por patrón visual ni por descarte obvio.
+ESTÁNDAR: evaluación escolar de calidad (SIMCE/PAES). Todas las opciones compiten — la correcta NO es detectable por descarte.
 
 REGLA 0 — PERFIL POR CURSO (PASO OBLIGATORIO ANTES DE ESCRIBIR CUALQUIER PREGUNTA):
 Determina el perfil cognitivo de ${curso} y respétalo en todas las preguntas:
@@ -726,34 +739,39 @@ Determina el perfil cognitivo de ${curso} y respétalo en todas las preguntas:
   2° Medio → lenguaje claro | aplicación directa del procedimiento | contextos familiares.
   3° Medio → razonamiento en dos pasos | detección de errores conceptuales | vocabulario algo técnico.
   4° Medio → pensamiento crítico | comparación de métodos | profundidad preuniversitaria.
-❌ NUNCA escribir preguntas de nivel universitario para enseñanza media.
-❌ NUNCA bajar preguntas de 3°/4° Medio a reconocimiento básico.
-Las reglas de calidad siguientes se aplican DENTRO de este perfil. Si hay conflicto, el curso tiene prioridad.
+❌ NUNCA escribir preguntas universitarias para enseñanza media.
+❌ NUNCA bajar 3°/4° Medio a reconocimiento básico.
+Las reglas de calidad se aplican DENTRO de este perfil. Si hay conflicto, el curso tiene prioridad.
 
-REGLA 1 — SITUACIONES CONCRETAS: plantea el ejercicio como un problema real, no como pregunta abstracta.
+REGLA 1 — MINI CASO: plantea un contexto observable, luego pregunta por causa, resultado o error.
   ❌ "¿Cuál es el resultado de 3/4 como decimal?"
-  ✅ "Un alumno divide 3 entre 4 y obtiene 0,75. ¿Qué tipo de decimal es ese resultado?"
+  ✅ "Un alumno divide 3 entre 4 y obtiene 0,75. ¿Qué tipo de decimal es ese resultado y por qué?"
 
-REGLA 2 — UNIVERSO CONCEPTUAL ÚNICO: las 4 opciones DEBEN pertenecer al mismo dominio de "${skill}".
-  ❌ Prohibido mezclar conceptos sin relación con "${skill}" en las opciones.
-  Todos los distractores deben ser errores plausibles dentro de "${skill}".
+REGLA 2 — MISMO UNIVERSO PROCEDIMENTAL (REGLA MÁS CRÍTICA):
+  ⚠️ Para cada distractor, aplicar este test: "¿Puede un estudiante eliminar esta opción sin haber practicado '${skill}'?"
+  → Si SÍ → el distractor está fuera de dominio → reescribir.
+  Todos los distractores deben ser resultados o pasos plausibles dentro de "${skill}":
+    errores de cálculo reales | paso aplicado en orden incorrecto | confusión entre variantes del mismo método.
+  ❌ PROHIBIDO: respuestas de otras habilidades matemáticas, resultados sin sentido en el contexto de "${skill}".
 
-REGLA 3 — DISTRIBUCIÓN: correctOptionId distribuida entre A, B, C y D (≈25% cada una).
-  ❌ Prohibido concentrar la correcta en A. Verifica distribución antes del último ítem.
+REGLA 3 — TEST DEL CONOCIMIENTO PARCIAL: para cada distractor verificar:
+  "¿Un estudiante que praticó '${skill}' una vez pero aún no lo domina podría elegirla?"
+  → Si NO → el distractor es demasiado débil → reescribir.
 
-REGLA 4 — PARIDAD DE LONGITUD: las 4 opciones deben ser visualmente similares (diferencia máx. 20%).
-  ❌ La correcta NO puede ser sistemáticamente más larga ni más detallada.
+REGLA 4 — SIN PREGUNTAS BINARIAS: al menos 2 opciones deben parecer plausibles al estudiante.
+  ❌ Una opción correcta + tres imposibles de confundir con "${skill}" = pregunta binaria → reescribir.
 
-REGLA 5 — DISTRACTORES BASADOS EN ERRORES REALES DE "${skill}":
-  Cada distractor debe representar un error procedural plausible: paso omitido, cálculo incorrecto, orden invertido.
-  ❌ Prohibidas respuestas absurdas, conceptos ajenos al procedimiento o resultados sin sentido matemático.
+REGLA 5 — DISTRIBUCIÓN Y PARIDAD:
+  correctOptionId distribuida entre A, B, C y D (≈25% cada una). Verificar antes del último ítem.
+  Longitud de opciones similar (diferencia máx. 20%). La correcta NO puede ser sistemáticamente más larga.
 
-REGLA 6 — VALIDACIÓN INTERNA (verificar antes de incluir cada pregunta):
+REGLA 6 — PUERTA DE CALIDAD (verificar cada pregunta antes de incluir):
   1. ¿La correcta es identificable por ser la más larga? → Si SÍ → reescribir opciones.
-  2. ¿La correcta es identificable por posición (siempre A)? → Si SÍ → redistribuir.
-  3. ¿Puede responderse por descarte (opciones absurdas)? → Si SÍ → mejorar distractores.
-  4. ¿Las 4 opciones parecen razonables para quien no domina "${skill}"? → Si NO → reescribir las débiles.
+  2. ¿La correcta es identificable por posición? → Si SÍ → redistribuir.
+  3. ¿Pueden eliminarse opciones sin conocer "${skill}"? → Si SÍ → reescribir esas opciones.
+  4. ¿Al menos 2 opciones parecen plausibles a quien estudió pero no domina "${skill}"? → Si NO → reescribir las débiles.
   5. ¿Se requiere aplicar el procedimiento para responder? → Si NO → reescribir la pregunta.
+  Si algún check falla → reescribir antes de incluir. Sin excepciones.
   Si alguna respuesta es SÍ/NO desfavorable → reescribir antes de incluir.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -919,8 +937,7 @@ Tipo: RECONOCIMIENTO y ASOCIACIÓN en contexto — el estudiante ubica el dato e
 Flashcards: frente = el dato a memorizar; reverso = la asociación o contexto que lo hace memorable.
 difficulty: "easy" = reconocimiento en contexto, "medium" = aplicar en situación nueva, "hard" = distinguir entre conceptos similares.
 
-ESTÁNDAR: cada pregunta debe sentirse como una evaluación escolar de calidad (SIMCE/PAES).
-La respuesta correcta NO debe detectarse por patrón visual ni por descarte obvio.
+ESTÁNDAR: evaluación escolar de calidad (SIMCE/PAES). Todas las opciones compiten — la correcta NO es detectable por descarte.
 
 REGLA 0 — PERFIL POR CURSO (PASO OBLIGATORIO ANTES DE ESCRIBIR CUALQUIER PREGUNTA):
 Determina el perfil cognitivo de ${curso} y respétalo en todas las preguntas:
@@ -928,34 +945,38 @@ Determina el perfil cognitivo de ${curso} y respétalo en todas las preguntas:
   2° Medio → lenguaje claro | asociación básica | reconocimiento en contexto simple.
   3° Medio → distinción entre conceptos similares | análisis de contexto | vocabulario algo técnico.
   4° Medio → interpretación crítica | situaciones con múltiples variables | profundidad preuniversitaria.
-❌ NUNCA escribir preguntas de nivel universitario para enseñanza media.
-❌ NUNCA bajar preguntas de 3°/4° Medio a memorización literal sin contexto.
-Las reglas de calidad siguientes se aplican DENTRO de este perfil. Si hay conflicto, el curso tiene prioridad.
+❌ NUNCA escribir preguntas universitarias para enseñanza media.
+❌ NUNCA bajar 3°/4° Medio a memorización literal sin contexto.
+Las reglas de calidad se aplican DENTRO de este perfil. Si hay conflicto, el curso tiene prioridad.
 
-REGLA 1 — CONTEXTO OBLIGATORIO: presenta el dato dentro de una situación, no como pregunta directa.
+REGLA 1 — MINI CASO: ubica el dato en un contexto observable antes de preguntar.
   ❌ "¿Cuántos elementos tiene la tabla periódica?"
-  ✅ "Un laboratorio necesita un elemento con propiedades específicas. ¿Cuál de estos grupos agrupa elementos con comportamiento similar?"
+  ✅ "Una investigadora necesita un material que conduzca electricidad. ¿Cuál de estos grupos del documento incluye elementos con esa propiedad?"
 
-REGLA 2 — UNIVERSO CONCEPTUAL ÚNICO: las 4 opciones DEBEN pertenecer al mismo dominio conceptual.
-  ❌ Prohibido mezclar datos sin relación entre sí. Todos los distractores deben ser datos que el estudiante podría razonablemente confundir con la respuesta correcta.
+REGLA 2 — MISMO UNIVERSO CONCEPTUAL (REGLA MÁS CRÍTICA):
+  ⚠️ Para cada distractor, aplicar este test: "¿Puede un estudiante eliminar esta opción sin conocer el tema del documento?"
+  → Si SÍ → el distractor está fuera de dominio → reescribir.
+  Todos los distractores deben ser datos, nombres o conceptos que el estudiante podría razonablemente confundir con la respuesta correcta.
+  ❌ PROHIBIDO: opciones de un campo completamente distinto al tema del documento.
 
-REGLA 3 — DISTRIBUCIÓN: correctOptionId distribuida entre A, B, C y D (≈25% cada una).
-  ❌ Prohibido concentrar la correcta en A. Verifica distribución antes del último ítem.
+REGLA 3 — TEST DEL CONOCIMIENTO PARCIAL: para cada distractor verificar:
+  "¿Un estudiante que leyó el material pero aún no lo memorizó bien podría elegirla?"
+  → Si NO → el distractor es demasiado obvio → reescribir.
 
-REGLA 4 — PARIDAD DE LONGITUD: las 4 opciones deben ser visualmente similares (diferencia máx. 20%).
-  ❌ La correcta NO puede ser sistemáticamente más larga, más detallada ni más específica.
+REGLA 4 — SIN PREGUNTAS BINARIAS: al menos 2 opciones deben parecer plausibles al estudiante.
+  ❌ Un dato correcto + tres imposibles de confundir con el tema = pregunta binaria → reescribir distractores.
 
-REGLA 5 — DISTRACTORES PLAUSIBLES Y DEL MISMO TEMA:
-  Cada distractor debe ser un dato real del mismo dominio que el estudiante podría confundir.
-  ❌ Prohibidas respuestas absurdas, inventadas o de un campo completamente distinto.
+REGLA 5 — DISTRIBUCIÓN Y PARIDAD:
+  correctOptionId distribuida entre A, B, C y D (≈25% cada una). Verificar antes del último ítem.
+  Longitud de opciones similar (diferencia máx. 20%). La correcta NO puede ser sistemáticamente más larga.
 
-REGLA 6 — VALIDACIÓN INTERNA (verificar antes de incluir cada pregunta):
+REGLA 6 — PUERTA DE CALIDAD (verificar cada pregunta antes de incluir):
   1. ¿La correcta es identificable por ser la más larga? → Si SÍ → reescribir opciones.
-  2. ¿La correcta es identificable por posición (siempre A)? → Si SÍ → redistribuir.
-  3. ¿Puede responderse por descarte (opciones absurdas)? → Si SÍ → mejorar distractores.
-  4. ¿Las 4 opciones parecen razonables para quien no domina el tema? → Si NO → reescribir las débiles.
+  2. ¿La correcta es identificable por posición? → Si SÍ → redistribuir.
+  3. ¿Pueden eliminarse opciones sin conocer el tema? → Si SÍ → reescribir esas opciones.
+  4. ¿Al menos 2 opciones parecen plausibles a quien estudió pero aún no domina el tema? → Si NO → reescribir las débiles.
   5. ¿Se requiere reconocer o asociar el dato para responder? → Si NO → reescribir la pregunta.
-  Si alguna respuesta es desfavorable → reescribir antes de incluir.
+  Si algún check falla → reescribir antes de incluir. Sin excepciones.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 LAS 8 PANTALLAS — generar EXACTAMENTE en este orden:
