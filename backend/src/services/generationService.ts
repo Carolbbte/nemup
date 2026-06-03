@@ -495,6 +495,67 @@ QUIZ QUESTIONS (separate from summary screens):
 CORE GOAL: Every question must make the student THINK. All 4 options must compete — the correct answer is not detectable by elimination, length, or position.
 STANDARD: A quality modern school exam (SIMCE/PAES level), NOT a memorization worksheet.
 
+── 4-QUESTION COGNITIVE STRUCTURE — PLAN THIS BEFORE WRITING ────
+The 4 quiz questions must cover 4 DIFFERENT cognitive functions. DO NOT generate 4 questions of the same type.
+
+QUESTION 1 — IDENTIFICATION (cognitive level: basic)
+  Purpose: verify that the student can recognize the core concept from the material.
+  Format: present a short situation and ask which concept it best illustrates.
+  ❌ Avoid: "¿Qué es la microeconomía?" — too direct, asks for a definition.
+  ✅ Accept: "Una empresa decide cuántos empleados contratar este mes. ¿Qué rama económica estudia esa decisión?"
+  Only ONE identification question per quiz.
+
+QUESTION 2 — CAUSE AND EFFECT (cognitive level: medium)
+  Purpose: evaluate comprehension by requiring the student to infer a consequence.
+  Format: "If X happens, what is the most probable effect?"
+  Trigger events to use: changes in interest rates, shifts in supply or demand, changes in employment, price changes, policy decisions.
+  The student must reason from cause → effect, not recall a fact.
+
+QUESTION 3 — APPLIED CASE (cognitive level: medium-high)
+  Purpose: apply the concept to a concrete real-world situation (person, company, institution).
+  Format: describe a specific actor (family, empresa, pyme, student, producer) facing a decision or situation, then ask what is most reasonable.
+  ❌ Avoid: asking for definitions or classifications.
+  ✅ Require: a decision, action, or interpretation.
+
+QUESTION 4 — TRANSFER (cognitive level: high)
+  Purpose: apply the same concept to a DIFFERENT context from those used in questions 1–3.
+  If question 3 used a salmonera → question 4 must use a different sector (transport, technology, retail, tourism, agriculture, streaming, etc.).
+  The student must recognize that the same economic logic applies in a new setting.
+
+COGNITIVE VARIETY VALIDATION — check before writing the first question:
+  □ Is Q1 at recognition level? □ Does Q2 require cause→effect inference?
+  □ Does Q3 require applying the concept to a specific actor/situation?
+  □ Does Q4 transfer the concept to a context not used in Q1–Q3?
+  □ Do all 4 questions test DIFFERENT cognitive skills?
+If any box is unchecked → adjust the question type before writing.
+
+── CONTEXT VARIETY RULE ──────────────────────────────────────────
+Within one session, DO NOT repeat the same scenario or protagonist.
+❌ Avoid using the same actor more than once: palta, salmonera, Banco Central as the only examples.
+✅ Use variety: videojuegos, streaming, transporte, comida rápida, celulares, zapatillas, redes sociales, conciertos, turismo, supermercados, emprendimientos juveniles — when appropriate for the course level and content.
+
+── REASONING GATE — APPLY TO EVERY QUESTION BEFORE ACCEPTING ────
+Ask: "Can this question be answered by memorizing a definition?"
+→ If YES → the question is too simple → REGENERATE.
+Ask: "Does answering require inferring a consequence, making a decision, or applying the concept?"
+→ If YES → ACCEPT.
+
+── EXPLANATION QUALITY RULE ──────────────────────────────────────
+The "explanation" field must TEACH — it should explain WHY the correct answer is correct, not just confirm it.
+❌ BAD: "Correcto." / "Porque sí." / "Esta es la respuesta correcta."
+✅ GOOD: "Correcto. Cuando baja la tasa de interés, pedir créditos es más barato. Eso incentiva el consumo y la inversión, dinamizando la economía."
+Format: [confirmation] + [causal mechanism in 1-2 sentences] + [connection to student's world if possible].
+
+── 4-QUESTION FINAL VALIDATION — RUN BEFORE OUTPUTTING JSON ──────
+1. Does Q1 test identification (recognition)? → If NO → rewrite Q1.
+2. Does Q2 test cause-and-effect (inference)? → If NO → rewrite Q2.
+3. Does Q3 test application (specific actor + decision)? → If NO → rewrite Q3.
+4. Does Q4 transfer to a NEW context not used in Q1–Q3? → If NO → rewrite Q4.
+5. Do all 4 use different contexts or actors? → If NO → change the repeated one.
+6. Does each question require reasoning (not pattern matching)? → If NO → regenerate.
+7. Does complexity match ${curso}? → If NO → adjust language and scenario depth.
+If any check fails → rewrite that question before outputting.
+
 ── RULE 0: COURSE-LEVEL PROFILE — MANDATORY FIRST STEP ──────────
 Before writing ANY question, lock in the cognitive profile for ${curso}.
 This profile overrides everything else — quality rules apply WITHIN this level, not above it.
@@ -972,6 +1033,66 @@ Flashcards: frente = el dato a memorizar; reverso = la asociación o contexto qu
 difficulty: "easy" = reconocimiento en contexto, "medium" = aplicar en situación nueva, "hard" = distinguir entre conceptos similares.
 
 ESTÁNDAR: evaluación escolar de calidad (SIMCE/PAES). Todas las opciones compiten — la correcta NO es detectable por descarte.
+
+── ESTRUCTURA COGNITIVA DE 4 PREGUNTAS — PLANIFICA ANTES DE ESCRIBIR ────
+Las 4 preguntas del quiz deben cubrir 4 FUNCIONES COGNITIVAS DISTINTAS. NO generar 4 preguntas del mismo tipo.
+
+PREGUNTA 1 — RECONOCIMIENTO (nivel cognitivo: básico)
+  Propósito: verificar que el estudiante puede identificar el dato clave en un contexto nuevo.
+  Formato: presenta una situación breve y pregunta qué dato, término o concepto del material aplica.
+  ❌ Evitar: "¿Cuál es la definición de X?" — pregunta la definición textual.
+  ✅ Aceptar: "Una investigadora analiza muestras de 476 d.C. ¿A qué período histórico corresponden?"
+  Solo UNA pregunta de reconocimiento por quiz.
+
+PREGUNTA 2 — ASOCIACIÓN EN CONTEXTO (nivel cognitivo: medio)
+  Propósito: evaluar si el estudiante puede conectar el dato memorizado con su significado o consecuencia.
+  Formato: presenta un escenario donde el dato importa y pregunta qué implica o qué lo explica.
+  El estudiante debe razonar desde el dato → su significado, no solo recordarlo.
+
+PREGUNTA 3 — DISTINCIÓN (nivel cognitivo: medio-alto)
+  Propósito: verificar que el estudiante distingue el dato correcto de otros datos similares del mismo material.
+  Formato: presenta situaciones o descripciones parecidas y pide identificar cuál corresponde al dato específico.
+  ❌ Evitar: distractores de campos completamente distintos.
+  ✅ Requerir: distractores que son otros datos del mismo documento, igualmente plausibles si no se domina el tema.
+
+PREGUNTA 4 — TRANSFERENCIA (nivel cognitivo: alto)
+  Propósito: aplicar el dato o concepto memorizado en un contexto DIFERENTE a los usados en preguntas 1–3.
+  Si pregunta 3 usó un contexto histórico → pregunta 4 debe usar un contexto diferente (científico, tecnológico, social, cotidiano).
+  El estudiante debe reconocer que el mismo dato o principio aplica en una situación nueva.
+
+VALIDACIÓN DE VARIEDAD COGNITIVA — verificar antes de escribir la primera pregunta:
+  □ ¿Q1 está al nivel de reconocimiento? □ ¿Q2 requiere asociar dato → significado?
+  □ ¿Q3 exige distinguir entre datos similares del material?
+  □ ¿Q4 transfiere el concepto a un contexto no usado en Q1–Q3?
+  □ ¿Las 4 preguntas ejercitan DISTINTAS habilidades cognitivas?
+Si algún casillero queda sin marcar → ajustar el tipo de pregunta antes de escribir.
+
+── REGLA DE VARIEDAD DE CONTEXTO ──────────────────────────────────────
+En una misma sesión, NO repetir el mismo escenario ni protagonista.
+❌ Evitar: usar el mismo dato o actor más de una vez como único ejemplo.
+✅ Usar variedad: distintas situaciones reales, áreas o contextos donde el dato es relevante.
+
+── PUERTA DE RAZONAMIENTO — APLICAR A CADA PREGUNTA ANTES DE ACEPTAR ──
+¿Puede responderse esta pregunta memorizando literalmente la definición del texto?
+→ Si SÍ → la pregunta es demasiado simple → REGENERAR.
+¿Responder requiere ubicar el dato en contexto, asociarlo o distinguirlo de datos similares?
+→ Si SÍ → ACEPTAR.
+
+── REGLA DE CALIDAD DE LA EXPLICACIÓN ──────────────────────────────────
+El campo "explanation" debe ENSEÑAR — explicar POR QUÉ la respuesta es correcta, no solo confirmarla.
+❌ MAL: "Correcto." / "Porque sí." / "Esta es la respuesta correcta."
+✅ BIEN: "Correcto. El período clásico griego corresponde al siglo V a.C., marcado por el apogeo de Atenas y la democracia."
+Formato: [confirmación] + [mecanismo o contexto del dato en 1-2 frases] + [conexión con la vida del estudiante si es posible].
+
+── VALIDACIÓN FINAL DE 4 PREGUNTAS — EJECUTAR ANTES DE OUTPUTTAR JSON ──
+1. ¿Q1 evalúa reconocimiento en contexto? → Si NO → reescribir Q1.
+2. ¿Q2 evalúa asociación dato → significado o consecuencia? → Si NO → reescribir Q2.
+3. ¿Q3 exige distinguir entre datos similares del material? → Si NO → reescribir Q3.
+4. ¿Q4 transfiere el concepto a un contexto NUEVO no usado en Q1–Q3? → Si NO → reescribir Q4.
+5. ¿Las 4 preguntas usan contextos o situaciones distintas? → Si NO → cambiar la repetida.
+6. ¿Cada pregunta requiere razonamiento (no solo recitar el dato)? → Si NO → regenerar.
+7. ¿La complejidad corresponde a ${curso}? → Si NO → ajustar lenguaje y profundidad.
+Si algún check falla → reescribir esa pregunta antes de outputtar.
 
 REGLA 0 — PERFIL POR CURSO (PASO OBLIGATORIO ANTES DE ESCRIBIR CUALQUIER PREGUNTA):
 Determina el perfil cognitivo de ${curso} y respétalo en todas las preguntas:
