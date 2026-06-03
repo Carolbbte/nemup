@@ -1164,9 +1164,8 @@ export default function SessionPlayerScreen() {
     // Adaptive correction: insert a conceptual-confusion slide after a wrong answer.
     // Uses the backend-generated wrongAnswerHints — specific explanation for each wrong option.
     // Per REGLA FINAL: skips entirely if no domain-specific hint is available.
-    const insertCorrectiveSlide = (wrongSlide: BackendSlide, selectedKey: string) => {
-      const hint = wrongSlide.wrongAnswerHints?.[selectedKey];
-      if (!hint) return;
+    const insertCorrectiveSlide = (_wrongSlide: BackendSlide, _selectedKey: string) => {
+      return; // reflexion slides after wrong answers are disabled
 
       const corrective: BackendSlide = {
         type: 'challenge' as SummarySlideType,
