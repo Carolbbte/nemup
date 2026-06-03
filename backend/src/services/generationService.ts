@@ -467,11 +467,62 @@ If any check fails → fix that screen before outputting.
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 QUIZ QUESTIONS (separate from summary screens):
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-Generate questions that test understanding and application, not memorization.
-Each question: exactly 4 options. Distractors: plausible partial-truths.
-Mix difficulty: recognition (1°), application (2°-3°), reasoning and interpretation (4°).
-difficulty field: "easy" for recognition, "medium" for application, "hard" for reasoning/inference.
-explanation: why correct answer is right AND why the main distractor is wrong.
+OBJECTIVE: Questions that force reasoning — NOT memory retrieval.
+
+── RULE 1: CORRECT ANSWER DISTRIBUTION ──────────────────────────
+Distribute correctOptionId evenly: ~25% A, 25% B, 25% C, 25% D across all questions.
+❌ FORBIDDEN: placing the correct answer in position A for the majority of questions.
+Before writing the last question, check: are correct answers spread across all 4 positions?
+
+── RULE 2: OPTION LENGTH PARITY ─────────────────────────────────
+All 4 options must be visually similar in length (max ~20% difference between shortest and longest).
+❌ FORBIDDEN: correct option is longer, more detailed, or contains extra numbers/explanations.
+If the correct option visually stands out → rewrite ALL options to match its length.
+
+── RULE 3: PLAUSIBLE DISTRACTORS ────────────────────────────────
+Every wrong option must be a believable partial-truth that a real student might choose.
+❌ FORBIDDEN: absurd, obviously false, or joke options.
+❌ Bad: "B. El país desaparece de la economía global."
+✅ Good: each distractor reflects a real but incorrect reasoning path about THIS topic.
+
+── RULE 4: MAX 20% DEFINITIONAL QUESTIONS ───────────────────────
+❌ LIMIT: at most 1 question of type "¿Qué es X?" / "¿Cuál es la definición de X?"
+✅ Minimum 80% must use scenarios, situations, cause-and-effect, or real decisions.
+
+── RULE 5: CONTEXTUALIZED SCENARIOS ─────────────────────────────
+Ground every question in a concrete situation. Prefer:
+  ✅ "Una familia en Santiago..." / "Una pyme..." / "Si el Banco Central..."
+  ✅ "Durante una crisis..." / "Un estudiante nota que..." / "En Chile ocurre..."
+  ❌ Abstract: "¿Cuál es el efecto de X sobre Y?" — no context, no scenario.
+
+── RULE 6: REQUIRE REASONING ────────────────────────────────────
+❌ WEAK: "¿Qué es la inflación?" — answerable from memory alone.
+✅ STRONG: "Si los precios suben más rápido que los salarios, ¿qué ocurre con el poder de compra familiar?"
+2-SECOND TEST: if answerable in under 2 seconds without reasoning → rewrite.
+
+── RULE 7: COGNITIVE VARIETY ────────────────────────────────────
+Include at least one question of each type across the set:
+  - Comprehension: what happened / what does this mean in context
+  - Application: apply concept to a new real-world situation
+  - Analysis: identify cause, effect, or relationship between two concepts
+  - Decision: choose the best option among plausible realistic alternatives
+
+── RULE 8: DIFFICULTY ───────────────────────────────────────────
+difficulty "easy" = apply a single concept in a familiar context (NOT memory).
+difficulty "medium" = multi-step reasoning or inference.
+difficulty "hard" = evaluation, counter-intuitive case, or comparing two concepts.
+❌ "easy" does NOT mean "define X". Even easy questions require applying a concept.
+
+── RULE 9: FINAL QUALITY CHECKLIST ──────────────────────────────
+Before outputting each question, verify:
+  □ Correct answer NOT in position A for most questions
+  □ All 4 options similar in length — no visual hints
+  □ All distractors plausible — no absurdities
+  □ Question uses a real scenario or situation
+  □ Question requires reasoning (fails 2-second test)
+  □ Cognitive types are varied across the full set
+  □ explanation says why correct is right AND why main distractor is wrong
+If any check fails → rewrite that question before including it.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 FLASHCARDS:
@@ -627,6 +678,9 @@ PREGUNTAS Y FLASHCARDS:
 - Preguntas: el estudiante aplica el procedimiento a un problema concreto (NO definiciones).
 - Flashcards: frente = un paso o situación de "${skill}"; reverso = la acción o resultado correcto.
 - difficulty: "easy" = identificar el método, "medium" = aplicarlo, "hard" = detectar error en la aplicación.
+- DISTRIBUCIÓN: correctOptionId distribuida entre A, B, C y D. ❌ Prohibido concentrar la correcta en A.
+- PARIDAD DE LONGITUD: las 4 opciones deben ser similares en longitud (diferencia máx. 20%). ❌ La correcta NO puede ser visualmente más larga ni más detallada.
+- DISTRACTORES: cada opción incorrecta debe representar un error plausible real en "${skill}" (paso equivocado, cálculo incorrecto, orden invertido). ❌ Prohibidas respuestas absurdas o sin relación con el procedimiento.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ANÁLISIS PREVIO (completa mentalmente ANTES de escribir el JSON):
@@ -790,6 +844,9 @@ PREGUNTAS Y FLASHCARDS:
 - Preguntas de RECONOCIMIENTO y ASOCIACIÓN, no de procedimiento.
 - Flashcards: frente = el dato a memorizar, reverso = la asociación o contexto que lo hace memorable.
 - difficulty: "easy" = reconocimiento directo, "medium" = aplicar en contexto, "hard" = distinguir entre conceptos similares.
+- DISTRIBUCIÓN: correctOptionId distribuida entre A, B, C y D. ❌ Prohibido concentrar la correcta en A.
+- PARIDAD DE LONGITUD: las 4 opciones deben ser similares en longitud (diferencia máx. 20%). ❌ La correcta NO puede ser visualmente más larga ni más detallada.
+- DISTRACTORES: cada opción incorrecta debe ser un dato plausible que un estudiante podría confundir con el correcto. ❌ Prohibidas respuestas absurdas o claramente inventadas.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 LAS 8 PANTALLAS — generar EXACTAMENTE en este orden:
