@@ -470,6 +470,21 @@ QUIZ QUESTIONS (separate from summary screens):
 GOAL: Questions that evaluate comprehension, application and reasoning — NOT memorization or definitions.
 TARGET STANDARD: SIMCE / PAES quality. The correct answer must NOT be detectable by visual patterns or elimination.
 
+── RULE 0: COURSE-LEVEL PROFILE — MANDATORY FIRST STEP ──────────
+Before writing ANY question, lock in the cognitive profile for ${curso}.
+This profile overrides everything else — quality rules apply WITHIN this level, not above it.
+
+  1º Medio  → simple everyday vocabulary | one concept per question | situations from daily life
+              (family, school, neighborhood) | recognition + basic application only | NO multi-variable analysis.
+  2º Medio  → plain language | basic application | single cause-effect step | familiar Chilean contexts.
+  3º Medio  → relational analysis | consequences of actions | two-variable reasoning | slightly technical vocabulary.
+  4º Medio  → critical thinking | pre-university depth | comparing two concepts | complex scenarios.
+  Universitario / Especialización → specialized vocabulary | advanced critical analysis | multi-source interpretation.
+
+❌ NEVER write university-depth questions for enseñanza media students.
+❌ NEVER simplify 3°/4° Medio questions down to pure recognition — they must require reasoning.
+All rules below apply WITHIN the profile above. If a rule conflicts with the student's level, the level wins.
+
 ── RULE 1: SCENARIO-BASED QUESTIONS ─────────────────────────────
 Every question must start from a concrete situation, NOT a direct concept question.
 ❌ BAD: "¿Qué es la inflación?"
@@ -705,6 +720,16 @@ difficulty: "easy" = identificar el método, "medium" = aplicarlo, "hard" = dete
 ESTÁNDAR: cada pregunta debe sentirse como una evaluación escolar de calidad (SIMCE/PAES).
 La respuesta correcta NO debe detectarse por patrón visual ni por descarte obvio.
 
+REGLA 0 — PERFIL POR CURSO (PASO OBLIGATORIO ANTES DE ESCRIBIR CUALQUIER PREGUNTA):
+Determina el perfil cognitivo de ${curso} y respétalo en todas las preguntas:
+  1° Medio → vocabulario simple | un paso a la vez | situaciones cotidianas | sin razonamiento multivariable.
+  2° Medio → lenguaje claro | aplicación directa del procedimiento | contextos familiares.
+  3° Medio → razonamiento en dos pasos | detección de errores conceptuales | vocabulario algo técnico.
+  4° Medio → pensamiento crítico | comparación de métodos | profundidad preuniversitaria.
+❌ NUNCA escribir preguntas de nivel universitario para enseñanza media.
+❌ NUNCA bajar preguntas de 3°/4° Medio a reconocimiento básico.
+Las reglas de calidad siguientes se aplican DENTRO de este perfil. Si hay conflicto, el curso tiene prioridad.
+
 REGLA 1 — SITUACIONES CONCRETAS: plantea el ejercicio como un problema real, no como pregunta abstracta.
   ❌ "¿Cuál es el resultado de 3/4 como decimal?"
   ✅ "Un alumno divide 3 entre 4 y obtiene 0,75. ¿Qué tipo de decimal es ese resultado?"
@@ -896,6 +921,16 @@ difficulty: "easy" = reconocimiento en contexto, "medium" = aplicar en situació
 
 ESTÁNDAR: cada pregunta debe sentirse como una evaluación escolar de calidad (SIMCE/PAES).
 La respuesta correcta NO debe detectarse por patrón visual ni por descarte obvio.
+
+REGLA 0 — PERFIL POR CURSO (PASO OBLIGATORIO ANTES DE ESCRIBIR CUALQUIER PREGUNTA):
+Determina el perfil cognitivo de ${curso} y respétalo en todas las preguntas:
+  1° Medio → vocabulario simple | datos y situaciones cotidianas | una idea por pregunta | sin comparación compleja.
+  2° Medio → lenguaje claro | asociación básica | reconocimiento en contexto simple.
+  3° Medio → distinción entre conceptos similares | análisis de contexto | vocabulario algo técnico.
+  4° Medio → interpretación crítica | situaciones con múltiples variables | profundidad preuniversitaria.
+❌ NUNCA escribir preguntas de nivel universitario para enseñanza media.
+❌ NUNCA bajar preguntas de 3°/4° Medio a memorización literal sin contexto.
+Las reglas de calidad siguientes se aplican DENTRO de este perfil. Si hay conflicto, el curso tiene prioridad.
 
 REGLA 1 — CONTEXTO OBLIGATORIO: presenta el dato dentro de una situación, no como pregunta directa.
   ❌ "¿Cuántos elementos tiene la tabla periódica?"
