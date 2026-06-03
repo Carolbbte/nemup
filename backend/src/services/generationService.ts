@@ -31,6 +31,31 @@ function normalizeText(text: string): string {
     .trim();
 }
 
+// Fisher-Yates shuffle — used to randomize quiz option positions after generation.
+// AI models have a strong prior toward placing the correct answer first and writing
+// it longer, so prompt rules alone cannot fix position/length bias reliably.
+function shuffleArray<T>(arr: T[]): T[] {
+  const out = [...arr];
+  for (let i = out.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [out[i], out[j]] = [out[j], out[i]];
+  }
+  return out;
+}
+
+// Maps whatever the AI put in correctOptionId ("A", "1", "o-1", or an actual ID)
+// to the stable internal ID of the matching option — resolved BEFORE the shuffle
+// so that correctOptionId remains valid after options are reordered.
+function resolveCorrectOptionId(options: { id: string }[], rawId: string): string {
+  if (!rawId) return options[0]?.id ?? 'o-1';
+  if (options.some(o => o.id === rawId)) return rawId;
+  const letterIdx = 'ABCD'.indexOf(rawId.toUpperCase().trim());
+  if (letterIdx >= 0 && letterIdx < options.length) return options[letterIdx].id;
+  const numIdx = parseInt(rawId, 10) - 1;
+  if (!isNaN(numIdx) && numIdx >= 0 && numIdx < options.length) return options[numIdx].id;
+  return options[0]?.id ?? 'o-1';
+}
+
 export interface GenerationResult {
   subject: string;
   topic: string;
@@ -576,6 +601,15 @@ difficulty "easy" = apply one concept in a familiar context (NOT memory recall).
 difficulty "medium" = multi-step reasoning or inference between two concepts.
 difficulty "hard" = choose between two plausible explanations, or counter-intuitive case.
 ❌ "easy" does NOT mean "define X". Even easy questions require applying a concept in a real situation.
+
+── GENERATION ORDER — FOLLOW THIS SEQUENCE FOR EVERY QUESTION ───
+Step 1 — Write the question text (scenario + inference request).
+Step 2 — Write the CORRECT answer text. Note its approximate word count (N).
+Step 3 — Write 3 distractors, each from the SAME conceptual domain, each ≈N words (±20%).
+          For each distractor ask: "Can a student eliminate this without knowing the topic?" → If YES → rewrite.
+Step 4 — Assign positions A/B/C/D by writing options in a random order — do NOT put the correct answer first.
+Step 5 — Set correctOptionId to match whichever position the correct answer landed in.
+This order prevents the correct answer from being the first written AND the longest written.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 FLASHCARDS:
@@ -1334,18 +1368,32 @@ async function callOpenAIAndBuildResult(
   const subject = configValues.subject?.trim() || parsed.subject || 'Tema del material';
   const topic = configValues.topic?.trim() || parsed.topic || 'Resumen del material';
 
-  const questions = (parsed.questions || []).map((question: any, index: number) => ({
-    id: question.id || `q-${index + 1}`,
-    text: question.text || question.pregunta || `Pregunta ${index + 1}`,
-    options: (question.options || []).map((option: any, optionIndex: number) => ({
-      id: option.id || `o-${optionIndex + 1}`,
-      text: option.text || option,
-    })),
-    correctOptionId: question.correctOptionId || question.correctOption || (question.options?.[0]?.id ?? 'o-1'),
-    explanation: question.explanation || question.explicacion || 'Revisa el material para confirmar la respuesta.',
-    sourceQuote: question.sourceQuote || question.cita || '',
-    difficulty: question.difficulty || 'medium',
-  })) as MultipleChoiceQuestion[];
+  const questions = (parsed.questions || []).map((question: any, qIdx: number) => {
+    // Build options with stable per-question IDs.
+    // Strip any "A. " / "B. " letter prefixes the model adds despite the schema —
+    // the frontend renders its own position labels.
+    const rawOptions = (question.options || []).map((option: any, oIdx: number) => ({
+      id: `q${qIdx + 1}-o${oIdx + 1}`,
+      text: ((typeof option === 'string' ? option : (option.text ?? '')).replace(/^[A-D]\.\s*/i, '').trim()) || `Opción ${oIdx + 1}`,
+    }));
+
+    // Resolve correctOptionId BEFORE shuffle so the reference survives reordering.
+    const rawCorrectId = question.correctOptionId ?? question.correctOption ?? '';
+    const correctOptionId = resolveCorrectOptionId(rawOptions, String(rawCorrectId));
+
+    // Shuffle to eliminate the AI's systematic position bias.
+    const options = shuffleArray(rawOptions);
+
+    return {
+      id: question.id || `q-${qIdx + 1}`,
+      text: question.text || question.pregunta || `Pregunta ${qIdx + 1}`,
+      options,
+      correctOptionId,
+      explanation: question.explanation || question.explicacion || 'Revisa el material para confirmar la respuesta.',
+      sourceQuote: question.sourceQuote || question.cita || '',
+      difficulty: question.difficulty || 'medium',
+    };
+  }) as MultipleChoiceQuestion[];
 
   const flashcards = (parsed.flashcards || []).map((card: any, index: number) => ({
     id: card.id || `f-${index + 1}`,
