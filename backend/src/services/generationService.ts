@@ -1193,7 +1193,12 @@ async function callOpenAIAndBuildResult(
   } catch {
     const fallback = raw.match(/\{[\s\S]*\}/);
     if (!fallback) throw new Error('No se pudo parsear la respuesta de OpenAI.');
-    parsed = JSON.parse(fallback[0]);
+    try {
+      parsed = JSON.parse(fallback[0]);
+    } catch {
+      console.error('[Generation] Raw AI response (first 500 chars):', raw.substring(0, 500));
+      throw new Error('Respuesta de OpenAI no es JSON válido.');
+    }
   }
 
   const subject = configValues.subject?.trim() || parsed.subject || 'Tema del material';

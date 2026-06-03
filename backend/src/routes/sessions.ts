@@ -123,6 +123,12 @@ router.post('/generate', upload.array('documents', 10), async (req, res) => {
     const pathId = randomUUID();
     const allMissions: Array<{ missionIndex: number; skillId: string; skillLabel: string; sessionId: string; session: any }> = [];
 
+    // Keepalive heartbeat — prevents Railway/nginx from timing out the SSE connection
+    // during long OpenAI API calls (each call can take 30–90 s with no data flowing)
+    const heartbeat = setInterval(() => {
+      try { res.write(': keepalive\n\n'); } catch {}
+    }, 20000);
+
     for (let i = 0; i < skills.length; i++) {
       const skill = skills[i];
       const pct = 40 + Math.round((i / skills.length) * 50);
@@ -164,6 +170,8 @@ router.post('/generate', upload.array('documents', 10), async (req, res) => {
         .catch(err => console.warn(`[Sessions] Session save error (mission ${i}):`, err?.message));
     }
 
+    clearInterval(heartbeat);
+
     if (allMissions.length === 0) {
       sendSse(res, 'error', { code: 'GENERATION_FAILED', message: 'No se pudo generar ninguna misión.' });
       return res.end();
@@ -198,14 +206,20 @@ router.post('/generate', upload.array('documents', 10), async (req, res) => {
 
   // ── SINGLE-MISSION PATH (CONCEPTUAL / MEMORIZATION / MIXED) ─────────────────
   sendSse(res, 'progress', createProgressPayload('generating', 60, 'Generando misión...'));
+  // Keepalive heartbeat — prevents Railway/nginx from timing out the SSE connection
+  const heartbeat = setInterval(() => {
+    try { res.write(': keepalive\n\n'); } catch {}
+  }, 20000);
   let generation: Awaited<ReturnType<typeof generateSessionContent>>;
   try {
     generation = await generateSessionContent(transcription, sessionConfig, curso);
   } catch (err: any) {
+    clearInterval(heartbeat);
     console.error('[Sessions] Generation error:', err?.message);
     sendSse(res, 'error', { code: 'GENERATION_FAILED', message: `Error al generar con IA: ${err?.message}` });
     return res.end();
   }
+  clearInterval(heartbeat);
 
   sendSse(res, 'progress', createProgressPayload('generating', 75, 'Generando preguntas y flashcards...'));
   generation.questions.forEach((question, index) => {
