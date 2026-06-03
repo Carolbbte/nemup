@@ -409,22 +409,31 @@ ABSOLUTE RULES FOR ALL 10 SCREENS:
 - NEVER use abstract nodes in causal chains — only visible real-world actions.
 - NEVER use brand names (Spotify, Netflix, TikTok, Uber, Instagram, Airbnb, Amazon) unless they appear explicitly in the transcription.
 - CONSISTENCY LAW: for every interactive slide (screens 3, 5, 6, 9-wow), the question, the correct answer option, and the feedback definition MUST address the SAME concept. Before finalizing each interactive slide, verify: "Does my feedback explain exactly why the correct answer answers this specific question?" If NO → rewrite the feedback.
-- WRONG-ANSWER HINTS (MANDATORY): Every slide that has options MUST include "wrongAnswerHints". Keys = each incorrect option letter (e.g. "B", "C", "D"). Value = EXACTLY 1–2 sentences, 15–40 words total, acting as a micro conceptual correction — like a teacher's clarification, not a motivational message.
-  STRUCTURE for each wrong option:
-    Sentence 1 — Name what the wrong option actually IS (its real category or domain) OR state the false assumption behind it. Do NOT start from "it's wrong because".
-    Sentence 2 — State the correct conceptual distinction: what the question was actually testing and why this option misses it.
-  QUALITY GATE — before writing each hint ask: "Could this same sentence apply to a different question about a different topic?" If YES → rewrite it. Every hint must be specific to THIS question and THIS wrong option.
-  FORBIDDEN phrases — reject and rewrite if you use any of these:
-    ❌ "Es posible, pero..." / "Es una X, pero no..." / "No es exactamente..." / "Aunque es correcto que..."
-    ❌ "A veces este concepto..." / "Aunque parece..." / "Identifica qué razonamiento..."
-    ❌ Any phrase about learning, motivation, effort, or the student's thought process
-    ❌ Repeating the correct answer text verbatim
-    ❌ Repeating the question text
-  CORRECT examples — for question "¿Cuál situación muestra la interacción entre familias y empresas en el mercado de bienes?":
-    ✅ "B" (El Estado cobra impuestos a las familias): "Los impuestos representan una relación entre el Estado y las familias, no una transacción de mercado entre privados. El mercado de bienes ocurre cuando familias compran productos o servicios que ofrecen las empresas."
-    ✅ "C" (Empresas reciben subsidios del Estado): "Los subsidios son transferencias del Estado a empresas, no intercambios entre familias y empresas. El mercado de bienes involucra compras y ventas directas entre hogares y productores privados."
-    ❌ "B": "Es una interacción, pero no entre familias y empresas." — TOO VAGUE, forbidden.
-    ❌ "C": "Es posible, pero no es un efecto directo." — FORBIDDEN pattern.
+- WRONG-ANSWER HINTS (MANDATORY): Every slide that has options MUST include "wrongAnswerHints". Keys = each incorrect option letter (e.g. "B", "C", "D"). Value = EXACTLY 2 sentences, 20–45 words total.
+  MANDATORY STRUCTURE — both sentences are required:
+    SENTENCE 1 — Name what the student chose and why it seemed reasonable. MUST start with one of:
+      • "Elegiste [description of what the wrong option actually describes — its real concept or category]."
+      • "Te enfocaste en [what aspect of the wrong option drew the student's attention]."
+      • "Esta alternativa describe [the real concept that the wrong option belongs to]."
+    SENTENCE 2 — Contrast with what the question was actually asking. MUST start with one of:
+      • "La pregunta buscaba [the exact concept or criterion the question required]."
+      • "Sin embargo, [correct conceptual distinction that explains why this option doesn't answer the question]."
+  QUALITY GATE — before writing each hint, verify ALL four checks pass:
+    ✅ Check 1: Does it reference the wrong option's concept (explicitly or implicitly)? If NO → rewrite.
+    ✅ Check 2: Does it identify the specific confusion (what the student mixed up)? If NO → rewrite.
+    ✅ Check 3: Does it compare wrong concept vs correct concept? If NO → rewrite.
+    ✅ Check 4: Would this hint be useless if shown for a DIFFERENT question on a different topic? If NO (= it could apply anywhere) → rewrite.
+  FORBIDDEN — reject and rewrite if any of these appear:
+    ❌ Defining only the correct answer without mentioning the wrong option
+    ❌ "Es posible, pero..." / "Es una X, pero no..." / "No es exactamente..." / "Aunque es correcto..."
+    ❌ "A veces..." / "Aunque parece..." / "Identifica qué razonamiento..." / "Puede dañar..." / "No es seguro ni inmediato..."
+    ❌ Curious facts, isolated definitions, or motivational messages
+    ❌ Repeating the correct answer text verbatim or the question text
+  CORRECT examples — question: "¿Cuál situación describe mejor la interacción entre familias y empresas?":
+    ✅ "B" (Empresas reciben subsidios del Estado): "Elegiste una relación entre empresas y Estado. La pregunta buscaba una interacción entre familias y empresas mediante compra y venta de bienes."
+    ✅ "C" (El Estado cobra impuestos a las familias): "Elegiste una transferencia fiscal que involucra al Estado. La pregunta buscaba un intercambio directo de bienes o servicios entre hogares y empresas privadas."
+    ❌ "B": "Los subsidios son transferencias del Estado, no una compra o venta directa." — only defines correct concept, never names what the student chose. FORBIDDEN.
+    ❌ "C": "Es posible, pero no es un efecto directo ni seguro." — forbidden pattern.
 - DOCUMENT-FIRST LAW: 100% of academic content must be derivable from the transcription. If a concept, example, or application cannot be traced back to the transcription → remove it.
 - COVERAGE LAW: if the document has N ≥ 3 distinct concepts, at least ⌈N × 0.8⌉ must appear across slides. A session that uses only 1 of 5 available concepts is INVALID.
 - NON-EQUIVALENCE LAW: interactive screens 3, 5, 6, and 9 must each test a DIFFERENT concept from the document. Check: "Is this question testing the same idea as a previous interactive slide?" If YES → rewrite using a different concept.
@@ -736,17 +745,26 @@ REGLAS ABSOLUTAS — verifica ANTES de outputtar el JSON:
 10. NUNCA-VACÍO: title ≥ 3 palabras, definition ≥ 10 palabras en TODAS las pantallas.
 11. ENFOQUE: pantallas 4, 7 y 9 son todas sobre "${skill}" — distintos niveles, misma habilidad.
 12. MATEMÁTICAS: todas las respuestas correctas y equivalencias numéricas son matemáticamente correctas.
-13. WRONG-ANSWER HINTS (OBLIGATORIO): Toda pantalla con options DEBE incluir "wrongAnswerHints". Claves = letras de opciones incorrectas. Valor = EXACTAMENTE 1–2 frases, entre 15 y 40 palabras, que funcionen como micro-corrección conceptual — como la aclaración de un profesor, no un mensaje motivacional.
-    ESTRUCTURA por cada opción incorrecta:
-      Frase 1: Nombra a qué categoría o concepto PERTENECE la opción incorrecta, o señala el supuesto falso detrás de ella. NO empezar desde "está mal porque".
-      Frase 2: Establece la distinción conceptual correcta — qué evaluaba la pregunta y por qué esa opción no aplica.
-    CRITERIO DE CALIDAD: ¿Esta frase podría usarse para una pregunta diferente de otro tema? Si SÍ → reescribir. Cada hint debe ser específico para ESTA pregunta y ESTA opción.
-    FRASES PROHIBIDAS — rechazar y reescribir si aparecen:
+13. WRONG-ANSWER HINTS (OBLIGATORIO): Toda pantalla con options DEBE incluir "wrongAnswerHints". Claves = letras de opciones incorrectas. Valor = EXACTAMENTE 2 frases, 20–45 palabras totales.
+    ESTRUCTURA OBLIGATORIA — ambas frases son requeridas:
+      FRASE 1: Nombra lo que el alumno eligió y por qué parecía razonable. DEBE empezar con una de:
+        • "Elegiste [descripción del concepto real que representa la opción incorrecta]."
+        • "Te enfocaste en [qué aspecto de la opción incorrecta atrajo al estudiante]."
+        • "Esta alternativa describe [el concepto real al que pertenece la opción incorrecta]."
+      FRASE 2: Contrasta con lo que la pregunta realmente buscaba. DEBE empezar con una de:
+        • "La pregunta buscaba [el concepto o criterio exacto que requería la pregunta]."
+        • "Sin embargo, [distinción conceptual correcta que explica por qué esta opción no responde la pregunta]."
+    CRITERIO DE CALIDAD — verificar los 4 antes de aceptar:
+      ✅ ¿Hace referencia al concepto de la opción incorrecta? Si NO → reescribir.
+      ✅ ¿Identifica la confusión específica del alumno? Si NO → reescribir.
+      ✅ ¿Compara el concepto equivocado con el correcto? Si NO → reescribir.
+      ✅ ¿Esta reflexión sería inútil si se mostrara para una pregunta diferente? Si NO → reescribir.
+    PROHIBIDO — rechazar y reescribir si aparecen:
+      ❌ Definir solo el concepto correcto sin nombrar la opción incorrecta
       ❌ "Es posible, pero..." / "Es una X, pero no..." / "No es exactamente..." / "Aunque es correcto..."
-      ❌ "A veces..." / "Aunque parece..." / "Identifica qué razonamiento..."
-      ❌ Frases sobre el proceso de aprendizaje, motivación o esfuerzo
-      ❌ Repetir textualmente la respuesta correcta
-      ❌ Repetir el enunciado de la pregunta
+      ❌ "A veces..." / "Aunque parece..." / "Puede dañar..." / "No es seguro ni inmediato..."
+      ❌ Datos curiosos, definiciones aisladas o mensajes motivacionales
+      ❌ Repetir textualmente la respuesta correcta o el enunciado de la pregunta
 
 Transcripción:
 ${normalizeText(transcription)}
