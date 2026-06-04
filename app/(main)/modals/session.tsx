@@ -2179,10 +2179,12 @@ export default function SessionPlayerScreen() {
           <StatusBar barStyle="dark-content" backgroundColor={BG} />
           <View style={g.topBar}>
             <Pressable onPress={() => setPhase('mode-select')} style={g.iconBtn} hitSlop={10}>
+              <ChevronLeft size={18} color={Colors.ink} strokeWidth={2.5} />
+            </Pressable>
+            <Text style={g.screenTitle}>🧠 Resultado</Text>
+            <Pressable onPress={() => setPhase('mode-select')} style={g.iconBtn} hitSlop={10}>
               <X size={16} color={Colors.ink} strokeWidth={2.5} />
             </Pressable>
-            <Text style={g.screenTitle}>Resultado del quiz</Text>
-            <View style={{ width: 36 }} />
           </View>
           <Animated.View style={[{ flex: 1 }, resultEntryStyle]}>
             <ScrollView contentContainerStyle={[qz.resultScroll, { paddingBottom: insets.bottom + 24 }]}>
@@ -2250,6 +2252,20 @@ export default function SessionPlayerScreen() {
         </Animated.View>
 
         <SafeAreaView style={{ flex: 1 }} edges={['top']}>
+          {/* Header — matches mission / flashcards pattern */}
+          <View style={g.topBar}>
+            <Pressable onPress={() => setPhase('mode-select')} style={g.iconBtn} hitSlop={10}>
+              <ChevronLeft size={18} color={Colors.ink} strokeWidth={2.5} />
+            </Pressable>
+            <View style={{ flex: 1, alignItems: 'center' }}>
+              <Text style={g.screenTitle}>🧠 Quiz</Text>
+              <Text style={sum.slideCounter}>{quizIdx + 1} / {questions.length}</Text>
+            </View>
+            <Pressable onPress={() => setPhase('mode-select')} style={g.iconBtn} hitSlop={10}>
+              <X size={16} color={Colors.ink} strokeWidth={2.5} />
+            </Pressable>
+          </View>
+
           {/* Stats bar — Streak + Lives | Progress | XP */}
           <View style={qz.statsBar}>
             <Animated.View style={[qz.chip, heartShakeStyle]}>
