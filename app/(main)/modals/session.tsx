@@ -655,6 +655,8 @@ export default function SessionPlayerScreen() {
   // New: result screen entrance
   const resultEntryY  = useSharedValue(36);
   const resultEntryOp = useSharedValue(0);
+  // Progress bar fill (animated)
+  const progressSV    = useSharedValue(0);
 
   const questionTransStyle = useAnimatedStyle(() => ({
     opacity:   questionOp.value,
@@ -674,6 +676,7 @@ export default function SessionPlayerScreen() {
     opacity:   resultEntryOp.value,
     transform: [{ translateY: resultEntryY.value }],
   }));
+  const progressFillStyle = useAnimatedStyle(() => ({ width: `${progressSV.value * 100}%` as any }));
   useEffect(() => {
     if (phase !== 'summary') return;
     slideX.value = SCREEN_W * 0.12;
@@ -681,6 +684,13 @@ export default function SessionPlayerScreen() {
     slideX.value = withSpring(0, { damping: 22, stiffness: 220 });
     slideOpacity.value = withTiming(1, { duration: 240 });
   }, [summaryIdx, phase]);
+
+  // Animate quiz progress bar fill whenever question or step changes
+  useEffect(() => {
+    if (phase !== 'quiz') return;
+    const filled = quizIdx + (quizStep !== 'answering' ? 1 : 0);
+    progressSV.value = withTiming(filled / Math.max(questions.length, 1), { duration: 380, easing: Easing.out(Easing.quad) });
+  }, [quizIdx, quizStep, phase, questions.length]);
 
   // Reset order taps when slide changes
   useEffect(() => { setOrderTaps([]); }, [summaryIdx]);
@@ -2240,43 +2250,32 @@ export default function SessionPlayerScreen() {
         </Animated.View>
 
         <SafeAreaView style={{ flex: 1 }} edges={['top']}>
-          {/* Stats chip bar */}
+          {/* Stats bar — Streak + Lives | Progress | XP */}
           <View style={qz.statsBar}>
-            <View style={qz.chip}>
-              <Text style={{ fontSize: 16 }}>🔥</Text>
+            <Animated.View style={[qz.chip, heartShakeStyle]}>
+              <Text style={{ fontSize: 14 }}>🔥</Text>
               <Text style={qz.chipVal}>{streak}</Text>
-              <Text style={qz.chipLbl}>racha</Text>
-            </View>
-            {/* Progress pill — glow on last question (FASE 7) */}
-            <View style={[qz.chip, { flex: 1.6, gap: 6 }, isLastQuestion && qz.chipLastQ]}>
-              <PillBar filled={quizIdx + (quizStep !== 'answering' ? 1 : 0)} total={questions.length} color={BRAND} />
+              <View style={{ flexDirection: 'row', gap: 3, marginLeft: 2 }}>
+                {Array.from({ length: MAX_LIVES }).map((_, i) => (
+                  <View key={i} style={[qz.heartDot, i < lives && qz.heartDotActive]} />
+                ))}
+              </View>
+            </Animated.View>
+            {/* Animated progress bar — glow on last question */}
+            <View style={[qz.chip, { flex: 1.8, gap: 6 }, isLastQuestion && qz.chipLastQ]}>
+              <View style={qz.progressTrack}>
+                <Animated.View style={[qz.progressFill, progressFillStyle]} />
+              </View>
               <Text style={qz.counter}>{quizIdx + 1}/{questions.length}</Text>
             </View>
             <View style={qz.chip}>
-              <Text style={{ fontSize: 16 }}>⚡</Text>
+              <Text style={{ fontSize: 14 }}>⚡</Text>
               <Text style={qz.chipVal}>{xpEarned}</Text>
               <Text style={qz.chipLbl}>XP</Text>
             </View>
           </View>
 
-          {/* Lives row */}
-          <Animated.View style={[qz.livesRow, heartShakeStyle]}>
-            {Array.from({ length: MAX_LIVES }).map((_, i) => (
-              <Text key={i} style={{ fontSize: 16, opacity: i < lives ? 1 : 0.2 }}>❤️</Text>
-            ))}
-          </Animated.View>
-
-          {/* Combo bar with pulse (FASE 4) */}
-          <Animated.View style={[qz.comboRow, comboPulseStyle]}>
-            <Text style={qz.comboLabel}>🔥 Combo</Text>
-            <View style={qz.comboBlocks}>
-              {Array.from({ length: COMBO_SIZE }).map((_, i) => (
-                <View key={i} style={[qz.comboBlock, i < comboCount && qz.comboBlockFilled]} />
-              ))}
-            </View>
-          </Animated.View>
-
-          {/* Motiv message with fade cycling (FASE 1) */}
+          {/* Motiv message — second row */}
           <Animated.Text style={[qz.motivMsg, motivFadeStyle]}>{motivText}</Animated.Text>
 
           <ScrollView contentContainerStyle={[qz.scroll, { paddingBottom: 8 }]} showsVerticalScrollIndicator={false}>
@@ -2348,12 +2347,12 @@ export default function SessionPlayerScreen() {
               </View>
             </Animated.View>
 
-            {/* Feedback strip — compact (FASE 6) */}
+            {/* Feedback strip — compact */}
             {quizStep !== 'answering' && question?.explanation ? (
               <Animated.View style={[qz.feedback, quizStep === 'correct' ? qz.feedbackOk : qz.feedbackFail, feedbackStyle]}>
                 <View style={qz.feedbackHeader}>
                   <Text style={qz.feedbackTitle}>
-                    {quizStep === 'correct' ? '🎉 ¡Correcto!' : '💪 Casi'}
+                    {quizStep === 'correct' ? '🎯 Correcto' : '💪 Casi'}
                   </Text>
                   {quizStep === 'correct' && (
                     <View style={qz.feedbackXP}>
@@ -2375,8 +2374,8 @@ export default function SessionPlayerScreen() {
                     {isLastQuestion
                       ? '🏆 Ver resultados'
                       : quizStep === 'correct'
-                        ? (['⚡ Ganar más XP', '🚀 Continuar', '🎯 Siguiente desafío'] as const)[correctCount % 3]
-                        : correctCount % 2 === 0 ? '💪 Intentemos otra' : '🚀 Continuar'}
+                        ? '🚀 Continuar'
+                        : '🔁 Intentar otra vez'}
                   </Text>
                 </LinearGradient>
               </Pressable>
@@ -2927,55 +2926,67 @@ const sum = StyleSheet.create({
 
 // ── Quiz ───────────────────────────────────────────────────────────
 const qz = StyleSheet.create({
-  statsBar: { flexDirection: 'row', paddingHorizontal: 16, paddingVertical: 8, gap: 8, alignItems: 'center' },
-  chip:     { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: 'white', borderRadius: 12, borderWidth: 1, borderColor: Colors.line, paddingHorizontal: 10, paddingVertical: 6 },
+  statsBar: { flexDirection: 'row', paddingHorizontal: 14, paddingVertical: 6, gap: 7, alignItems: 'center' },
+  chip:     { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: 'white', borderRadius: 14, borderWidth: 1, borderColor: Colors.line, paddingHorizontal: 10, paddingVertical: 7, shadowColor: '#0B0B1A', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.04, shadowRadius: 4, elevation: 1 },
   chipVal:  { fontSize: 15, fontWeight: '900', color: Colors.ink },
   chipLbl:  { fontSize: 10, color: Colors.muted, fontWeight: '600' },
-  counter:  { fontSize: 11, fontWeight: '700', color: Colors.muted, marginLeft: 4, flexShrink: 0 },
+  counter:  { fontSize: 11, fontWeight: '700', color: Colors.muted, flexShrink: 0 },
 
+  // Lives dots — displayed inside streak chip
+  heartDot:       { width: 7, height: 7, borderRadius: 3.5, backgroundColor: 'rgba(0,0,0,0.12)' },
+  heartDotActive: { backgroundColor: '#FF4D6D' },
+
+  // Animated progress bar (replaces PillBar)
+  progressTrack: { flex: 1, height: 8, borderRadius: 4, backgroundColor: 'rgba(0,0,0,0.09)', overflow: 'hidden' },
+  progressFill:  { height: '100%', borderRadius: 4, backgroundColor: BRAND },
+
+  // Kept for style compatibility (no longer rendered)
   livesRow:  { flexDirection: 'row', gap: 4, paddingHorizontal: 16, marginBottom: 2 },
-
   comboRow:         { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 16, paddingVertical: 4 },
   comboLabel:       { fontSize: 11, fontWeight: '800', color: Colors.ink2 },
   comboBlocks:      { flexDirection: 'row', gap: 4 },
   comboBlock:       { width: 24, height: 8, borderRadius: 4, backgroundColor: Colors.line2 },
   comboBlockFilled: { backgroundColor: '#FF7A2B' },
 
-  motivMsg: { fontSize: 11, fontWeight: '700', color: Colors.muted, paddingHorizontal: 16, paddingBottom: 4, textAlign: 'center' },
+  motivMsg: { fontSize: 11, fontWeight: '700', color: Colors.muted, paddingHorizontal: 16, paddingBottom: 6, textAlign: 'center' },
 
-  scroll:   { paddingHorizontal: 16, paddingTop: 6 },
+  scroll:   { paddingHorizontal: 14, paddingTop: 4 },
 
-  questionCard: { backgroundColor: 'white', borderRadius: 20, padding: SM ? 14 : 16, marginBottom: 10, shadowColor: '#0B0B1A', shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.07, shadowRadius: 12, elevation: 3 },
-  questionMeta: { flexDirection: 'row', marginBottom: 8 },
+  // Question card — reduced padding ~22% vs original
+  questionCard: { backgroundColor: 'white', borderRadius: 20, paddingHorizontal: SM ? 13 : 15, paddingVertical: SM ? 11 : 12, marginBottom: 8, shadowColor: '#0B0B1A', shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.07, shadowRadius: 12, elevation: 3 },
+  questionMeta: { flexDirection: 'row', alignItems: 'center', marginBottom: 7 },
   questionChip: { fontSize: 10, fontWeight: '800', color: BRAND, letterSpacing: 0.4, backgroundColor: 'rgba(91,61,245,0.08)', paddingVertical: 3, paddingHorizontal: 8, borderRadius: 100 },
-  questionText: { fontSize: SM ? 16 : 18, fontWeight: '800', color: Colors.ink, lineHeight: SM ? 24 : 27, letterSpacing: -0.2 },
+  questionText: { fontSize: SM ? 15 : 17, fontWeight: '800', color: Colors.ink, lineHeight: SM ? 22 : 25, letterSpacing: -0.2 },
 
-  option:             { flexDirection: 'row', alignItems: 'center', gap: 10, padding: 13, borderRadius: 16, borderWidth: 2, borderColor: Colors.line, backgroundColor: 'white' },
-  optCorrect:         { borderColor: BRAND, backgroundColor: 'rgba(91,61,245,0.04)', shadowColor: BRAND, shadowOpacity: 0.15, shadowRadius: 10, elevation: 3 },
-  optWrong:           { borderColor: Colors.line2, backgroundColor: 'white' },
-  optLetter:          { width: 30, height: 30, borderRadius: 9, backgroundColor: Colors.bgSoft, alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
-  optLetterCorrect:   { backgroundColor: BRAND },
-  optLetterRed:       { backgroundColor: Colors.line2 },
-  optLetterText:      { fontSize: 13, fontWeight: '800', color: Colors.ink },
-  optText:            { flex: 1, fontSize: 14, color: Colors.ink, fontWeight: '600', lineHeight: 20 },
+  option:           { flexDirection: 'row', alignItems: 'center', gap: 10, padding: 12, borderRadius: 16, borderWidth: 2, borderColor: Colors.line, backgroundColor: 'white' },
+  optCorrect:       { borderColor: BRAND, borderWidth: 2.5, backgroundColor: 'rgba(91,61,245,0.05)', shadowColor: BRAND, shadowOpacity: 0.22, shadowRadius: 12, elevation: 4 },
+  optWrong:         { borderColor: '#DC2626', borderWidth: 2, backgroundColor: 'rgba(220,38,38,0.04)' },
+  optLetter:        { width: 30, height: 30, borderRadius: 9, backgroundColor: Colors.bgSoft, alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
+  optLetterCorrect: { backgroundColor: BRAND },
+  optLetterRed:     { backgroundColor: '#DC2626' },
+  optLetterText:    { fontSize: 13, fontWeight: '800', color: Colors.ink },
+  optText:          { flex: 1, fontSize: 14, color: Colors.ink, fontWeight: '600', lineHeight: 20 },
 
-  feedback:      { borderRadius: 14, paddingVertical: 10, paddingHorizontal: 14, marginBottom: 8 },
-  feedbackOk:    { borderLeftWidth: 3, borderLeftColor: BRAND, backgroundColor: 'rgba(91,61,245,0.04)' },
-  feedbackFail:  { borderLeftWidth: 3, borderLeftColor: Colors.line2, backgroundColor: Colors.bgSoft },
+  // Feedback — compact (max 2 visible lines)
+  feedback:      { borderRadius: 14, paddingVertical: 8, paddingHorizontal: 13, marginBottom: 8 },
+  feedbackOk:    { borderLeftWidth: 3, borderLeftColor: BRAND, backgroundColor: 'rgba(91,61,245,0.05)' },
+  feedbackFail:  { borderLeftWidth: 3, borderLeftColor: '#DC2626', backgroundColor: 'rgba(220,38,38,0.04)' },
   feedbackHeader:{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 },
-  feedbackTitle: { fontSize: 13, fontWeight: '800', color: Colors.ink },
-  feedbackXP:    { backgroundColor: BRAND, borderRadius: 100, paddingVertical: 2, paddingHorizontal: 8 },
-  feedbackXPText:{ fontSize: 11, fontWeight: '800', color: 'white' },
+  feedbackTitle: { fontSize: 13, fontWeight: '900', color: Colors.ink },
+  feedbackXP:    { backgroundColor: BRAND, borderRadius: 100, paddingVertical: 2, paddingHorizontal: 9 },
+  feedbackXPText:{ fontSize: 11, fontWeight: '900', color: 'white' },
   feedbackText:  { fontSize: 12, color: Colors.ink2, lineHeight: 18 },
 
-  xpFloat:     { backgroundColor: BRAND, borderRadius: 100, paddingVertical: 8, paddingHorizontal: 18, shadowColor: BRAND, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.45, shadowRadius: 14, elevation: 8 },
-  xpFloatText: { color: LIME, fontWeight: '900', fontSize: 16 },
+  // XP float — slightly larger for reward feel
+  xpFloat:     { backgroundColor: BRAND, borderRadius: 100, paddingVertical: 10, paddingHorizontal: 22, shadowColor: BRAND, shadowOffset: { width: 0, height: 5 }, shadowOpacity: 0.5, shadowRadius: 16, elevation: 10 },
+  xpFloatText: { color: LIME, fontWeight: '900', fontSize: 18, letterSpacing: 0.3 },
 
   streakBadge:    { backgroundColor: 'white', borderRadius: 100, paddingVertical: 10, paddingHorizontal: 22, shadowColor: '#0B0B1A', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.12, shadowRadius: 14, elevation: 6, borderWidth: 1, borderColor: Colors.line },
   streakBadgeText:{ fontSize: 15, fontWeight: '900', color: Colors.ink },
 
-  microBadge:    { backgroundColor: '#FFFBEB', borderRadius: 100, paddingVertical: 10, paddingHorizontal: 22, shadowColor: '#FFB547', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.25, shadowRadius: 14, elevation: 6, borderWidth: 1, borderColor: '#FCD34D' },
-  microBadgeText:{ fontSize: 15, fontWeight: '900', color: '#92400E' },
+  // Combo / micro reward — enlarged for more prominence
+  microBadge:    { backgroundColor: Colors.ink, borderRadius: 100, paddingVertical: 11, paddingHorizontal: 24, shadowColor: Colors.ink, shadowOffset: { width: 0, height: 5 }, shadowOpacity: 0.3, shadowRadius: 16, elevation: 8 },
+  microBadgeText:{ fontSize: 16, fontWeight: '900', color: LIME },
 
   resultScroll:  { paddingHorizontal: 24, paddingTop: 24, alignItems: 'center' },
   resultEmoji:   { fontSize: 72, marginBottom: 12 },
@@ -2988,12 +2999,12 @@ const qz = StyleSheet.create({
   retryBtn:      { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: Colors.bgSoft, borderRadius: 14, paddingVertical: 12, paddingHorizontal: 20, marginBottom: 12 },
   retryText:     { fontSize: 14, fontWeight: '700', color: BRAND },
 
-  // Nemi character widget (FASE 9)
+  // Nemi character widget
   nemiWidget: { backgroundColor: 'white', borderRadius: 16, paddingVertical: 8, paddingHorizontal: 12, shadowColor: '#0B0B1A', shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.1, shadowRadius: 10, elevation: 5, borderWidth: 1, borderColor: Colors.line, maxWidth: 180 },
   nemiLabel:  { fontSize: 10, fontWeight: '800', color: BRAND, marginBottom: 3, letterSpacing: 0.5 },
   nemiText:   { fontSize: 12, color: Colors.ink2, fontWeight: '600', lineHeight: 17 },
 
-  // Last-question states (FASE 7)
+  // Last-question glow state
   chipLastQ: { borderColor: BRAND, shadowColor: BRAND, shadowOpacity: 0.3, shadowRadius: 8, elevation: 4 },
   lastQChip: { fontSize: 10, fontWeight: '800', color: Colors.rose, backgroundColor: 'rgba(255,77,109,0.1)', paddingVertical: 3, paddingHorizontal: 8, borderRadius: 100, marginLeft: 6 },
 });
