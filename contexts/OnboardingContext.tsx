@@ -26,6 +26,7 @@ export const OnboardingProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     data: DEFAULT_ONBOARDING_DATA,
     currentStep: 0,
     isLoading: false,
+    isInitialized: false,
     error: null,
   });
 
@@ -36,13 +37,13 @@ export const OnboardingProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         const savedData = await AsyncStorage.getItem(ONBOARDING_STORAGE_KEY);
         if (savedData) {
           const parsedData = JSON.parse(savedData);
-          setState(prev => ({
-            ...prev,
-            data: parsedData,
-          }));
+          setState(prev => ({ ...prev, data: parsedData, isInitialized: true }));
+        } else {
+          setState(prev => ({ ...prev, isInitialized: true }));
         }
       } catch (error) {
         console.warn('Failed to load onboarding data from storage:', error);
+        setState(prev => ({ ...prev, isInitialized: true }));
       }
     };
 
@@ -50,10 +51,9 @@ export const OnboardingProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   }, []);
 
   const updateData = (updates: Partial<OnboardingData>) => {
-    const newData = { ...state.data, ...updates };
     setState(prev => ({
       ...prev,
-      data: newData,
+      data: { ...prev.data, ...updates },
     }));
   };
 
@@ -139,6 +139,7 @@ export const OnboardingProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       data: DEFAULT_ONBOARDING_DATA,
       currentStep: 0,
       isLoading: false,
+      isInitialized: true,
       error: null,
     });
   };

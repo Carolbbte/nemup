@@ -12,6 +12,7 @@ export interface OnboardingState {
   data: OnboardingData;
   currentStep: number; // 0-4 (5 pasos totales)
   isLoading: boolean;
+  isInitialized: boolean; // true once AsyncStorage has been read
   error: string | null;
 }
 
