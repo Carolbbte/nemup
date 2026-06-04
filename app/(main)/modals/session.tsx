@@ -42,7 +42,7 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 const { width: SCREEN_W, height: SCREEN_H } = Dimensions.get('window');
 const SM    = SCREEN_H < 740;
 const BG    = '#F8F9FC';
-const BRAND = '#5B3DF5';
+const BRAND = '#6C4DFF';
 const NEON  = '#7C5AFF';
 const LIME  = '#C4F852';
 
@@ -685,12 +685,15 @@ export default function SessionPlayerScreen() {
     slideOpacity.value = withTiming(1, { duration: 240 });
   }, [summaryIdx, phase]);
 
-  // Animate quiz progress bar fill whenever question or step changes
+  // Animate progress bar fill — used by both quiz and flashcards phases
   useEffect(() => {
-    if (phase !== 'quiz') return;
-    const filled = quizIdx + (quizStep !== 'answering' ? 1 : 0);
-    progressSV.value = withTiming(filled / Math.max(questions.length, 1), { duration: 380, easing: Easing.out(Easing.quad) });
-  }, [quizIdx, quizStep, phase, questions.length]);
+    if (phase === 'quiz') {
+      const filled = quizIdx + (quizStep !== 'answering' ? 1 : 0);
+      progressSV.value = withTiming(filled / Math.max(questions.length, 1), { duration: 380, easing: Easing.out(Easing.quad) });
+    } else if (phase === 'flashcards') {
+      progressSV.value = withTiming((cardIdx + 1) / Math.max(flashcards.length, 1), { duration: 380, easing: Easing.out(Easing.quad) });
+    }
+  }, [quizIdx, quizStep, phase, questions.length, cardIdx, flashcards.length]);
 
   // Reset order taps when slide changes
   useEffect(() => { setOrderTaps([]); }, [summaryIdx]);
@@ -1216,9 +1219,6 @@ export default function SessionPlayerScreen() {
             <View style={{ flex: 1, alignItems: 'center' }}>
               <Text style={g.screenTitle}>🎯 Misión</Text>
               <Text style={sum.slideCounter}>{summaryIdx + 1} / {slides.length}</Text>
-              <View style={sum.progressBarOuter}>
-                <View style={[sum.progressBarFill, { width: `${(summaryIdx / Math.max(slides.length - 1, 1)) * 100}%` }]} />
-              </View>
             </View>
             <Pressable onPress={() => setPhase('mode-select')} style={g.iconBtn} hitSlop={10}>
               <X size={16} color={Colors.ink} strokeWidth={2.5} />
@@ -1255,7 +1255,7 @@ export default function SessionPlayerScreen() {
                            showRed   ? <X    size={12} color="white" strokeWidth={3} /> :
                            <Text style={sum.quizLetterText}>{LETTERS[i]}</Text>}
                         </View>
-                        <Text style={[sum.quizOptText, showGreen && { color: '#065F46', fontWeight: '700' }, showRed && { color: '#991B1B', fontWeight: '700' }]}>
+                        <Text style={[sum.quizOptText, showGreen && { color: BRAND, fontWeight: '700' }, showRed && { color: '#991B1B', fontWeight: '700' }]}>
                           {opt.text}
                         </Text>
                       </Pressable>
@@ -1289,7 +1289,7 @@ export default function SessionPlayerScreen() {
             // ── Mission model screens ──────────────────────────────
             ) : slide?.type === 'mission' ? (
               <View style={sum.missionCard}>
-                <LinearGradient colors={['#5B3DF5', '#B44EFF']} start={{ x: 0, y: 1 }} end={{ x: 1, y: 0 }} style={sum.missionGrad}>
+                <LinearGradient colors={[BRAND, '#B44EFF']} start={{ x: 0, y: 1 }} end={{ x: 1, y: 0 }} style={sum.missionGrad}>
                   <View style={sum.missionBadge}><Text style={sum.missionBadgeText}>🎯 MISIÓN</Text></View>
                   <Text style={sum.missionEmoji}>{slide.emoji}</Text>
                   <Text style={sum.missionTitle}>{slide.title}</Text>
@@ -1379,7 +1379,7 @@ export default function SessionPlayerScreen() {
                            showRed   ? <X    size={12} color="white" strokeWidth={3} /> :
                            <Text style={sum.quizLetterText}>{letter}</Text>}
                         </View>
-                        <Text style={[sum.quizOptText, showGreen && { color: '#065F46', fontWeight: '700' }, showRed && { color: '#991B1B', fontWeight: '700' }]}>{opt}</Text>
+                        <Text style={[sum.quizOptText, showGreen && { color: BRAND, fontWeight: '700' }, showRed && { color: '#991B1B', fontWeight: '700' }]}>{opt}</Text>
                       </Pressable>
                     );
                   })}
@@ -1454,7 +1454,7 @@ export default function SessionPlayerScreen() {
                            showRed   ? <X    size={12} color="white" strokeWidth={3} /> :
                            <Text style={sum.quizLetterText}>{letter}</Text>}
                         </View>
-                        <Text style={[sum.quizOptText, showGreen && { color: '#065F46', fontWeight: '700' }, showRed && { color: '#991B1B', fontWeight: '700' }]}>{opt}</Text>
+                        <Text style={[sum.quizOptText, showGreen && { color: BRAND, fontWeight: '700' }, showRed && { color: '#991B1B', fontWeight: '700' }]}>{opt}</Text>
                       </Pressable>
                     );
                   })}
@@ -1525,7 +1525,7 @@ export default function SessionPlayerScreen() {
                                showRed   ? <X    size={12} color="white" strokeWidth={3} /> :
                                <Text style={sum.quizLetterText}>{letter}</Text>}
                             </View>
-                            <Text style={[sum.quizOptText, showGreen && { color: '#065F46', fontWeight: '700' }, showRed && { color: '#991B1B', fontWeight: '700' }]}>{opt}</Text>
+                            <Text style={[sum.quizOptText, showGreen && { color: BRAND, fontWeight: '700' }, showRed && { color: '#991B1B', fontWeight: '700' }]}>{opt}</Text>
                           </Pressable>
                         );
                       })}
@@ -1579,7 +1579,7 @@ export default function SessionPlayerScreen() {
                                showRed   ? <X    size={12} color="white" strokeWidth={3} /> :
                                <Text style={sum.quizLetterText}>{letter}</Text>}
                             </View>
-                            <Text style={[sum.quizOptText, showGreen && { color: '#065F46', fontWeight: '700' }, showRed && { color: '#991B1B', fontWeight: '700' }]}>{opt}</Text>
+                            <Text style={[sum.quizOptText, showGreen && { color: BRAND, fontWeight: '700' }, showRed && { color: '#991B1B', fontWeight: '700' }]}>{opt}</Text>
                           </Pressable>
                         );
                       })}
@@ -1644,7 +1644,7 @@ export default function SessionPlayerScreen() {
                              showRed   ? <X    size={12} color="white" strokeWidth={3} /> :
                              <Text style={sum.quizLetterText}>{letter}</Text>}
                           </View>
-                          <Text style={[sum.quizOptText, showGreen && { color: '#065F46', fontWeight: '700' }, showRed && { color: '#991B1B', fontWeight: '700' }]}>{opt}</Text>
+                          <Text style={[sum.quizOptText, showGreen && { color: BRAND, fontWeight: '700' }, showRed && { color: '#991B1B', fontWeight: '700' }]}>{opt}</Text>
                         </Pressable>
                       );
                     })}
@@ -1685,7 +1685,7 @@ export default function SessionPlayerScreen() {
                            showRed   ? <X    size={12} color="white" strokeWidth={3} /> :
                            <Text style={sum.quizLetterText}>{letter}</Text>}
                         </View>
-                        <Text style={[sum.quizOptText, showGreen && { color: '#065F46', fontWeight: '700' }, showRed && { color: '#991B1B', fontWeight: '700' }]}>{opt}</Text>
+                        <Text style={[sum.quizOptText, showGreen && { color: BRAND, fontWeight: '700' }, showRed && { color: '#991B1B', fontWeight: '700' }]}>{opt}</Text>
                       </Pressable>
                     );
                   })}
@@ -1795,7 +1795,7 @@ export default function SessionPlayerScreen() {
                              showRed   ? <X    size={12} color="white" strokeWidth={3} /> :
                              <Text style={sum.quizLetterText}>{letter}</Text>}
                           </View>
-                          <Text style={[sum.quizOptText, showGreen && { color: '#065F46', fontWeight: '700' }, showRed && { color: '#991B1B', fontWeight: '700' }]}>{opt}</Text>
+                          <Text style={[sum.quizOptText, showGreen && { color: BRAND, fontWeight: '700' }, showRed && { color: '#991B1B', fontWeight: '700' }]}>{opt}</Text>
                         </Pressable>
                       );
                     })}
@@ -2079,7 +2079,7 @@ export default function SessionPlayerScreen() {
                              showRed   ? <X    size={12} color="white" strokeWidth={3} /> :
                              <Text style={sum.quizLetterText}>{letter}</Text>}
                           </View>
-                          <Text style={[sum.quizOptText, showGreen && { color: '#065F46', fontWeight: '700' }, showRed && { color: '#991B1B', fontWeight: '700' }]}>{opt}</Text>
+                          <Text style={[sum.quizOptText, showGreen && { color: BRAND, fontWeight: '700' }, showRed && { color: '#991B1B', fontWeight: '700' }]}>{opt}</Text>
                         </Pressable>
                       );
                     })}
@@ -2410,7 +2410,7 @@ export default function SessionPlayerScreen() {
             <Text style={{ fontSize: 24, fontWeight: '900', color: Colors.ink, textAlign: 'center', marginBottom: 8 }}>¡Tarjetas completadas!</Text>
             <Text style={{ fontSize: 14, color: Colors.muted, textAlign: 'center', marginBottom: 32 }}>{flashcards.length} tarjetas repasadas</Text>
             <Pressable onPress={() => completeMode('flashcards')} style={{ width: '100%' }}>
-              <LinearGradient colors={['#059669', '#047857']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={g.ctaBtn}>
+              <LinearGradient colors={[BRAND, NEON]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={g.ctaBtn}>
                 <Text style={g.ctaText}>🎉 Continuar</Text>
               </LinearGradient>
             </Pressable>
@@ -2425,15 +2425,20 @@ export default function SessionPlayerScreen() {
         <SafeAreaView style={{ flex: 1 }} edges={['top']}>
           <View style={g.topBar}>
             <Pressable onPress={() => setPhase('mode-select')} style={g.iconBtn} hitSlop={10}>
+              <ChevronLeft size={18} color={Colors.ink} strokeWidth={2.5} />
+            </Pressable>
+            <View style={{ flex: 1, alignItems: 'center' }}>
+              <Text style={g.screenTitle}>🗂️ Tarjetas</Text>
+              <Text style={sum.slideCounter}>{cardIdx + 1} / {flashcards.length}</Text>
+            </View>
+            <Pressable onPress={() => setPhase('mode-select')} style={g.iconBtn} hitSlop={10}>
               <X size={16} color={Colors.ink} strokeWidth={2.5} />
             </Pressable>
-            <Text style={g.screenTitle}>🗂️ Tarjetas</Text>
-            <View style={g.counterPill}>
-              <Text style={g.counterText}>{cardIdx + 1} / {flashcards.length}</Text>
-            </View>
           </View>
-          <View style={{ paddingHorizontal: 20, marginBottom: 4 }}>
-            <PillBar filled={cardIdx + 1} total={flashcards.length} color="#059669" />
+          <View style={{ paddingHorizontal: 14, marginBottom: 4 }}>
+            <View style={qz.progressTrack}>
+              <Animated.View style={[qz.progressFill, progressFillStyle]} />
+            </View>
           </View>
 
           {/* Card takes all remaining space */}
@@ -2449,7 +2454,7 @@ export default function SessionPlayerScreen() {
               {[
                 { label: '❌\nNo lo sabía', colors: ['#DC2626', '#B91C1C'] as [string,string] },
                 { label: '🤔\nLo dudé',     colors: [Colors.amber, '#D97706'] as [string,string] },
-                { label: '✅\nLo sabía',    colors: ['#059669', '#047857'] as [string,string] },
+                { label: '✅\nLo sabía',    colors: [BRAND, NEON] as [string,string] },
               ].map(({ label, colors }) => (
                 <Pressable key={label} onPress={handleCardNext} style={{ flex: 1 }}>
                   <LinearGradient colors={colors} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={fcs.srsBtn}>
@@ -2691,13 +2696,13 @@ const sum = StyleSheet.create({
   summaryRewardBadgeTxt:{ fontSize: 15, fontWeight: '800', color: 'white' },
 
   // Concept card
-  introCard:    { backgroundColor: 'white', borderRadius: 24, padding: SM ? 18 : 22, shadowColor: '#0B0B1A', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.09, shadowRadius: 20, elevation: 5 },
+  introCard:    { backgroundColor: 'white', borderRadius: 28, padding: SM ? 18 : 22, shadowColor: '#0B0B1A', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.09, shadowRadius: 20, elevation: 5 },
   slideEmoji:   { fontSize: SM ? 38 : 44, marginBottom: 10 },
   introHeading: { fontSize: SM ? 20 : 23, fontWeight: '900', color: Colors.ink, letterSpacing: -0.4, lineHeight: SM ? 26 : 30, marginBottom: 8 },
   introDef:     { fontSize: SM ? 14 : 15, color: Colors.ink2, lineHeight: SM ? 21 : 23, fontWeight: '500', marginBottom: 2 },
 
   // Accent card (key_fact, important, remember, curiosity)
-  kpCard:       { borderRadius: 20, borderLeftWidth: 4, padding: SM ? 16 : 20, shadowColor: '#0B0B1A', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.06, shadowRadius: 12, elevation: 3 },
+  kpCard:       { borderRadius: 28, borderLeftWidth: 4, padding: SM ? 16 : 20, shadowColor: '#0B0B1A', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.06, shadowRadius: 12, elevation: 3 },
   kpEmoji:      { fontSize: SM ? 32 : 36, marginBottom: 6 },
   kpLabel:      { fontSize: 10, fontWeight: '800', letterSpacing: 0.8, marginBottom: 6, textTransform: 'uppercase' },
   kpTitle:      { fontSize: SM ? 16 : 18, fontWeight: '900', color: Colors.ink, marginBottom: 6, letterSpacing: -0.3 },
@@ -2709,31 +2714,31 @@ const sum = StyleSheet.create({
   exampleText:  { fontSize: SM ? 13 : 14, color: Colors.ink, lineHeight: SM ? 20 : 22, fontWeight: '600' },
 
   // Wow fact card
-  wowCard:      { backgroundColor: 'white', borderRadius: 24, padding: SM ? 28 : 34, alignItems: 'center', shadowColor: '#0B0B1A', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.09, shadowRadius: 20, elevation: 5 },
+  wowCard:      { backgroundColor: 'white', borderRadius: 28, padding: SM ? 28 : 34, alignItems: 'center', shadowColor: '#0B0B1A', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.09, shadowRadius: 20, elevation: 5 },
   wowEmoji:     { fontSize: SM ? 56 : 68, marginBottom: 16 },
   wowLabel:     { fontSize: 11, fontWeight: '900', color: '#FF4D6D', letterSpacing: 1.5, marginBottom: 14, textTransform: 'uppercase' },
   wowText:      { fontSize: SM ? 17 : 20, fontWeight: '700', color: Colors.ink, textAlign: 'center', lineHeight: SM ? 26 : 30, letterSpacing: -0.3 },
 
   // Quiz card
-  quizCard:          { backgroundColor: 'white', borderRadius: 24, padding: SM ? 16 : 20, shadowColor: '#0B0B1A', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.09, shadowRadius: 20, elevation: 5 },
+  quizCard:          { backgroundColor: 'white', borderRadius: 28, padding: SM ? 16 : 20, shadowColor: '#0B0B1A', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.09, shadowRadius: 20, elevation: 5 },
   quizLabel:         { fontSize: 10, fontWeight: '900', color: BRAND, letterSpacing: 1.5, marginBottom: 10, textTransform: 'uppercase' },
   quizQuestion:      { fontSize: SM ? 16 : 18, fontWeight: '800', color: Colors.ink, lineHeight: SM ? 24 : 27, letterSpacing: -0.2 },
   quizOption:        { flexDirection: 'row', alignItems: 'center', gap: 10, padding: 12, borderRadius: 14, borderWidth: 2, borderColor: Colors.line, backgroundColor: Colors.bgSoft },
-  quizOptCorrect:    { borderColor: '#059669', backgroundColor: 'rgba(5,150,105,0.06)' },
+  quizOptCorrect:    { borderColor: BRAND, borderWidth: 2, backgroundColor: 'rgba(108,77,255,0.06)' },
   quizOptWrong:      { borderColor: '#DC2626', backgroundColor: 'rgba(220,38,38,0.06)' },
   quizLetter:        { width: 28, height: 28, borderRadius: 8, backgroundColor: Colors.line, alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
-  quizLetterGreen:   { backgroundColor: '#059669' },
+  quizLetterGreen:   { backgroundColor: BRAND },
   quizLetterRed:     { backgroundColor: '#DC2626' },
   quizLetterText:    { fontSize: 12, fontWeight: '800', color: Colors.ink },
   quizOptText:       { flex: 1, fontSize: SM ? 13 : 14, color: Colors.ink, fontWeight: '600', lineHeight: 20 },
   quizFeedback:      { marginTop: 12, borderRadius: 12, padding: 12 },
-  quizFeedbackOk:    { backgroundColor: 'rgba(5,150,105,0.07)', borderWidth: 1, borderColor: 'rgba(5,150,105,0.2)' },
+  quizFeedbackOk:    { backgroundColor: 'rgba(108,77,255,0.07)', borderWidth: 1, borderColor: 'rgba(108,77,255,0.2)' },
   quizFeedbackErr:   { backgroundColor: 'rgba(220,38,38,0.07)', borderWidth: 1, borderColor: 'rgba(220,38,38,0.2)' },
   quizFeedbackTitle: { fontSize: 13, fontWeight: '800', color: Colors.ink, marginBottom: 4 },
   quizFeedbackText:  { fontSize: 12, color: Colors.ink2, lineHeight: 19 },
 
   // Prediction card
-  predCard:     { backgroundColor: '#F0EDFF', borderRadius: 24, padding: SM ? 22 : 28, alignItems: 'center', shadowColor: '#0B0B1A', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.09, shadowRadius: 20, elevation: 5 },
+  predCard:     { backgroundColor: '#F0EDFF', borderRadius: 28, padding: SM ? 22 : 28, alignItems: 'center', shadowColor: '#0B0B1A', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.09, shadowRadius: 20, elevation: 5 },
   predIcon:     { fontSize: SM ? 52 : 64, marginBottom: 12 },
   predLabel:    { fontSize: 10, fontWeight: '900', color: BRAND, letterSpacing: 1.5, marginBottom: 14, textTransform: 'uppercase' },
   predPrompt:   { fontSize: SM ? 18 : 21, fontWeight: '900', color: Colors.ink, textAlign: 'center', lineHeight: SM ? 26 : 30, letterSpacing: -0.4, marginBottom: 20 },
@@ -2742,13 +2747,13 @@ const sum = StyleSheet.create({
   predHint:     { fontSize: SM ? 13 : 14, color: Colors.ink2, lineHeight: SM ? 20 : 22, fontWeight: '500' },
 
   // Motivation card
-  motivCard:    { backgroundColor: 'white', borderRadius: 24, padding: SM ? 32 : 40, alignItems: 'center', shadowColor: '#0B0B1A', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.09, shadowRadius: 20, elevation: 5 },
+  motivCard:    { backgroundColor: 'white', borderRadius: 28, padding: SM ? 32 : 40, alignItems: 'center', shadowColor: '#0B0B1A', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.09, shadowRadius: 20, elevation: 5 },
   motivEmoji:   { fontSize: SM ? 64 : 80, marginBottom: 16 },
   motivMsg:     { fontSize: SM ? 22 : 26, fontWeight: '900', color: Colors.ink, textAlign: 'center', letterSpacing: -0.5, marginBottom: 8 },
   motivSub:     { fontSize: SM ? 13 : 15, color: Colors.muted, textAlign: 'center', lineHeight: SM ? 20 : 23, fontWeight: '500' },
 
   // Example / Scenario card
-  scenarioCard:  { backgroundColor: 'white', borderRadius: 24, overflow: 'hidden', shadowColor: '#0B0B1A', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.09, shadowRadius: 20, elevation: 5 },
+  scenarioCard:  { backgroundColor: 'white', borderRadius: 28, overflow: 'hidden', shadowColor: '#0B0B1A', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.09, shadowRadius: 20, elevation: 5 },
   scenarioBand:  { backgroundColor: '#FFF7ED', flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: SM ? 16 : 20, paddingVertical: SM ? 12 : 14, borderBottomWidth: 1, borderBottomColor: 'rgba(255,122,43,0.12)' },
   scenarioEmoji: { fontSize: SM ? 26 : 30 },
   scenarioLabel: { fontSize: 10, fontWeight: '900', color: '#FF7A2B', letterSpacing: 1.2, textTransform: 'uppercase' },
@@ -2759,7 +2764,7 @@ const sum = StyleSheet.create({
 
   // Mission hero card
   missionCard:      { borderRadius: 28, overflow: 'hidden', shadowColor: BRAND, shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.18, shadowRadius: 24, elevation: 8 },
-  missionGrad:      { borderRadius: 28, paddingVertical: SM ? 36 : 48, paddingHorizontal: 24, alignItems: 'center' },
+  missionGrad:      { borderRadius: 28, paddingVertical: SM ? 26 : 36, paddingHorizontal: 24, alignItems: 'center' },
   missionBadge:     { backgroundColor: 'rgba(255,255,255,0.2)', borderRadius: 100, paddingVertical: 5, paddingHorizontal: 16, marginBottom: 18 },
   missionBadgeText: { color: 'white', fontSize: 11, fontWeight: '800', letterSpacing: 1.5 },
   missionEmoji:     { fontSize: SM ? 56 : 68, marginBottom: 14 },
@@ -2767,7 +2772,7 @@ const sum = StyleSheet.create({
   missionSub:       { fontSize: SM ? 13 : 15, color: 'rgba(255,255,255,0.75)', textAlign: 'center', lineHeight: SM ? 20 : 24, fontWeight: '500' },
 
   // Main concept card
-  mainCard:       { backgroundColor: 'white', borderRadius: 24, overflow: 'hidden', shadowColor: '#0B0B1A', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.09, shadowRadius: 20, elevation: 5 },
+  mainCard:       { backgroundColor: 'white', borderRadius: 28, overflow: 'hidden', shadowColor: '#0B0B1A', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.09, shadowRadius: 20, elevation: 5 },
   mainCardHeader: { backgroundColor: 'rgba(91,61,245,0.07)', paddingHorizontal: SM ? 18 : 22, paddingVertical: SM ? 10 : 12 },
   mainCardLabel:  { fontSize: 10, fontWeight: '900', color: BRAND, letterSpacing: 1.5, textTransform: 'uppercase' },
   mainCardBody:   { paddingHorizontal: SM ? 18 : 22, paddingVertical: SM ? 14 : 18 },
@@ -2788,7 +2793,7 @@ const sum = StyleSheet.create({
   stepContentResult: { color: '#065F46', fontWeight: '700' },
 
   // Key relation card
-  relationCard:       { backgroundColor: 'white', borderRadius: 24, padding: SM ? 20 : 24, shadowColor: '#0B0B1A', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.09, shadowRadius: 20, elevation: 5 },
+  relationCard:       { backgroundColor: 'white', borderRadius: 28, padding: SM ? 20 : 24, shadowColor: '#0B0B1A', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.09, shadowRadius: 20, elevation: 5 },
   relationLabel:      { fontSize: 10, fontWeight: '900', color: '#00C2A8', letterSpacing: 1.5, marginBottom: 16, textTransform: 'uppercase' },
   relationRow:        { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 12, flexWrap: 'wrap' },
   relationChipA:      { flex: 1, backgroundColor: 'rgba(91,61,245,0.08)', borderRadius: 12, paddingVertical: 8, paddingHorizontal: 12, borderWidth: 1, borderColor: 'rgba(91,61,245,0.15)' },
@@ -2800,7 +2805,7 @@ const sum = StyleSheet.create({
   relationDef:        { fontSize: SM ? 13 : 14, color: Colors.ink2, lineHeight: SM ? 20 : 22, fontWeight: '500', paddingTop: 12, borderTopWidth: 1, borderTopColor: Colors.line },
 
   // Process flow card
-  processCard:      { backgroundColor: 'white', borderRadius: 24, padding: SM ? 18 : 22, shadowColor: '#0B0B1A', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.09, shadowRadius: 20, elevation: 5 },
+  processCard:      { backgroundColor: 'white', borderRadius: 28, padding: SM ? 18 : 22, shadowColor: '#0B0B1A', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.09, shadowRadius: 20, elevation: 5 },
   processLabel:     { fontSize: 10, fontWeight: '900', color: NEON, letterSpacing: 1.5, marginBottom: 8, textTransform: 'uppercase' },
   processTitle:     { fontSize: SM ? 16 : 18, fontWeight: '900', color: Colors.ink, marginBottom: 4, letterSpacing: -0.3 },
   processDef:       { fontSize: SM ? 13 : 14, color: Colors.ink2, lineHeight: SM ? 20 : 22, fontWeight: '500', marginBottom: 14 },
@@ -2811,7 +2816,7 @@ const sum = StyleSheet.create({
   processStepText:  { flex: 1, fontSize: SM ? 13 : 14, color: Colors.ink, lineHeight: SM ? 20 : 22, fontWeight: '600', paddingTop: 3 },
 
   // Application card
-  appCard:        { backgroundColor: 'white', borderRadius: 24, overflow: 'hidden', shadowColor: '#0B0B1A', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.09, shadowRadius: 20, elevation: 5 },
+  appCard:        { backgroundColor: 'white', borderRadius: 28, overflow: 'hidden', shadowColor: '#0B0B1A', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.09, shadowRadius: 20, elevation: 5 },
   appBand:        { backgroundColor: '#F0FDF4', flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: SM ? 16 : 20, paddingVertical: SM ? 12 : 14, borderBottomWidth: 1, borderBottomColor: 'rgba(5,150,105,0.12)' },
   appEmoji:       { fontSize: SM ? 24 : 28 },
   appLabel:       { fontSize: 10, fontWeight: '900', color: '#059669', letterSpacing: 1.2, textTransform: 'uppercase' },
@@ -2823,7 +2828,7 @@ const sum = StyleSheet.create({
   appAnswerText:  { fontSize: SM ? 13 : 14, color: '#065F46', lineHeight: SM ? 20 : 22, fontWeight: '700' },
 
   // Common error card
-  errorCard:        { backgroundColor: 'white', borderRadius: 24, overflow: 'hidden', shadowColor: '#DC2626', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.1, shadowRadius: 20, elevation: 5, borderWidth: 1, borderColor: 'rgba(220,38,38,0.12)' },
+  errorCard:        { backgroundColor: 'white', borderRadius: 28, overflow: 'hidden', shadowColor: '#DC2626', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.1, shadowRadius: 20, elevation: 5, borderWidth: 1, borderColor: 'rgba(220,38,38,0.12)' },
   errorHeader:      { backgroundColor: '#FEF2F2', flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: SM ? 16 : 20, paddingVertical: SM ? 12 : 14, borderBottomWidth: 1, borderBottomColor: 'rgba(220,38,38,0.15)' },
   errorIcon:        { fontSize: SM ? 22 : 26 },
   errorHeaderLabel: { fontSize: 11, fontWeight: '900', color: '#DC2626', letterSpacing: 1.5, textTransform: 'uppercase' },
@@ -2836,7 +2841,7 @@ const sum = StyleSheet.create({
   errorRightText:   { fontSize: SM ? 13 : 14, color: '#065F46', lineHeight: SM ? 20 : 22, fontWeight: '600' },
 
   // Final challenge card
-  challengeCard:        { backgroundColor: 'white', borderRadius: 24, overflow: 'hidden', shadowColor: '#FF7A2B', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.14, shadowRadius: 20, elevation: 6 },
+  challengeCard:        { backgroundColor: 'white', borderRadius: 28, overflow: 'hidden', shadowColor: '#FF7A2B', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.14, shadowRadius: 20, elevation: 6 },
   challengeHeader:      { paddingVertical: SM ? 14 : 18, paddingHorizontal: SM ? 18 : 22, alignItems: 'center' },
   challengeTrophy:      { fontSize: SM ? 36 : 44, marginBottom: 4 },
   challengeHeaderLabel: { fontSize: 11, fontWeight: '900', color: 'white', letterSpacing: 2, textTransform: 'uppercase' },
@@ -2844,7 +2849,7 @@ const sum = StyleSheet.create({
   challengeQuestion:    { fontSize: SM ? 15 : 17, fontWeight: '800', color: Colors.ink, lineHeight: SM ? 22 : 26, letterSpacing: -0.2 },
 
   // Victory card
-  victoryCard:      { backgroundColor: 'white', borderRadius: 24, padding: SM ? 22 : 28, alignItems: 'center', shadowColor: BRAND, shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.14, shadowRadius: 24, elevation: 8 },
+  victoryCard:      { backgroundColor: 'white', borderRadius: 28, padding: SM ? 22 : 28, alignItems: 'center', shadowColor: BRAND, shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.14, shadowRadius: 24, elevation: 8 },
   victoryEmoji:     { fontSize: SM ? 54 : 68, marginBottom: 10 },
   victoryTitle:     { fontSize: SM ? 20 : 24, fontWeight: '900', color: Colors.ink, textAlign: 'center', letterSpacing: -0.5, lineHeight: SM ? 26 : 32, marginBottom: 6 },
   victorySub:       { fontSize: SM ? 12 : 14, color: Colors.ink2, textAlign: 'center', lineHeight: SM ? 18 : 22, fontWeight: '500', marginBottom: 14 },
@@ -2896,7 +2901,7 @@ const sum = StyleSheet.create({
   chainLinkText:    { fontSize: SM ? 11 : 12, fontWeight: '700', color: '#00C2A8', fontStyle: 'italic', lineHeight: SM ? 14 : 16 },
 
   // Challenge reflection card
-  challengeRefCard:    { backgroundColor: '#F5F3FF', borderRadius: 24, padding: SM ? 26 : 32, alignItems: 'center', shadowColor: NEON, shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.1, shadowRadius: 20, elevation: 5 },
+  challengeRefCard:    { backgroundColor: '#F5F3FF', borderRadius: 28, padding: SM ? 26 : 32, alignItems: 'center', shadowColor: NEON, shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.1, shadowRadius: 20, elevation: 5 },
   challengeRefEmoji:   { fontSize: SM ? 52 : 64, marginBottom: 14 },
   challengeRefLabel:   { fontSize: 10, fontWeight: '900', color: NEON, letterSpacing: 1.5, marginBottom: 14, textTransform: 'uppercase' },
   challengeRefQ:       { fontSize: SM ? 17 : 21, fontWeight: '800', color: Colors.ink, textAlign: 'center', lineHeight: SM ? 25 : 30, letterSpacing: -0.3, marginBottom: 16 },
@@ -2905,7 +2910,7 @@ const sum = StyleSheet.create({
   challengeRefHintTxt: { fontSize: SM ? 13 : 14, color: Colors.ink2, lineHeight: SM ? 20 : 22, fontWeight: '500' },
 
   // Order sequence card
-  orderCard:        { backgroundColor: 'white', borderRadius: 24, padding: SM ? 16 : 20, shadowColor: '#0B0B1A', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.09, shadowRadius: 20, elevation: 5 },
+  orderCard:        { backgroundColor: 'white', borderRadius: 28, padding: SM ? 16 : 20, shadowColor: '#0B0B1A', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.09, shadowRadius: 20, elevation: 5 },
   orderLabel:       { fontSize: 10, fontWeight: '900', color: '#7C5AFF', letterSpacing: 1.5, marginBottom: 8, textTransform: 'uppercase' },
   orderTitle:       { fontSize: SM ? 15 : 17, fontWeight: '800', color: Colors.ink, lineHeight: SM ? 22 : 25, letterSpacing: -0.2, marginBottom: 6 },
   orderHint:        { fontSize: SM ? 12 : 13, color: Colors.muted, fontWeight: '600', marginBottom: 14 },
