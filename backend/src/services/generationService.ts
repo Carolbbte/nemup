@@ -1711,12 +1711,18 @@ function auditDocumentStructure(transcription: string): string[] {
   // Objetivos
   const objVerbs = ['reconocer', 'identificar', 'explicar', 'clasificar', 'distinguir',
     'aplicar', 'comprender', 'analizar', 'diferenciar', 'calcular', 'resolver',
-    'determinar', 'comparar', 'describir', 'definir', 'relacionar', 'interpretar'];
+    'determinar', 'comparar', 'describir', 'definir', 'relacionar', 'interpretar',
+    'reducir', 'simplificar', 'operar', 'agrupar', 'combinar'];
   const objLines = lines.filter((l: string) =>
     objVerbs.some(v => l.toLowerCase().startsWith(v) || new RegExp(`\\b${v}\\b`).test(l.toLowerCase()))
   );
   console.log(`\n[Audit] Objetivos detectados: ${objLines.length}`);
-  objLines.forEach((l: string, i: number) => console.log(`  ${i + 1}. ${l.slice(0, 120)}`));
+  objLines.forEach((l: string) => {
+    const matched = objVerbs.find(v =>
+      l.toLowerCase().startsWith(v) || new RegExp(`\\b${v}\\b`).test(l.toLowerCase())
+    );
+    console.log(`  verbo=${matched} texto="${l.slice(0, 120)}"`);
+  });
   if (objLines.length === 0) console.log('  (ninguno detectado en el texto fuente)');
 
   // Encabezados
