@@ -1519,6 +1519,24 @@ async function callOpenAIAndBuildResult(
   const subject = configValues.subject?.trim() || parsed.subject || 'Tema del material';
   const topic = configValues.topic?.trim() || parsed.topic || 'Resumen del material';
 
+  // ── AUDIT LOG — slide structure from AI ──────────────────────────────────────
+  const rawAiSlides: any[] = parsed.summary?.slides ?? [];
+  const aiSlideTypes = rawAiSlides.map((s: any) => s.type);
+  const aiMainConceptCount = aiSlideTypes.filter((t: string) => t === 'main_concept').length;
+  console.log(`[Audit] Total slides IA: ${rawAiSlides.length}`);
+  console.log(`[Audit] Tipos: ${aiSlideTypes.join(', ') || '(vacío)'}`);
+  console.log(`[Audit] main_concept count: ${aiMainConceptCount}`);
+  if (aiMainConceptCount > 1) {
+    const sections = rawAiSlides
+      .map((s: any, i: number) => ({ i, type: s.type, title: s.title?.slice(0, 40) }))
+      .filter((s: any) => s.type === 'main_concept');
+    console.log('[Audit] Secciones nucleares detectadas:');
+    sections.forEach((s: any) => console.log(`  [${s.i}] ${s.title}`));
+  } else {
+    console.log('[Audit] ⚠ Solo 1 sección nuclear — estructura multi-sección NO generada');
+  }
+  // ─────────────────────────────────────────────────────────────────────────────
+
   const questions = (parsed.questions || []).map((question: any, qIdx: number) => {
     // Build options with stable per-question IDs.
     // Strip any "A. " / "B. " letter prefixes the model adds despite the schema —
