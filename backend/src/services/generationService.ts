@@ -324,18 +324,20 @@ PANTALLA "mission" — EL GANCHO [UNA SOLA — POSICIÓN 1]
   - example: área temática en 3-5 palabras. Ej: "Biología · 2° Medio"
 
 PANTALLA "main_concept" — CONCEPTO NUCLEAR [OBLIGATORIA — UNA POR SECCIÓN]
-  Enseña UN concepto nuclear. Responde: ¿Qué es? + ¿Cómo funciona? + ¿Cómo se ve en acción?
+  Enseña UN concepto nuclear con máxima claridad y mínima carga cognitiva.
+  El lector tiene 13-18 años. Prioriza frases cortas, directas y escaneables.
   Los conceptos Tipo B de este nuclear se mencionan AQUÍ, brevemente, como apoyo.
   - title: nombre del concepto nuclear (max 5 palabras)
-  - definition: explicación conceptual real. Entre 60 y 120 palabras. OBLIGATORIO incluir los 4 componentes:
-    1. IDEA PRINCIPAL: ¿Qué es este concepto en una oración directa?
-    2. EXPLICACIÓN: ¿Cómo funciona? Desarrollar el mecanismo en 2-3 frases simples, sin jerga.
-    3. ANALOGÍA COTIDIANA: Una comparación con algo de la vida diaria del estudiante chileno.
-       Usar: ropa, música, deportes, comida, tecnología, redes sociales — lo que un adolescente conoce.
-    4. EJEMPLO CONCRETO: Un número o caso específico del documento que muestra el concepto en acción.
-    SOLO FORMATO — escribe sobre ESTE documento, nunca copies estos temas:
-    ✅ "Los términos semejantes son grupos con la misma letra y exponente — del mismo 'equipo'. Cuando tienes 3x y 2x, ambos tienen x, así que se suman: 3x + 2x = 5x. Es como naranjas con naranjas: no puedes sumar naranjas con manzanas, igual que no puedes sumar 3x con 2y. Si simplificás 4a + 2b − a + 3b, agrupás los 'a' y los 'b' por separado: resultado = 3a + 5b." [Álgebra]
-    ❌ "Los términos semejantes son expresiones con la misma parte literal." — demasiado corto, sin analogía ni ejemplo.
+  - definition: máximo 60 palabras. Exactamente 3 ideas cortas. Cada idea: máximo 20 palabras.
+    Formato OBLIGATORIO — 3 líneas separadas por \n, cada una iniciando con "* ":
+    "* [qué es o cómo funciona — 1 oración directa]\n* [analogía cotidiana — comparación con algo que un adolescente chileno conoce]\n* [ejemplo concreto con número o caso del documento]"
+    Analogías permitidas: ropa, música, deportes, comida, tecnología, redes sociales, videojuegos.
+    SOLO FORMATO — escribe sobre ESTE documento:
+    ✅ "* Términos semejantes: misma letra, mismo exponente — del mismo 'equipo'.\n* Como naranjas con naranjas: no puedes sumar 3x con 2y porque son distintos.\n* Simplifica 4a + 2b − a: agrupa los 'a' → 3a + 2b." [Álgebra]
+    ❌ "Los términos semejantes son expresiones algebraicas con la misma parte literal y el mismo exponente numérico." — prosa continua, demasiado densa.
+    REGLA DE DIVISIÓN: si el concepto necesita más de 3 ideas para entenderse completamente →
+    clasifícalo como dos conceptos Tipo A distintos, cada uno con su propia sección.
+    NO acumules más de 3 ideas en un solo slide.
   - example: SITUACIÓN ESPECÍFICA que un estudiante chileno encontrará HOY. Nombre concreto o número.
     ✗ PROHIBIDO: "Esto es relevante para la vida cotidiana." — abstracto, no aporta valor.
   - connector: OPCIONAL. Usar null si no hay cadena causal real entre el concepto y su consecuencia.
@@ -450,7 +452,7 @@ PANTALLA "victory" — MISIÓN COMPLETADA [UNA SOLA — al final]
 LÍMITES DE TEXTO — aplican a CADA pantalla:
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 - definition: máximo 2 oraciones O 30 palabras — lo que sea más corto.
-  EXCEPCIÓN main_concept: entre 60 y 120 palabras (ver especificación de esa pantalla).
+  EXCEPCIÓN main_concept: máximo 60 palabras en formato lista de 3 bullets (ver especificación de esa pantalla).
 - example: máximo 20 palabras.
 - title: máximo 8 palabras.
 Prefiere frases escaneables sobre prosa conectada.
