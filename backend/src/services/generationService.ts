@@ -1679,7 +1679,7 @@ async function callOpenAIAndBuildResult(
 // ── Audit: document structure analysis (read-only, no logic change) ──────────
 
 function auditDocumentStructure(transcription: string): void {
-  const text = normalizeText(transcription);
+  const text = transcription; // already structure-preserved by normalizeTextPreserveStructure in transcriptionService
   const lines = text.split(/\n/).map((l: string) => l.trim()).filter(Boolean);
 
   const wordCount = text.split(/\s+/).filter(Boolean).length;

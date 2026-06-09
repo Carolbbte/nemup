@@ -88,6 +88,19 @@ export function normalizeText(text: string): string {
     .trim();
 }
 
+// Preserves newlines and structural whitespace (headers, numbered lists, blank lines).
+// Used when the transcription is stored for pedagogical analysis — NOT for prompt embedding.
+export function normalizeTextPreserveStructure(text: string): string {
+  return text
+    .replace(/\r\n/g, '\n')         // normalize Windows line endings
+    .replace(/\r/g, '\n')           // normalize legacy Mac line endings
+    .replace(/\t/g, ' ')            // tabs → space
+    .replace(/[ \t]+/g, ' ')        // collapse horizontal whitespace, preserve \n
+    .replace(/[ \t]*\n[ \t]*/g, '\n') // trim spaces flanking line breaks
+    .replace(/\n{3,}/g, '\n\n')     // max 2 consecutive blank lines
+    .trim();
+}
+
 export function countWords(text: string): number {
   return text.split(/\s+/).filter(Boolean).length;
 }
@@ -196,7 +209,7 @@ async function processImage(
 
 function buildVisionResult(raw: string, pageCount: number): TranscriptionResult {
   const { documentContent, studentAnnotations } = parseStructuredOcr(raw);
-  const transcription = normalizeText(documentContent);
+  const transcription = normalizeTextPreserveStructure(documentContent);
   const words = countWords(transcription);
   const studentAnnotationsDetected =
     studentAnnotations.length > 0 && studentAnnotations !== '(ninguna)';
@@ -227,7 +240,7 @@ export async function transcribeDocumentFromBuffer(
   if (mimeType === 'application/pdf' || fileName.toLowerCase().endsWith('.pdf')) {
     const pdfData = await pdfParse(buffer);
     const pageCount: number = pdfData.numpages ?? 1;
-    const digitalText = normalizeText(pdfData.text || '');
+    const digitalText = normalizeTextPreserveStructure(pdfData.text || '');
     const digitalWords = countWords(digitalText);
     const wordsPerPage = pageCount > 0 ? digitalWords / pageCount : digitalWords;
 
@@ -257,7 +270,7 @@ export async function transcribeDocumentFromBuffer(
 
   // ── Plain text ───────────────────────────────────────────────────────────
   if (mimeType.startsWith('text/') || fileName.toLowerCase().endsWith('.txt')) {
-    const text = normalizeText(buffer.toString('utf-8'));
+    const text = normalizeTextPreserveStructure(buffer.toString('utf-8'));
     const words = countWords(text);
     return {
       transcription: text,
