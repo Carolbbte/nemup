@@ -198,6 +198,13 @@ PRUEBA DE DEGRADACIÓN — aplicar a cada elemento antes de clasificarlo como Ti
   → Si SÍ → degradar a Tipo B o Tipo C.
   → Si NO → puede ser Tipo A (verificar las demás condiciones).
 
+REGLA DE CONSERVACIÓN DE OBJETIVOS (prioridad sobre la Prueba de Degradación):
+Si el documento contiene objetivos de aprendizaje explícitos (enumerados con números o letras, declarados con verbos de acción como "reconocer", "identificar", "clasificar", "reducir", "aplicar", "resolver"):
+→ CADA objetivo explícito es candidato Tipo A inicial por defecto.
+→ Solo puede degradarse a Tipo B si: (a) está completamente contenido dentro del alcance de otro objetivo nuclear de mayor rango, O (b) solo añade contexto pero NO requiere evaluación independiente.
+→ Si se degrada un objetivo explícito → registrar en la pantalla victory: "Aprendiste también: [objetivo degradado]" dentro del campo definition.
+→ NUNCA descartar un objetivo explícito del documento como Tipo C. Los objetivos del documento son contratos pedagógicos.
+
 REGLA CRÍTICA DE SELECCIÓN:
 La IA NO debe convertir automáticamente cada concepto en una pantalla.
 Objetivo: ENSEÑAR MENOS CONCEPTOS, CON MAYOR PROFUNDIDAD.
@@ -1678,7 +1685,7 @@ async function callOpenAIAndBuildResult(
 
 // ── Audit: document structure analysis (read-only, no logic change) ──────────
 
-function auditDocumentStructure(transcription: string): void {
+function auditDocumentStructure(transcription: string): string[] {
   const text = transcription; // already structure-preserved by normalizeTextPreserveStructure in transcriptionService
   const lines = text.split(/\n/).map((l: string) => l.trim()).filter(Boolean);
 
@@ -1764,7 +1771,33 @@ function auditDocumentStructure(transcription: string): void {
   errLines.slice(0, 5).forEach((l: string, i: number) => console.log(`  ${i + 1}. ${l.slice(0, 120)}`));
   if (errLines.length === 0) console.log('  (ninguno detectado)');
 
-  console.log('\n[Audit] ════════════════════════════════════════════════════════\n');
+  // ── Pre-analysis: Tipo A candidates from document structure ─────────────────
+  const tipoACandidates: string[] = [];
+
+  // Strategy 1: numbered items that contain an objective verb
+  const numberedMatches = [...text.matchAll(/\d+[\.\)]\s+([A-ZÁÉÍÓÚÜÑA-Za-záéíóúüñ][^\n]{5,120})/gu)];
+  const objVerbSet = new Set(objVerbs);
+  for (const m of numberedMatches) {
+    const item = m[1].trim();
+    const firstWord = item.toLowerCase().split(/\s+/)[0].replace(/[^a-záéíóú]/g, '');
+    if (objVerbSet.has(firstWord) || objVerbs.some(v => new RegExp(`\\b${v}\\b`).test(item.toLowerCase()))) {
+      tipoACandidates.push(item);
+    }
+  }
+
+  // Strategy 2: standalone header lines not already captured
+  for (const h of headerLines) {
+    if (h.length > 4 && !tipoACandidates.some(c => c.toLowerCase().startsWith(h.toLowerCase().slice(0, 15)))) {
+      tipoACandidates.push(h);
+    }
+  }
+
+  console.log(`\n[Audit] Candidatos Tipo A iniciales (pre-análisis del documento): ${tipoACandidates.length}`);
+  tipoACandidates.forEach((c: string, i: number) => console.log(`  ${i + 1}. ${c.slice(0, 100)}`));
+  if (tipoACandidates.length === 0) console.log('  (ninguno — no se detectaron objetivos o encabezados elegibles)');
+  console.log('[Audit] ════════════════════════════════════════════════════════\n');
+
+  return tipoACandidates;
 }
 
 // ── Main generation function ──────────────────────────────────────────────────
@@ -1776,7 +1809,7 @@ export async function generateSessionContent(
 ): Promise<GenerationResult> {
   console.log('[Generation] Curso utilizado para generar sesión:', curso);
 
-  auditDocumentStructure(transcription);
+  const tipoACandidates = auditDocumentStructure(transcription);
 
   // Classify content type before selecting prompt
   const classification = classifyContent(transcription);
@@ -1809,6 +1842,32 @@ export async function generateSessionContent(
   }
 
   const base = await callOpenAIAndBuildResult(prompt, systemMsg, configValues);
+
+  // ── Post-AI audit: Tipo A candidates vs actual nuclear concepts ────────────
+  const actualNuclear: string[] = (base.summary?.slides ?? [])
+    .filter((s: any) => s.type === 'main_concept')
+    .map((s: any) => (s.title ?? '').trim());
+  console.log('\n[Audit] ════════════════════════════════════════════════════════');
+  console.log('[Audit] COMPARACIÓN CANDIDATOS vs SELECCIÓN FINAL');
+  console.log(`[Audit] Tipo A finales (main_concept slides): ${actualNuclear.length}`);
+  actualNuclear.forEach((t: string, i: number) => console.log(`  ${i + 1}. ${t}`));
+  const notSelected = tipoACandidates.filter(c =>
+    !actualNuclear.some(a =>
+      a.toLowerCase().includes(c.toLowerCase().slice(0, 18)) ||
+      c.toLowerCase().includes(a.toLowerCase().slice(0, 18))
+    )
+  );
+  if (notSelected.length > 0) {
+    console.log(`[Audit] Tipo A degradados/no incluidos: ${notSelected.length}`);
+    notSelected.forEach((c: string, i: number) =>
+      console.log(`  ${i + 1}. "${c.slice(0, 80)}" — razón: interna al LLM (verificar señales de FASE 3)`)
+    );
+  } else if (tipoACandidates.length > 0) {
+    console.log('[Audit] Tipo A degradados: 0 — todos los candidatos del documento fueron incluidos');
+  }
+  console.log('[Audit] ════════════════════════════════════════════════════════\n');
+  // ──────────────────────────────────────────────────────────────────────────
+
   return { ...base, pedagogicalType: classification.type, primarySkill, learningPath };
 }
 

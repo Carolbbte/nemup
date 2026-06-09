@@ -35,6 +35,7 @@ const PROCEDURAL_INDICATORS: Indicator[] = [
   { pattern: /\b(convierte?|convertir|convierta)\b/gi, weight: 2 },
   { pattern: /\b(transforma|transformar|transforme)\b/gi, weight: 2 },
   { pattern: /\b(simplifica|simplificar|simplifique)\b/gi, weight: 2 },
+  { pattern: /\b(reduce|reducir|reduzca|reduciendo|reducci[oó]n)\b/gi, weight: 2 },
   { pattern: /\b(deriva|derivar|derive)\b/gi, weight: 2 },
   { pattern: /\b(factoriza|factorizar|factorice)\b/gi, weight: 2 },
   { pattern: /\b(ordena|ordenar|ordene)\b/gi, weight: 2 },
@@ -66,6 +67,16 @@ const CONCEPTUAL_INDICATORS: Indicator[] = [
   { pattern: /\bpropagaci[oó]n\b/gi, weight: 1.5 },
   { pattern: /\bfrecuencia\b|\bamplitud\b|\bonda[s]?\b/gi, weight: 1 },
   { pattern: /\bc[eé]lula[s]?\b|\bfotosíntesis\b|\bevolución\b/gi, weight: 1 },
+  // Algebra / math conceptual signals
+  { pattern: /\bsemejante[s]?\b/gi, weight: 1.5 },
+  { pattern: /\bexpresi[oó]n[es]?\s+algebraica[s]?\b/gi, weight: 2 },
+  { pattern: /\bparte\s+literal\b/gi, weight: 2 },
+  { pattern: /\bcoeficiente[s]?\b/gi, weight: 1.5 },
+  { pattern: /\bpolin[oó]mio[s]?\b|\bmonom[ií]o[s]?\b|\bbinom[ií]o[s]?\b/gi, weight: 1.5 },
+  { pattern: /\bvariable[s]?\b/gi, weight: 1 },
+  { pattern: /\bexponente[s]?\b/gi, weight: 1 },
+  { pattern: /\breconoce[r]?\b|\bidentifica[r]?\b/gi, weight: 1.5 },
+  { pattern: /\bclasifica[r]?\b/gi, weight: 1.5 },
 ];
 
 const MEMORIZATION_INDICATORS: Indicator[] = [
@@ -74,7 +85,8 @@ const MEMORIZATION_INDICATORS: Indicator[] = [
   { pattern: /\bfecha[s]?\b/gi, weight: 2 },
   { pattern: /\bcapital[es]?\b/gi, weight: 1.5 },
   { pattern: /\bsignifica[r]?\b/gi, weight: 1.5 },
-  { pattern: /\bt[eé]rmino[s]?\b/gi, weight: 1.5 },
+  // "término" weight reduced: in math contexts means "algebraic term" (not vocabulary) — false positive for algebra
+  { pattern: /\bt[eé]rmino[s]?\b/gi, weight: 0.3 },
   { pattern: /\blista\b|\btabla\b|\bclasificaci[oó]n\b/gi, weight: 1 },
   { pattern: /\bsignificado\b|\bsin[oó]nimo[s]?\b/gi, weight: 1.5 },
   { pattern: /\bhito[s]?\b|\bacontecimiento[s]?\b|\bcronolog[ií]a\b/gi, weight: 1.5 },
@@ -289,6 +301,28 @@ function detectSkills(transcription: string): DetectedSkill[] {
 
 const DOMINANCE_THRESHOLD = 0.60;
 
+function auditIndicatorFiring(label: string, text: string, indicators: Indicator[]): void {
+  const fired = indicators
+    .map(({ pattern, weight }) => {
+      const cloned = new RegExp(pattern.source, pattern.flags);
+      const matches = text.match(cloned) ?? [];
+      return matches.length > 0
+        ? { src: pattern.source.slice(0, 50), count: matches.length, weight, total: matches.length * weight }
+        : null;
+    })
+    .filter(Boolean) as { src: string; count: number; weight: number; total: number }[];
+
+  if (fired.length === 0) {
+    console.log(`[Audit]   ${label}: (ninguna señal)`);
+    return;
+  }
+  const rawSum = fired.reduce((s, f) => s + f.total, 0);
+  console.log(`[Audit]   ${label} (suma bruta: ${rawSum.toFixed(1)}):`);
+  fired
+    .sort((a, b) => b.total - a.total)
+    .forEach(f => console.log(`[Audit]     /${f.src}/ × ${f.count} × ${f.weight} = ${f.total.toFixed(1)}`));
+}
+
 export function classifyContent(transcription: string): ClassificationResult {
   const text = transcription.toLowerCase();
 
@@ -297,7 +331,24 @@ export function classifyContent(transcription: string): ClassificationResult {
   const mRaw = scoreIndicators(text, MEMORIZATION_INDICATORS);
   const total = cRaw + pRaw + mRaw;
 
+  // ── Audit: why this classification ────────────────────────────────────────
+  console.log('\n[Audit] ════════════════════════════════════════════════════════');
+  console.log('[Audit] CLASIFICACIÓN PEDAGÓGICA — señales que contribuyeron');
+  console.log('[Audit] ════════════════════════════════════════════════════════');
+  console.log(`[Audit] Scores brutos — conceptual: ${cRaw.toFixed(1)} | procedimental: ${pRaw.toFixed(1)} | memorización: ${mRaw.toFixed(1)} | total: ${total.toFixed(1)}`);
+  if (total > 0) {
+    const pctC = ((cRaw / total) * 100).toFixed(0);
+    const pctP = ((pRaw / total) * 100).toFixed(0);
+    const pctM = ((mRaw / total) * 100).toFixed(0);
+    console.log(`[Audit] Porcentajes — conceptual: ${pctC}% | procedimental: ${pctP}% | memorización: ${pctM}%`);
+  }
+  auditIndicatorFiring('CONCEPTUAL', text, CONCEPTUAL_INDICATORS);
+  auditIndicatorFiring('PROCEDURAL', text, PROCEDURAL_INDICATORS);
+  auditIndicatorFiring('MEMORIZATION', text, MEMORIZATION_INDICATORS);
+  // ──────────────────────────────────────────────────────────────────────────
+
   if (total === 0) {
+    console.log('[Audit] Sin señales — fallback a CONCEPTUAL');
     return { type: 'CONCEPTUAL', confidence: 0.5, scores: { conceptual: 0, procedural: 0, memorization: 0 }, detectedSkills: [] };
   }
 
@@ -316,6 +367,8 @@ export function classifyContent(transcription: string): ClassificationResult {
     type = 'MIXED';
     confidence = Math.max(scores.conceptual, scores.procedural, scores.memorization);
   }
+
+  console.log(`[Audit] Resultado: ${type} (${(confidence * 100).toFixed(0)}%)\n`);
 
   const detectedSkills = detectSkills(transcription);
   return { type, confidence, scores, detectedSkills };
