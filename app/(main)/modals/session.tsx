@@ -657,7 +657,27 @@ export default function SessionPlayerScreen() {
   // Pre-built slides — useState so adaptive correction can inject remedial slides
   const [missionSlides, setMissionSlides] = useState<SummarySlide[]>([]);
   useEffect(() => {
-    setMissionSlides(buildSummarySlides(summarySlides, questions));
+    // FASE 6 — slides recibidos del backend (antes de buildSummarySlides)
+    if (summarySlides.length > 0 && summarySlides[0].type === 'mission') {
+      console.log('\n[Frontend Audit] ════════════════════════════════════════════');
+      console.log('[Frontend Audit] FASE 6 — Slides recibidos (antes de buildSummarySlides)');
+      console.log(`[Frontend Audit] Total: ${summarySlides.length}`);
+      summarySlides.forEach((s, i) => console.log(`  [${i}] ${s.type} — "${((s as any).title ?? '').slice(0, 60)}"`));
+      console.log('[Frontend Audit] ════════════════════════════════════════════\n');
+    }
+
+    const built = buildSummarySlides(summarySlides, questions);
+
+    // FASE 7 — slides renderizados (después de buildSummarySlides)
+    if (summarySlides.length > 0 && summarySlides[0].type === 'mission') {
+      console.log('\n[Frontend Audit] ════════════════════════════════════════════');
+      console.log('[Frontend Audit] FASE 7 — Slides renderizados (después de buildSummarySlides)');
+      console.log(`[Frontend Audit] Total: ${built.length}`);
+      built.forEach((s, i) => console.log(`  [${i}] ${s.type} — "${((s as any).title ?? '').slice(0, 60)}"`));
+      console.log('[Frontend Audit] ════════════════════════════════════════════\n');
+    }
+
+    setMissionSlides(built);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [session]);
 

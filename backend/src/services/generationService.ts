@@ -1519,22 +1519,38 @@ async function callOpenAIAndBuildResult(
   const subject = configValues.subject?.trim() || parsed.subject || 'Tema del material';
   const topic = configValues.topic?.trim() || parsed.topic || 'Resumen del material';
 
-  // ── AUDIT LOG — slide structure from AI ──────────────────────────────────────
+  // ── AUDIT — FASES 2-4 inferidas + FASE 5 respuesta IA ───────────────────────
   const rawAiSlides: any[] = parsed.summary?.slides ?? [];
-  const aiSlideTypes = rawAiSlides.map((s: any) => s.type);
-  const aiMainConceptCount = aiSlideTypes.filter((t: string) => t === 'main_concept').length;
-  console.log(`[Audit] Total slides IA: ${rawAiSlides.length}`);
-  console.log(`[Audit] Tipos: ${aiSlideTypes.join(', ') || '(vacío)'}`);
-  console.log(`[Audit] main_concept count: ${aiMainConceptCount}`);
-  if (aiMainConceptCount > 1) {
-    const sections = rawAiSlides
-      .map((s: any, i: number) => ({ i, type: s.type, title: s.title?.slice(0, 40) }))
-      .filter((s: any) => s.type === 'main_concept');
-    console.log('[Audit] Secciones nucleares detectadas:');
-    sections.forEach((s: any) => console.log(`  [${s.i}] ${s.title}`));
-  } else {
-    console.log('[Audit] ⚠ Solo 1 sección nuclear — estructura multi-sección NO generada');
+
+  // FASES 2-4: inferidas desde output (clasificación interna al LLM — no observable directamente)
+  const nuclearConcepts = rawAiSlides.filter((s: any) => s.type === 'main_concept');
+  console.log('\n[Audit] ════════════════════════════════════════════════════════');
+  console.log('[Audit] FASES 2-4 — CLASIFICACIÓN (inferida desde respuesta IA)');
+  console.log('[Audit] ════════════════════════════════════════════════════════');
+  console.log(`[Audit] Conceptos nucleares candidatos (Tipo A seleccionados por IA): ${nuclearConcepts.length}`);
+  nuclearConcepts.forEach((s: any, i: number) => console.log(`  ${i + 1}. ${s.title ?? '(sin título)'}`));
+  if (nuclearConcepts.length === 0) console.log('  (ninguno — la IA no generó ninguna sección nuclear)');
+  console.log('[Audit] Conceptos apoyo/descartados: no observables sin modificar prompt');
+  console.log(`[Audit] FASE 4 — Secciones construidas: ${nuclearConcepts.length}`);
+  nuclearConcepts.forEach((s: any, i: number) => console.log(`  ${i + 1}. ${s.title ?? '(sin título)'}`));
+  if (nuclearConcepts.length === 1) {
+    console.log('[Audit] ⚠ Solo 1 sección nuclear — estructura multi-sección NO generada por la IA');
   }
+
+  // FASE 5: secuencia completa de slides
+  console.log('\n[Audit] ════════════════════════════════════════════════════════');
+  console.log('[Audit] FASE 5 — RESPUESTA IA (JSON parseado)');
+  console.log('[Audit] ════════════════════════════════════════════════════════');
+  const aiSlideTypes = rawAiSlides.map((s: any) => s.type);
+  console.log(`[Audit] Total slides: ${rawAiSlides.length}`);
+  console.log(`[Audit] Slide types: ${aiSlideTypes.join(' -> ') || '(vacío)'}`);
+  console.log(`[Audit] main_concept slides: ${nuclearConcepts.length}`);
+  console.log('[Audit] main concepts:', nuclearConcepts.map((s: any) => s.title ?? '(sin título)'));
+  rawAiSlides.forEach((s: any, i: number) => {
+    const inter = s.question ? ' [interactivo]' : '';
+    console.log(`  [${i}] ${s.type}${inter} — "${(s.title ?? '').slice(0, 60)}"`);
+  });
+  console.log('[Audit] ════════════════════════════════════════════════════════\n');
   // ─────────────────────────────────────────────────────────────────────────────
 
   const questions = (parsed.questions || []).map((question: any, qIdx: number) => {
@@ -1660,6 +1676,97 @@ async function callOpenAIAndBuildResult(
   return { subject, topic, questions, flashcards, summary, groundingScore };
 }
 
+// ── Audit: document structure analysis (read-only, no logic change) ──────────
+
+function auditDocumentStructure(transcription: string): void {
+  const text = normalizeText(transcription);
+  const lines = text.split(/\n/).map((l: string) => l.trim()).filter(Boolean);
+
+  const wordCount = text.split(/\s+/).filter(Boolean).length;
+  const sizeClass = wordCount < 400
+    ? `corto (${wordCount} palabras → máx 3 nucleares)`
+    : `largo (${wordCount} palabras → máx 5 nucleares)`;
+
+  console.log('\n[Audit] ════════════════════════════════════════════════════════');
+  console.log('[Audit] FASE 1 — EXTRACCIÓN PEDAGÓGICA (análisis del texto fuente)');
+  console.log(`[Audit] Documento: ${sizeClass}`);
+  console.log('[Audit] ════════════════════════════════════════════════════════');
+
+  // Objetivos
+  const objVerbs = ['reconocer', 'identificar', 'explicar', 'clasificar', 'distinguir',
+    'aplicar', 'comprender', 'analizar', 'diferenciar', 'calcular', 'resolver',
+    'determinar', 'comparar', 'describir', 'definir', 'relacionar', 'interpretar'];
+  const objLines = lines.filter((l: string) =>
+    objVerbs.some(v => l.toLowerCase().startsWith(v) || new RegExp(`\\b${v}\\b`).test(l.toLowerCase()))
+  );
+  console.log(`\n[Audit] Objetivos detectados: ${objLines.length}`);
+  objLines.forEach((l: string, i: number) => console.log(`  ${i + 1}. ${l.slice(0, 120)}`));
+  if (objLines.length === 0) console.log('  (ninguno detectado en el texto fuente)');
+
+  // Encabezados
+  const headerLines = lines.filter((l: string) =>
+    l.length <= 80 &&
+    (l === l.toUpperCase() || /^\d+[\.\)]\s/.test(l) || /^[ivxIVX]+[\.\)]\s/.test(l)) &&
+    l.length > 3
+  );
+  console.log(`\n[Audit] Encabezados detectados: ${headerLines.length}`);
+  headerLines.forEach((l: string, i: number) => console.log(`  ${i + 1}. ${l.slice(0, 80)}`));
+  if (headerLines.length === 0) console.log('  (ninguno detectado)');
+
+  // Bloques de ejercicios
+  const exKws = ['ejercicio', 'resuelv', 'calcul', 'escrib', 'complet', 'indica', 'determin', 'hall', 'practi', 'actividad'];
+  const exLines = lines.filter((l: string) => exKws.some(k => l.toLowerCase().includes(k)));
+  console.log(`\n[Audit] Bloques de ejercicios detectados: ${exLines.length}`);
+  exLines.slice(0, 6).forEach((l: string, i: number) => console.log(`  ${i + 1}. ${l.slice(0, 120)}`));
+  if (exLines.length > 6) console.log(`  ... y ${exLines.length - 6} más`);
+  if (exLines.length === 0) console.log('  (ninguno detectado)');
+
+  // Competencias
+  const compKws = ['simplific', 'reducir', 'operar', 'factorizar', 'despejar', 'sustituir',
+    'graficar', 'interpretar', 'demostrar', 'justificar', 'argüir', 'argumentar'];
+  const compLines = lines.filter((l: string) => compKws.some(k => l.toLowerCase().includes(k)));
+  console.log(`\n[Audit] Competencias detectadas: ${compLines.length}`);
+  compLines.slice(0, 5).forEach((l: string, i: number) => console.log(`  ${i + 1}. ${l.slice(0, 120)}`));
+  if (compLines.length === 0) console.log('  (ninguna detectada)');
+
+  // Conceptos (patrones de definición)
+  const defPatterns = [
+    /\bes\s+un[ao]?\b/, /\bse\s+llama\b/, /\bse\s+define\b/,
+    /\bson\s+aquellos\b/, /\bson\s+los\b/, /\bse\s+denominan\b/,
+    /\bse\s+conoce\b/, /\brecibe\s+el\s+nombre\b/, /:\s*$/,
+  ];
+  const conceptLines = lines.filter((l: string) =>
+    l.length < 160 && defPatterns.some(p => p.test(l.toLowerCase()))
+  );
+  console.log(`\n[Audit] Conceptos extraídos (patrones de definición): ${conceptLines.length}`);
+  conceptLines.slice(0, 8).forEach((l: string, i: number) => console.log(`  ${i + 1}. ${l.slice(0, 120)}`));
+  if (conceptLines.length > 8) console.log(`  ... y ${conceptLines.length - 8} más`);
+  if (conceptLines.length === 0) console.log('  (ninguno detectado)');
+
+  // Relaciones
+  const relPatterns = [/→/, /↓/, /produce/, /genera/, /\bcausa\b/, /provoca/, /resulta en/, /depende de/, /por lo tanto/, /consecuentemente/];
+  const relLines = lines.filter((l: string) => relPatterns.some(p => p.test(l.toLowerCase())));
+  console.log(`\n[Audit] Relaciones detectadas: ${relLines.length}`);
+  relLines.slice(0, 5).forEach((l: string, i: number) => console.log(`  ${i + 1}. ${l.slice(0, 120)}`));
+  if (relLines.length === 0) console.log('  (ninguna detectada)');
+
+  // Procedimientos
+  const procPatterns = [/^paso\s+\d/i, /^primero[,\s]/, /^luego[,\s]/, /^después[,\s]/, /^finalmente[,\s]/, /^\d+[\.\)]\s+\S/, /^[a-e]\)\s/i];
+  const procLines = lines.filter((l: string) => procPatterns.some(p => p.test(l)));
+  console.log(`\n[Audit] Procedimientos detectados: ${procLines.length}`);
+  procLines.slice(0, 5).forEach((l: string, i: number) => console.log(`  ${i + 1}. ${l.slice(0, 120)}`));
+  if (procLines.length === 0) console.log('  (ninguno detectado)');
+
+  // Errores frecuentes
+  const errKws = ['no confund', 'error', 'incorrecto', 'equivoc', 'cuidado', 'no hay que', 'no se debe', 'muchos creen', 'es incorrecto', 'no es lo mismo'];
+  const errLines = lines.filter((l: string) => errKws.some(k => l.toLowerCase().includes(k)));
+  console.log(`\n[Audit] Errores frecuentes detectados: ${errLines.length}`);
+  errLines.slice(0, 5).forEach((l: string, i: number) => console.log(`  ${i + 1}. ${l.slice(0, 120)}`));
+  if (errLines.length === 0) console.log('  (ninguno detectado)');
+
+  console.log('\n[Audit] ════════════════════════════════════════════════════════\n');
+}
+
 // ── Main generation function ──────────────────────────────────────────────────
 
 export async function generateSessionContent(
@@ -1668,6 +1775,8 @@ export async function generateSessionContent(
   curso: string = '1º Medio'
 ): Promise<GenerationResult> {
   console.log('[Generation] Curso utilizado para generar sesión:', curso);
+
+  auditDocumentStructure(transcription);
 
   // Classify content type before selecting prompt
   const classification = classifyContent(transcription);
