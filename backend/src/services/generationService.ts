@@ -1895,8 +1895,41 @@ export async function generateSessionContent(
 
   const base = await callOpenAIAndBuildResult(prompt, systemMsg, configValues);
 
+  // ── Quality Gate ─────────────────────────────────────────────────────────────
+  const gGrounding    = validateGrounding(base as unknown as GenerationResult, transcription);
+  const gSemantic     = checkSemanticGrounding(transcription, (base.summary?.slides ?? []) as SummarySlide[]);
+  const gConsistency  = validateQuestionConsistency((base.summary?.slides ?? []) as SummarySlide[]);
+  const consistencyScore = gConsistency.results.length === 0
+    ? 1
+    : 1 - gConsistency.inconsistentSlides.length / gConsistency.results.length;
+  const gUnknown      = detectUnknownConcepts(transcription, (base.summary?.slides ?? []) as SummarySlide[], tipoACandidates);
+  const qualityScore  = computeQualityScore(gGrounding.score, gSemantic.overallOverlap, consistencyScore, gUnknown.penalty);
+
+  console.log('\n[QUALITY REPORT]');
+  console.log(`  groundingScore:   ${gGrounding.score.toFixed(2)}`);
+  console.log(`  semanticOverlap:  ${gSemantic.overallOverlap.toFixed(2)}`);
+  console.log(`  consistencyScore: ${consistencyScore.toFixed(2)}`);
+  if (gUnknown.unknownConcepts.length > 0) {
+    console.log('  unknownConcepts:');
+    gUnknown.unknownConcepts.forEach(c => console.log(`    * ${c}`));
+  } else {
+    console.log('  unknownConcepts:  (ninguno)');
+  }
+  console.log(`  qualityScore:     ${qualityScore.toFixed(2)}`);
+
+  let finalBase = base;
+  if (qualityScore < 0.65) {
+    console.log('  action:           REGENERATE');
+    const retryPrompt = `${prompt}\n\n${'━'.repeat(40)}\n${buildQualityFeedback(gUnknown.unknownConcepts, gSemantic.overallOverlap)}\n${'━'.repeat(40)}`;
+    finalBase = await callOpenAIAndBuildResult(retryPrompt, systemMsg, configValues);
+    console.log('[QUALITY REPORT] Regeneración completada.');
+  } else {
+    console.log('  action:           ACCEPT');
+  }
+  // ─────────────────────────────────────────────────────────────────────────────
+
   // ── Post-AI audit: Tipo A candidates vs actual nuclear concepts ────────────
-  const actualNuclear: string[] = (base.summary?.slides ?? [])
+  const actualNuclear: string[] = (finalBase.summary?.slides ?? [])
     .filter((s: any) => s.type === 'main_concept')
     .map((s: any) => (s.title ?? '').trim());
   console.log('\n[Audit] ════════════════════════════════════════════════════════');
@@ -1920,7 +1953,7 @@ export async function generateSessionContent(
   console.log('[Audit] ════════════════════════════════════════════════════════\n');
   // ──────────────────────────────────────────────────────────────────────────
 
-  return { ...base, pedagogicalType: classification.type, primarySkill, learningPath };
+  return { ...finalBase, pedagogicalType: classification.type, primarySkill, learningPath };
 }
 
 // Generates ONE focused skill mission without re-classifying (classification done by caller).
@@ -2078,6 +2111,90 @@ export function checkSemanticGrounding(
   const contaminated = contaminatedSlides.length >= 3;
 
   return { docKeywords, slideScores, overallOverlap, contaminated, contaminatedSlides };
+}
+
+// ── Unknown concept detector ─────────────────────────────────────────────────
+
+const CONCEPT_SLIDE_TYPES_FOR_AUDIT = new Set(['main_concept', 'key_relation', 'application', 'common_error']);
+
+export interface UnknownConceptReport {
+  unknownConcepts: string[];
+  penalty: number;
+}
+
+export function detectUnknownConcepts(
+  transcription: string,
+  slides: SummarySlide[],
+  tipoACandidates: string[],
+): UnknownConceptReport {
+  const docKeywords = extractDocKeywords(transcription, 60);
+  const candidateWords = tipoACandidates.flatMap(c =>
+    c.toLowerCase().replace(/[^a-záéíóúüñ\s]/gi, ' ').split(/\s+/).filter((w: string) => w.length >= 4)
+  );
+  const knownSet = new Set([...docKeywords, ...candidateWords]);
+  const knownArr = [...knownSet];
+
+  const seen = new Set<string>();
+  const unknownConcepts: string[] = [];
+
+  for (const slide of slides) {
+    if (!CONCEPT_SLIDE_TYPES_FOR_AUDIT.has(slide.type)) continue;
+    const title = ((slide as any).title ?? '').toLowerCase();
+    const words = title
+      .replace(/[^a-záéíóúüñ\s]/gi, ' ')
+      .split(/\s+/)
+      .filter((w: string) => w.length >= 5 && !SPANISH_STOP_WORDS.has(w));
+
+    for (const term of words) {
+      if (seen.has(term)) continue;
+      seen.add(term);
+      const known = knownSet.has(term) ||
+        knownArr.some(k => {
+          const ml = Math.min(term.length, k.length, 6);
+          return ml >= 4 && term.slice(0, ml) === k.slice(0, ml);
+        });
+      if (!known) unknownConcepts.push(term);
+    }
+  }
+
+  const penalty = seen.size === 0 ? 0 : Math.min(0.40, unknownConcepts.length / seen.size);
+  return { unknownConcepts, penalty };
+}
+
+// ── Quality score ─────────────────────────────────────────────────────────────
+
+function computeQualityScore(
+  groundingScore: number,
+  semanticOverlap: number,
+  consistencyScore: number,
+  unknownConceptPenalty: number,
+): number {
+  const base = groundingScore * 0.40 + semanticOverlap * 0.40 + consistencyScore * 0.20;
+  return Math.max(0, Math.min(1, base - unknownConceptPenalty * 0.30));
+}
+
+function buildQualityFeedback(unknownConcepts: string[], semanticOverlap: number): string {
+  const lines = [
+    'ADVERTENCIA DE CALIDAD — Tu generación anterior introdujo contenido insuficientemente respaldado por el documento.',
+    '',
+    'CORRECCIONES REQUERIDAS:',
+    '→ Aumenta el uso de conceptos, términos y ejemplos presentes en el material.',
+    '→ Reduce explicaciones genéricas que no aparecen en el texto fuente.',
+    '→ Reutiliza más vocabulario del documento en los campos definition y example.',
+    '→ Las preguntas, ejercicios y distractores pueden ser nuevos.',
+    '→ Los CONCEPTOS, DEFINICIONES y TERMINOLOGÍA ACADÉMICA deben derivar del documento.',
+  ];
+  if (unknownConcepts.length > 0) {
+    lines.push('');
+    lines.push(`→ Términos en slides conceptuales no encontrados en el documento: ${unknownConcepts.slice(0, 5).join(', ')}.`);
+    lines.push('  Verifica que la terminología nuclear derive del texto fuente.');
+  }
+  if (semanticOverlap < 0.40) {
+    lines.push('');
+    lines.push(`→ El solapamiento semántico con el documento fue solo ${(semanticOverlap * 100).toFixed(0)}%.`);
+    lines.push('  Incrementa la densidad de vocabulario derivado del material.');
+  }
+  return lines.join('\n');
 }
 
 // ── Question consistency validator ───────────────────────────────────────────
