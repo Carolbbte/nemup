@@ -1729,15 +1729,19 @@ export default function SessionPlayerScreen() {
                         )}
                       </>
                     ) : (
-                      // Default: show worked example first, then explanation
+                      // Default: definition is the primary element, example is support
                       <>
-                        {!!slide.example && (
-                          <View style={sum.workedExBox}>
-                            <Text style={sum.workedExText}>{slide.example}</Text>
+                        {!!slide.definition && (
+                          <View style={sum.conceptCard}>
+                            <Text style={sum.conceptCardLabel}>💡 CONCEPTO</Text>
+                            <Text style={sum.conceptCardText}>{slide.definition}</Text>
                           </View>
                         )}
-                        {!!slide.definition && (
-                          <Text style={sum.mainCardExplain}>{slide.definition}</Text>
+                        {!!slide.example && (
+                          <View style={sum.exampleBox}>
+                            <Text style={sum.exampleLabel}>📌 Ejemplo</Text>
+                            <Text style={sum.exampleText}>{slide.example}</Text>
+                          </View>
                         )}
                       </>
                     )}
@@ -3612,7 +3616,7 @@ const sum = StyleSheet.create({
   mainCardExplain:  { fontSize: SM ? 13 : 14, color: semantic.textSecondary, lineHeight: SM ? 20 : 22, fontWeight: '500', fontStyle: 'italic' },
   conceptCard:      { marginTop: SM ? 14 : 16, backgroundColor: 'rgba(91,61,245,0.07)', borderRadius: 14, padding: SM ? 12 : 14, borderWidth: 1, borderColor: 'rgba(91,61,245,0.22)' },
   conceptCardLabel: { fontSize: 10, fontWeight: '800', color: BRAND, letterSpacing: 0.8, marginBottom: 6, textTransform: 'uppercase' },
-  conceptCardText:  { fontSize: SM ? 15 : 16, fontWeight: '700', color: semantic.textPrimary, lineHeight: SM ? 22 : 24 },
+  conceptCardText:  { fontSize: SM ? 16 : 18, fontWeight: '600', color: semantic.textPrimary, lineHeight: SM ? 24 : 28 },
   comprehensionCtx: { backgroundColor: 'rgba(91,61,245,0.05)', borderRadius: 12, padding: SM ? 10 : 12, marginBottom: 10, borderWidth: 1, borderColor: 'rgba(91,61,245,0.1)' },
   comprehensionCtxText: { fontSize: SM ? 16 : 18, fontWeight: '800', color: BRAND, textAlign: 'center', letterSpacing: -0.2 },
 
