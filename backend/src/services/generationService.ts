@@ -100,7 +100,7 @@ JSON SCHEMA — return ONLY this structure:
     "title": string,
     "slides": [
       {
-        "type": "mission"|"main_concept"|"comprehension"|"key_relation"|"mini_quiz"|"process_flow"|"decide"|"application"|"common_error"|"wow_fact"|"final_challenge"|"victory"|"challenge",
+        "type": "mission"|"main_concept"|"micro_challenge"|"comprehension"|"key_relation"|"mini_quiz"|"process_flow"|"decide"|"application"|"common_error"|"wow_fact"|"final_challenge"|"victory"|"challenge",
         "emoji": string,
         "title": string,
         "definition": string,
@@ -269,9 +269,10 @@ ESTRUCTURA OBLIGATORIA DE LA SECUENCIA COMPLETA:
 ║  [2] SECCIONES — repetir por cada     ║
 ║  concepto nuclear seleccionado:       ║
 ║    [A] main_concept    [OBLIGATORIA]  ║
-║    [B] comprehension   [OBLIGATORIA]  ║
-║    [C] key_relation    [OPCIONAL]     ║
-║    [D] common_error    [OPCIONAL]     ║
+║    [B] micro_challenge [OBLIGATORIA]  ║
+║    [C] comprehension   [OPCIONAL]     ║
+║    [D] key_relation    [OPCIONAL]     ║
+║    [E] common_error    [OPCIONAL]     ║
 ╠═══════════════════════════════════════╣
 ║  [3] APLICACIÓN — type: "application" ║  UNA SOLA (después de todas las secciones)
 ║  [4] DESAFÍO — type: "final_challenge"║  UNO, OBLIGATORIO
@@ -279,8 +280,8 @@ ESTRUCTURA OBLIGATORIA DE LA SECUENCIA COMPLETA:
 ╚═══════════════════════════════════════╝
 
 RECUENTO TOTAL ESPERADO:
-  3 conceptos nucleares → 1 + (2–4 × 3) + 3 = 10–16 slides
-  5 conceptos nucleares → 1 + (2–4 × 5) + 3 = 14–28 slides
+  3 conceptos nucleares → 1 + (2–5 × 3) + 3 = 10–19 slides
+  5 conceptos nucleares → 1 + (2–5 × 5) + 3 = 14–33 slides
 
 DATO DE CURIOSIDAD OPCIONAL (wow_fact):
   Si existe un dato genuinamente sorprendente y contraintuitivo sobre alguno de los conceptos nucleares → agrega UNA pantalla wow_fact dentro de la sección correspondiente, entre [C] y [D].
@@ -291,7 +292,8 @@ DATO DE CURIOSIDAD OPCIONAL (wow_fact):
 PROHIBICIÓN ABSOLUTA — REGLA DE ORO
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ✗ NUNCA preguntar algo que no fue enseñado EXPLÍCITAMENTE en la pantalla main_concept de esa misma sección.
-✗ NUNCA introducir conceptos nuevos dentro de una pregunta interactiva (comprehension, final_challenge, application).
+✗ NUNCA introducir conceptos nuevos dentro de una pregunta interactiva (micro_challenge, comprehension, final_challenge, application).
+✗ NUNCA evaluar en micro_challenge un concepto que aparece en una sección posterior — solo el concepto que acaba de ser enseñado.
 ✗ NUNCA evaluar conceptos Tipo B o Tipo C — solo Tipo A.
 ✗ NUNCA usar el final_challenge para evaluar algo que solo apareció como ejemplo o en el conector.
 
@@ -345,7 +347,26 @@ PANTALLA "main_concept" — CONCEPTO NUCLEAR [OBLIGATORIA — UNA POR SECCIÓN]
     Los diagramas visuales complejos pertenecen a key_relation, no a main_concept.
     Si se incluye: "emoji1 Nodo1 ↓ verbo ↓ emoji2 Nodo2 ↓ verbo ↓ emoji3 Nodo3"
 
-PANTALLA "comprehension" — COMPRUEBA SI ENTENDISTE [OBLIGATORIA — UNA POR SECCIÓN]
+PANTALLA "micro_challenge" — MICRO RETO [OBLIGATORIA — UNA POR SECCIÓN, JUSTO DESPUÉS DE main_concept]
+  Crea el ciclo aprendizaje → acción → feedback inmediato.
+  Evalúa ÚNICAMENTE el concepto que el main_concept inmediatamente anterior acaba de enseñar.
+  ⚠️ REGLA CRÍTICA: NO usar conceptos que aparecerán en secciones futuras. Solo el concepto recién explicado.
+  - title: "Micro reto" (texto fijo)
+  - question: pregunta directa sobre el concepto recién enseñado (max 20 palabras).
+    Nivel de reconocimiento o identificación simple — no cálculo ni inferencia compleja.
+    ✓ "¿Cuál de estos es un monomio?" — reconoce el concepto enseñado en main_concept anterior
+    ✗ "¿Cuánto es 3x + 2x?" — cálculo que puede no haber sido enseñado aún
+  - options: EXACTAMENTE 3 alternativas — ["A. ...", "B. ...", "C. ..."]
+    Cada alternativa: máximo 8 palabras. Sin puntuación final.
+    La respuesta correcta puede estar en cualquier posición (A, B o C).
+    Los otros dos son errores plausibles relacionados al mismo concepto.
+  - correctAnswer: "A", "B" o "C"
+  - definition: feedback breve mostrado tras responder. Inicia con ⚡, ✅ o 🎯. Max 15 palabras.
+    Explica brevemente POR QUÉ esa opción es correcta.
+  - example: null
+  - connector: null
+
+PANTALLA "comprehension" — COMPRUEBA SI ENTENDISTE [OPCIONAL — máximo UNA por sección]
   ⚠️ REGLA FUNDAMENTAL: Solo puede evaluar LO QUE LA PANTALLA main_concept INMEDIATAMENTE ANTERIOR ENSEÑÓ.
   Si main_concept enseñó el concepto X → comprehension solo pregunta sobre X.
   NUNCA introduzcas conceptos de otras secciones aquí.

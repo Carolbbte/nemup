@@ -57,7 +57,7 @@ type Option  = { id: string; text: string };
 type Question = { id: string; text: string; options: Option[]; correctOptionId: string; explanation: string; sourceQuote: string };
 type Flashcard = { id: string; front: string; back: string };
 type SummarySlideType = 'concept' | 'key_fact' | 'important' | 'remember' | 'example' | 'curiosity' | 'wow_fact'
-  | 'mission' | 'main_concept' | 'comprehension' | 'key_relation' | 'mini_quiz' | 'process_flow' | 'application' | 'common_error' | 'final_challenge' | 'victory' | 'challenge' | 'decide' | 'order_sequence' | 'quiz_transition';
+  | 'mission' | 'main_concept' | 'micro_challenge' | 'comprehension' | 'key_relation' | 'mini_quiz' | 'process_flow' | 'application' | 'common_error' | 'final_challenge' | 'victory' | 'challenge' | 'decide' | 'order_sequence' | 'quiz_transition';
 type IllustrationType = 'educational' | 'diagram' | 'concept' | 'timeline' | 'map' | 'process' | 'comparison';
 type BackendSlide = { type: SummarySlideType; emoji: string; title: string; definition: string; example: string; visualHint?: string; illustrationType?: IllustrationType; connector?: string | null; question?: string | null; options?: string[] | null; correctAnswer?: string | null; wrongAnswerHints?: Record<string, string> | null };
 type LegacySection = { heading: string; content: string; keyPoints: string[] };
@@ -392,12 +392,13 @@ function buildSummarySlides(backendSlides: BackendSlide[], questions: Question[]
       reordered.splice(toIdx, 0, item);
     };
 
-    // 5a. "Comprueba si entendiste" — first comprehension/mini_quiz right after main_concept
+    // 5a. First interactive slide right after main_concept (micro_challenge > comprehension/mini_quiz)
     const mcIdx = reordered.findIndex(s => s.type === 'main_concept');
     if (mcIdx !== -1) {
-      const alreadyAfterMc = reordered[mcIdx + 1]?.type === 'comprehension' || reordered[mcIdx + 1]?.type === 'mini_quiz';
+      const EARLY_CHECK = ['micro_challenge', 'comprehension', 'mini_quiz'];
+      const alreadyAfterMc = EARLY_CHECK.includes(reordered[mcIdx + 1]?.type);
       if (!alreadyAfterMc) {
-        const compIdx = reordered.findIndex((s, i) => i > mcIdx && (s.type === 'comprehension' || s.type === 'mini_quiz'));
+        const compIdx = reordered.findIndex((s, i) => i > mcIdx && EARLY_CHECK.includes(s.type));
         if (compIdx !== -1) moveToIdx(compIdx, mcIdx + 1);
       }
     }
@@ -449,7 +450,7 @@ function buildSummarySlides(backendSlides: BackendSlide[], questions: Question[]
     const COGN_PRIORITY: Record<string, number> = {
       key_relation: 0,
       process_flow: 1, order_sequence: 1,
-      mini_quiz: 2, decide: 2, comprehension: 2,
+      micro_challenge: 2, mini_quiz: 2, decide: 2, comprehension: 2,
       application: 3,
       wow_fact: 4,
       common_error: 5,
@@ -461,7 +462,7 @@ function buildSummarySlides(backendSlides: BackendSlide[], questions: Question[]
     if (reordered[middleStart]?.type === 'mission') middleStart++;
     if (reordered[middleStart]?.type === 'main_concept') middleStart++;
     // Skip the one early-check slot right after main_concept
-    if (reordered[middleStart]?.type === 'comprehension' || reordered[middleStart]?.type === 'mini_quiz') middleStart++;
+    if (['micro_challenge', 'comprehension', 'mini_quiz'].includes(reordered[middleStart]?.type)) middleStart++;
 
     const middleEndIdx = reordered.findIndex((s, i) => i >= middleStart && TAIL_ANCHOR.has(s.type));
     const tailIdx = middleEndIdx === -1 ? reordered.length : middleEndIdx;
@@ -849,7 +850,7 @@ export default function SessionPlayerScreen() {
     if (slide?.type !== 'victory') return;
     if (masteryLevel !== null) return; // already computed
 
-    const V_INTER = ['comprehension', 'mini_quiz', 'final_challenge', 'decide', 'order_sequence', 'common_error', 'application', 'challenge', 'wow_fact'];
+    const V_INTER = ['micro_challenge', 'comprehension', 'mini_quiz', 'final_challenge', 'decide', 'order_sequence', 'common_error', 'application', 'challenge', 'wow_fact'];
     const interSlides = missionSlides.map((s, i) => ({ s, i }))
       .filter(({ s }) => V_INTER.includes(s.type) && !!(s as BackendSlide).correctAnswer);
     const interTotal = interSlides.length;
@@ -1446,7 +1447,7 @@ export default function SessionPlayerScreen() {
       const tiempoStr   = formatMissionTime(tiempoMs);
       const V_CONCEPT_LOCAL = ['main_concept', 'key_relation', 'process_flow', 'application', 'common_error', 'challenge'];
       const vConceptsLocal  = missionSlides.filter(s => V_CONCEPT_LOCAL.includes(s.type)).length;
-      const V_INTER_LOCAL   = ['comprehension', 'mini_quiz', 'final_challenge', 'decide', 'order_sequence', 'common_error', 'application', 'challenge', 'wow_fact'];
+      const V_INTER_LOCAL   = ['micro_challenge', 'comprehension', 'mini_quiz', 'final_challenge', 'decide', 'order_sequence', 'common_error', 'application', 'challenge', 'wow_fact'];
       const vInterLocal     = missionSlides.filter(s => V_INTER_LOCAL.includes(s.type) && !!(s as BackendSlide).correctAnswer).length;
       const vCorrectLocal   = missionSlides.filter((s, i) => V_INTER_LOCAL.includes(s.type) && !!(s as BackendSlide).correctAnswer && quizAnswers[i] === (s as BackendSlide).correctAnswer).length;
 
@@ -1806,6 +1807,60 @@ export default function SessionPlayerScreen() {
                               <Text style={sum.quizFeedbackText}>{isEarlyCheck ? 'Revisa la explicación anterior y sigue avanzando.' : (slide.definition || `La respuesta correcta era la ${slide.correctAnswer}.`)}</Text>
                             </>
                           )}
+                        </View>
+                      )}
+                    </View>
+                  </View>
+                );
+              })()
+            ) : slide?.type === 'micro_challenge' ? (
+              (() => {
+                const answered  = quizAnswers[summaryIdx];
+                const isCorrect = answered === slide.correctAnswer;
+                return (
+                  <View style={sum.microCard}>
+                    <View style={sum.microHeader}>
+                      <Text style={sum.microLabel}>⚡ MICRO RETO</Text>
+                      <Text style={sum.microSubtitle}>Aplica lo que acabas de aprender</Text>
+                    </View>
+                    <View style={{ paddingHorizontal: SM ? 14 : 18, paddingBottom: SM ? 14 : 18 }}>
+                      <Text style={[sum.quizQuestion, { marginTop: 12 }]}>{slide.question ?? slide.title}</Text>
+                      <View style={{ gap: 8, marginTop: 14 }}>
+                        {slide.options?.slice(0, 3).map((opt, i) => {
+                          const letter    = LETTERS[i];
+                          const isOpt     = slide.correctAnswer === letter;
+                          const showGreen = !!answered && isOpt;
+                          const showRed   = answered === letter && !isOpt;
+                          const dimmed    = !!answered && !isOpt && answered !== letter;
+                          return (
+                            <Pressable key={i}
+                              onPress={() => { if (!answered) { setQuizAnswers(prev => ({ ...prev, [summaryIdx]: letter })); if (isOpt) showSummaryReward('⚡ +5 XP'); } }}
+                              style={[sum.quizOption, showGreen && sum.quizOptCorrect, showRed && sum.quizOptWrong, { opacity: dimmed ? 0.35 : 1 }]}
+                            >
+                              <View style={[sum.quizLetter, showGreen && sum.quizLetterGreen, showRed && sum.quizLetterRed]}>
+                                {showGreen ? <Check size={12} color={palette.blanco} strokeWidth={3} /> :
+                                 showRed   ? <X    size={12} color={palette.blanco} strokeWidth={3} /> :
+                                 <Text style={sum.quizLetterText}>{letter}</Text>}
+                              </View>
+                              <Text style={[sum.quizOptText, showGreen && { color: BRAND, fontWeight: '700' }, showRed && { color: '#991B1B', fontWeight: '700' }]}>{opt}</Text>
+                            </Pressable>
+                          );
+                        })}
+                      </View>
+                      {!!answered && (
+                        <View style={[sum.quizFeedback, isCorrect ? sum.quizFeedbackOk : sum.quizFeedbackErr]}>
+                          {isCorrect ? (
+                            <View style={sum.quizFeedbackHeader}>
+                              <Text style={sum.quizFeedbackTitle}>✓ Correcto</Text>
+                              {!!summaryRewardText && <View style={sum.quizFeedbackXpChip}><Text style={sum.quizFeedbackXpText}>{summaryRewardText}</Text></View>}
+                            </View>
+                          ) : (
+                            <>
+                              <Text style={sum.quizFeedbackTitle}>💡 Casi</Text>
+                              <Text style={sum.quizFeedbackText}>{slide.definition || `La respuesta correcta era la ${slide.correctAnswer}.`}</Text>
+                            </>
+                          )}
+                          {isCorrect && !!slide.definition && <Text style={[sum.quizFeedbackText, { marginTop: 4 }]}>{slide.definition}</Text>}
                         </View>
                       )}
                     </View>
@@ -2284,7 +2339,7 @@ export default function SessionPlayerScreen() {
                 : null;
 
               // Reflection — based on slides actually ANSWERED wrong (not unanswered)
-              const V_INTER_LOCAL = ['comprehension', 'mini_quiz', 'final_challenge', 'decide', 'order_sequence', 'common_error', 'application', 'challenge', 'wow_fact'];
+              const V_INTER_LOCAL = ['micro_challenge', 'comprehension', 'mini_quiz', 'final_challenge', 'decide', 'order_sequence', 'common_error', 'application', 'challenge', 'wow_fact'];
               const wrongSlides = missionSlides
                 .map((s, i) => ({ s: s as BackendSlide, i }))
                 .filter(({ s, i }) =>
@@ -3693,6 +3748,12 @@ const sum = StyleSheet.create({
   checkHeader:   { backgroundColor: BRAND, paddingVertical: SM ? 14 : 18, paddingHorizontal: SM ? 14 : 18, alignItems: 'center' },
   checkLabel:    { fontSize: 11, fontWeight: '900', color: palette.blanco, letterSpacing: 1.5, textTransform: 'uppercase', marginBottom: 4 },
   checkSubtitle: { fontSize: SM ? 11 : 12, color: 'rgba(255,255,255,0.8)', fontWeight: '500', textAlign: 'center' },
+
+  // Micro challenge card — compact action card after main_concept
+  microCard:     { backgroundColor: palette.blanco, borderRadius: 28, overflow: 'hidden' },
+  microHeader:   { backgroundColor: 'rgba(91,61,245,0.1)', paddingVertical: SM ? 12 : 14, paddingHorizontal: SM ? 14 : 18, alignItems: 'center', borderBottomWidth: 1, borderBottomColor: 'rgba(91,61,245,0.15)' },
+  microLabel:    { fontSize: 11, fontWeight: '900', color: BRAND, letterSpacing: 1.5, textTransform: 'uppercase', marginBottom: 2 },
+  microSubtitle: { fontSize: SM ? 11 : 12, color: semantic.textSecondary, fontWeight: '500' },
 
   // Mini Reto Final card
   retoCard:        { backgroundColor: palette.blanco, borderRadius: 28, overflow: 'hidden' },
