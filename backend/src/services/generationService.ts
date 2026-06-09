@@ -198,12 +198,19 @@ PRUEBA DE DEGRADACIÓN — aplicar a cada elemento antes de clasificarlo como Ti
   → Si SÍ → degradar a Tipo B o Tipo C.
   → Si NO → puede ser Tipo A (verificar las demás condiciones).
 
-REGLA DE CONSERVACIÓN DE OBJETIVOS (prioridad sobre la Prueba de Degradación):
-Si el documento contiene objetivos de aprendizaje explícitos (enumerados con números o letras, declarados con verbos de acción como "reconocer", "identificar", "clasificar", "reducir", "aplicar", "resolver"):
-→ CADA objetivo explícito es candidato Tipo A inicial por defecto.
-→ Solo puede degradarse a Tipo B si: (a) está completamente contenido dentro del alcance de otro objetivo nuclear de mayor rango, O (b) solo añade contexto pero NO requiere evaluación independiente.
-→ Si se degrada un objetivo explícito → registrar en la pantalla victory: "Aprendiste también: [objetivo degradado]" dentro del campo definition.
-→ NUNCA descartar un objetivo explícito del documento como Tipo C. Los objetivos del documento son contratos pedagógicos.
+REGLA DE CONSERVACIÓN DE OBJETIVOS (prioridad absoluta sobre la Prueba de Degradación):
+Si el documento contiene objetivos de aprendizaje explícitos (enumerados con números o letras, declarados con verbos de acción como "reconocer", "identificar", "clasificar", "reducir", "simplificar", "aplicar", "resolver", "agrupar", "operar"):
+→ CADA objetivo explícito es Tipo A por defecto. No requiere verificación adicional con la Prueba de Degradación.
+→ Ser prerrequisito de otro concepto NO es motivo de degradación.
+  Ejemplo correcto: "Reconocer partes del término" ES prerrequisito de "Reducir términos" — y aun así conserva sección propia porque evalúa una habilidad distinta e independiente.
+→ Un objetivo explícito SOLO puede degradarse a Tipo B si cumple AL MENOS DOS de estas condiciones simultáneamente:
+  (1) Es literalmente un sinónimo del objetivo: mismo verbo, mismo objeto.
+      ✅ Sí: "Identificar términos semejantes" ≈ "Reconocer términos semejantes"
+      ❌ No: "Reconocer partes del término" ≠ "Reducir términos semejantes"
+  (2) Produce exactamente la misma evaluación que otro objetivo Tipo A ya seleccionado.
+  (3) El documento lo presenta como aclaración del mismo objetivo, no como objetivo independiente.
+→ NUNCA degradar a Tipo C. Los objetivos del documento son contratos pedagógicos.
+→ Si excepcionalmente se degrada un objetivo explícito → registrar en victory: "Aprendiste también: [objetivo degradado]".
 
 REGLA CRÍTICA DE SELECCIÓN:
 La IA NO debe convertir automáticamente cada concepto en una pantalla.
@@ -213,6 +220,13 @@ Documento corto (hasta ~400 palabras): selecciona MÁXIMO 3 conceptos nucleares 
 Documento largo (más de ~400 palabras): selecciona MÁXIMO 5 conceptos nucleares (Tipo A).
 Si existen más Tipo A del límite → selecciona los que más contribuyen al objetivo.
 El resto queda para futuras sesiones.
+
+ORDEN DE PRIORIDAD cuando se alcanza el límite:
+  1. Objetivos explícitos del documento (conservar siempre, reducir conceptos inferidos si hay conflicto)
+  2. Conceptos evaluables inferidos del contenido
+  3. Analogías y recursos pedagógicos
+→ NUNCA eliminar un objetivo explícito para hacer espacio a un concepto inferido.
+→ Si los objetivos explícitos ya ocupan el límite: los conceptos inferidos quedan para futuras sesiones.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 FASE 4 — VALIDACIÓN DE DEPENDENCIAS CONCEPTUALES [MENTAL]
@@ -224,6 +238,10 @@ PASO A — Detectar dependencias:
   Si SÍ → ese otro concepto es un PRERREQUISITO del primero.
   Si el prerrequisito NO está en la lista de nucleares pero sí en el documento → agrégalo como Tipo A al inicio.
   Si el prerrequisito NO aparece en el documento en absoluto → mencionarlo como Tipo B en la primera sección que lo necesite.
+  ⚠️ REGLA CRÍTICA: ser PRERREQUISITO de otro concepto NO significa estar absorbido por él.
+  "Reconocer las partes de un término" es prerrequisito de "Reducir términos semejantes" —
+  ambos son Tipo A independientes porque evalúan habilidades distintas:
+  uno evalúa identificación de componentes, el otro evalúa operación algebraica.
 
 PASO B — Ordenar las secciones por dependencia:
   Los conceptos sin prerrequisitos van primero.
@@ -1810,6 +1828,25 @@ function auditDocumentStructure(transcription: string): string[] {
   console.log(`\n[Audit] Candidatos Tipo A iniciales (pre-análisis del documento): ${tipoACandidates.length}`);
   tipoACandidates.forEach((c: string, i: number) => console.log(`  ${i + 1}. ${c.slice(0, 100)}`));
   if (tipoACandidates.length === 0) console.log('  (ninguno — no se detectaron objetivos o encabezados elegibles)');
+
+  // CONCEPT_SELECTION trazabilidad
+  const objLineSet = new Set(objLines.map((l: string) => l.toLowerCase()));
+  tipoACandidates.forEach((c: string) => {
+    const isExplicit = objLineSet.has(c.toLowerCase()) ||
+      objLines.some((l: string) => l.toLowerCase().startsWith(c.toLowerCase().slice(0, 25)));
+    console.log(`\n[CONCEPT_SELECTION]`);
+    console.log(`  objetivo="${c.slice(0, 100)}"`);
+    console.log(`  origen=${isExplicit ? 'explícito' : 'inferido (encabezado)'}`);
+    console.log(`  evaluacion_independiente=true`);
+    if (isExplicit) {
+      console.log(`  puede_degradarse=false`);
+      console.log(`  motivo="objetivo explícito conservado — prerrequisito no implica absorción"`);
+    } else {
+      console.log(`  puede_degradarse=true`);
+      console.log(`  motivo="concepto inferido — sujeto a cap y análisis de dependencias"`);
+    }
+  });
+
   console.log('[Audit] ════════════════════════════════════════════════════════\n');
 
   return tipoACandidates;
