@@ -6,6 +6,7 @@ interface OnboardingContextType {
   state: OnboardingState;
   setName: (name: string) => void;
   setCurso: (curso: string) => void;
+  setNemCurrent: (nemCurrent: number) => void;
   setGoal: (goal: number) => void;
   setSubjects: (subjects: string[]) => void;
   setGoalType: (goalType: string) => void;
@@ -65,6 +66,10 @@ export const OnboardingProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     updateData({ curso });
   };
 
+  const setNemCurrent = (nemCurrent: number) => {
+    updateData({ nemCurrent });
+  };
+
   const setGoal = (goal: number) => {
     updateData({ goal });
   };
@@ -84,7 +89,7 @@ export const OnboardingProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   const nextStep = () => {
     setState(prev => ({
       ...prev,
-      currentStep: Math.min(prev.currentStep + 1, 4),
+      currentStep: Math.min(prev.currentStep + 1, 6),
     }));
   };
 
@@ -98,15 +103,14 @@ export const OnboardingProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   const goToStep = (step: number) => {
     setState(prev => ({
       ...prev,
-      currentStep: Math.max(0, Math.min(step, 4)),
+      currentStep: Math.max(0, Math.min(step, 6)),
     }));
   };
 
   const completeOnboarding = async () => {
     try {
       setState(prev => ({ ...prev, isLoading: true }));
-      // Validate data
-      if (!state.data.name || !state.data.curso || !state.data.dailyCommitment) {
+      if (!state.data.name || !state.data.curso) {
         throw new Error('Please fill in all required fields');
       }
 
@@ -150,6 +154,7 @@ export const OnboardingProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         state,
         setName,
         setCurso,
+        setNemCurrent,
         setGoal,
         setSubjects,
         setGoalType,

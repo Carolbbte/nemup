@@ -1,6 +1,6 @@
 import React from 'react';
 import { Dimensions, Text, StyleSheet } from 'react-native';
-import { Colors } from '@/constants/Colors';
+import { palette, semantic } from '@/theme/colors';
 import ScreenContainer from '@/components/ScreenContainer';
 
 const { height: SCREEN_H } = Dimensions.get('window');
@@ -20,7 +20,7 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: Colors.paper,
+    backgroundColor: semantic.background,
   },
   placeholder: {
     fontSize: SM ? 36 : 48,
@@ -28,6 +28,6 @@ const styles = StyleSheet.create({
   },
   text: {
     fontSize: 16,
-    color: Colors.ink3,
+    color: semantic.textSecondary,
   },
 });

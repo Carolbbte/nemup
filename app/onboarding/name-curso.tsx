@@ -1,257 +1,586 @@
+import ProgressDots from '@/components/ProgressDots';
 import ScreenContainer from '@/components/ScreenContainer';
 import { useOnboarding } from '@/contexts/OnboardingContext';
-import { CURSOS } from '@/types/onboarding';
-import { LinearGradient } from 'expo-linear-gradient';
-import { ArrowRight, BookOpen, Check, ChevronLeft, Smile, User } from 'lucide-react-native';
+import { palette, semantic } from '@/theme/colors';
+import { Image as ExpoImage } from 'expo-image';
+import * as Haptics from 'expo-haptics';
+import { ArrowRight, ChevronLeft } from 'lucide-react-native';
 import { useEffect, useRef, useState } from 'react';
-import { Pressable, ScrollView, StatusBar, StyleSheet, Text, TextInput, View } from 'react-native';
-import Animated, {
-  useAnimatedStyle,
-  useSharedValue,
-  withDelay,
-  withRepeat,
-  withSequence,
-  withSpring,
-  withTiming,
-} from 'react-native-reanimated';
+import {
+  Animated,
+  Easing,
+  PanResponder,
+  Pressable,
+  StatusBar,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 
-const BG = '#09051A';
-const NEON = '#7C5AFF';
-const LIME = '#C4F852';
-const GLASS = 'rgba(255,255,255,0.06)';
-const GLASS_BORDER = 'rgba(255,255,255,0.10)';
-const TOTAL_STEPS = 4;
+// ── Tokens ────────────────────────────────────────────────────
+const BG   = palette.crema;
+const DARK = semantic.textPrimary;
+const MED  = semantic.textSecondary;
+const PRIM = palette.morado;
 
-function CursoCard({ curso, active, onPress }: { curso: string; active: boolean; onPress: () => void }) {
-  const sc = useSharedValue(1);
-  const wasActive = useRef(false);
+// ── Data ──────────────────────────────────────────────────────
+type Level = { level: number; course: string; fraction: number };
 
-  useEffect(() => {
-    if (active && !wasActive.current) {
-      sc.value = withSequence(
-        withSpring(0.92, { mass: 0.3, stiffness: 520, damping: 12 }),
-        withSpring(1.06, { mass: 0.3, stiffness: 380, damping: 10 }),
-        withSpring(1,    { mass: 0.4, stiffness: 260, damping: 16 })
-      );
-    }
-    wasActive.current = active;
-  }, [active]);
+const LEVELS: Level[] = [
+  { level: 1, course: '1º Medio', fraction: 0.77 },
+  { level: 2, course: '2º Medio', fraction: 0.61 },
+  { level: 3, course: '3º Medio', fraction: 0.45 },
+  { level: 4, course: '4º Medio', fraction: 0.29 },
+];
 
-  const animStyle = useAnimatedStyle(() => ({ transform: [{ scale: sc.value }] }));
+const VEHICLES = [
+  { emoji: '🚗', name: 'City Car' },
+  { emoji: '🚙', name: 'Hatchback' },
+  { emoji: '🏎️', name: 'Deportivo' },
+  { emoji: '🏆', name: 'Modelo Elite' },
+];
 
-  return (
-    <Animated.View style={[styles.cursoCard, active && styles.cursoCardActive, animStyle]}>
-      <Pressable
-        onPress={onPress}
-        style={styles.cursoPressable}
-        android_ripple={{ color: 'rgba(124,90,255,0.25)' }}
-      >
-        {active && (
-          <LinearGradient
-            colors={['rgba(91,61,245,0.44)', 'rgba(155,77,255,0.28)']}
-            style={[StyleSheet.absoluteFill, { borderRadius: 15 }]}
-          />
-        )}
-        <Text style={[styles.cursoText, active && styles.cursoTextActive]}>{curso}</Text>
-        {active && <Check size={13} color={LIME} strokeWidth={2.5} />}
-      </Pressable>
-    </Animated.View>
-  );
+// ── Geometry ──────────────────────────────────────────────────
+const ROAD_CX     = 0.52;
+const CAR_W       = 140;
+const CAR_H       = 120;
+const CP_R        = 13;
+const CP_DOT      = 6;
+const DASH_STEP   = 60;   // px between dash repeats
+const DASH_H      = 20;
+const DASH_W      = 3;
+const DASH_N      = 14;   // enough to fill ~840 px
+
+// ── Helpers ───────────────────────────────────────────────────
+const cpY = (lvl: Level, h: number) => lvl.fraction * h;
+
+function nearestIdx(centerY: number, h: number) {
+  return LEVELS.reduce((best, lvl, i) => {
+    return Math.abs(centerY - cpY(lvl, h)) < Math.abs(centerY - cpY(LEVELS[best], h))
+      ? i : best;
+  }, 0);
 }
 
+// ── Screen ────────────────────────────────────────────────────
 export default function NameCursoScreen() {
-  const { state, setName, setCurso, nextStep, prevStep } = useOnboarding();
-  const [nameFocused, setNameFocused] = useState(false);
+  const { state, setCurso, nextStep, prevStep } = useOnboarding();
 
-  const canContinue = state.data.name.trim() !== '' && state.data.curso !== '';
+  const initIdx = () => {
+    const i = LEVELS.findIndex(l => l.course === state.data.curso);
+    return i >= 0 ? i : 0;
+  };
 
-  const fade     = useSharedValue(0);
-  const slide    = useSharedValue(24);
-  const inputSc  = useSharedValue(1);
-  const ctaShine = useSharedValue(0);
+  const [selIdx,     setSelIdx]     = useState(initIdx);
+  const [displayIdx, setDisplayIdx] = useState(initIdx);
+  const [roadH,      setRoadH]      = useState(0);
+  const [roadW,      setRoadW]      = useState(0);
+  const [ready,      setReady]      = useState(false);
 
+  // ── Mutable refs (PanResponder safe) ──────────────────────────
+  const roadHRef    = useRef(0);
+  const roadWRef    = useRef(0);
+  const carYRef     = useRef(0);
+  const dragStartY  = useRef(0);
+  const selIdxRef   = useRef(selIdx);
+  const movingRef   = useRef(false);
+  const draggingRef = useRef(false);
+  const readyRef    = useRef(false);
+  const idleRef     = useRef<Animated.CompositeAnimation | null>(null);
+
+  useEffect(() => { selIdxRef.current = selIdx; }, [selIdx]);
+
+  // ── Animated values ───────────────────────────────────────────
+  const carBase    = useRef(new Animated.Value(0)).current;
+  const carScale   = useRef(new Animated.Value(1)).current;
+  const carOp      = useRef(new Animated.Value(0)).current;
+  const idleDelta  = useRef(new Animated.Value(0)).current;
+  // Combined Y shown on screen (base position + idle bob)
+  const carY       = useRef(Animated.add(carBase, idleDelta)).current;
+
+  const cpOp       = useRef(LEVELS.map(() => new Animated.Value(0))).current;
+  const progressOp = useRef(new Animated.Value(0)).current;
+  const cardOp     = useRef(new Animated.Value(0)).current;
+  const cardSlide  = useRef(new Animated.Value(24)).current;
+  const dashOffset = useRef(new Animated.Value(0)).current;
+
+  // ── Road dash loop ────────────────────────────────────────────
   useEffect(() => {
-    fade.value  = withDelay(60, withTiming(1, { duration: 550 }));
-    slide.value = withDelay(60, withSpring(0, { mass: 0.6, stiffness: 160, damping: 18 }));
+    const a = Animated.loop(
+      Animated.timing(dashOffset, {
+        toValue: DASH_STEP,
+        duration: 2400,
+        easing: Easing.linear,
+        useNativeDriver: true,
+      })
+    );
+    a.start();
+    return () => a.stop();
   }, []);
 
+  // ── Idle helpers (defined outside PanResponder for reuse) ─────
+  const startIdle = () => {
+    if (movingRef.current || draggingRef.current) return;
+    const a = Animated.loop(
+      Animated.sequence([
+        Animated.timing(idleDelta, {
+          toValue: -3,
+          duration: 1000,
+          easing: Easing.inOut(Easing.sin),
+          useNativeDriver: true,
+        }),
+        Animated.timing(idleDelta, {
+          toValue: 3,
+          duration: 1000,
+          easing: Easing.inOut(Easing.sin),
+          useNativeDriver: true,
+        }),
+      ])
+    );
+    idleRef.current = a;
+    a.start();
+  };
+
+  const stopIdle = () => {
+    if (idleRef.current) { idleRef.current.stop(); idleRef.current = null; }
+    idleDelta.setValue(0);
+  };
+
+  // ── Bounce helper ─────────────────────────────────────────────
+  const bounce = (cb?: () => void) =>
+    Animated.sequence([
+      Animated.timing(carScale, { toValue: 1.12, duration: 100, useNativeDriver: true }),
+      Animated.timing(carScale, { toValue: 1.0,  duration: 100, useNativeDriver: true }),
+    ]).start(cb);
+
+  // ── Entry animation (fires once after first layout) ───────────
   useEffect(() => {
-    if (canContinue) {
-      ctaShine.value = withRepeat(
-        withSequence(
-          withTiming(0.2, { duration: 1400 }),
-          withTiming(0,   { duration: 1400 })
-        ),
-        -1, false
-      );
-    }
-  }, [canContinue]);
+    if (!ready) return;
+    const rh = roadHRef.current;
+    const target = selIdxRef.current;
 
-  const handleFocus = () => {
-    setNameFocused(true);
-    inputSc.value = withSpring(1.012, { mass: 0.3, stiffness: 380, damping: 18 });
+    // Park car at level-1 (bottom) as animation start point
+    const bottomY = cpY(LEVELS[0], rh) - CAR_H / 2;
+    carBase.setValue(bottomY);
+    carYRef.current = bottomY;
+
+    // 1 — "Camino al NEM" indicator
+    Animated.timing(progressOp, {
+      toValue: 1, duration: 220, delay: 80, useNativeDriver: true,
+    }).start();
+
+    // 2 — Checkpoints staggered bottom → top
+    LEVELS.forEach((_, i) => {
+      Animated.timing(cpOp[i], {
+        toValue: i === target ? 1.0 : 0.65,
+        duration: 220,
+        delay: 300 + i * 90,
+        useNativeDriver: true,
+      }).start();
+    });
+
+    // 3 — Car fades in then drives to saved level
+    const carDelay = 300 + LEVELS.length * 90 + 60;
+    Animated.timing(carOp, {
+      toValue: 1, duration: 200, delay: carDelay, useNativeDriver: true,
+    }).start(() => {
+      if (target === 0) { startIdle(); return; }
+      movingRef.current = true;
+      const destY = cpY(LEVELS[target], rh) - CAR_H / 2;
+      Animated.timing(carBase, {
+        toValue: destY,
+        duration: 700,
+        easing: Easing.out(Easing.cubic),
+        useNativeDriver: true,
+      }).start(() => {
+        carYRef.current = destY;
+        bounce(() => { movingRef.current = false; startIdle(); });
+      });
+    });
+
+    // 4 — Vehicle card slides up
+    Animated.parallel([
+      Animated.timing(cardOp, {
+        toValue: 1, duration: 280, delay: carDelay + 180, useNativeDriver: true,
+      }),
+      Animated.timing(cardSlide, {
+        toValue: 0, duration: 280, delay: carDelay + 180,
+        easing: Easing.out(Easing.cubic), useNativeDriver: true,
+      }),
+    ]).start();
+  }, [ready]);
+
+  // ── Cleanup on unmount ────────────────────────────────────────
+  useEffect(() => () => { if (idleRef.current) idleRef.current.stop(); }, []);
+
+  // ── Navigate to level (from checkpoint tap) ───────────────────
+  const navTo = (idx: number) => {
+    const rh = roadHRef.current;
+    if (!rh || idx === selIdxRef.current) return;
+
+    stopIdle();
+    movingRef.current = true;
+    selIdxRef.current = idx;
+
+    const destY = cpY(LEVELS[idx], rh) - CAR_H / 2;
+    carYRef.current = destY;
+
+    // Dim old, brighten new checkpoint
+    LEVELS.forEach((_, i) => {
+      Animated.timing(cpOp[i], {
+        toValue: i === idx ? 1.0 : 0.65, duration: 300, useNativeDriver: true,
+      }).start();
+    });
+
+    // Move car
+    Animated.timing(carBase, {
+      toValue: destY, duration: 700,
+      easing: Easing.out(Easing.cubic), useNativeDriver: true,
+    }).start(() => {
+      try { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); } catch (_) {}
+      bounce(() => { movingRef.current = false; startIdle(); });
+    });
+
+    // Card: fade out → swap content → fade in
+    Animated.parallel([
+      Animated.timing(cardOp,    { toValue: 0,  duration: 140, useNativeDriver: true }),
+      Animated.timing(cardSlide, { toValue: 12, duration: 140, useNativeDriver: true }),
+    ]).start(() => {
+      setDisplayIdx(idx);
+      Animated.parallel([
+        Animated.timing(cardOp,    { toValue: 1, duration: 200, useNativeDriver: true }),
+        Animated.timing(cardSlide, {
+          toValue: 0, duration: 200,
+          easing: Easing.out(Easing.cubic), useNativeDriver: true,
+        }),
+      ]).start();
+    });
+
+    setSelIdx(idx);
+    setCurso(LEVELS[idx].course);
   };
-  const handleBlur = () => {
-    setNameFocused(false);
-    inputSc.value = withSpring(1, { mass: 0.3, stiffness: 280, damping: 18 });
-  };
 
-  const bodyStyle     = useAnimatedStyle(() => ({ opacity: fade.value, transform: [{ translateY: slide.value }] }));
-  const inputScStyle  = useAnimatedStyle(() => ({ transform: [{ scale: inputSc.value }] }));
-  const ctaShineStyle = useAnimatedStyle(() => ({ opacity: ctaShine.value }));
+  // ── PanResponder ──────────────────────────────────────────────
+  const pan = useRef(
+    PanResponder.create({
+      onStartShouldSetPanResponder: () => true,
+      onMoveShouldSetPanResponder:  () => true,
 
+      onPanResponderGrant: () => {
+        draggingRef.current = true;
+        // inline stopIdle (avoids closure over helpers)
+        if (idleRef.current) { idleRef.current.stop(); idleRef.current = null; }
+        idleDelta.setValue(0);
+        dragStartY.current = carYRef.current;
+        Animated.spring(carScale, {
+          toValue: 1.08, useNativeDriver: true, friction: 6, tension: 100,
+        }).start();
+      },
+
+      onPanResponderMove: (_, gs) => {
+        const rh = roadHRef.current;
+        if (!rh) return;
+        const min = cpY(LEVELS[LEVELS.length - 1], rh) - CAR_H / 2;
+        const max = cpY(LEVELS[0],                  rh) - CAR_H / 2;
+        const y   = Math.max(min, Math.min(max, dragStartY.current + gs.dy));
+        carYRef.current = y;
+        carBase.setValue(y);
+      },
+
+      onPanResponderRelease: () => {
+        const rh = roadHRef.current;
+        draggingRef.current = false;
+        if (!rh) return;
+
+        movingRef.current = true;
+        const idx   = nearestIdx(carYRef.current + CAR_H / 2, rh);
+        const destY = cpY(LEVELS[idx], rh) - CAR_H / 2;
+        carYRef.current   = destY;
+        selIdxRef.current = idx;
+
+        Animated.spring(carScale, {
+          toValue: 1, useNativeDriver: true, friction: 6, tension: 100,
+        }).start();
+
+        LEVELS.forEach((_, i) => {
+          Animated.timing(cpOp[i], {
+            toValue: i === idx ? 1.0 : 0.65, duration: 300, useNativeDriver: true,
+          }).start();
+        });
+
+        Animated.timing(carBase, {
+          toValue: destY, duration: 700,
+          easing: Easing.out(Easing.cubic), useNativeDriver: true,
+        }).start(() => {
+          try { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); } catch (_) {}
+          // inline bounce
+          Animated.sequence([
+            Animated.timing(carScale, { toValue: 1.12, duration: 100, useNativeDriver: true }),
+            Animated.timing(carScale, { toValue: 1.0,  duration: 100, useNativeDriver: true }),
+          ]).start(() => {
+            movingRef.current = false;
+            if (!draggingRef.current) {
+              const a = Animated.loop(
+                Animated.sequence([
+                  Animated.timing(idleDelta, {
+                    toValue: -3, duration: 1000,
+                    easing: Easing.inOut(Easing.sin), useNativeDriver: true,
+                  }),
+                  Animated.timing(idleDelta, {
+                    toValue: 3, duration: 1000,
+                    easing: Easing.inOut(Easing.sin), useNativeDriver: true,
+                  }),
+                ])
+              );
+              idleRef.current = a;
+              a.start();
+            }
+          });
+        });
+
+        // Card swap
+        Animated.parallel([
+          Animated.timing(cardOp,    { toValue: 0,  duration: 140, useNativeDriver: true }),
+          Animated.timing(cardSlide, { toValue: 12, duration: 140, useNativeDriver: true }),
+        ]).start(() => {
+          setDisplayIdx(idx);
+          Animated.parallel([
+            Animated.timing(cardOp,    { toValue: 1, duration: 200, useNativeDriver: true }),
+            Animated.timing(cardSlide, {
+              toValue: 0, duration: 200,
+              easing: Easing.out(Easing.cubic), useNativeDriver: true,
+            }),
+          ]).start();
+        });
+
+        setSelIdx(idx);
+        setCurso(LEVELS[idx].course);
+      },
+    })
+  ).current;
+
+  // ── Render ────────────────────────────────────────────────────
   return (
-    <ScreenContainer style={styles.root}>
-      <StatusBar barStyle="light-content" backgroundColor={BG} />
-      <LinearGradient colors={[BG, '#120B2F', '#1A1045']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={StyleSheet.absoluteFill} />
-      <View style={styles.orb1} />
+    <ScreenContainer style={s.root} edges={['top', 'bottom']}>
+      <StatusBar barStyle="dark-content" backgroundColor="transparent" translucent />
 
-      {/* Top bar */}
-      <View style={styles.topBar}>
-        <Pressable onPress={prevStep} style={styles.backBtn}>
-          <ChevronLeft size={22} color="rgba(255,255,255,0.8)" strokeWidth={2.2} />
+      {/* Full-screen road background */}
+      <ExpoImage
+        source={require('@/assets/images/grade-road.png')}
+        contentFit="fill"
+        style={StyleSheet.absoluteFill}
+      />
+
+      {/* Back button */}
+      <View style={s.topBar}>
+        <Pressable onPress={prevStep} style={s.backBtn}>
+          <ChevronLeft size={22} color={DARK} strokeWidth={2.2} />
         </Pressable>
-        <View style={styles.progressWrap}>
-          {Array.from({ length: TOTAL_STEPS }).map((_, i) => {
-            const done = i < state.currentStep;
-            return done ? (
-              <LinearGradient key={i} colors={[NEON, '#C44EFF']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={styles.progressSeg} />
-            ) : (
-              <View key={i} style={[styles.progressSeg, styles.progressSegOff]} />
-            );
-          })}
-        </View>
-        <View style={styles.stepLbl}>
-          <Text style={styles.stepLblText}>{state.currentStep}/{TOTAL_STEPS}</Text>
-        </View>
       </View>
 
-      <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false} bounces={false}>
-        <Animated.View style={[styles.body, bodyStyle]}>
-          <View style={{ alignItems: 'center', marginBottom: 10 }}>
-            <Smile size={48} color={LIME} strokeWidth={1.5} />
-          </View>
-          <Text style={styles.title}>¿Cuál es{'\n'}<Text style={styles.neon}>tu nombre?</Text></Text>
-          <Text style={styles.subtitle}>Personalizaremos tu experiencia de estudio</Text>
+      {/* Interactive road zone */}
+      <View
+        style={s.road}
+        onLayout={({ nativeEvent: { layout } }) => {
+          roadHRef.current = layout.height;
+          roadWRef.current = layout.width;
+          setRoadH(layout.height);
+          setRoadW(layout.width);
+          if (!readyRef.current) { readyRef.current = true; setReady(true); }
+        }}
+      >
+        {ready && roadW > 0 && (
+          <>
+            {/* ── Scrolling road dashes ── */}
+            <Animated.View
+              pointerEvents="none"
+              style={[
+                s.dashCol,
+                { left: roadW * ROAD_CX - DASH_W / 2 },
+                { transform: [{ translateY: dashOffset }] },
+              ]}
+            >
+              {Array.from({ length: DASH_N }).map((_, i) => (
+                <View
+                  key={i}
+                  style={[s.dash, { top: -DASH_STEP + i * DASH_STEP }]}
+                />
+              ))}
+            </Animated.View>
 
-          <Animated.View style={[styles.inputWrap, nameFocused && styles.inputWrapFocused, inputScStyle]}>
-            <View style={styles.inputIconWrap}>
-              <User size={16} color="rgba(255,255,255,0.7)" strokeWidth={2} />
-            </View>
-            <TextInput
-              style={styles.input}
-              placeholder="Tu nombre aquí..."
-              placeholderTextColor="rgba(255,255,255,0.28)"
-              value={state.data.name}
-              onChangeText={setName}
-              onFocus={handleFocus}
-              onBlur={handleBlur}
-              autoCapitalize="words"
-              cursorColor={NEON}
-              selectionColor={`${NEON}55`}
-            />
-          </Animated.View>
+            {/* ── Checkpoints ── */}
+            {LEVELS.map((lvl, idx) => {
+              const cy = cpY(lvl, roadH);
+              const cx = roadW * ROAD_CX;
+              const active = idx === selIdx;
+              return (
+                <Animated.View
+                  key={`cp-${lvl.level}`}
+                  style={[
+                    s.cpWrap,
+                    { top: cy - CP_R, left: cx - CP_R },
+                    { opacity: cpOp[idx] },
+                  ]}
+                >
+                  <Pressable
+                    onPress={() => navTo(idx)}
+                    hitSlop={14}
+                    style={[s.cpOuter, active && s.cpOuterActive]}
+                  >
+                    <View style={[s.cpDot, active && s.cpDotActive]} />
+                  </Pressable>
+                </Animated.View>
+              );
+            })}
 
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 10 }}>
-            <BookOpen size={12} color={LIME} strokeWidth={2.5} />
-            <Text style={[styles.sectionLabel, { marginBottom: 0 }]}>SELECCIONA TU CURSO</Text>
-          </View>
-          <View style={styles.cursoGrid}>
-            {CURSOS.map((curso) => (
-              <CursoCard
-                key={curso}
-                curso={curso}
-                active={state.data.curso === curso}
-                onPress={() => setCurso(curso)}
+            {/* ── "Camino al NEM" progress indicator ── */}
+            <Animated.View
+              pointerEvents="none"
+              style={[s.progressBar, { opacity: progressOp }]}
+            >
+              <Text style={s.progressTitle}>Camino al NEM</Text>
+              <View style={s.progressRow}>
+                {LEVELS.map((lvl, idx) => (
+                  <View key={lvl.level} style={s.progressItem}>
+                    <Text style={[s.progressLvl, idx === selIdx && s.progressLvlOn]}>
+                      {lvl.level}°
+                    </Text>
+                    {idx < LEVELS.length - 1 && (
+                      <Text style={s.progressArrow}>›</Text>
+                    )}
+                  </View>
+                ))}
+              </View>
+            </Animated.View>
+
+            {/* ── Vehicle preview card ── */}
+            <Animated.View
+              pointerEvents="none"
+              style={[
+                s.vehicleCard,
+                { opacity: cardOp, transform: [{ translateY: cardSlide }] },
+              ]}
+            >
+              <Text style={s.vehicleEmoji}>{VEHICLES[displayIdx].emoji}</Text>
+              <View style={s.vehicleInfo}>
+                <Text style={s.vehicleName}>{VEHICLES[displayIdx].name}</Text>
+                <Text style={s.vehicleLabel}>Vehículo desbloqueado</Text>
+              </View>
+            </Animated.View>
+
+            {/* ── Draggable car ── */}
+            <Animated.View
+              style={[
+                s.car,
+                { left: roadW * ROAD_CX - CAR_W / 2 },
+                {
+                  opacity: carOp,
+                  transform: [{ translateY: carY }, { scale: carScale }],
+                },
+              ]}
+              {...pan.panHandlers}
+            >
+              <ExpoImage
+                source={require('@/assets/images/city-car-detras.png')}
+                contentFit="contain"
+                style={{ width: CAR_W, height: CAR_H }}
               />
-            ))}
-          </View>
-        </Animated.View>
-      </ScrollView>
+            </Animated.View>
+          </>
+        )}
+      </View>
 
-      {/* CTA */}
-      <View style={styles.bottom}>
-        <Pressable
-          onPress={nextStep}
-          disabled={!canContinue}
-          style={({ pressed }) => [styles.ctaWrap, !canContinue && styles.ctaDisabled, pressed && canContinue && styles.ctaPressed]}
-        >
-          <LinearGradient
-            colors={canContinue ? [NEON, '#B44EFF'] : ['rgba(255,255,255,0.10)', 'rgba(255,255,255,0.07)']}
-            start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
-            style={styles.cta}
-          >
-            {canContinue && <Animated.View style={[styles.ctaShine, ctaShineStyle]} />}
-            <Text style={[styles.ctaText, !canContinue && styles.ctaTextOff]}>Siguiente</Text>
-            <ArrowRight size={17} color={canContinue ? '#FFF' : 'rgba(255,255,255,0.35)'} strokeWidth={2.5} />
-          </LinearGradient>
+      {/* Bottom bar */}
+      <View style={s.bottomBar}>
+        <ProgressDots current={3} />
+        <Pressable onPress={nextStep} style={s.arrowBtn}>
+          <ArrowRight size={22} color={palette.blanco} strokeWidth={2.5} />
         </Pressable>
       </View>
     </ScreenContainer>
   );
 }
 
-const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: BG },
-  orb1: { position: 'absolute', width: 200, height: 200, borderRadius: 100, backgroundColor: 'rgba(91,61,245,0.09)', top: -50, right: -50 },
-
-  topBar: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, paddingTop: 8, paddingBottom: 16, gap: 12 },
-  backBtn: { width: 38, height: 38, borderRadius: 12, backgroundColor: GLASS, borderWidth: 1, borderColor: GLASS_BORDER, alignItems: 'center', justifyContent: 'center' },
-  backBtnText: { fontSize: 22, fontWeight: '700', color: 'rgba(255,255,255,0.8)', lineHeight: 26 },
-  progressWrap: { flex: 1, flexDirection: 'row', gap: 6 },
-  progressSeg: { flex: 1, borderRadius: 3, height: 6 },
-  progressSegOff: { backgroundColor: 'rgba(255,255,255,0.12)' },
-  stepLbl: { backgroundColor: GLASS, borderRadius: 8, paddingVertical: 4, paddingHorizontal: 8, borderWidth: 1, borderColor: GLASS_BORDER },
-  stepLblText: { fontSize: 11, fontWeight: '700', color: 'rgba(255,255,255,0.6)' },
-
-  scroll: { flex: 1 },
-  scrollContent: { flexGrow: 1, paddingBottom: 24 },
-  body: { paddingHorizontal: 24, paddingTop: 4 },
-
-  emoji: { fontSize: 48, textAlign: 'center', marginBottom: 10 },
-  title: { fontSize: 32, fontWeight: '900', color: '#FFF', textAlign: 'center', lineHeight: 40, marginBottom: 8 },
-  neon: { color: LIME },
-  subtitle: { fontSize: 13, color: 'rgba(255,255,255,0.50)', textAlign: 'center', lineHeight: 19, marginBottom: 28 },
-
-  inputWrap: {
-    flexDirection: 'row', alignItems: 'center',
-    backgroundColor: GLASS, borderWidth: 1.5, borderColor: GLASS_BORDER,
-    borderRadius: 16, paddingHorizontal: 16, paddingVertical: 14,
-    gap: 12, marginBottom: 24,
-  },
-  inputWrapFocused: { borderColor: NEON, backgroundColor: 'rgba(124,90,255,0.09)' },
-  inputIconWrap: { width: 32, height: 32, borderRadius: 10, backgroundColor: 'rgba(124,90,255,0.22)', alignItems: 'center', justifyContent: 'center' },
-  inputIconEmoji: { fontSize: 16 },
-  input: { flex: 1, fontSize: 16, fontWeight: '600', color: '#FFF' },
-
-  sectionLabel: { fontSize: 10, fontWeight: '800', color: LIME, letterSpacing: 1.2, marginBottom: 10 },
-  cursoGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
-
-  cursoCard: {
-    width: '48%',
-    backgroundColor: GLASS, borderWidth: 1.5, borderColor: GLASS_BORDER,
-    borderRadius: 15, overflow: 'hidden',
-  },
-  cursoCardActive: {
-    borderColor: NEON,
-    shadowColor: NEON, shadowOffset: { width: 0, height: 0 }, shadowOpacity: 0.4, shadowRadius: 12, elevation: 6,
-  },
-  cursoPressable: {
-    paddingVertical: 16, paddingHorizontal: 12,
+// ── Styles ────────────────────────────────────────────────────
+const s = StyleSheet.create({
+  root:    { flex: 1, backgroundColor: BG },
+  topBar:  { paddingHorizontal: 16, paddingTop: 4, paddingBottom: 4 },
+  backBtn: {
+    width: 38, height: 38, borderRadius: 12,
+    backgroundColor: palette.blanco, borderWidth: 1, borderColor: palette.bordeClaro,
     alignItems: 'center', justifyContent: 'center',
-    flexDirection: 'row', gap: 8,
   },
-  cursoText: { fontSize: 14, fontWeight: '700', color: 'rgba(255,255,255,0.55)' },
-  cursoTextActive: { color: '#FFF', fontWeight: '800' },
-  cursoCheck: { fontSize: 13, color: LIME },
 
-  bottom: { paddingHorizontal: 24, paddingBottom: 32, paddingTop: 8 },
-  ctaWrap: { borderRadius: 18, overflow: 'hidden', shadowColor: NEON, shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.45, shadowRadius: 16, elevation: 10 },
-  ctaDisabled: { shadowOpacity: 0, elevation: 0 },
-  ctaPressed: { opacity: 0.88 },
-  cta: { paddingVertical: 17, alignItems: 'center', flexDirection: 'row', justifyContent: 'center', gap: 10 },
-  ctaShine: { position: 'absolute', top: 0, left: 0, right: 0, height: 22, backgroundColor: 'rgba(255,255,255,0.20)' },
-  ctaText: { fontSize: 17, fontWeight: '900', color: '#FFF' },
-  ctaArrow: { fontSize: 17, fontWeight: '900', color: '#FFF' },
-  ctaTextOff: { color: 'rgba(255,255,255,0.35)' },
+  road: { flex: 1 },
+
+  // Scrolling dashes
+  dashCol: {
+    position: 'absolute',
+    top: 0, bottom: 0,
+    width: DASH_W,
+    overflow: 'hidden',
+    zIndex: 1,
+  },
+  dash: {
+    position: 'absolute',
+    width: DASH_W, height: DASH_H,
+    borderRadius: 2,
+    backgroundColor: 'rgba(255,255,255,0.42)',
+  },
+
+  // Checkpoints
+  cpWrap:  { position: 'absolute', zIndex: 5 },
+  cpOuter: {
+    width: CP_R * 2, height: CP_R * 2, borderRadius: CP_R,
+    backgroundColor: 'rgba(255,255,255,0.72)',
+    borderWidth: 2, borderColor: palette.bordeClaro,
+    alignItems: 'center', justifyContent: 'center',
+  },
+  cpOuterActive: {
+    borderColor: PRIM,
+    backgroundColor: 'rgba(91,61,245,0.14)',
+  },
+  cpDot:       { width: CP_DOT * 2, height: CP_DOT * 2, borderRadius: CP_DOT, backgroundColor: palette.bordeClaro },
+  cpDotActive: { backgroundColor: PRIM },
+
+  // Progress indicator
+  progressBar: {
+    position: 'absolute', top: 14, left: 0, right: 0,
+    alignItems: 'center', zIndex: 20,
+  },
+  progressTitle: {
+    fontSize: 10, fontWeight: '700', color: MED,
+    letterSpacing: 0.8, textTransform: 'uppercase', marginBottom: 5,
+  },
+  progressRow: { flexDirection: 'row', alignItems: 'center' },
+  progressItem: { flexDirection: 'row', alignItems: 'center' },
+  progressLvl: { fontSize: 13, fontWeight: '600', color: 'rgba(100,116,139,0.45)' },
+  progressLvlOn: { fontSize: 14, fontWeight: '800', color: PRIM },
+  progressArrow: { fontSize: 13, color: 'rgba(100,116,139,0.35)', marginHorizontal: 4 },
+
+  // Vehicle card
+  vehicleCard: {
+    position: 'absolute', bottom: 16, left: 20, right: 20,
+    flexDirection: 'row', alignItems: 'center',
+    backgroundColor: 'rgba(255,255,255,0.88)',
+    borderRadius: 18, paddingVertical: 11, paddingHorizontal: 18,
+    zIndex: 12,
+  },
+  vehicleEmoji: { fontSize: 30, marginRight: 12 },
+  vehicleInfo:  { flex: 1 },
+  vehicleName:  { fontSize: 15, fontWeight: '800', color: DARK },
+  vehicleLabel: { fontSize: 10, color: MED, marginTop: 1 },
+
+  // Car
+  car: { position: 'absolute', top: 0, zIndex: 15 },
+
+  // Bottom bar
+  bottomBar: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    paddingHorizontal: 24, paddingTop: 8, paddingBottom: 12,
+    backgroundColor: BG,
+  },
+  arrowBtn: {
+    width: 54, height: 54, borderRadius: 27,
+    backgroundColor: PRIM, alignItems: 'center', justifyContent: 'center',
+  },
 });

@@ -1,5 +1,5 @@
 import ScreenContainer from '@/components/ScreenContainer';
-import { Colors } from '@/constants/Colors';
+import { palette, semantic } from '@/theme/colors';
 import { useOnboarding } from '@/contexts/OnboardingContext';
 import { GOAL_TYPES } from '@/types/onboarding';
 import {
@@ -30,7 +30,7 @@ export default function GoalTypeScreen() {
       <View style={styles.screenTop}>
         <Pressable onPress={prevStep}>
           <View style={styles.backBtn}>
-            <ChevronLeft size={20} color={Colors.ink} strokeWidth={2.5} />
+            <ChevronLeft size={20} color={semantic.textPrimary} strokeWidth={2.5} />
           </View>
         </Pressable>
       </View>
@@ -52,7 +52,7 @@ export default function GoalTypeScreen() {
       {/* Body */}
       <View style={styles.body}>
         <View style={{ alignItems: 'center', marginBottom: 12, marginTop: 16 }}>
-          <Lightbulb size={48} color={Colors.brand} strokeWidth={1.5} />
+          <Lightbulb size={48} color={palette.morado} strokeWidth={1.5} />
         </View>
         <Text style={styles.title}>¿Por qué estudias?</Text>
         <Text style={styles.subtitle}>Selecciona tu motivación principal</Text>
@@ -70,7 +70,7 @@ export default function GoalTypeScreen() {
             >
               {(() => {
                 const GoalIcon = GOAL_TYPE_ICON[reason.id] ?? ClipboardList;
-                return <GoalIcon size={24} color={state.data.goalType === reason.id ? Colors.brand : Colors.ink3} strokeWidth={1.8} />;
+                return <GoalIcon size={24} color={state.data.goalType === reason.id ? palette.morado : semantic.textSecondary} strokeWidth={1.8} />;
               })()}
               <View style={styles.reasonContent}>
                 <Text style={styles.reasonTitle}>{reason.title}</Text>
@@ -99,7 +99,7 @@ export default function GoalTypeScreen() {
           disabled={!state.data.goalType}
         >
           <Text style={styles.continueBtnText}>Siguiente</Text>
-          <ArrowRight size={16} color="white" strokeWidth={2.5} />
+          <ArrowRight size={16} color={palette.blanco} strokeWidth={2.5} />
         </Pressable>
       </View>
     </ScreenContainer>
@@ -109,7 +109,7 @@ export default function GoalTypeScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: Colors.paper,
+    backgroundColor: semantic.background,
   },
   statusBar: {
     flexDirection: 'row',
@@ -120,7 +120,7 @@ const styles = StyleSheet.create({
   time: {
     fontSize: 12,
     fontWeight: '600',
-    color: Colors.ink,
+    color: semantic.textPrimary,
   },
   screenTop: {
     flexDirection: 'row',
@@ -131,14 +131,14 @@ const styles = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: 10,
-    backgroundColor: Colors.bgSoft,
+    backgroundColor: palette.crema,
     justifyContent: 'center',
     alignItems: 'center',
   },
   backBtnText: {
     fontSize: 20,
     fontWeight: '700',
-    color: Colors.ink,
+    color: semantic.textPrimary,
   },
   progressDots: {
     flexDirection: 'row',
@@ -149,14 +149,14 @@ const styles = StyleSheet.create({
   dot: {
     flex: 1,
     height: 3,
-    backgroundColor: Colors.line,
+    backgroundColor: palette.bordeClaro,
     borderRadius: 2,
   },
   dotActive: {
-    backgroundColor: Colors.brand,
+    backgroundColor: palette.morado,
   },
   dotDone: {
-    backgroundColor: Colors.brand,
+    backgroundColor: palette.morado,
   },
   body: {
     flex: 1,
@@ -173,11 +173,11 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     textAlign: 'center',
     marginBottom: 8,
-    color: Colors.ink,
+    color: semantic.textPrimary,
   },
   subtitle: {
     fontSize: 14,
-    color: Colors.ink3,
+    color: semantic.textSecondary,
     textAlign: 'center',
     marginBottom: 20,
   },
@@ -185,9 +185,9 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   reasonCard: {
-    backgroundColor: Colors.paper,
+    backgroundColor: semantic.surface,
     borderWidth: 1.5,
-    borderColor: Colors.line,
+    borderColor: palette.bordeClaro,
     borderRadius: 12,
     paddingVertical: 12,
     paddingHorizontal: 12,
@@ -196,8 +196,8 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   reasonCardActive: {
-    borderColor: Colors.brand,
-    backgroundColor: Colors.brandSoft,
+    borderColor: palette.morado,
+    backgroundColor: palette.moradoBg,
   },
   reasonEmoji: {
     fontSize: 24,
@@ -209,12 +209,12 @@ const styles = StyleSheet.create({
   reasonTitle: {
     fontSize: 14,
     fontWeight: '700',
-    color: Colors.ink,
+    color: semantic.textPrimary,
     marginBottom: 2,
   },
   reasonDesc: {
     fontSize: 11,
-    color: Colors.ink3,
+    color: semantic.textSecondary,
     lineHeight: 16,
   },
   reasonRadio: {
@@ -222,19 +222,19 @@ const styles = StyleSheet.create({
     height: 20,
     borderRadius: 10,
     borderWidth: 2,
-    borderColor: Colors.line2,
+    borderColor: palette.bordeMedio,
     justifyContent: 'center',
     alignItems: 'center',
   },
   reasonRadioActive: {
-    borderColor: Colors.brand,
-    backgroundColor: Colors.brand,
+    borderColor: palette.morado,
+    backgroundColor: palette.morado,
   },
   radioDot: {
     width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: 'white',
+    backgroundColor: palette.blanco,
   },
   bottom: {
     paddingHorizontal: 16,
@@ -243,7 +243,7 @@ const styles = StyleSheet.create({
   },
   continueBtn: {
     width: '100%',
-    backgroundColor: Colors.brand,
+    backgroundColor: palette.morado,
     paddingVertical: 14,
     borderRadius: 14,
     flexDirection: 'row',
@@ -252,17 +252,17 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   continueBtnDisabled: {
-    backgroundColor: Colors.line,
+    backgroundColor: palette.bordeClaro,
     opacity: 0.5,
   },
   continueBtnText: {
     fontSize: 16,
     fontWeight: '700',
-    color: 'white',
+    color: palette.blanco,
   },
   continueBtnArrow: {
     fontSize: 16,
     fontWeight: '700',
-    color: 'white',
+    color: palette.blanco,
   },
 });

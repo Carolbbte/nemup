@@ -1,30 +1,38 @@
 import { useOnboarding } from '@/contexts/OnboardingContext';
 import { View } from 'react-native';
-import CommitmentScreen from './commitment';
+import Animated, { FadeIn, FadeOut } from 'react-native-reanimated';
 import CompleteScreen from './complete';
 import GoalScreen from './goal';
+import HowItWorksScreen from './how-it-works';
 import NameCursoScreen from './name-curso';
+import ProfileScreen from './profile';
+import VehicleAssignedScreen from './vehicle-assigned';
 import WelcomeScreen from './welcome';
+
+const SCREENS = [
+  WelcomeScreen,
+  ProfileScreen,
+  HowItWorksScreen,
+  NameCursoScreen,
+  GoalScreen,
+  VehicleAssignedScreen,
+  CompleteScreen,
+];
 
 export default function OnboardingNavigator() {
   const { state } = useOnboarding();
+  const Screen = SCREENS[state.currentStep] ?? WelcomeScreen;
 
-  const renderScreen = () => {
-    switch (state.currentStep) {
-      case 0:
-        return <WelcomeScreen />;
-      case 1:
-        return <NameCursoScreen />;
-      case 2:
-        return <GoalScreen />;
-      case 3:
-        return <CommitmentScreen />;
-      case 4:
-        return <CompleteScreen />;
-      default:
-        return <WelcomeScreen />;
-    }
-  };
-
-  return <View style={{ flex: 1 }}>{renderScreen()}</View>;
+  return (
+    <View style={{ flex: 1 }}>
+      <Animated.View
+        key={state.currentStep}
+        entering={FadeIn.duration(220)}
+        exiting={FadeOut.duration(160)}
+        style={{ flex: 1 }}
+      >
+        <Screen />
+      </Animated.View>
+    </View>
+  );
 }

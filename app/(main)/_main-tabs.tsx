@@ -1,6 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { BottomTabBarProps } from '@react-navigation/bottom-tabs';
-import { Colors } from '@/constants/Colors';
+import { palette, semantic } from '@/theme/colors';
 import { Tabs, useRouter } from 'expo-router';
 import { useEffect, useRef } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
@@ -8,7 +8,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BookOpen, Bot, Home, Trophy, User } from 'lucide-react-native';
 
 const FIRST_SESSION_KEY = 'nemup_first_session_completed';
-const BRAND = '#5B3DF5';
+const BRAND = palette.morado;
 
 type TabName = 'home' | 'ramos' | 'tutor' | 'liga' | 'perfil';
 
@@ -29,7 +29,7 @@ const TAB_LABELS: Record<string, string> = {
 };
 
 const VISIBLE  = new Set(['home', 'ramos', 'tutor', 'liga', 'perfil']);
-const HIDE_BAR = new Set(['modals/first-session', 'modals/upload', 'modals/session']);
+const HIDE_BAR = new Set(['modals/first-session', 'modals/upload', 'modals/session', 'session-complete']);
 
 // ── Floating tab bar ─────────────────────────────────────────────
 function FloatingTabBar({ state, navigation }: BottomTabBarProps) {
@@ -71,7 +71,7 @@ function FloatingTabBar({ state, navigation }: BottomTabBarProps) {
                 {Icon && (
                   <Icon
                     size={22}
-                    color={focused ? BRAND : Colors.muted}
+                    color={focused ? BRAND : semantic.textTertiary}
                     strokeWidth={focused ? 2.2 : 1.8}
                   />
                 )}
@@ -89,23 +89,18 @@ function FloatingTabBar({ state, navigation }: BottomTabBarProps) {
 
 const tabStyles = StyleSheet.create({
   wrapper: {
-    backgroundColor: '#F7F8FC',
+    backgroundColor: palette.crema,
     paddingHorizontal: 16,
     paddingTop: 8,
   },
   bar: {
     flexDirection: 'row',
-    backgroundColor: 'white',
+    backgroundColor: palette.blanco,
     borderRadius: 28,
     paddingVertical: 8,
     paddingHorizontal: 6,
-    shadowColor: '#0B0B1A',
-    shadowOffset: { width: 0, height: -2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 20,
-    elevation: 20,
     borderWidth: 1,
-    borderColor: 'rgba(0,0,0,0.05)',
+    borderColor: palette.bordeClaro,
   },
   item: {
     flex: 1,
@@ -121,16 +116,12 @@ const tabStyles = StyleSheet.create({
     alignItems: 'center',
   },
   iconWrapActive: {
-    backgroundColor: 'rgba(91,61,245,0.1)',
-    shadowColor: BRAND,
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.18,
-    shadowRadius: 8,
+    backgroundColor: palette.moradoBg,
   },
   label: {
     fontSize: 10,
     fontWeight: '600',
-    color: Colors.muted,
+    color: semantic.textTertiary,
     letterSpacing: 0.2,
   },
   labelActive: {
@@ -167,6 +158,7 @@ export default function MainTabs() {
       <Tabs.Screen name="modals/upload"        options={{ href: null }} />
       <Tabs.Screen name="modals/session"       options={{ href: null }} />
       <Tabs.Screen name="modals/first-session" options={{ href: null }} />
+      <Tabs.Screen name="session-complete"     options={{ href: null }} />
     </Tabs>
   );
 }

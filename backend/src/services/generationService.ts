@@ -100,7 +100,7 @@ JSON SCHEMA — return ONLY this structure:
     "title": string,
     "slides": [
       {
-        "type": "mission"|"main_concept"|"comprehension"|"key_relation"|"mini_quiz"|"process_flow"|"decide"|"application"|"common_error"|"wow_fact"|"victory"|"challenge",
+        "type": "mission"|"main_concept"|"comprehension"|"key_relation"|"mini_quiz"|"process_flow"|"decide"|"application"|"common_error"|"wow_fact"|"final_challenge"|"victory"|"challenge",
         "emoji": string,
         "title": string,
         "definition": string,
@@ -121,373 +121,382 @@ JSON SCHEMA — return ONLY this structure:
 // ── Prompt builders ───────────────────────────────────────────────────────────
 
 function buildConceptualPrompt(transcription: string, curso: string): string {
-  return `You are a Duolingo-style learning experience designer for Chilean high-school students (${curso}). Your mission is NOT to summarize a document — it is to engineer DISCOVERY moments that make a teenager feel "quiero ver la siguiente pantalla."
+  return `Eres un Arquitecto de Aprendizaje para estudiantes chilenos de enseñanza media (${curso}).
+Tu tarea NO es generar una secuencia fija de pantallas. Es DISEÑAR una misión pedagógicamente coherente a partir de un análisis real del contenido.
 
-⚠️ CRITICAL CONTENT RULE — READ BEFORE GENERATING ANYTHING:
-ALL content (titles, definitions, examples, questions, options, connectors) MUST be derived EXCLUSIVELY from the transcription below.
-DO NOT introduce concepts, terms, vocabulary, or examples from outside the transcription.
-The format examples scattered through this prompt are FORMAT demonstrations only — their subject matter (e.g., biology, physics examples used to illustrate structure) must NEVER appear in the output unless they also appear in the transcription.
-If the transcription is about Ondas → every screen talks about ondas, frecuencia, amplitud, longitud de onda — NEVER about demanda, precio, stock, or any other topic.
-Treat the transcription as the ONLY allowed source of academic content.
+⚠️ REGLA CRÍTICA DE CONTENIDO — LEE ANTES DE GENERAR CUALQUIER COSA:
+TODO el contenido (títulos, definiciones, ejemplos, preguntas, opciones, conectores) DEBE derivarse EXCLUSIVAMENTE de la transcripción.
+NO introduzcas conceptos, términos, vocabulario ni ejemplos ajenos a la transcripción.
+Los ejemplos de formato en este prompt son SOLO demostraciones de estructura — su contenido temático (biología, física, química usados como ejemplo) NUNCA debe aparecer en el output salvo que también aparezca en la transcripción.
+Si la transcripción trata de Ondas → cada pantalla habla de ondas, frecuencia, amplitud — NUNCA de demanda, precio, fotosíntesis ni ningún otro tema.
+Trata la transcripción como la ÚNICA fuente de contenido académico permitida.
 
-SESSION PHILOSOPHY:
-  HOOK → CONCEPTO CLAVE → MICRO RETO → RELACIÓN → MINI QUIZ → DESAFÍO → APLICACIÓN → ERROR COMÚN → CURIOSIDAD → VICTORIA
-  Each screen must provoke exactly ONE of: Curiosidad / Sorpresa / Conexión personal / Descubrimiento / Reflexión.
-  A screen that only INFORMS is invalid. It must make the student FEEL something.
-
-RETURN ONLY VALID JSON. No extra text. All content in Spanish.
-
-CURSO ADAPTATION (MANDATORY):
-- 1º Medio: very simple language, recognition questions, everyday examples, no inference.
-- 2º Medio: plain language, basic application, conceptual understanding.
-- 3º Medio: relational analysis, reasoning, real consequences.
-- 4º Medio: critical thinking, complex application, pre-university depth.
+DEVUELVE SOLO JSON VÁLIDO. Sin texto adicional. Todo el contenido en español.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-INTERNAL ANALYSIS — do this mentally BEFORE generating JSON:
+FASE 1 — ANÁLISIS PEDAGÓGICO [MENTAL — ANTES DE GENERAR JSON]
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-1. List ALL distinct concepts and topics present in this document (exhaustive — no skipping). Count them. Then confirm your session will cover ≥80% of them (if 5 concepts → minimum 4 must appear in slides). Write the list now before generating JSON.
-2. Assign each key concept to a specific screen BEFORE writing JSON. Interactive screens (3, 5, 6) must each test a DIFFERENT concept.
-3. What is the causal chain? (A causes B causes C — not just "A relates to B")
-4. What would a smart 15-year-old WRONGLY believe about this topic?
-5. What is the single most counterintuitive fact? → this becomes screen 9 (wow_fact).
-6. Which concept can be turned into a genuine dilemma? → this becomes screen 6 (decide).
-7. Are any two concepts nearly identical? If YES → only include the more interesting one.
-NO-REPETITION LAW: Each of the 10 screens must teach something DIFFERENT. Before writing each screen ask: "Did I already show this idea?" If YES → use a different concept.
-COVERAGE LAW: If the document has N distinct concepts, at least ⌈N × 0.8⌉ must appear in the session. A single-concept session from a multi-concept document is INVALID.
-NEVER-EMPTY LAW: Every slide MUST have title ≥ 3 words and definition ≥ 10 words. Check each slide before including it in the JSON.
+Analiza la transcripción completa. Identifica TODOS los elementos pedagógicos presentes:
+• Conceptos (qué son las cosas)
+• Habilidades (qué se puede hacer con ellas)
+• Procedimientos (cómo se ejecuta algo, paso a paso)
+• Reglas (cuándo aplica algo, excepciones)
+• Modelos y principios (qué explica un patrón general)
+• Procesos (qué ocurre por etapas, causa → efecto → resultado)
+• Relaciones causa-efecto (A produce B, B produce C)
+• Clasificaciones (tipos de X, categorías y criterios)
+• Prerrequisitos (qué hay que saber antes de entender el resto)
+• Errores frecuentes (qué confunden los estudiantes reales de enseñanza media)
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-TEXT LIMITS — apply to EVERY screen:
+FASE 2 — OBJETIVO DE APRENDIZAJE [MENTAL — ANTES DE CLASIFICAR]
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-- definition: maximum 2 sentences OR 30 words — whichever is shorter.
-- example: maximum 15 words.
-- title: maximum 8 words.
-Prefer scannable phrases over connected prose.
-FORMAT ONLY — replace with concepts from the document:
-BAD: "La onda es una perturbación que viaja a través del medio transfiriendo su energía de un punto al otro."
-GOOD: "La onda viaja por el medio.\nLleva energía, no materia.\nSe debilita con la distancia."
-⚠️ NEVER copy this subject matter (ondas) into sessions about other topics.
+Define UN SOLO objetivo de aprendizaje principal para esta misión.
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-PROGRESSIVE DIFFICULTY — mandatory across interactive screens:
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-Screen 3 (comprehension) → NIVEL 1: RECORDAR — recognition. Did they absorb the concept?
-Screen 5 (mini_quiz)     → NIVEL 2-3: COMPRENDER + APLICAR — must reason, not just recall.
-Screen 6 (decide)        → NIVEL 3-4: APLICAR + ANALIZAR — choice with consequences.
-wow_fact question        → NIVEL 4: ANALIZAR — reason about the counterintuitive outcome.
-Each successive interactive screen MUST be harder than the previous one.
+Formato obligatorio:
+  "Al terminar esta misión, el estudiante podrá [VERBO COGNITIVO] [QUÉ] [EN QUÉ CONTEXTO]."
+
+El verbo cognitivo debe corresponder al nivel real que permite el documento:
+  Recordar / Identificar → el documento solo describe o lista.
+  Explicar / Diferenciar → el documento muestra relaciones o mecanismos.
+  Aplicar / Resolver → el documento incluye procedimientos o casos.
+  Analizar / Evaluar → el documento presenta causas, consecuencias o decisiones.
+
+REGLA: El objetivo determina qué conceptos son nucleares.
+  Un concepto es nuclear SOLO si su ausencia impide alcanzar ese objetivo.
+  Un concepto que aporta contexto pero no es necesario para lograr el objetivo → Tipo B o Tipo C.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-EMOTIONAL FEEDBACK RULE — applies to ALL interactive screens (3, 5, 6, wow_fact):
+FASE 3 — CLASIFICACIÓN DE IMPORTANCIA [MENTAL]
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-The "definition" field is shown AFTER the student answers. It must feel like a coach, not a textbook.
-MANDATORY: start with ONE of these emoji reactions, then explain WHY in max 15 words:
-  🔥 Exacto — [why, derived from THIS document's content]
-  🚀 Correcto — [why, derived from THIS document's content]
-  ⚡ Lo captaste — [why, derived from THIS document's content]
-  🎯 Acertaste — [why, derived from THIS document's content]
-❌ FORBIDDEN: "La respuesta correcta es...", "Correcto porque...", "Esta opción es la correcta..."
-✅ REQUIRED: the explanation should also hint why the main distractor was tempting.
-FORMAT: "🔥 Exacto — [key insight from THIS topic in 10 words, hinting why wrong option was tempting]."
-⚠️ The explanation content MUST come exclusively from the transcription. Never invent concepts.
+Clasifica CADA elemento detectado en una de tres categorías.
+La clasificación se hace SIEMPRE EN RELACIÓN AL OBJETIVO DE APRENDIZAJE definido en Fase 2.
+
+TIPO A — CONCEPTO NUCLEAR
+Cumple AL MENOS 2 de estas condiciones Y contribuye directamente al objetivo:
+  ✓ Su ausencia impide alcanzar el objetivo de aprendizaje
+  ✓ Tiene significado propio (no depende de otro para existir)
+  ✓ Requiere comprensión profunda, no solo memorización
+  ✓ Puede evaluarse de forma independiente respecto al objetivo
+  ✓ Tiene errores frecuentes documentados asociados
+→ Genera SECCIÓN PROPIA en la misión.
+
+TIPO B — CONCEPTO DE APOYO
+  → Ayuda a entender un concepto nuclear, pero no es evaluable por sí solo.
+  → O bien: es interesante, pero no es necesario para alcanzar el objetivo.
+  → Se explica BREVEMENTE dentro de la pantalla main_concept de la sección nuclear correspondiente.
+  → NO genera sección propia.
+  → NO puede aparecer como tema central de preguntas interactivas.
+
+TIPO C — INFORMACIÓN COMPLEMENTARIA
+  → No contribuye al objetivo de aprendizaje.
+  → Solo aporta contexto o curiosidad.
+  → No genera pantalla.
+
+PRUEBA DE DEGRADACIÓN — aplicar a cada elemento antes de clasificarlo como Tipo A:
+  "Si el estudiante NO aprende este concepto, ¿puede igual alcanzar el objetivo de la misión?"
+  → Si SÍ → degradar a Tipo B o Tipo C.
+  → Si NO → puede ser Tipo A (verificar las demás condiciones).
+
+REGLA CRÍTICA DE SELECCIÓN:
+La IA NO debe convertir automáticamente cada concepto en una pantalla.
+Objetivo: ENSEÑAR MENOS CONCEPTOS, CON MAYOR PROFUNDIDAD.
+
+Documento corto (hasta ~400 palabras): selecciona MÁXIMO 3 conceptos nucleares (Tipo A).
+Documento largo (más de ~400 palabras): selecciona MÁXIMO 5 conceptos nucleares (Tipo A).
+Si existen más Tipo A del límite → selecciona los que más contribuyen al objetivo.
+El resto queda para futuras sesiones.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-DISTRACTOR QUALITY RULE — all interactive screens:
+FASE 4 — VALIDACIÓN DE DEPENDENCIAS CONCEPTUALES [MENTAL]
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-All wrong options must be believable partial-truths, not obvious nonsense.
-❌ STRICTLY FORBIDDEN in any option: "Todas las anteriores", "Ninguna de las anteriores", "No cambia nada", "porque sí", "todas pueden ocurrir", "no tiene ningún efecto".
-RULE: EXACTLY ONE clearly correct answer per question. If two options could both be correct → rewrite.
+Antes de diseñar las secciones, verifica el orden de los conceptos nucleares seleccionados.
+
+PASO A — Detectar dependencias:
+  Para cada concepto nuclear, pregunta: "¿Para entender este concepto, el estudiante necesita entender primero otro concepto de esta misma lista?"
+  Si SÍ → ese otro concepto es un PRERREQUISITO del primero.
+  Si el prerrequisito NO está en la lista de nucleares pero sí en el documento → agrégalo como Tipo A al inicio.
+  Si el prerrequisito NO aparece en el documento en absoluto → mencionarlo como Tipo B en la primera sección que lo necesite.
+
+PASO B — Ordenar las secciones por dependencia:
+  Los conceptos sin prerrequisitos van primero.
+  Los conceptos que dependen de otro van después de ese otro.
+  Si dos conceptos son independientes entre sí → ordenar por importancia para el objetivo.
+
+PASO C — Verificar que ninguna sección dé por sabido lo que aún no fue enseñado:
+  Antes de escribir cada main_concept, confirma: "¿Todo lo que esta pantalla asume que el estudiante ya sabe fue enseñado en una sección anterior de esta misma misión?"
+  → Si NO → o bien mover la sección, o bien introducir el prerrequisito como Tipo B al inicio de ESTA sección.
+
+RESULTADO ESPERADO: una secuencia de secciones donde cada concepto se apoya sobre los anteriores, sin saltos cognitivos.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-THE 10 SCREENS — generate EXACTLY in this order:
+FASE 5 — DISEÑO DE LA SECUENCIA DE SECCIONES
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+La misión se construye como SECCIONES, no como una lista fija de pantallas.
+Cada sección = un concepto nuclear (Tipo A).
+Cada sección responde progresivamente: ¿Qué es? → ¿Cómo funciona? → ¿Cómo reconocerlo? → ¿Cómo aplicarlo?
+
+ESTRUCTURA OBLIGATORIA DE LA SECUENCIA COMPLETA:
+
+╔═══════════════════════════════════════╗
+║  [1] GANCHO — type: "mission"         ║  UNA SOLA (al inicio)
+╠═══════════════════════════════════════╣
+║  [2] SECCIONES — repetir por cada     ║
+║  concepto nuclear seleccionado:       ║
+║    [A] main_concept    [OBLIGATORIA]  ║
+║    [B] comprehension   [OBLIGATORIA]  ║
+║    [C] key_relation    [OPCIONAL]     ║
+║    [D] common_error    [OPCIONAL]     ║
+╠═══════════════════════════════════════╣
+║  [3] APLICACIÓN — type: "application" ║  UNA SOLA (después de todas las secciones)
+║  [4] DESAFÍO — type: "final_challenge"║  UNO, OBLIGATORIO
+║  [5] VICTORIA — type: "victory"       ║  UNA SOLA (al final)
+╚═══════════════════════════════════════╝
+
+RECUENTO TOTAL ESPERADO:
+  3 conceptos nucleares → 1 + (2–4 × 3) + 3 = 10–16 slides
+  5 conceptos nucleares → 1 + (2–4 × 5) + 3 = 14–28 slides
+
+DATO DE CURIOSIDAD OPCIONAL (wow_fact):
+  Si existe un dato genuinamente sorprendente y contraintuitivo sobre alguno de los conceptos nucleares → agrega UNA pantalla wow_fact dentro de la sección correspondiente, entre [C] y [D].
+  Si el dato no sorprendería a un estudiante de 15 años → NO lo incluyas.
+  NUNCA uses wow_fact para repetir algo ya explicado en main_concept.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+PROHIBICIÓN ABSOLUTA — REGLA DE ORO
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+✗ NUNCA preguntar algo que no fue enseñado EXPLÍCITAMENTE en la pantalla main_concept de esa misma sección.
+✗ NUNCA introducir conceptos nuevos dentro de una pregunta interactiva (comprehension, final_challenge, application).
+✗ NUNCA evaluar conceptos Tipo B o Tipo C — solo Tipo A.
+✗ NUNCA usar el final_challenge para evaluar algo que solo apareció como ejemplo o en el conector.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ADAPTACIÓN POR CURSO (OBLIGATORIA):
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+- 1º Medio: lenguaje muy simple, preguntas de reconocimiento, ejemplos cotidianos, sin inferencias.
+- 2º Medio: lenguaje llano, aplicación básica, comprensión conceptual.
+- 3º Medio: análisis relacional, razonamiento, consecuencias reales.
+- 4º Medio: pensamiento crítico, aplicación compleja, profundidad pre-universitaria.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+DEFINICIÓN DETALLADA DE CADA TIPO DE PANTALLA
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-SCREEN 1 — type: "mission" — emoji: 🎯
-THE HOOK — most critical screen. Creates IMMEDIATE curiosity. If this screen is boring, the student stops.
-- title: A CURIOSITY QUESTION about the topic. MAX 14 words. MUST end with "?".
-  The student reads it and thinks: "Hm, I want to know the answer to that."
-  ✅ GOOD — Física/Ondas: "¿Cómo puede viajar música por el aire sin ningún cable?"
-  ✅ GOOD — Física/Ondas: "¿Por qué escuchas el trueno DESPUÉS de ver el relámpago?"
-  ✅ GOOD — Biología: "¿Cómo come una planta si no tiene boca ni estómago?"
-  ✅ GOOD — Tecnología: "¿Cómo sabe Spotify qué canción querrás escuchar antes de que la conozcas?"
-  ✅ GOOD — Historia: "¿Por qué un país rico puede volverse pobre en pocos años?"
-  ✅ GOOD — Química: "¿Por qué mezclar agua con aceite es casi imposible?"
-  ⚠️ FORMAT EXAMPLES ONLY — create a curiosity question about THIS document's topic, not these subjects.
-  ❌ BAD: "Misión: Ondas y sus parámetros" — NOT a question. Creates zero curiosity.
-  ❌ BAD: "Descubre cómo funcionan las ondas" — declarative statement, not a hook.
-  ❌ BAD: "¿Qué son las ondas?" — too direct. Doesn't create mystery.
-  RULE: The title MUST be an indirect curiosity question, NOT a direct "¿Qué es X?" question.
-- definition: ONE sentence that teases the discovery — what will they understand by the end? Max 20 words.
-  DO NOT reveal the answer. Create anticipation.
-  ✅ "Al terminar esta misión, entenderás por qué esto afecta tu vida más de lo que crees."
-  ✅ "Descubrirás algo sobre este tema que contradice lo que la mayoría da por sentado."
-  ❌ "Aprenderás sobre las ondas y sus parámetros" — boring, informational, no anticipation.
-- example: subject area in 3-5 words. Example: "Física · 2° Medio" or "Biología · 3° Medio"
+PANTALLA "mission" — EL GANCHO [UNA SOLA — POSICIÓN 1]
+  La pantalla más crítica. Crea curiosidad INMEDIATA. Si esta pantalla es aburrida, el estudiante abandona.
+  - title: PREGUNTA DE CURIOSIDAD INDIRECTA sobre el tema. MAX 14 palabras. DEBE terminar con "?".
+    El estudiante la lee y piensa: "Quiero saber la respuesta."
+    SOLO FORMATO — crea una pregunta sobre ESTE documento, no copies estos temas:
+    ✅ "¿Cómo puede viajar música por el aire sin ningún cable?" [Física/Ondas]
+    ✅ "¿Por qué un país rico puede volverse pobre en pocos años?" [Historia/Economía]
+    ✅ "¿Cómo come una planta si no tiene boca ni estómago?" [Biología]
+    ❌ MALO: "Misión: Ondas y sus parámetros" — no es pregunta, no crea curiosidad.
+    ❌ MALO: "¿Qué son las ondas?" — demasiado directo, no crea misterio.
+    REGLA: El título DEBE ser una pregunta de curiosidad indirecta — NUNCA una pregunta directa "¿Qué es X?".
+  - definition: UNA frase que genera anticipación sin revelar la respuesta. Max 20 palabras.
+    ✅ "Al terminar esta misión, entenderás por qué esto afecta tu vida más de lo que crees."
+    ❌ "Aprenderás sobre este tema." — aburrido, informativo, sin anticipación.
+  - example: área temática en 3-5 palabras. Ej: "Biología · 2° Medio"
 
-SCREEN 2 — type: "main_concept" — emoji: fitting to content
-DISCOVERY SEQUENCE: Pregunta → Descubrimiento → Explicación breve
-- title: concept name (max 5 words)
-- definition: TWO sentences max 25 words total:
-  Sentence 1: A question the student can't yet answer (curiosity hook)
-  Sentence 2: The discovery — answers the question simply, zero jargon
-  FORMAT ONLY — write about THIS document's content, never copy these subjects:
-  ✅ Física: "¿Por qué los murciélagos vuelan en total oscuridad? Emiten sonidos y detectan el eco que rebotan en los objetos."
-  ✅ Biología: "¿Por qué sientes hambre aunque acabas de comer? Tu cuerpo usa señales químicas para mantener estable su nivel de energía."
-  ❌ "En esta sesión aprenderemos sobre [tema]." — statement, not discovery.
-- example: SPECIFIC situation a Chilean teenager encounters TODAY. Concrete name or number.
-  FORMAT ONLY — write about THIS document's content, never copy these subjects:
-  ✅ Física: "Tu celular usa señales 5G: ondas con frecuencia altísima que transmiten más datos por segundo."
-  ✅ Biología: "Cuando entrenas, tus músculos se rompen microscópicamente y el cuerpo los repara más gruesos."
-  ❌ "Esto es relevante para la vida cotidiana." — FORBIDDEN, too abstract.
-- connector: REQUIRED — visual causal chain in EXACTLY this format:
-  "emoji1 Step1 ↓ verb ↓ emoji2 Step2 ↓ verb ↓ emoji3 Step3"
-  Each node = emoji + max 3 words. Each verb = 1 transitive word.
-  FORMAT ONLY — never copy these subjects; derive from the document:
-  ✅ Física: "🎵 Fuente vibra ↓ genera ↓ 🌊 Onda sonora ↓ llega a ↓ 👂 Percepción auditiva"
-  ✅ Biología: "☀️ Luz solar ↓ activa ↓ 🌿 Fotosíntesis ↓ produce ↓ 🍬 Glucosa celular"
-  ⚠️ NEVER copy (sonido, fotosíntesis) — use concepts from THIS document.
-  VERB RULE: each verb must describe what NodeA DOES to cause NodeB — NOT NodeB's state.
-  ✅ Correct verbs: genera, eleva, activa, reduce, impulsa, causa, provoca, transforma
-  ❌ WRONG: using "sube" or "baja" when they describe the next node's state, not the prior node's action.
+PANTALLA "main_concept" — CONCEPTO NUCLEAR [OBLIGATORIA — UNA POR SECCIÓN]
+  Enseña UN concepto nuclear. Responde: ¿Qué es? + ¿Cómo funciona? + ¿Cómo se ve en acción?
+  Los conceptos Tipo B de este nuclear se mencionan AQUÍ, brevemente, como apoyo.
+  - title: nombre del concepto nuclear (max 5 palabras)
+  - definition: 2 frases, max 25 palabras total.
+    Frase 1: pregunta que el estudiante no puede responder aún (gancho de curiosidad)
+    Frase 2: el descubrimiento — responde la pregunta, simple, sin jerga
+    SOLO FORMATO — escribe sobre ESTE documento, nunca copies estos temas:
+    ✅ "¿Por qué los murciélagos vuelan en oscuridad total? Emiten sonidos y detectan el eco que rebota en objetos." [Física]
+    ❌ "En esta sección aprenderemos sobre [tema]." — declaración, no descubrimiento.
+  - example: SITUACIÓN ESPECÍFICA que un estudiante chileno encontrará HOY. Nombre concreto o número.
+    ✗ PROHIBIDO: "Esto es relevante para la vida cotidiana." — abstracto, no aporta valor.
+  - connector: cadena causal visual en EXACTAMENTE este formato:
+    "emoji1 Acción1 ↓ verbo ↓ emoji2 Consecuencia ↓ verbo ↓ emoji3 Resultado"
+    Cada nodo = emoji + max 3 palabras. Cada verbo = 1 palabra transitiva de acción.
+    REGLA DE VERBOS: cada verbo debe describir lo que el NodoA HACE para causar el NodoB — NO el estado del NodoB.
+    ✅ Verbos correctos: genera, eleva, activa, reduce, impulsa, causa, provoca, transforma, libera
+    ✗ PROHIBIDO: nodos abstractos que solo nombran un concepto sin mostrar una acción real.
+    ✗ PROHIBIDO: "ConceptoA ↓ sube ↓ ConceptoB" — describe estado, no acción.
 
-SCREEN 3 — type: "comprehension" — emoji: 🤔  [INTERACTIVE — NIVEL 1: RECORDAR]
-- title: "¿Comprendiste?"
-- question: SITUATIONAL — present a scenario, ask what concept applies (max 25 words). NOT a definition question.
-  ✅ "¿Cuál de estas situaciones describe mejor el concepto anterior?"
-  ✅ "Si el precio de las bebidas sube en todo Chile, ¿qué está ocurriendo probablemente?"
-  ❌ "¿Qué es la demanda?" — FORBIDDEN, pure definition.
-- options: ["A. ...", "B. ...", "C. ...", "D. ..."] — exactly 4 options, each max 12 words
-- correctAnswer: "A", "B", "C", or "D"
-- definition: emotional feedback (see EMOTIONAL FEEDBACK RULE above). Max 20 words total.
-  Must start with 🔥, 🚀, ⚡, or 🎯.
+PANTALLA "comprehension" — COMPRUEBA SI ENTENDISTE [OBLIGATORIA — UNA POR SECCIÓN]
+  ⚠️ REGLA FUNDAMENTAL: Solo puede evaluar LO QUE LA PANTALLA main_concept INMEDIATAMENTE ANTERIOR ENSEÑÓ.
+  Si main_concept enseñó el concepto X → comprehension solo pregunta sobre X.
+  NUNCA introduzcas conceptos de otras secciones aquí.
+  - title: "¿Comprendiste?"
+  - question: pregunta situacional sobre el concepto nuclear de ESTA sección (max 25 palabras).
+    NIVEL 1 (Recordar): ¿reconoce el concepto en una situación concreta?
+    ✗ PROHIBIDO: "¿Qué es [concepto]?" — definición pura, no situacional.
+    ✗ PROHIBIDO: incluir en la pregunta términos que no aparecen en el main_concept precedente.
+  - options: ["A. ...", "B. ...", "C. ...", "D. ..."] — exactamente 4, max 12 palabras cada una
+  - correctAnswer: "A", "B", "C" o "D"
+  - definition: feedback emocional. Inicia con 🔥, 🚀, ⚡ o 🎯. Max 20 palabras.
+    Debe mencionar POR QUÉ la respuesta correcta explica la situación de la pregunta.
 
-SCREEN 4 — type: "key_relation" — emoji: 🔗
-ONE CAUSAL CHAIN — exactly 3 nodes, no more.
-❌ PROHIBITED: abstract nodes that name only the concept without an action.
-✅ REQUIRED: nodes must be VISIBLE everyday actions or situations from the document.
-- connector: "Acción cotidiana ↓ verbo ↓ Consecuencia visible ↓ verbo ↓ Impacto"
-  VERB RULE — CRITICAL: every verb must be a TRANSITIVE causal action.
-  FORMAT ONLY — never copy these subjects; derive chain from the document:
-  ✅ Física: "🎵 Fuente vibra rápido ↓ genera ↓ 🌊 Frecuencia alta ↓ reduce ↓ 📏 Longitud de onda"
-  ✅ Biología: "☀️ Luz llega ↓ activa ↓ 🌿 Clorofila ↓ transforma ↓ 🍬 Azúcar energética"
-  ✅ Química: "🔥 Calor aumenta ↓ acelera ↓ ⚗️ Reacción química ↓ libera ↓ 💨 Producto nuevo"
-  ⚠️ NEVER copy (frecuencia, clorofila, calor) — use concepts from THIS document.
-  ❌ "[ConceptoA] ↓ sube ↓ [ConceptoB] ↓ baja ↓ [ConceptoC]" — abstract, not a real situation.
-- title: short descriptive name for this relationship (max 6 words)
-- definition: why this chain matters to the student personally (max 20 words)
-- example: null
-- FALLBACK: If no concrete chain exists → use type "comprehension" instead.
-
-SCREEN 5 — type: "mini_quiz" — emoji: ⚡  [INTERACTIVE — NIVEL 2-3: COMPRENDER + APLICAR]
-- title: "Quiz rápido"
-- question: APPLICATION question — the student REASONS, not just recalls (max 25 words).
-  The student must apply the concept to a situation they haven't seen yet.
-  FORMAT ONLY — never copy these subjects; write about THIS document's content:
-  ✅ Física: "Si duplicas la frecuencia de una onda, ¿qué le ocurre a su longitud de onda manteniendo velocidad constante?"
-  ✅ Biología: "Si desaparece el depredador principal de un ecosistema, ¿qué pasará con la población de su presa?"
-  ❌ "¿Qué es [término del documento]?" — FORBIDDEN, pure recognition.
-  ⚠️ NEVER copy (frecuencia, ecosistema) — write the question about THIS document's concepts.
-  2-SECOND TEST: if answerable in < 2 seconds without reasoning → too easy → rewrite.
-- options: ["A. ...", "B. ...", "C. ...", "D. ..."] — exactly 4 options, each max 12 words
-- correctAnswer: "A", "B", "C", or "D"
-- definition: emotional feedback (see EMOTIONAL FEEDBACK RULE). Max 20 words.
-  Must start with 🔥, 🚀, ⚡, or 🎯.
-
-SCREEN 6 — type: "decide" — emoji: 🤔  [INTERACTIVE — NIVEL 3-4: APLICAR + ANALIZAR]  ← PREFERRED
-Use "decide" whenever a realistic dilemma can be posed from the material.
-Use "process_flow" ONLY if there is a clear sequential process (flow A→B→C→D) in the material AND no good dilemma exists.
-Use "challenge" ONLY as last resort if neither works.
-- OPTION A — type: "decide":
-  - title: "¿Qué harías?" or "¿Cuál elegirías?" (max 8 words)
-  - question: a realistic dilemma rooted in the content (max 30 words). Two realistic paths.
-    FORMAT ONLY — never copy these subjects; create dilemma from THIS document's content:
-    ✅ Física: "Un puente metálico vibra a la misma frecuencia que el viento. ¿Qué solución aplicarías para evitar el colapso?"
-    ✅ Biología: "Un ecosistema pierde su depredador principal por caza excesiva. ¿Qué consecuencia es más probable a largo plazo?"
-    ⚠️ NEVER copy (puente, ecosistema) — create the dilemma exclusively from THIS document's topic.
-  - options: ["A. ...", "B. ...", "C. ...", "D. ..."] — 3 or 4 options, each max 12 words.
-    Each option reflects a different but plausible reasoning.
-  - correctAnswer: "A", "B", "C", or "D"
-  - definition: emotional feedback (see EMOTIONAL FEEDBACK RULE). Max 20 words.
-    Must start with 🔥, 🚀, ⚡, or 🎯.
+PANTALLA "key_relation" — DETECTA EL PATRÓN [OPCIONAL — máximo UNA por sección]
+  Generar SOLO si existe una regla, transformación o patrón REAL derivado de este concepto nuclear.
+  ✗ NO generar si el documento no describe una transformación o regla concreta.
+  ✗ NO generar para conceptos donde la relación ya fue explicada en main_concept.
+  - connector: cadena de transformación visible (nunca conceptos abstractos):
+    "Situación real ↓ verbo ↓ Cambio visible ↓ verbo ↓ Resultado concreto"
+    SOLO FORMATO — derivar de ESTE documento:
+    ✅ Física: "🎵 Fuente vibra rápido ↓ genera ↓ 🌊 Frecuencia alta ↓ reduce ↓ 📏 Longitud de onda corta" [SOLO FORMATO]
+    ✗ PROHIBIDO: "[ConceptoA] ↓ sube ↓ [ConceptoB]" — abstracto, no es una transformación real.
+  - title: nombre corto del patrón o regla (max 6 palabras)
+  - definition: por qué este patrón importa al estudiante (max 20 palabras)
   - example: null
-  ❌ FORBIDDEN options: "Todas las anteriores", "Ninguna de las anteriores", "No haría nada"
-- OPTION B — type: "process_flow":
-  - title: name of the process (max 6 words)
-  - definition: "Step1 → Step2 → Step3 → Step4" (max 4 steps, max 5 words each). Each step causes the next.
-  - example: real-world instance (max 20 words)
-- OPTION C — type: "challenge" (last resort):
-  - title: "Reflexiona"
-  - definition: brief context that frames the choice (max 20 words). NOT the question itself.
-  - question: a simple choice the student must make based on the concept (max 25 words). Example: "¿Qué consecuencia tiene esto en la práctica?"
-  - options: exactly 3 options ("A. ...", "B. ...", "C. ..."). One clearly correct, two plausible distractors. Each max 12 words.
-  - correctAnswer: "A", "B", or "C"
-  - example: emotional feedback after answering. Starts with 🔥, 🚀, ⚡, or 🎯. Max 15 words.
 
-SCREEN 7 — type: "application" — emoji: 🌍  [INTERACTIVE — NIVEL 3: APLICAR]
-THIS SCREEN ANSWERS: "¿Dónde se aplica esto en el mundo real?" — and the student must confirm they can apply it.
-DOCUMENT-FIRST RULE: identify the most direct, real-world application of the document's main concept.
-Use applications that NATURALLY follow from the subject in the transcription:
-  Física/Ondas: radio FM, radar meteorológico, ultrasonido médico, ecografía, sonares, instrumentos musicales, fibra óptica, señales WiFi, sísmica
-  Física/Electricidad: circuitos domésticos, generadores, motores eléctricos, electroimanes, paneles solares
-  Física/Óptica: lentes, microscopios, telescopios, cámaras, láseres, fibra óptica
-  Biología/Genética: análisis de ADN forense, pruebas de paternidad, ingeniería genética, diagnóstico médico
-  Biología/Célula: medicina, vacunas, nutrición deportiva
-  Química: procesos culinarios, combustión de motores, baterías recargables, fabricación de materiales
-  Matemáticas: ingeniería civil, arquitectura, estadísticas deportivas, presupuestos, navegación GPS
-  Historia: procesos y hechos reales del período estudiado, documentos históricos
-  Lenguaje: análisis de noticias reales, publicidad, discursos históricos, textos literarios
-❌ NEVER use brand names (Spotify, Netflix, TikTok, Uber, Instagram, Airbnb, Amazon, PedidosYa, Steam) unless they appear explicitly in the transcription.
-❌ PROHIBITED: inventing mechanisms or facts not derivable from the transcription.
-- title: concrete real-world scenario (max 15 words, question format preferred). Creates context for the question.
-  FORMAT ONLY — create from THIS document's concept:
-  ✅ "¿Cómo detectan los médicos el corazón de un bebé antes de nacer?" (Física/Ondas)
-  ✅ "¿Cómo identifica la medicina forense a una persona con una sola célula?" (Biología/ADN)
-  ⚠️ FORMAT ONLY — create from THIS document.
-- definition: which concept applies and WHY (max 30 words, plain language, no jargon).
-  This is shown BEFORE the question as context.
-- question: MANDATORY — a simple situational question the student must answer by applying the concept. Max 20 words.
-  Format: "Si [situation], ¿qué ocurrirá?" or "¿Qué concepto explica [real outcome]?"
-  FORMAT ONLY — create from THIS document:
-  ✅ "Si una cuerda vibra más rápido, ¿qué ocurrirá con el tono producido?" (Física/Ondas)
-  ✅ "Si duplicas la concentración de reactivos, ¿qué sucede con la velocidad de reacción?" (Química)
-  ⚠️ FORMAT ONLY — write the question about THIS document's concept.
-- options: exactly 3 options ("A. ...", "B. ...", "C. ..."). One correct. Two plausible distractors. Max 10 words each.
-- correctAnswer: "A", "B", or "C"
-- example: post-answer reveal — what actually happens in this real context. Starts with 🌍. Max 20 words.
-  Shown to the student AFTER they answer. Connects the correct answer to the real mechanism.
+PANTALLA "common_error" — ERROR FRECUENTE [OPCIONAL — máximo UNA por sección]
+  Generar SOLO si existe un error documentado real que cometan estudiantes de enseñanza media sobre ESTE concepto nuclear.
+  ✗ NO inventar errores artificiales o académicos que los adolescentes reales no cometen.
+  - definition: DEBE iniciar con "❌" (max 25 palabras).
+    Formato: "❌ Muchos creen que [creencia errónea específica de ESTE concepto del documento]."
+    SOLO FORMATO — identifica el error real de ESTE documento, nunca copies estos temas:
+    Física: ❌ "Muchos creen que el sonido viaja más rápido en el vacío que en materiales sólidos." [SOLO FORMATO]
+    Química: ❌ "Muchos creen que hervir agua siempre la purifica de todos sus contaminantes." [SOLO FORMATO]
+  - question: pide al estudiante identificar qué tiene de incorrecto (max 15 palabras).
+    Formato: "¿Qué tiene de incorrecto esta afirmación?" o "¿Por qué esta creencia está equivocada?"
+  - options: exactamente 3 opciones ("A. ...", "B. ...", "C. ..."). Max 12 palabras cada una.
+    Una opción identifica correctamente el error específico. Dos son diagnósticos plausibles pero incorrectos.
+    ✗ PROHIBIDO: "Todo está correcto", "Nada está mal", "Es completamente falso".
+  - correctAnswer: "A", "B" o "C"
+  - example: DEBE iniciar con "✅" (max 20 palabras).
+    Formato: "✅ En realidad, [verdad que contradice el error]."
 
-SCREEN 8 — type: "common_error" — emoji: ⚠️  [INTERACTIVE — ERROR DETECTION]
-SHOW WHAT TEENAGERS ACTUALLY BELIEVE — not textbook errors.
-The student reads the misconception and identifies WHAT is wrong — this is NOT passive reading.
-Think: what does a smart 15-year-old who uses TikTok but never studied this assume to be true? That IS the error.
-MANDATORY FORMAT — all fields required:
-- definition: MUST start with "❌" (max 25 words)
-  Format: "❌ Muchos creen que [wrong belief specific to THIS document's topic]."
-  FORMAT ONLY — identify the real teen misconception about THIS document's content:
-  Física: ❌ "Muchos creen que el sonido viaja más rápido en el vacío que en materiales sólidos."
-  Biología: ❌ "Muchos creen que las plantas solo respiran de noche y hacen fotosíntesis de día."
-  Química: ❌ "Muchos creen que hervir agua siempre la purifica de todos sus contaminantes."
-  ❌ Bad: "Confunden [término A] con [término B]." — too academic, not a real teen belief.
-  ⚠️ NEVER copy the subjects above — identify the error from THIS document's content.
-- question: MANDATORY — ask the student to identify what is incorrect. Max 15 words.
-  Format: "¿Qué tiene de incorrecto esta afirmación?" or "¿Por qué esta creencia está equivocada?"
-- options: MANDATORY — exactly 3 options ("A. ...", "B. ...", "C. ..."). Max 12 words each.
-  One option correctly identifies the specific flaw in the misconception.
-  The other two are plausible but wrong diagnoses.
-  ❌ FORBIDDEN options: "Todo está correcto", "Nada está mal", "Es completamente falso".
-- correctAnswer: "A", "B", or "C"
-- example: MANDATORY — MUST start with "✅" (max 20 words).
-  Format: "✅ En realidad, [surprising truth that contradicts the error]."
-  Shown AFTER the student answers. Must SURPRISE them.
-The error must be specific to THIS topic and believable for a smart teenager.
-If no real teen misconception exists → replace with type "comprehension".
+PANTALLA "wow_fact" — SABÍAS QUE [OPCIONAL — máximo UNO en toda la misión]
+  Incluir SOLO si existe un dato genuinamente contraintuitivo sobre uno de los conceptos nucleares.
+  Criterio de inclusión: ¿Un estudiante de 15 años diría "no tenía ni idea"? → SÍ → incluir. NO → omitir.
+  ✗ PROHIBIDO: repetir algo ya explicado en main_concept. Si el dato ya fue mencionado → no incluir.
+  - title: frase de curiosidad impactante (max 8 palabras). NO usar "¿Sabías que...?" como único título.
+    ✅ "El dato que cambia todo" / "Lo que nadie te contó" / "La sorpresa del [concepto]"
+  - definition: UN dato sorprendente, contraintuitivo y 100% preciso. MAX 30 palabras.
+    Formato sugerido: "Aunque parece imposible, [hecho contraintuitivo]. Esto ocurre porque [mecanismo real simple]."
+  - example: UNA frase que conecta esto con la vida del estudiante (max 20 palabras)
+  - question/options/correctAnswer: incluir SOLO si se puede escribir una pregunta de alta calidad sobre el aspecto contraintuitivo. Si la pregunta sería trivial → dejar como null.
 
-SCREEN 9 — type: "wow_fact" — emoji: 🤯
-THE SINGLE MOST COUNTERINTUITIVE FACT from this topic.
-The student must finish thinking: "No tenía idea de que eso pasaba."
-- title: "¿Sabías que...?" — MANDATORY, no alternatives, no exceptions.
-- definition: ONE surprising, counterintuitive fact. MAX 30 words. 100% accurate. Related directly to this topic.
-  Structure: "Aunque parezca imposible, [counterintuitive fact]. Esto ocurre porque [simple real mechanism]."
-  FORMAT ONLY — never copy these subjects; find the counterintuitive fact in THIS document:
-  ✅ Física/Ondas: "Las ondas sísmicas permiten estudiar el interior de la Tierra sin excavar nada."
-  ✅ Física/Electricidad: "Un rayo puede ser más caliente que la superficie del Sol."
-  ✅ Biología: "Tu cuerpo produce anticuerpos incluso antes de que una bacteria entre por primera vez."
-  ✅ Química: "El acero es más resistente que el hierro puro, aunque el hierro es su componente principal."
-  ⚠️ NEVER copy these subjects — find the counterintuitive fact from THIS document's content.
-- example: one sentence grounding this in a teen's everyday life (max 20 words)
-- OPTIONAL INTERACTIVE VERIFICATION: include ONLY if you can write a HIGH-QUALITY question about the wow fact:
-  - question: tests if the student understood the COUNTERINTUITIVE aspect (max 20 words). NOT a repeat of earlier screens.
-  - options: ["A. ...", "B. ...", "C. ..."] — exactly 3 options, each max 10 words
-  - correctAnswer: "A", "B", or "C"
-  - definition: emotional feedback (see EMOTIONAL FEEDBACK RULE). Must start with 🔥, 🚀, ⚡, or 🎯.
-  If the question would be trivial or repeat previous screens → leave question/options/correctAnswer/definition as null.
+PANTALLA "application" — APLICACIÓN REAL [UNA SOLA — después de TODAS las secciones]
+  Conecta los conceptos nucleares aprendidos con un contexto real ESPECÍFICO Y CONCRETO.
+  ✗ PROHIBIDO: frases genéricas como "esto se usa en la vida cotidiana" o "tiene muchas aplicaciones".
+  ✅ REQUERIDO: mencionar EXACTAMENTE cómo uno o más conceptos nucleares se manifiestan en ese contexto.
+  Usa aplicaciones que deriven NATURALMENTE del tema del documento:
+    Física/Ondas: radio FM, ultrasonido médico, radar, sísmica, WiFi, fibra óptica
+    Biología: diagnóstico médico, nutrición, salud genética, medicamentos
+    Química: procesos industriales, cocina, baterías, combustión
+    Matemática: ingeniería, arquitectura, finanzas, estadísticas
+    Historia: procesos sociales actuales, análisis de fuentes, conexiones con el presente
+    Lenguaje: análisis de textos reales, publicidad, argumentación, comunicación
+  ✗ PROHIBIDO: marcas comerciales (Spotify, TikTok, Netflix, etc.) salvo que aparezcan en la transcripción.
+  - title: escenario real concreto como pregunta (max 15 palabras)
+    SOLO FORMATO — crear desde ESTE documento:
+    ✅ "¿Cómo detectan los médicos el corazón de un bebé antes de nacer?" [Física/Ondas — SOLO FORMATO]
+  - example: caso real específico mostrando EXACTAMENTE cómo aplica el concepto nuclear (max 25 palabras).
+    Mostrado ANTES de la pregunta como contexto concreto.
+  - definition: cuál concepto nuclear aplica y POR QUÉ (max 30 palabras, lenguaje llano).
+  - question: pregunta situacional que el estudiante debe responder aplicando los conceptos (max 20 palabras)
+  - options: exactamente 3 opciones ("A. ...", "B. ...", "C. ..."). Una correcta. Dos distractores plausibles. Max 10 palabras cada una.
+  - correctAnswer: "A", "B" o "C"
 
-SCREEN 10 — type: "victory" — emoji: 🏆
-- title: "¡Misión cumplida!"
-- definition: MANDATORY CHECKLIST FORMAT:
-  "Aprendiste: ✓ [Concept 1] • ✓ [Concept 2] • ✓ [Concept 3] • ✓ [Concept 4]"
-  Use EXACT concept names from screens 2, 4, 7, 8. MAX 4 concepts.
-  FORMAT — use THIS document's concept names, never copy these subjects:
-  Física: "Aprendiste: ✓ Qué es una onda • ✓ Frecuencia y amplitud • ✓ Ondas en tecnología • ✓ Error: velocidad ≠ frecuencia"
-  Biología: "Aprendiste: ✓ Fotosíntesis • ✓ Rol de la clorofila • ✓ Energía solar en vida • ✓ Error: plantas no respiran"
-  ⚠️ NEVER copy (onda, fotosíntesis) — use the actual concepts from THIS session's screens 2, 4, 7, 8.
-- example: TWO parts, joined with " | " (max 35 words total):
-  Part 1: "Lo usarás cuando [specific teen situation tied to THIS document's topic]."
-  Part 2: "Próximo desafío: [specific related topic to study next, connected to THIS document's subject]."
-  FORMAT — derive from THIS document's topic, never copy:
-  Física: "Lo usarás cuando ajustes el sonido de tus audífonos. | Próximo desafío: Investiga el efecto Doppler y sus usos en medicina."
-  Biología: "Lo usarás cuando notes cómo reacciona tu cuerpo al ejercicio. | Próximo desafío: Estudia cómo el cuerpo regula su temperatura."
-  ⚠️ NEVER copy (sonido, cuerpo) — the "Lo usarás" and "Próximo desafío" must match THIS document's subject.
+PANTALLA "final_challenge" — DESAFÍO FINAL [OBLIGATORIA — UNA SOLA — después de application]
+  ⚠️ REGLA FUNDAMENTAL: Solo puede integrar conceptos que fueron ENSEÑADOS EXPLÍCITAMENTE en las pantallas main_concept anteriores.
+  NUNCA evaluar conceptos nuevos. NUNCA evaluar Tipo B o Tipo C.
+  COBERTURA MÍNIMA: La pregunta debe involucrar directamente al menos el 70% de los conceptos nucleares enseñados.
+  NIVEL 4 (Analizar/Evaluar): requiere integración de múltiples conceptos, no solo recall.
+  - title: "Desafío final" o una pregunta corta que enmarca el reto (max 8 palabras)
+  - question: pregunta integradora que requiere razonar con múltiples conceptos nucleares (max 30 palabras).
+    Test: ¿Un estudiante que estudió solo uno de los conceptos puede responderla? → Si SÍ → reescribir.
+  - options: exactamente 4 opciones ("A. ...", "B. ...", "C. ...", "D. ..."). Max 15 palabras cada una.
+    Todas las opciones deben ser plausibles para alguien que estudió el material.
+    ✗ PROHIBIDO: "Todas las anteriores", "Ninguna de las anteriores", opciones fuera del dominio enseñado.
+  - correctAnswer: "A", "B", "C" o "D"
+  - definition: feedback que menciona EXACTAMENTE cuáles conceptos nucleares explican la respuesta correcta.
+    Inicia con 🔥, 🚀, ⚡ o 🎯. Max 25 palabras.
+  - example: null
+
+PANTALLA "victory" — MISIÓN COMPLETADA [UNA SOLA — al final]
+  - title: "¡Misión completada!"
+  - definition: FORMATO DE CHECKLIST EXACTO — lista ÚNICAMENTE los conceptos nucleares aprendidos:
+    "Dominaste: ✓ [Concepto Nuclear A] • ✓ [Concepto Nuclear B] • ✓ [Concepto Nuclear C]"
+    Usa los nombres EXACTOS de los títulos de las pantallas main_concept generadas.
+    ✗ NO incluir: datos curiosos, conceptos Tipo B, resúmenes genéricos, conceptos no enseñados.
+  - example: DOS partes separadas por " | " (max 35 palabras total):
+    Parte 1: "Lo usarás cuando [situación concreta del estudiante relacionada con ESTE tema]."
+    Parte 2: "Próximo desafío: [tema relacionado directamente con ESTE documento para estudiar después]."
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-ABSOLUTE RULES FOR ALL 10 SCREENS:
+LÍMITES DE TEXTO — aplican a CADA pantalla:
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-- Generate EXACTLY 10 slides in the exact order above. No type may be duplicated.
-- Screen 1 title MUST be a curiosity question ending with "?". No exceptions.
-- Screens 3 and 5 MUST have complete question + options (not null).
-- Screen 8 definition MUST start with "❌". Screen 8 example MUST start with "✅". Screen 8 MUST have question + options + correctAnswer.
-- Screen 9 title MUST be "¿Sabías que...?".
-- Screen 10 definition MUST use ✓ checklist format.
-- NEVER copy text literally from the transcription.
-- NEVER create two consecutive non-interactive screens with only definitions — screens 3, 5, 6 enforce interaction.
-- NEVER use abstract nodes in causal chains — only visible real-world actions.
-- NEVER use brand names (Spotify, Netflix, TikTok, Uber, Instagram, Airbnb, Amazon) unless they appear explicitly in the transcription.
-- CONSISTENCY LAW: for every interactive slide (screens 3, 5, 6, 9-wow), the question, the correct answer option, and the feedback definition MUST address the SAME concept. Before finalizing each interactive slide, verify: "Does my feedback explain exactly why the correct answer answers this specific question?" If NO → rewrite the feedback.
-- WRONG-ANSWER HINTS (MANDATORY): Every slide that has options MUST include "wrongAnswerHints". Keys = each incorrect option letter (e.g. "B", "C", "D"). Value = EXACTLY 2 sentences, 20–45 words total.
-  MANDATORY STRUCTURE — both sentences are required:
-    SENTENCE 1 — Name what the student chose and why it seemed reasonable. MUST start with one of:
-      • "Elegiste [description of what the wrong option actually describes — its real concept or category]."
-      • "Te enfocaste en [what aspect of the wrong option drew the student's attention]."
-      • "Esta alternativa describe [the real concept that the wrong option belongs to]."
-    SENTENCE 2 — Contrast with what the question was actually asking. MUST start with one of:
-      • "La pregunta buscaba [the exact concept or criterion the question required]."
-      • "Sin embargo, [correct conceptual distinction that explains why this option doesn't answer the question]."
-  QUALITY GATE — before writing each hint, verify ALL four checks pass:
-    ✅ Check 1: Does it reference the wrong option's concept (explicitly or implicitly)? If NO → rewrite.
-    ✅ Check 2: Does it identify the specific confusion (what the student mixed up)? If NO → rewrite.
-    ✅ Check 3: Does it compare wrong concept vs correct concept? If NO → rewrite.
-    ✅ Check 4: Would this hint be useless if shown for a DIFFERENT question on a different topic? If NO (= it could apply anywhere) → rewrite.
-  FORBIDDEN — reject and rewrite if any of these appear:
-    ❌ Defining only the correct answer without mentioning the wrong option
-    ❌ "Es posible, pero..." / "Es una X, pero no..." / "No es exactamente..." / "Aunque es correcto..."
-    ❌ "A veces..." / "Aunque parece..." / "Identifica qué razonamiento..." / "Puede dañar..." / "No es seguro ni inmediato..."
-    ❌ Curious facts, isolated definitions, or motivational messages
-    ❌ Repeating the correct answer text verbatim or the question text
-  CORRECT examples — question: "¿Cuál situación describe mejor la interacción entre familias y empresas?":
-    ✅ "B" (Empresas reciben subsidios del Estado): "Elegiste una relación entre empresas y Estado. La pregunta buscaba una interacción entre familias y empresas mediante compra y venta de bienes."
-    ✅ "C" (El Estado cobra impuestos a las familias): "Elegiste una transferencia fiscal que involucra al Estado. La pregunta buscaba un intercambio directo de bienes o servicios entre hogares y empresas privadas."
-    ❌ "B": "Los subsidios son transferencias del Estado, no una compra o venta directa." — only defines correct concept, never names what the student chose. FORBIDDEN.
-    ❌ "C": "Es posible, pero no es un efecto directo ni seguro." — forbidden pattern.
-- DOCUMENT-FIRST LAW: 100% of academic content must be derivable from the transcription. If a concept, example, or application cannot be traced back to the transcription → remove it.
-- COVERAGE LAW: if the document has N ≥ 3 distinct concepts, at least ⌈N × 0.8⌉ must appear across slides. A session that uses only 1 of 5 available concepts is INVALID.
-- NON-EQUIVALENCE LAW: interactive screens 3, 5, 6, and 9 must each test a DIFFERENT concept from the document. Check: "Is this question testing the same idea as a previous interactive slide?" If YES → rewrite using a different concept.
-- NEVER-EMPTY LAW: every slide must have title ≥ 3 words and definition ≥ 10 words. Before finalizing, scan all 10 slides and verify none are empty.
-- Reorganize content by PEDAGOGICAL IMPORTANCE, not document order.
-- INTERACTIVITY: minimum 6 interactive screens. Screens 3, 5, 6, 7, 8 are MANDATORY interactive. Screen 9 (wow_fact) is optional. After the guided example (screen 2), at least 70% of screens must require a student action (choice, detection, or application).
-- PASSIVE SCREENS LIMIT: no more than 2 consecutive non-interactive screens after screen 2.
-- CONCEPTUAL BRIDGE: when moving from micro to macro concepts, write an explicit bridge sentence in the relevant screen's definition.
-- CORSO ADAPTATION is MANDATORY: complexity, vocabulary, depth must match ${curso}.
-- WOW RULE: at least one screen (preferably screen 9) must produce "No tenía idea de que eso pasaba."
+- definition: máximo 2 oraciones O 30 palabras — lo que sea más corto.
+- example: máximo 20 palabras.
+- title: máximo 8 palabras.
+Prefiere frases escaneables sobre prosa conectada.
+NUNCA-VACÍO: cada slide debe tener title ≥ 3 palabras y definition ≥ 10 palabras. Verificar antes de incluir.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-FINAL VALIDATION CHECKLIST — run before outputting JSON:
+REGLA DE FEEDBACK EMOCIONAL — todas las pantallas interactivas:
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-1. Screen 1 title is a curiosity question ending with "?" → if NO, rewrite.
-2. Screens 3 and 5 have complete question + options → if NO, rewrite that screen.
-3. Screen 8 definition starts with "❌" and example starts with "✅" → if NO, rewrite.
-4. Screen 9 title is exactly "¿Sabías que...?" → if NO, fix.
-5. Screen 10 definition uses ✓ checklist format → if NO, rewrite.
-6. All interactive screen definitions start with 🔥, 🚀, ⚡, or 🎯 → if NO, fix.
-7. No two consecutive non-interactive screens → if violation, swap or add comprehension.
-8. At least one screen produces the "No tenía idea de que eso pasaba" reaction → if NO, strengthen screen 9.
-9. Screen 7 (application) has question + options + correctAnswer → if NO, rewrite to add them.
-9b. Screen 8 (common_error) has question + options + correctAnswer → if NO, rewrite to add them.
-10. Complexity matches ${curso} → if too hard for 1° Medio or too easy for 4° Medio, adjust.
-11. CONSISTENCY CHECK — for each interactive slide (3, 5, 6, wow_fact): does the feedback definition explain exactly why the correct answer is correct for THIS specific question? → if the feedback talks about a different concept, rewrite the feedback.
-12. DOCUMENT-FIRST CHECK — does any slide contain concepts not present in the transcription? → if YES, replace with content from the transcription.
-13. Every interactive slide (with options) has wrongAnswerHints with one entry per incorrect option → if NO, add them.
-If any check fails → fix that screen before outputting.
+El campo "definition" en pantallas interactivas se muestra DESPUÉS de que el estudiante responde. Debe sonar como un coach, no como un libro de texto.
+OBLIGATORIO: iniciar con uno de estos emojis, luego explicar POR QUÉ en max 15 palabras:
+  🔥 Exacto — [por qué, derivado de ESTE documento]
+  🚀 Correcto — [por qué, derivado de ESTE documento]
+  ⚡ Lo captaste — [por qué, derivado de ESTE documento]
+  🎯 Acertaste — [por qué, derivado de ESTE documento]
+✗ PROHIBIDO: "La respuesta correcta es...", "Correcto porque...", "Esta opción es la correcta..."
+✅ REQUERIDO: la explicación debe también sugerir por qué el distractor principal era tentador.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+REGLA DE DISTRACTORES — todas las pantallas interactivas:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Todas las opciones incorrectas deben ser verdades parciales creíbles, no obviamente falsas.
+✗ PROHIBIDO en cualquier opción: "Todas las anteriores", "Ninguna de las anteriores", "No cambia nada", "porque sí".
+REGLA: EXACTAMENTE UNA respuesta claramente correcta por pregunta. Si dos opciones podrían ser correctas → reescribir.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+PISTAS DE RESPUESTA INCORRECTA (OBLIGATORIAS):
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Toda pantalla con opciones DEBE incluir "wrongAnswerHints". Claves = cada letra de opción incorrecta. Valor = EXACTAMENTE 2 oraciones, 20–45 palabras total.
+ESTRUCTURA OBLIGATORIA — ambas oraciones son requeridas:
+  ORACIÓN 1 — Nombra qué eligió el estudiante y por qué parecía razonable. DEBE iniciar con:
+    • "Elegiste [descripción de lo que realmente describe la opción incorrecta — su concepto real]."
+    • "Te enfocaste en [qué aspecto de la opción incorrecta atrajo la atención]."
+    • "Esta alternativa describe [el concepto real al que pertenece la opción incorrecta]."
+  ORACIÓN 2 — Contrasta con lo que la pregunta pedía. DEBE iniciar con:
+    • "La pregunta buscaba [el concepto o criterio exacto que requería la pregunta]."
+    • "Sin embargo, [distinción conceptual correcta que explica por qué esta opción no responde la pregunta]."
+PROHIBIDO — rechazar y reescribir si aparece cualquiera de estos:
+  ✗ Solo definir la respuesta correcta sin mencionar la opción incorrecta
+  ✗ "Es posible, pero..." / "Es una X, pero no..." / "No es exactamente..." / "Aunque es correcto..."
+  ✗ "A veces..." / "Aunque parece..." / "Puede dañar..." / "No es seguro ni inmediato..."
+  ✗ Datos curiosos, definiciones aisladas, o mensajes motivacionales
+  ✗ Repetir el texto de la respuesta correcta o de la pregunta
+EJEMPLO CORRECTO — pregunta: "¿Qué situación describe mejor la interacción entre familias y empresas?":
+  ✅ "B": "Elegiste una relación entre empresas y Estado. La pregunta buscaba una interacción entre familias y empresas mediante compra y venta de bienes."
+  ✗ "B": "Los subsidios son transferencias del Estado, no una compra directa." — define la correcta sin nombrar lo que el estudiante eligió. PROHIBIDO.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+LEYES ABSOLUTAS:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+• NUNCA copiar texto literal de la transcripción.
+• NUNCA usar nodos abstractos en cadenas causales — solo acciones y situaciones visibles.
+• NUNCA usar marcas comerciales (Spotify, TikTok, Netflix, etc.) salvo que aparezcan en la transcripción.
+• CONSISTENCIA: en cada pantalla interactiva, la pregunta, la respuesta correcta y el feedback deben tratar EL MISMO concepto. Verificar: "¿Mi feedback explica exactamente por qué la respuesta correcta responde ESTA pregunta específica?" Si NO → reescribir el feedback.
+• DOCUMENT-FIRST: 100% del contenido académico debe derivarse de la transcripción. Si un concepto, ejemplo o aplicación no puede trazarse a la transcripción → eliminarlo.
+• PROGRESIÓN: la dificultad entre pantallas interactivas debe crecer. comprehension (Nivel 1 Recordar) → application (Nivel 3 Aplicar) → final_challenge (Nivel 4 Analizar).
+• NO-REPETICIÓN: Cada pantalla debe enseñar o evaluar algo DIFERENTE. Antes de escribir cada pantalla: "¿Ya mostré esta idea?" Si SÍ → usar un concepto distinto.
+• ADAPTACIÓN AL CURSO es OBLIGATORIA: complejidad, vocabulario y profundidad deben corresponder a ${curso}.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+VALIDACIÓN FINAL — ejecutar antes de generar JSON:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+1. ¿Cada sección corresponde a un concepto nuclear (Tipo A)? → Si NO → eliminar sección.
+2. ¿Se eliminaron conceptos Tipo B y C de las secciones propias? → Si NO → fusionarlos en la sección nuclear correspondiente.
+3. ¿Existe progresión lógica entre secciones? → Si NO → reordenar.
+4. ¿Cada comprehension evalúa ÚNICAMENTE lo enseñado en su main_concept inmediatamente anterior? → Si NO → reescribir la pregunta.
+5. ¿El final_challenge integra ≥70% de los conceptos nucleares enseñados? → Si NO → reescribir.
+6. ¿El final_challenge NO introduce conceptos nuevos? → Si NO → eliminar esos conceptos de la pregunta.
+7. ¿La pantalla victory lista EXACTAMENTE los conceptos nucleares enseñados (ni más ni menos)? → Si NO → corregir.
+8. ¿La application muestra un caso concreto y específico, no una descripción genérica? → Si NO → reescribir con detalles concretos.
+9. ¿Toda pantalla interactiva tiene wrongAnswerHints con entrada por cada opción incorrecta? → Si NO → agregar.
+10. ¿La complejidad corresponde a ${curso}? → Si NO → ajustar lenguaje y profundidad.
+Si alguna verificación falla → corregir antes de generar JSON.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 QUIZ QUESTIONS (separate from summary screens):
@@ -689,9 +698,9 @@ FLASHCARDS:
 - back: direct, memorable answer (max 25 words)
 - Mix "what" cards with "how" and "why" cards. Avoid pure definition repetition.
 
-If the transcription is shorter than 100 words, return a JSON with empty questions and flashcards and a minimal 10-screen summary using the same structure.
+Si la transcripción tiene menos de 100 palabras → devuelve un JSON con questions y flashcards vacíos y un resumen mínimo usando la misma estructura (1 gancho + 1 sección + 1 application + 1 final_challenge + 1 victory).
 
-Transcription:
+Transcripción:
 ${normalizeText(transcription)}
 ${JSON_SCHEMA}`;
 }
@@ -1667,9 +1676,9 @@ export async function generateSessionContent(
     prompt = buildMemorizationPrompt(transcription, curso);
     systemMsg = `Eres un diseñador de sesiones de aprendizaje por memorización para estudiantes chilenos de enseñanza media. Tu filosofía: DATO → ASOCIACIÓN → RETO → REPASO → CURIOSIDAD → VICTORIA. Cada pantalla usa técnicas de memoria para que los datos sean inolvidables. Genera exactamente 8 pantallas en el orden indicado. JSON válido únicamente. Todo en español.`;
   } else {
-    // CONCEPTUAL and MIXED → current discovery-mission structure
+    // CONCEPTUAL and MIXED → section-based pedagogical mission
     prompt = buildConceptualPrompt(transcription, curso);
-    systemMsg = `Eres un diseñador de experiencias de aprendizaje gamificadas para jóvenes chilenos de enseñanza media. Tu filosofía: HOOK → DESCUBRIMIENTO → RETO → APLICACIÓN → ERROR → CURIOSIDAD → VICTORIA. Cada pantalla debe hacer que el estudiante quiera ver la siguiente. NO resúmenes escolares — misiones interactivas con progresión de dificultad. Genera exactamente 10 pantallas en el orden indicado. JSON válido únicamente. Todo en español.`;
+    systemMsg = `Eres un Arquitecto de Aprendizaje para estudiantes chilenos de enseñanza media. Tu filosofía: ANÁLISIS → OBJETIVO → CLASIFICACIÓN → DEPENDENCIAS → SECCIONES → APLICACIÓN → DESAFÍO → VICTORIA. Primero analizas el documento. Defines UN objetivo de aprendizaje principal. Clasificas los conceptos según cuánto contribuyen a ese objetivo. Validas el orden por dependencias conceptuales. Luego construyes una misión como secciones coherentes — cada sección enseña UN concepto nuclear: main_concept → comprehension → (key_relation opcional) → (common_error opcional). Después de todas las secciones: application → final_challenge → victory. JSON válido únicamente. Todo en español.`;
   }
 
   const base = await callOpenAIAndBuildResult(prompt, systemMsg, configValues);

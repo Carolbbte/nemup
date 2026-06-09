@@ -1,9 +1,9 @@
-import { Colors } from '@/constants/Colors';
+import { SHOW_GEMS } from '@/config/features';
+import { palette, semantic } from '@/theme/colors';
 import { getDemoSession, type DemoQuestion, type DemoSession } from '@/constants/demoSessions';
 import { useOnboarding } from '@/contexts/OnboardingContext';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Haptics from 'expo-haptics';
-import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import {
   ArrowRight, BookOpen, BookText, Brain, Calculator, Camera,
@@ -21,10 +21,9 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 const { height: SCREEN_H } = Dimensions.get('window');
 const SM = SCREEN_H < 740;
 
-const BG   = '#F7F8FC';
-const BRAND = Colors.brand;
-const NEON  = '#7C5AFF';
-const LIME  = '#C4F852';
+const BG    = palette.crema;
+const BRAND = palette.morado;
+const LIME  = palette.limaElectrica;
 
 const COMPLETED_KEY = 'nemup_first_session_completed';
 const PROGRESS_KEY  = 'nemup_first_session_progress';
@@ -73,14 +72,14 @@ function PillBar({ filled, total, color }: { filled: number; total: number; colo
     <View style={{ flex: 1, flexDirection: 'row', gap: 2, alignItems: 'center' }}>
       {Array.from({ length: count }).map((_, i) => (
         <View key={i} style={{ flex: 1, height: 4, borderRadius: 2,
-          backgroundColor: i < active ? color : Colors.line }} />
+          backgroundColor: i < active ? color : palette.bordeClaro }} />
       ))}
     </View>
   );
 }
 
 // ─── Burst confetti (correct answer) ─────────────────────────────────────────
-const BURST_COLORS = [LIME, Colors.brand, '#FF5B9F', '#5BC8FF', '#FFB547', '#00C2A8'];
+const BURST_COLORS = [LIME, palette.morado, '#FF5B9F', '#5BC8FF', '#FFB547', '#00C2A8'];
 const BURST_ANGLES = [0, 55, 110, 165, 220, 275, 30, 85, 140, 195, 250, 305];
 
 function BurstParticle({ i }: { i: number }) {
@@ -121,7 +120,7 @@ const FALL_CONF = [
   { left: '16%',  color: '#FF5B9F',     size: 7,  dur: 2200, delay: 180 },
   { left: '28%',  color: '#5BC8FF',     size: 10, dur: 2000, delay: 80  },
   { left: '42%',  color: LIME,          size: 6,  dur: 2400, delay: 320 },
-  { left: '55%',  color: Colors.brand,  size: 8,  dur: 1900, delay: 120 },
+  { left: '55%',  color: palette.morado,  size: 8,  dur: 1900, delay: 120 },
   { left: '67%',  color: '#FFB547',     size: 7,  dur: 2300, delay: 260 },
   { left: '79%',  color: '#FF5B9F',     size: 9,  dur: 2100, delay: 400 },
   { left: '91%',  color: '#5BC8FF',     size: 6,  dur: 2500, delay: 50  },
@@ -183,15 +182,15 @@ function QuizOption({ opt, selected, revealed, isCorrectOpt, onPress }: {
   const isWrong     = revealed && selected && !isCorrectOpt;
   const dimmed      = revealed && !selected && !isCorrectOpt;
   const borderColor = revealed
-    ? (isCorrectOpt ? BRAND : isWrong ? Colors.line2 : Colors.line)
-    : (selected ? BRAND : Colors.line);
+    ? (isCorrectOpt ? BRAND : isWrong ? palette.bordeMedio : palette.bordeClaro)
+    : (selected ? BRAND : palette.bordeClaro);
   const bgColor     = revealed
-    ? (isCorrectOpt ? 'rgba(91,61,245,0.04)' : 'white')
-    : (selected ? Colors.brandSoft : 'white');
+    ? (isCorrectOpt ? 'rgba(91,61,245,0.04)' : palette.blanco)
+    : (selected ? palette.moradoBg : palette.blanco);
   const letterBg    = revealed
-    ? (isCorrectOpt ? BRAND : isWrong ? Colors.line2 : Colors.bgSoft)
-    : (selected ? BRAND : Colors.bgSoft);
-  const letterColor = ((revealed && isCorrectOpt) || (!revealed && selected)) ? 'white' : Colors.ink;
+    ? (isCorrectOpt ? BRAND : isWrong ? palette.bordeMedio : palette.crema)
+    : (selected ? BRAND : palette.crema);
+  const letterColor = ((revealed && isCorrectOpt) || (!revealed && selected)) ? palette.blanco : semantic.textPrimary;
 
   const optStyle   = useAnimatedStyle(() => ({
     transform: [{ scale: scale.value }, { translateX: shakeX.value }],
@@ -208,7 +207,7 @@ function QuizOption({ opt, selected, revealed, isCorrectOpt, onPress }: {
           </View>
           <Text style={[styles.optText,
             revealed && isCorrectOpt && { color: BRAND, fontWeight: '700' },
-            revealed && isWrong      && { color: Colors.muted, fontWeight: '700' },
+            revealed && isWrong      && { color: semantic.textTertiary, fontWeight: '700' },
           ]}>
             {opt.text}
           </Text>
@@ -217,7 +216,7 @@ function QuizOption({ opt, selected, revealed, isCorrectOpt, onPress }: {
               <Check size={16} color={BRAND} strokeWidth={2.5} />
             </Animated.View>
           )}
-          {revealed && isWrong && <X size={16} color={Colors.line2} strokeWidth={2.5} />}
+          {revealed && isWrong && <X size={16} color={palette.bordeMedio} strokeWidth={2.5} />}
         </View>
       </Pressable>
     </Animated.View>
@@ -305,7 +304,7 @@ export default function FirstSessionScreen() {
   if (phase === 'loading') {
     return (
       <View style={{ flex: 1, backgroundColor: BG, alignItems: 'center', justifyContent: 'center' }}>
-        <Loader size={40} color={Colors.brand} strokeWidth={1.8} />
+        <Loader size={40} color={palette.morado} strokeWidth={1.8} />
       </View>
     );
   }
@@ -320,20 +319,16 @@ export default function FirstSessionScreen() {
           showsVerticalScrollIndicator={false}
         >
           <View style={styles.introEmojiWrap}>
-            <SubjectIcon subject={session.subjectName} size={SM ? 72 : 88} color={Colors.brand} />
+            <SubjectIcon subject={session.subjectName} size={SM ? 72 : 88} color={palette.morado} />
           </View>
 
           <Text style={styles.introTitle}>
             Entrena con{' '}
-            <Text style={{ color: Colors.brand }}>{session.subjectName}</Text>
+            <Text style={{ color: palette.morado }}>{session.subjectName}</Text>
             {' '}— siente cómo funciona NemUp.
           </Text>
 
-          <LinearGradient
-            colors={[Colors.brand, NEON]}
-            start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
-            style={styles.introTopicCard}
-          >
+          <View style={[styles.introTopicCard, { backgroundColor: BRAND }]}>
             <View style={{ position: 'absolute', width: 120, height: 120, borderRadius: 60,
               backgroundColor: 'rgba(255,255,255,0.1)', top: -40, right: -30 }} />
             <Text style={styles.introTopicLabel}>TEMA DE HOY</Text>
@@ -342,21 +337,17 @@ export default function FirstSessionScreen() {
               <View style={styles.introChip}><Text style={styles.introChipText}>3 preguntas</Text></View>
               <View style={styles.introChip}><Text style={styles.introChipText}>~2 min</Text></View>
             </View>
-          </LinearGradient>
+          </View>
 
           <Text style={styles.introSub}>
             Después podrás subir tus propios apuntes y NemUp generará sesiones personalizadas con tu material.
           </Text>
 
           <Pressable onPress={() => setPhase('answering')}>
-            <LinearGradient
-              colors={[Colors.brand, NEON]}
-              start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
-              style={styles.ctaBtn}
-            >
+            <View style={[styles.ctaBtn, { backgroundColor: BRAND }]}>
               <Text style={styles.ctaBtnText}>¡Vamos!</Text>
-              <ArrowRight size={18} color="white" strokeWidth={2.5} />
-            </LinearGradient>
+              <ArrowRight size={18} color={palette.blanco} strokeWidth={2.5} />
+            </View>
           </Pressable>
         </ScrollView>
       </SafeAreaView>
@@ -368,8 +359,8 @@ export default function FirstSessionScreen() {
     const accuracy = Math.round((correctCount / session.questions.length) * 100);
     return (
       <View style={{ flex: 1 }}>
-        <StatusBar barStyle="light-content" backgroundColor={Colors.brand} />
-        <LinearGradient colors={[Colors.brand, Colors.accent]} style={{ flex: 1 }}>
+        <StatusBar barStyle="light-content" backgroundColor={palette.morado} />
+        <View style={{ flex: 1, backgroundColor: palette.morado }}>
           {FALL_CONF.map((c, i) => <FallingPiece key={i} c={c} />)}
           <SafeAreaView style={[styles.resultSafe, { paddingBottom: insets.bottom + 20 }]}>
             <View style={styles.trophyWrap}>
@@ -383,7 +374,7 @@ export default function FirstSessionScreen() {
             <View style={styles.statsRow}>
               {[
                 { to: xpEarned,                        label: 'XP ganados', delay: 280 },
-                { to: Math.round(xpEarned / 5),        label: 'Gemas',      delay: 380 },
+                ...(SHOW_GEMS ? [{ to: Math.round(xpEarned / 5), label: 'Gemas', delay: 380 }] : []),
                 { to: accuracy,                        label: '% Aciertos', delay: 480 },
               ].map(({ to, label, delay }) => (
                 <View key={label} style={styles.statBox}>
@@ -394,7 +385,6 @@ export default function FirstSessionScreen() {
             </View>
 
             <View style={styles.nextCard}>
-              <LinearGradient colors={[LIME + '1A', LIME + '06']} style={StyleSheet.absoluteFill} />
               <View style={styles.nextCardTitleRow}>
                 <Target size={15} color={LIME} strokeWidth={2} />
                 <Text style={styles.nextCardTitle}>Próximo paso</Text>
@@ -412,21 +402,17 @@ export default function FirstSessionScreen() {
 
             <View style={{ gap: 10, width: '100%' }}>
               <Pressable onPress={() => router.replace('/modals/upload' as any)}>
-                <LinearGradient
-                  colors={[LIME, '#A8E020']}
-                  start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
-                  style={[styles.ctaBtn, { borderRadius: 18 }]}
-                >
-                  <Camera size={18} color={Colors.ink} strokeWidth={2} />
-                  <Text style={[styles.ctaBtnText, { color: Colors.ink }]}>Subir mis apuntes</Text>
-                </LinearGradient>
+                <View style={[styles.ctaBtn, { backgroundColor: BRAND }]}>
+                  <Camera size={18} color={palette.blanco} strokeWidth={2} />
+                  <Text style={styles.ctaBtnText}>Subir mis apuntes</Text>
+                </View>
               </Pressable>
               <Pressable onPress={() => router.replace('/home')} style={styles.ghostBtn}>
                 <Text style={styles.ghostBtnText}>Explorar la app</Text>
               </Pressable>
             </View>
           </SafeAreaView>
-        </LinearGradient>
+        </View>
       </View>
     );
   }
@@ -491,8 +477,8 @@ export default function FirstSessionScreen() {
           {/* Feedback strip — compact, NemUp-branded */}
           {revealed && question?.explanation ? (
             <View style={[styles.feedbackCallout, {
-              borderLeftColor: isCorrect ? BRAND : Colors.line2,
-              backgroundColor: isCorrect ? 'rgba(91,61,245,0.04)' : Colors.bgSoft,
+              borderLeftColor: isCorrect ? BRAND : palette.bordeMedio,
+              backgroundColor: isCorrect ? 'rgba(91,61,245,0.04)' : palette.crema,
             }]}>
               <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
                 <Text style={styles.feedbackTitle}>
@@ -500,7 +486,7 @@ export default function FirstSessionScreen() {
                 </Text>
                 {isCorrect && (
                   <View style={{ backgroundColor: BRAND, borderRadius: 100, paddingVertical: 2, paddingHorizontal: 8 }}>
-                    <Text style={{ fontSize: 11, fontWeight: '800', color: 'white' }}>+{qIndex === 0 ? 30 : 10} XP</Text>
+                    <Text style={{ fontSize: 11, fontWeight: '800', color: palette.blanco }}>+{qIndex === 0 ? 30 : 10} XP</Text>
                   </View>
                 )}
               </View>
@@ -513,21 +499,17 @@ export default function FirstSessionScreen() {
         <View style={[styles.bottomBar, { paddingBottom: insets.bottom + 12 }]}>
           {revealed ? (
             <Pressable onPress={handleContinue} style={{ width: '100%' }}>
-              <LinearGradient
-                colors={[BRAND, NEON]}
-                start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
-                style={styles.nextBtn}
-              >
+              <View style={[styles.nextBtn, { backgroundColor: BRAND }]}>
                 <Text style={styles.nextBtnText}>
                   {qIndex < session.questions.length - 1
                     ? (isCorrect ? '⚡ Siguiente' : '🚀 Continuar')
                     : '🏆 Ver mis resultados'}
                 </Text>
-              </LinearGradient>
+              </View>
             </Pressable>
           ) : (
-            <View style={[styles.nextBtn, { backgroundColor: Colors.line }]}>
-              <Text style={{ color: Colors.muted, fontWeight: '700', fontSize: 15 }}>Selecciona una respuesta</Text>
+            <View style={[styles.nextBtn, { backgroundColor: palette.bordeClaro }]}>
+              <Text style={{ color: semantic.textTertiary, fontWeight: '700', fontSize: 15 }}>Selecciona una respuesta</Text>
             </View>
           )}
         </View>
@@ -542,52 +524,52 @@ const styles = StyleSheet.create({
   // Intro
   introPad:        { padding: 24, paddingTop: SM ? 20 : 32, gap: 20 },
   introEmojiWrap:  { alignItems: 'center' },
-  introTitle:      { fontSize: SM ? 20 : 23, fontWeight: '800', color: Colors.ink, textAlign: 'center', lineHeight: SM ? 28 : 32 },
+  introTitle:      { fontSize: SM ? 20 : 23, fontWeight: '800', color: semantic.textPrimary, textAlign: 'center', lineHeight: SM ? 28 : 32 },
   introTopicCard:  { borderRadius: 22, padding: 22, overflow: 'hidden' },
   introTopicLabel: { fontSize: 9, fontWeight: '800', color: 'rgba(255,255,255,0.65)', letterSpacing: 1.6, marginBottom: 6 },
-  introTopic:      { fontSize: SM ? 17 : 19, fontWeight: '800', color: 'white', lineHeight: SM ? 24 : 28 },
+  introTopic:      { fontSize: SM ? 17 : 19, fontWeight: '800', color: palette.blanco, lineHeight: SM ? 24 : 28 },
   introChip:       { backgroundColor: 'rgba(255,255,255,0.15)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.25)', borderRadius: 100, paddingVertical: 3, paddingHorizontal: 10 },
-  introChipText:   { color: 'white', fontSize: 11, fontWeight: '600' },
-  introSub:        { fontSize: SM ? 12 : 13, color: Colors.muted, textAlign: 'center', lineHeight: 19 },
-  ctaBtn:          { paddingVertical: 16, borderRadius: 30, alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: 8 },
-  ctaBtnText:      { fontSize: 16, fontWeight: '800', color: 'white' },
+  introChipText:   { color: palette.blanco, fontSize: 11, fontWeight: '600' },
+  introSub:        { fontSize: SM ? 12 : 13, color: semantic.textTertiary, textAlign: 'center', lineHeight: 19 },
+  ctaBtn:          { paddingVertical: 17, borderRadius: 18, alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: 8 },
+  ctaBtnText:      { fontSize: 16, fontWeight: '800', color: palette.blanco },
 
   // Stats chip bar
   statsBar:    { flexDirection: 'row', paddingHorizontal: 16, paddingVertical: 8, gap: 8, alignItems: 'center' },
-  chip:        { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: 'white', borderRadius: 12, borderWidth: 1, borderColor: Colors.line, paddingHorizontal: 10, paddingVertical: 6 },
-  chipVal:     { fontSize: 15, fontWeight: '900', color: Colors.ink },
-  chipLbl:     { fontSize: 10, color: Colors.muted, fontWeight: '600' },
-  chipCounter: { fontSize: 11, fontWeight: '700', color: Colors.muted, marginLeft: 4, flexShrink: 0 },
+  chip:        { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: palette.blanco, borderRadius: 12, borderWidth: 1, borderColor: palette.bordeClaro, paddingHorizontal: 10, paddingVertical: 6 },
+  chipVal:     { fontSize: 15, fontWeight: '900', color: semantic.textPrimary },
+  chipLbl:     { fontSize: 10, color: semantic.textTertiary, fontWeight: '600' },
+  chipCounter: { fontSize: 11, fontWeight: '700', color: semantic.textTertiary, marginLeft: 4, flexShrink: 0 },
 
   // Lives row
   livesRow: { flexDirection: 'row', gap: 4, paddingHorizontal: 16, marginBottom: 2 },
 
   // Quiz content
   quizScroll:    { paddingHorizontal: 16, paddingTop: 6 },
-  questionCard:  { backgroundColor: 'white', borderRadius: 20, padding: SM ? 14 : 16, marginBottom: 10, shadowColor: '#0B0B1A', shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.07, shadowRadius: 12, elevation: 3 },
-  questionChip:  { fontSize: 10, fontWeight: '800', color: Colors.brand, letterSpacing: 0.4, backgroundColor: 'rgba(91,61,245,0.08)', paddingVertical: 3, paddingHorizontal: 8, borderRadius: 100 },
-  questionText:  { fontSize: SM ? 16 : 18, fontWeight: '800', color: Colors.ink, lineHeight: SM ? 24 : 27, letterSpacing: -0.2 },
+  questionCard:  { backgroundColor: palette.blanco, borderRadius: 20, padding: SM ? 14 : 16, marginBottom: 10 },
+  questionChip:  { fontSize: 10, fontWeight: '800', color: palette.morado, letterSpacing: 0.4, backgroundColor: 'rgba(91,61,245,0.08)', paddingVertical: 3, paddingHorizontal: 8, borderRadius: 100 },
+  questionText:  { fontSize: SM ? 16 : 18, fontWeight: '800', color: semantic.textPrimary, lineHeight: SM ? 24 : 27, letterSpacing: -0.2 },
 
   // Options
-  option:        { flexDirection: 'row', alignItems: 'center', gap: 10, padding: 13, borderRadius: 16, borderWidth: 2, backgroundColor: 'white' },
+  option:        { flexDirection: 'row', alignItems: 'center', gap: 10, padding: 13, borderRadius: 16, borderWidth: 2, backgroundColor: palette.blanco },
   optLetter:     { width: 30, height: 30, borderRadius: 9, alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
   optLetterText: { fontSize: 13, fontWeight: '800' },
-  optText:       { flex: 1, fontSize: 14, color: Colors.ink, fontWeight: '600', lineHeight: 20 },
+  optText:       { flex: 1, fontSize: 14, color: semantic.textPrimary, fontWeight: '600', lineHeight: 20 },
 
   // Feedback strip
   feedbackCallout: { borderRadius: 14, borderLeftWidth: 3, paddingVertical: 10, paddingHorizontal: 14, marginBottom: 8 },
-  feedbackTitle:   { fontSize: 13, fontWeight: '800', color: Colors.ink },
-  feedbackText:    { fontSize: 12, color: Colors.ink2, lineHeight: 18 },
+  feedbackTitle:   { fontSize: 13, fontWeight: '800', color: semantic.textPrimary },
+  feedbackText:    { fontSize: 12, color: semantic.textPrimary, lineHeight: 18 },
 
   // Bottom bar
-  bottomBar:   { paddingHorizontal: 16, paddingTop: 12, borderTopWidth: 1, borderTopColor: Colors.line, backgroundColor: BG },
-  nextBtn:     { borderRadius: 18, paddingVertical: 15, alignItems: 'center', justifyContent: 'center' },
-  nextBtnText: { color: 'white', fontWeight: '800', fontSize: 15 },
+  bottomBar:   { paddingHorizontal: 16, paddingTop: 12, borderTopWidth: 1, borderTopColor: palette.bordeClaro, backgroundColor: BG },
+  nextBtn:     { borderRadius: 18, paddingVertical: 17, alignItems: 'center', justifyContent: 'center' },
+  nextBtnText: { color: palette.blanco, fontWeight: '800', fontSize: 16 },
 
   // Result
   resultSafe:       { flex: 1, paddingHorizontal: 24, paddingTop: SM ? 16 : 24, gap: SM ? 16 : 20, alignItems: 'center', justifyContent: 'center' },
   trophyWrap:       { alignItems: 'center' },
-  resultTitle:      { fontSize: SM ? 24 : 28, fontWeight: '900', color: 'white', textAlign: 'center' },
+  resultTitle:      { fontSize: SM ? 24 : 28, fontWeight: '900', color: palette.blanco, textAlign: 'center' },
   resultSub:        { fontSize: SM ? 12 : 13, color: 'rgba(255,255,255,0.55)', textAlign: 'center' },
   statsRow:         { flexDirection: 'row', backgroundColor: 'rgba(255,255,255,0.1)', borderRadius: 16, padding: SM ? 14 : 16, width: '100%' },
   statBox:          { flex: 1, alignItems: 'center', gap: 4 },

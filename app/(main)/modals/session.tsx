@@ -1,13 +1,19 @@
+import { DAILY_SESSION_LOGIC, FIXED_QUIZ_FEEDBACK, MAX_ATTEMPTS_PER_QUESTION, MODE_COMPLETION_REDESIGN, NEUTRAL_MISSION_COMPLETION, SHOW_GEMS, UNIFIED_PROGRESS_BAR, UNIFIED_QUIZ_COMPLETION } from '@/config/features';
+import ModeCompletionScreen from '@/components/ModeCompletionScreen';
+import UnifiedProgressBar from '@/components/UnifiedProgressBar';
+import { useDailySession } from '@/contexts/DailySessionContext';
+import type { DailyMode } from '@/contexts/DailySessionContext';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Colors } from '@/constants/Colors';
+import { palette, semantic } from '@/theme/colors';
 import * as Haptics from 'expo-haptics';
-import { LinearGradient } from 'expo-linear-gradient';
 import { useFocusEffect, useRouter } from 'expo-router';
 import {
   ArrowLeft,
   Check,
+  CheckCircle,
   ChevronLeft,
   ChevronRight,
+  Layers,
   RefreshCw,
   RotateCcw,
   X,
@@ -41,17 +47,17 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 
 const { width: SCREEN_W, height: SCREEN_H } = Dimensions.get('window');
 const SM    = SCREEN_H < 740;
-const BG    = '#F8F9FC';
-const BRAND = '#6C4DFF';
-const NEON  = '#7C5AFF';
-const LIME  = '#C4F852';
+const BG    = palette.crema;
+const BRAND = palette.morado;
+const NEON  = palette.morado;
+const LIME  = palette.limaElectrica;
 
 // ── Types ─────────────────────────────────────────────────────────
 type Option  = { id: string; text: string };
 type Question = { id: string; text: string; options: Option[]; correctOptionId: string; explanation: string; sourceQuote: string };
 type Flashcard = { id: string; front: string; back: string };
 type SummarySlideType = 'concept' | 'key_fact' | 'important' | 'remember' | 'example' | 'curiosity' | 'wow_fact'
-  | 'mission' | 'main_concept' | 'comprehension' | 'key_relation' | 'mini_quiz' | 'process_flow' | 'application' | 'common_error' | 'final_challenge' | 'victory' | 'challenge' | 'decide' | 'order_sequence';
+  | 'mission' | 'main_concept' | 'comprehension' | 'key_relation' | 'mini_quiz' | 'process_flow' | 'application' | 'common_error' | 'final_challenge' | 'victory' | 'challenge' | 'decide' | 'order_sequence' | 'quiz_transition';
 type IllustrationType = 'educational' | 'diagram' | 'concept' | 'timeline' | 'map' | 'process' | 'comparison';
 type BackendSlide = { type: SummarySlideType; emoji: string; title: string; definition: string; example: string; visualHint?: string; illustrationType?: IllustrationType; connector?: string | null; question?: string | null; options?: string[] | null; correctAnswer?: string | null; wrongAnswerHints?: Record<string, string> | null };
 type LegacySection = { heading: string; content: string; keyPoints: string[] };
@@ -131,6 +137,15 @@ function pickMotivMsg(quizIdx: number, total: number, streak: number, prev: stri
   const filtered = pool.filter(m => m !== prev);
   const src = filtered.length > 0 ? filtered : pool;
   return src[Math.floor(Math.random() * src.length)];
+}
+
+function formatMissionTime(ms: number): string {
+  const totalMin = Math.round(ms / 60000);
+  if (totalMin < 1) return '< 1 min';
+  if (totalMin < 60) return `${totalMin} min`;
+  const h = Math.floor(totalMin / 60);
+  const m = totalMin % 60;
+  return m > 0 ? `${h}h ${m}min` : `${h}h`;
 }
 
 // ── Confetti ──────────────────────────────────────────────────────
@@ -234,7 +249,7 @@ function FlipCard({ front, back, onFlip }: { front: string; back: string; onFlip
         <Text style={fcd.label}>CONCEPTO</Text>
         <Text style={fcd.frontText}>{front}</Text>
         <View style={fcd.hint}>
-          <RotateCcw size={14} color={Colors.muted} strokeWidth={2} />
+          <RotateCcw size={14} color={semantic.textTertiary} strokeWidth={2} />
           <Text style={fcd.hintText}>Toca para voltear</Text>
         </View>
       </Animated.View>
@@ -250,16 +265,15 @@ const fcd = StyleSheet.create({
   face: {
     position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
     borderRadius: 28, alignItems: 'center', justifyContent: 'center', padding: 28,
-    shadowColor: '#0B0B1A', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.12,
-    shadowRadius: 24, elevation: 8, borderWidth: 1, borderColor: Colors.line,
+    borderWidth: 1, borderColor: palette.bordeClaro,
   },
-  front:     { backgroundColor: 'white' },
+  front:     { backgroundColor: palette.blanco },
   back:      { backgroundColor: '#F0EDFF' },
-  label:     { fontSize: 10, fontWeight: '800', color: Colors.muted, letterSpacing: 1.5, marginBottom: 24 },
-  frontText: { fontSize: SM ? 26 : 32, fontWeight: '900', color: Colors.ink, textAlign: 'center', letterSpacing: -0.5, lineHeight: SM ? 34 : 42 },
-  backText:  { fontSize: SM ? 15 : 17, color: Colors.ink2, textAlign: 'center', lineHeight: SM ? 24 : 28, fontWeight: '500' },
+  label:     { fontSize: 10, fontWeight: '800', color: semantic.textTertiary, letterSpacing: 1.5, marginBottom: 24 },
+  frontText: { fontSize: SM ? 26 : 32, fontWeight: '900', color: semantic.textPrimary, textAlign: 'center', letterSpacing: -0.5, lineHeight: SM ? 34 : 42 },
+  backText:  { fontSize: SM ? 15 : 17, color: semantic.textPrimary, textAlign: 'center', lineHeight: SM ? 24 : 28, fontWeight: '500' },
   hint:      { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 28 },
-  hintText:  { fontSize: 12, color: Colors.muted, fontStyle: 'italic' },
+  hintText:  { fontSize: 12, color: semantic.textTertiary, fontStyle: 'italic' },
 });
 
 // ── Summary slide style config (for kp-type cards) ───────────────
@@ -333,23 +347,22 @@ function buildSummarySlides(backendSlides: BackendSlide[], questions: Question[]
       return words.length > 45 ? { ...s, definition: words.slice(0, 45).join(' ') + '…' } : s;
     });
 
-    // Step 2: redundancy — skip non-interactive slides with >70% word overlap vs prior
+    // Step 2: redundancy — skip non-interactive slides whose content is >65% covered
+    // by any prior non-interactive slide (cumulative pool, not just the previous one).
     const noRedundant: BackendSlide[] = [];
-    let prevWords = new Set<string>();
+    const allSeenWords = new Set<string>();
     for (const s of valid) {
       if (!isInteractive(s) && s.type !== 'mission' && s.type !== 'victory') {
-        const words = keyWords(`${s.title ?? ''} ${s.definition ?? ''}`);
-        if (prevWords.size > 0 && words.size > 0) {
+        const words = keyWords(`${s.title ?? ''} ${s.definition ?? ''} ${s.example ?? ''}`);
+        if (allSeenWords.size > 0 && words.size > 0) {
           let hits = 0;
-          for (const w of words) if (prevWords.has(w)) hits++;
-          if (hits / Math.min(words.size, prevWords.size) > 0.70) {
+          for (const w of words) if (allSeenWords.has(w)) hits++;
+          if (hits / words.size > 0.65) {
             console.warn(`[Summary] Redundant slide skipped: ${s.type} — ${s.title}`);
             continue;
           }
         }
-        prevWords = words;
-      } else if (!isInteractive(s)) {
-        prevWords = new Set();
+        for (const w of words) allSeenWords.add(w);
       }
       noRedundant.push(s);
     }
@@ -367,32 +380,100 @@ function buildSummarySlides(backendSlides: BackendSlide[], questions: Question[]
       return s;
     });
 
-    // Step 4: max 2 consecutive non-interactive — inject from quiz pool if violated
-    const pool = questions.slice(0, 2);
-    let poolIdx = 0;
-    const enforced: BackendSlide[] = [];
-    let consec = 0;
-    for (const s of withOrder) {
-      if (isInteractive(s)) {
-        consec = 0;
-      } else {
-        if (consec >= 2 && poolIdx < pool.length) {
-          const q = pool[poolIdx++];
-          const correctLetter = LETTERS[q.options.findIndex(o => o.id === q.correctOptionId)] ?? 'A';
-          enforced.push({
-            type: 'comprehension', emoji: '🧩', title: '¿Comprendiste?',
-            definition: q.explanation || '', example: '', question: q.text,
-            options: q.options.slice(0, 4).map((o, i) => `${LETTERS[i]}. ${o.text}`),
-            correctAnswer: correctLetter,
-          } as BackendSlide);
-          consec = 0;
-        }
-        consec++;
+    // Step 4: filter out passive challenge/reflexión slides (no question+options).
+    const enforced = withOrder.filter(s =>
+      s.type !== 'challenge' || !!(s.question?.trim() && s.options?.length)
+    );
+
+    // Step 5: reorder + inject synthetic slides to match the official pedagogical flow.
+    const reordered = [...enforced];
+    const moveToIdx = (fromIdx: number, toIdx: number) => {
+      const [item] = reordered.splice(fromIdx, 1);
+      reordered.splice(toIdx, 0, item);
+    };
+
+    // 5a. "Comprueba si entendiste" — first comprehension/mini_quiz right after main_concept
+    const mcIdx = reordered.findIndex(s => s.type === 'main_concept');
+    if (mcIdx !== -1) {
+      const alreadyAfterMc = reordered[mcIdx + 1]?.type === 'comprehension' || reordered[mcIdx + 1]?.type === 'mini_quiz';
+      if (!alreadyAfterMc) {
+        const compIdx = reordered.findIndex((s, i) => i > mcIdx && (s.type === 'comprehension' || s.type === 'mini_quiz'));
+        if (compIdx !== -1) moveToIdx(compIdx, mcIdx + 1);
       }
-      enforced.push(s);
     }
 
-    return enforced as SummarySlide[];
+    // 5b. "Mini Reto Final" — ensure a final_challenge exists.
+    // If the backend didn't send one, promote the last remaining interactive slide
+    // (not the early-check one right after main_concept).
+    let fcIdx = reordered.findIndex(s => s.type === 'final_challenge');
+    if (fcIdx === -1) {
+      const earlyCheckPos = reordered.findIndex(s => s.type === 'main_concept') + 1;
+      const promotable = reordered
+        .map((s, i) => ({ s, i }))
+        .filter(({ s, i }) =>
+          i !== earlyCheckPos &&
+          (s.type === 'comprehension' || s.type === 'mini_quiz' || s.type === 'decide') &&
+          !!(s as BackendSlide).question?.trim() && !!(s as BackendSlide).options?.length
+        );
+      const lastPromotable = promotable[promotable.length - 1];
+      if (lastPromotable) {
+        reordered[lastPromotable.i] = { ...reordered[lastPromotable.i], type: 'final_challenge' as SummarySlideType };
+        fcIdx = lastPromotable.i;
+      }
+    }
+
+    // Move final_challenge right before victory
+    fcIdx = reordered.findIndex(s => s.type === 'final_challenge');
+    if (fcIdx !== -1) {
+      const vcIdx = reordered.findIndex(s => s.type === 'victory');
+      if (vcIdx !== -1 && fcIdx !== vcIdx - 1) {
+        moveToIdx(fcIdx, reordered.findIndex(s => s.type === 'victory'));
+      }
+    }
+
+    // 5c. "Preparado para el Quiz" — inject quiz_transition right before victory
+    const vcIdx2 = reordered.findIndex(s => s.type === 'victory');
+    if (vcIdx2 !== -1 && reordered[vcIdx2 - 1]?.type !== 'quiz_transition') {
+      reordered.splice(vcIdx2, 0, {
+        type: 'quiz_transition' as SummarySlideType,
+        emoji: '🚀', title: 'Preparado para el Quiz',
+        definition: 'Ya dominaste los conceptos principales. Ahora podrás ponerlos a prueba en el Quiz.',
+        example: '', connector: null, question: null, options: null, correctAnswer: null, wrongAnswerHints: null,
+      } as BackendSlide);
+    }
+
+    // 5d. Enforce cognitive progression order for the middle section.
+    // Head: mission → main_concept → early comprehension/mini_quiz
+    // Middle (sorted by cognitive priority): key_relation → process/order → mini_quiz/decide/comprehension → application → wow_fact → common_error → challenge
+    // Tail: final_challenge → quiz_transition → victory
+    const COGN_PRIORITY: Record<string, number> = {
+      key_relation: 0,
+      process_flow: 1, order_sequence: 1,
+      mini_quiz: 2, decide: 2, comprehension: 2,
+      application: 3,
+      wow_fact: 4,
+      common_error: 5,
+      challenge: 6,
+    };
+    const TAIL_ANCHOR = new Set(['final_challenge', 'quiz_transition', 'victory']);
+
+    let middleStart = 0;
+    if (reordered[middleStart]?.type === 'mission') middleStart++;
+    if (reordered[middleStart]?.type === 'main_concept') middleStart++;
+    // Skip the one early-check slot right after main_concept
+    if (reordered[middleStart]?.type === 'comprehension' || reordered[middleStart]?.type === 'mini_quiz') middleStart++;
+
+    const middleEndIdx = reordered.findIndex((s, i) => i >= middleStart && TAIL_ANCHOR.has(s.type));
+    const tailIdx = middleEndIdx === -1 ? reordered.length : middleEndIdx;
+
+    if (middleStart < tailIdx) {
+      const middle = reordered.splice(middleStart, tailIdx - middleStart);
+      // Array.sort is stable in V8 — same-priority slides keep their original relative order
+      middle.sort((a, b) => (COGN_PRIORITY[a.type] ?? 7) - (COGN_PRIORITY[b.type] ?? 7));
+      reordered.splice(middleStart, 0, ...middle);
+    }
+
+    return reordered as SummarySlide[];
   }
 
   const out: SummarySlide[] = [];
@@ -468,9 +549,24 @@ function buildSummarySlides(backendSlides: BackendSlide[], questions: Question[]
 // ══════════════════════════════════════════════════════════════════
 // MAIN COMPONENT
 // ══════════════════════════════════════════════════════════════════
+const DAILY_MODE_ORDER: DailyMode[] = ['mision', 'quiz', 'tarjetas'];
+const DAILY_MODE_TO_PHASE: Record<DailyMode, 'summary' | 'quiz' | 'flashcards'> = {
+  mision: 'summary', quiz: 'quiz', tarjetas: 'flashcards',
+};
+
+// Local session mode order (independent of DailySessionContext daily tracking)
+type LocalMode = 'summary' | 'quiz' | 'flashcards';
+const LOCAL_MODE_ORDER: LocalMode[]                     = ['summary', 'quiz', 'flashcards'];
+const LOCAL_MODE_LABEL: Record<LocalMode, string>       = { summary: 'Misión', quiz: 'Quiz', flashcards: 'Tarjetas' };
+const LOCAL_MODE_TO_DAILY: Record<LocalMode, DailyMode> = { summary: 'mision', quiz: 'quiz', flashcards: 'tarjetas' };
+const LOCAL_MODE_TO_PHASE: Record<LocalMode, Phase>     = { summary: 'summary', quiz: 'quiz', flashcards: 'flashcards' };
+
+const SESSION_PROGRESS_KEY = 'nemup_session_progress';
+
 export default function SessionPlayerScreen() {
   const router  = useRouter();
   const insets  = useSafeAreaInsets();
+  const { dailySession, markModeComplete, getModeLabel } = useDailySession();
 
   const [session, setSession] = useState<Session | null>(null);
   const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
@@ -531,6 +627,12 @@ export default function SessionPlayerScreen() {
           setCardFlipped(false);
           setCardsDone(false);
           setCelebSrc('quiz');
+          missionStartRef.current    = null;
+          quizStartRef.current       = null;
+          flashcardsStartRef.current = null;
+          setCardsKnew(0);
+          setCardsDubious(0);
+          setCardsUnknown(0);
         } catch {}
       }
       loadIfNew();
@@ -570,6 +672,7 @@ export default function SessionPlayerScreen() {
   // Quiz
   const [quizIdx, setQuizIdx]             = useState(0);
   const [quizStep, setQuizStep]           = useState<QuizStep>('answering');
+  const [currentAttempt, setCurrentAttempt] = useState(1);
   const [selected, setSelected]           = useState<string | null>(null);
   const [lives, setLives]                 = useState(MAX_LIVES);
   const [xpEarned, setXpEarned]           = useState(0);
@@ -585,14 +688,20 @@ export default function SessionPlayerScreen() {
   const [nemiMsg, setNemiMsg]             = useState('');
   const [motivText, setMotivText]         = useState(MOTIV_POOLS.start[0]);
 
-  const nemiLastIdxRef = useRef(-3);
-  const prevMotivRef   = useRef(MOTIV_POOLS.start[0]);
-  const nextIdxRef     = useRef(0);
+  const nemiLastIdxRef       = useRef(-3);
+  const prevMotivRef         = useRef(MOTIV_POOLS.start[0]);
+  const nextIdxRef           = useRef(0);
+  const missionStartRef      = useRef<number | null>(null);
+  const quizStartRef         = useRef<number | null>(null);
+  const flashcardsStartRef   = useRef<number | null>(null);
 
   // Flashcards
-  const [cardIdx, setCardIdx]       = useState(0);
-  const [cardFlipped, setCardFlipped] = useState(false);
-  const [cardsDone, setCardsDone]   = useState(false);
+  const [cardIdx, setCardIdx]           = useState(0);
+  const [cardFlipped, setCardFlipped]   = useState(false);
+  const [cardsDone, setCardsDone]       = useState(false);
+  const [cardsKnew, setCardsKnew]       = useState(0);
+  const [cardsDubious, setCardsDubious] = useState(0);
+  const [cardsUnknown, setCardsUnknown] = useState(0);
 
   // Summary slide animation (hooks must be unconditional)
   const touchStartX  = useRef(0);
@@ -662,13 +771,7 @@ export default function SessionPlayerScreen() {
     opacity:   questionOp.value,
     transform: [{ translateX: questionX.value }],
   }));
-  const correctGlowStyle = useAnimatedStyle(() => ({
-    shadowOpacity: correctGlowSV.value * 0.38,
-    shadowRadius:  correctGlowSV.value * 18,
-    shadowColor:   BRAND,
-    shadowOffset:  { width: 0, height: 0 },
-    elevation:     Math.round(correctGlowSV.value * 6),
-  }));
+  const correctGlowStyle = useAnimatedStyle(() => ({}));
   const comboPulseStyle  = useAnimatedStyle(() => ({ transform: [{ scale: comboPulseSV.value }] }));
   const nemiStyle        = useAnimatedStyle(() => ({ opacity: nemiOp.value }));
   const motivFadeStyle   = useAnimatedStyle(() => ({ opacity: motivFadeOp.value }));
@@ -684,6 +787,27 @@ export default function SessionPlayerScreen() {
     slideX.value = withSpring(0, { damping: 22, stiffness: 220 });
     slideOpacity.value = withTiming(1, { duration: 240 });
   }, [summaryIdx, phase]);
+
+  // Capture mission start time on first entry to summary phase
+  useEffect(() => {
+    if (phase === 'summary' && missionStartRef.current === null) {
+      missionStartRef.current = Date.now();
+    }
+  }, [phase]);
+
+  // Capture quiz start time on every entry to quiz phase (reset on retry via resetQuiz)
+  useEffect(() => {
+    if (phase === 'quiz') {
+      quizStartRef.current = Date.now();
+    }
+  }, [phase]);
+
+  // Capture flashcards start time on first entry (not reset on re-entry)
+  useEffect(() => {
+    if (phase === 'flashcards' && flashcardsStartRef.current === null) {
+      flashcardsStartRef.current = Date.now();
+    }
+  }, [phase]);
 
   // Animate progress bar fill — used by both quiz and flashcards phases
   useEffect(() => {
@@ -814,15 +938,31 @@ export default function SessionPlayerScreen() {
 
   // ── Helpers ────────────────────────────────────────────────────
   const completeMode = (mode: 'summary' | 'quiz' | 'flashcards') => {
-    setCompleted(prev => new Set([...prev, mode]));
+    const newCompleted = new Set([...completedModes, mode]);
+    setCompleted(newCompleted);
     setCelebSrc(mode);
-    setPhase('celebration');
+    setPhase(newCompleted.size >= 3 ? 'complete' : 'mode-select');
+  };
+
+  const saveSessionProgress = (completed: Set<string>) => {
+    const data = {
+      sessionId:           currentSessionId,
+      title:               session?.summary?.title ?? session?.topic ?? '',
+      createdAt:           Date.now(),
+      missionCompleted:    completed.has('summary'),
+      quizCompleted:       completed.has('quiz'),
+      flashcardsCompleted: completed.has('flashcards'),
+      sessionCompleted:    completed.size >= 3,
+    };
+    AsyncStorage.setItem(SESSION_PROGRESS_KEY, JSON.stringify(data)).catch(() => {});
   };
 
   const resetQuiz = () => {
     setQuizIdx(0); setSelected(null); setQuizStep('answering');
     setCorrectCount(0); setLives(MAX_LIVES); setXpEarned(0);
     setStreak(0); setMaxStreak(0); setQuizDone(false); setComboCount(0);
+    setCurrentAttempt(1);
+    quizStartRef.current = Date.now();
   };
 
   const handleOption = (optId: string) => {
@@ -951,6 +1091,7 @@ export default function SessionPlayerScreen() {
       setQuizIdx(next);
       setSelected(null);
       setQuizStep('answering');
+      setCurrentAttempt(1);
       setMotivText(newMotiv);
       correctGlowSV.value = 0;
       questionX.value  = SCREEN_W * 0.28;
@@ -960,14 +1101,26 @@ export default function SessionPlayerScreen() {
     }, 190);
   };
 
-  const handleCardNext = () => {
+  const handleRetry = () => {
+    setCurrentAttempt(a => a + 1);
+    setSelected(null);
+    setQuizStep('answering');
+    correctGlowSV.value = 0;
+    feedbackY.value  = 14;
+    feedbackOp.value = 0;
+  };
+
+  const handleCardNext = (response?: 'knew' | 'doubt' | 'unknown') => {
+    if (response === 'knew')    setCardsKnew(n => n + 1);
+    if (response === 'doubt')   setCardsDubious(n => n + 1);
+    if (response === 'unknown') setCardsUnknown(n => n + 1);
     const next = cardIdx + 1;
     if (next >= flashcards.length) setCardsDone(true);
     else { setCardIdx(next); setCardFlipped(false); }
   };
 
-  const showSummaryReward = () => {
-    const text = SUMMARY_REWARDS[Math.floor(Math.random() * SUMMARY_REWARDS.length)];
+  const showSummaryReward = (customText?: string) => {
+    const text = customText ?? SUMMARY_REWARDS[Math.floor(Math.random() * SUMMARY_REWARDS.length)];
     setSummaryRewardText(text);
     summaryRewardOpSV.value = withSequence(
       withSpring(1, { damping: 10, stiffness: 180 }),
@@ -981,76 +1134,112 @@ export default function SessionPlayerScreen() {
 
   const finalAccuracy = questions.length > 0 ? Math.round((correctCount / questions.length) * 100) : 100;
 
+  // ── Unified progress bar — derived from existing state, no new useState ──────
+  const _misionTotal    = missionSlides.length;
+  const _misionDone     = completedModes.has('summary')    ? _misionTotal    : summaryIdx;
+  const _quizTotal      = questions.length;
+  const _quizDone       = completedModes.has('quiz')       ? _quizTotal      : quizIdx + (quizStep !== 'answering' ? 1 : 0);
+  const _tarjetasTotal  = flashcards.length;
+  const _tarjetasDone   = completedModes.has('flashcards') ? _tarjetasTotal  : cardsDone ? _tarjetasTotal : cardIdx;
+  const globalPct =
+    (_misionTotal   > 0 ? _misionDone   / _misionTotal   : 0) / 3 +
+    (_quizTotal     > 0 ? _quizDone     / _quizTotal     : 0) / 3 +
+    (_tarjetasTotal > 0 ? _tarjetasDone / _tarjetasTotal : 0) / 3;
+  const unifiedModeLabel =
+    phase === 'summary'    ? `Misión · ${summaryIdx + 1}/${missionSlides.length}` :
+    phase === 'quiz'       ? `Quiz · ${quizIdx + 1}/${questions.length}` :
+    phase === 'flashcards' ? `Tarjetas · ${cardIdx + 1}/${flashcards.length}` :
+    undefined;
+
   // ══════════════════════════════════════════════════════════════
   // LOBBY — Screen 1
   // ══════════════════════════════════════════════════════════════
   if (phase === 'lobby') {
-    const missions = [
-      { key: 'summary',    label: '📖 Leer el resumen' },
-      { key: 'quiz',       label: '🧠 Completar el quiz' },
-      { key: 'flashcards', label: '🗂️ Repasar tarjetas' },
+    const missionItems = [
+      { key: 'summary',    emoji: '📚', label: 'Comprender conceptos clave' },
+      { key: 'quiz',       emoji: '🧠', label: 'Resolver desafíos' },
+      { key: 'flashcards', emoji: '🃏', label: 'Reforzar memoria' },
     ];
-    const done = missions.filter(m => completedModes.has(m.key)).length;
+    const done = missionItems.filter(m => completedModes.has(m.key)).length;
 
     return (
       <SafeAreaView style={g.page} edges={['top']}>
         <StatusBar barStyle="dark-content" backgroundColor={BG} />
         <View style={g.topBar}>
           <Pressable onPress={() => router.back()} style={g.iconBtn} hitSlop={10}>
-            <ArrowLeft size={16} color={Colors.ink} strokeWidth={2.5} />
+            <ArrowLeft size={16} color={semantic.textPrimary} strokeWidth={2.5} />
           </Pressable>
           <View style={{ flex: 1 }} />
-          <View style={lob.xpPill}>
-            <Text style={lob.xpPillText}>⚡ +{session.xpReward} XP</Text>
-          </View>
+          {done > 0 && (
+            <View style={lob.progressPill}>
+              <Text style={lob.progressPillText}>{done}/3 listos</Text>
+            </View>
+          )}
         </View>
+        {UNIFIED_PROGRESS_BAR && (
+          <UnifiedProgressBar progress={globalPct} showCurrentMode={false} />
+        )}
 
         <ScrollView contentContainerStyle={[g.scroll, { paddingBottom: insets.bottom + 100 }]} showsVerticalScrollIndicator={false}>
-          {/* Hero */}
-          <LinearGradient colors={[BRAND, '#8B5CF6', NEON]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={lob.hero}>
-            <View style={lob.glow1} /><View style={lob.glow2} />
-            <Text style={lob.heroEmoji}>{emoji}</Text>
-            <Text style={lob.heroTopic} numberOfLines={2}>{session.topic}</Text>
-            <View style={lob.chips}>
-              <View style={lob.chip}><Text style={lob.chipText}>⏱ {session.estimatedDuration} min</Text></View>
-              <View style={lob.chip}><Text style={lob.chipText}>📝 {questions.length} preguntas</Text></View>
-              <View style={lob.chip}><Text style={lob.chipText}>🗂 {flashcards.length} tarjetas</Text></View>
-            </View>
-          </LinearGradient>
+          {/* Title */}
+          <View style={lob.titleBlock}>
+            <Text style={lob.titleLabel}>🎯 Tu misión está lista</Text>
+            <Text style={lob.titleTopic} numberOfLines={2}>{session.topic}</Text>
+          </View>
 
-          {/* Rewards */}
-          <View style={lob.rewardsRow}>
-            <View style={lob.rewardCardPrimary}>
-              <Text style={{ fontSize: SM ? 28 : 34 }}>⚡</Text>
-              <Text style={[lob.rewardValPrimary, { color: BRAND }]}>{session.xpReward}</Text>
-              <Text style={lob.rewardLbl}>XP</Text>
+          {/* Metrics hero card */}
+          <View style={lob.metricsCard}>
+            <View style={lob.metricsRow}>
+              <View style={lob.metricItem}>
+                <Text style={lob.metricEmoji}>⏱</Text>
+                <Text style={lob.metricVal}>{session.estimatedDuration} min</Text>
+                <Text style={lob.metricLbl}>estimados</Text>
+              </View>
+              <View style={lob.metricDiv} />
+              <View style={lob.metricItem}>
+                <Text style={lob.metricEmoji}>🧠</Text>
+                <Text style={lob.metricVal}>{summarySlides.length}</Text>
+                <Text style={lob.metricLbl}>conceptos</Text>
+              </View>
+              <View style={lob.metricDiv} />
+              <View style={lob.metricItem}>
+                <Text style={lob.metricEmoji}>❓</Text>
+                <Text style={lob.metricVal}>{questions.length}</Text>
+                <Text style={lob.metricLbl}>preguntas</Text>
+              </View>
             </View>
-            <View style={lob.rewardCardSmall}>
-              <Text style={{ fontSize: SM ? 18 : 22 }}>💎</Text>
-              <Text style={[lob.rewardVal, { color: Colors.teal }]}>{session.gemReward ?? 10}</Text>
-              <Text style={lob.rewardLbl}>GEMAS</Text>
-            </View>
-            <View style={lob.rewardCardSmall}>
-              <Text style={{ fontSize: SM ? 18 : 22 }}>📚</Text>
-              <Text style={[lob.rewardVal, { color: Colors.amber }]}>{summarySlides.length}</Text>
-              <Text style={lob.rewardLbl}>CONCEPTOS</Text>
+            <View style={lob.metricDivH} />
+            <View style={[lob.metricsRow, { paddingHorizontal: 30 }]}>
+              <View style={lob.metricItem}>
+                <Text style={lob.metricEmoji}>🃏</Text>
+                <Text style={lob.metricVal}>{flashcards.length}</Text>
+                <Text style={lob.metricLbl}>tarjetas</Text>
+              </View>
+              <View style={lob.metricDiv} />
+              <View style={lob.metricItem}>
+                <Text style={lob.metricEmoji}>⚡</Text>
+                <Text style={[lob.metricVal, { color: BRAND }]}>+{session.xpReward}</Text>
+                <Text style={lob.metricLbl}>XP</Text>
+              </View>
             </View>
           </View>
 
-          {/* Missions */}
+          {/* Lo que harás hoy */}
           <View style={lob.missionCard}>
             <View style={lob.missionHead}>
-              <Text style={lob.missionTitle}>📋 Completa esta sesión</Text>
-              <Text style={lob.missionCounter}>{done}/3 completados</Text>
+              <Text style={lob.missionTitle}>Lo que harás hoy</Text>
+              {done > 0 && <Text style={lob.missionCounter}>{done}/3 listos</Text>}
             </View>
-            {missions.map(m => {
+            {missionItems.map(m => {
               const isDone = completedModes.has(m.key);
               return (
                 <View key={m.key} style={lob.missionRow}>
                   <View style={[lob.missionCheck, isDone && lob.missionCheckDone]}>
-                    {isDone && <Check size={9} color="white" strokeWidth={3} />}
+                    {isDone && <Check size={9} color={palette.blanco} strokeWidth={3} />}
                   </View>
-                  <Text style={[lob.missionLabel, isDone && lob.missionLabelDone]}>{m.label}</Text>
+                  <Text style={[lob.missionLabel, isDone && lob.missionLabelDone]}>
+                    {m.emoji} {m.label}
+                  </Text>
                 </View>
               );
             })}
@@ -1059,9 +1248,9 @@ export default function SessionPlayerScreen() {
 
         <View style={[g.bottom, { paddingBottom: insets.bottom + 12 }]}>
           <Pressable onPress={() => setPhase('mode-select')} style={{ width: '100%' }}>
-            <LinearGradient colors={[BRAND, NEON]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={g.ctaBtn}>
-              <Text style={g.ctaText}>🚀 Empezar a aprender</Text>
-            </LinearGradient>
+            <View style={[g.ctaBtn, { backgroundColor: BRAND }]}>
+              <Text style={g.ctaText}>⚡ Comenzar misión</Text>
+            </View>
           </Pressable>
         </View>
       </SafeAreaView>
@@ -1072,12 +1261,14 @@ export default function SessionPlayerScreen() {
   // MODE SELECT — Screen 2
   // ══════════════════════════════════════════════════════════════
   if (phase === 'mode-select') {
-    const modes = [
-      { key: 'summary' as const,    emoji: '🎯', title: 'Misión',   desc: 'Lee y comprende los conceptos clave', detail: `${summarySlides.length} conceptos`, xp: XP_PER_SUMMARY * Math.max(summarySlides.length, 1), colors: [BRAND, '#8B5CF6'] as [string,string] },
-      { key: 'quiz' as const,       emoji: '🧠', title: 'Quiz',     desc: 'Pon a prueba lo que aprendiste',      detail: `${questions.length} preguntas`, xp: XP_PER_CORRECT * Math.max(questions.length, 1), colors: ['#3B82F6', '#1D4ED8'] as [string,string] },
-      { key: 'flashcards' as const, emoji: '🗂️', title: 'Tarjetas', desc: 'Memoriza con tarjetas interactivas',  detail: `${flashcards.length} tarjetas`, xp: XP_PER_CARD * Math.max(flashcards.length, 1), colors: ['#059669', '#047857'] as [string,string] },
-    ];
-    const goMode = (key: typeof modes[number]['key']) => {
+    const QUIZ_COLOR = '#3B82F6';
+    const QUIZ_BG    = 'rgba(59,130,246,0.08)';
+    const TEAL_COLOR = palette.tealTarjetas;
+    const TEAL_BG    = 'rgba(0,194,168,0.08)';
+    const missionXp  = XP_PER_SUMMARY * Math.max(summarySlides.length, 1);
+    const quizXp     = XP_PER_CORRECT * Math.max(questions.length, 1);
+    const cardsXp    = XP_PER_CARD * Math.max(flashcards.length, 1);
+    const goMode = (key: 'summary' | 'quiz' | 'flashcards') => {
       if (key === 'summary')    { setSummaryIdx(0); setQuizAnswers({}); setPhase('summary'); }
       if (key === 'quiz')       { resetQuiz(); setPhase('quiz'); }
       if (key === 'flashcards') { setCardIdx(0); setCardFlipped(false); setCardsDone(false); setPhase('flashcards'); }
@@ -1087,57 +1278,112 @@ export default function SessionPlayerScreen() {
         <StatusBar barStyle="dark-content" backgroundColor={BG} />
         <View style={g.topBar}>
           <Pressable onPress={() => setPhase('lobby')} style={g.iconBtn} hitSlop={10}>
-            <ChevronLeft size={18} color={Colors.ink} strokeWidth={2.5} />
+            <ChevronLeft size={18} color={semantic.textPrimary} strokeWidth={2.5} />
           </Pressable>
-          <Text style={g.screenTitle}>Modo de estudio</Text>
+          <View style={{ flex: 1 }} />
           <View style={{ width: 36 }} />
         </View>
-        {/* Fixed header — no scroll */}
-        <View style={{ paddingHorizontal: 20, paddingBottom: 10 }}>
-          <Text style={mds.heading}>¿Qué quieres hacer?</Text>
-          <Text style={mds.sub}>Elige cómo quieres estudiar hoy</Text>
-        </View>
-        {/* Cards fill all remaining space */}
-        <View style={{ flex: 1, paddingHorizontal: 20, paddingBottom: insets.bottom + 12, gap: 8 }}>
-          {modes.map(m => {
-            const isDone = completedModes.has(m.key);
-            return (
-              <Pressable key={m.key} onPress={() => goMode(m.key)} style={{ flex: 1 }}
-                android_ripple={{ color: 'rgba(0,0,0,0.08)' }}>
-                {({ pressed }) => (
-                  <LinearGradient colors={m.colors} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
-                    style={[mds.gradient, pressed && { opacity: 0.92 }]}>
-                    {isDone && (
-                      <View style={mds.doneBadge}>
-                        <Check size={10} color={m.colors[0]} strokeWidth={3} />
-                        <Text style={[mds.doneBadgeText, { color: m.colors[0] }]}>Completado</Text>
-                      </View>
-                    )}
-                    <View style={mds.cardTop}>
-                      <Text style={mds.cardEmoji}>{m.emoji}</Text>
-                      <View style={mds.xpBadge}>
-                        <Text style={mds.xpBadgeText}>+{m.xp} XP</Text>
-                      </View>
-                    </View>
-                    <Text style={mds.cardTitle}>{m.title}</Text>
-                    <Text style={mds.cardDesc}>{m.desc}</Text>
-                    <View style={mds.cardFoot}>
-                      <Text style={mds.cardDetail}>{m.detail}</Text>
-                      <View style={mds.arrow}>
-                        <ChevronRight size={16} color="white" strokeWidth={2.5} />
-                      </View>
-                    </View>
-                  </LinearGradient>
-                )}
-              </Pressable>
-            );
-          })}
-          {/* Tip banner — always visible at bottom */}
-          <View style={mds.tip}>
-            <Text style={{ fontSize: 16 }}>⭐</Text>
-            <Text style={mds.tipText}>Completa los 3 modos para ganar el máximo XP</Text>
+        {UNIFIED_PROGRESS_BAR && (
+          <UnifiedProgressBar progress={globalPct} showCurrentMode={false} />
+        )}
+        <ScrollView
+          contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: insets.bottom + 24, gap: 10 }}
+          showsVerticalScrollIndicator={false}
+        >
+          {/* Hero */}
+          <View style={mds.hero}>
+            <Text style={mds.heroTitle}>🚀 Tu misión está lista</Text>
+            <Text style={mds.heroSub}>{session.estimatedDuration} min para completarla</Text>
           </View>
-        </View>
+
+          {/* Primary mode — Misión */}
+          <Pressable onPress={() => goMode('summary')} android_ripple={{ color: 'rgba(0,0,0,0.08)' }}>
+            {({ pressed }) => (
+              <View style={[mds.missionCard, pressed && { opacity: 0.93 }]}>
+                {completedModes.has('summary') && (
+                  <View style={mds.doneBadge}>
+                    <Check size={10} color={BRAND} strokeWidth={3} />
+                    <Text style={[mds.doneBadgeText, { color: BRAND }]}>Completado</Text>
+                  </View>
+                )}
+                <View style={mds.cardTop}>
+                  <Text style={mds.missionEmoji}>🎯</Text>
+                  <View style={mds.missionXpBadge}>
+                    <Text style={mds.missionXpText}>+{missionXp} XP</Text>
+                  </View>
+                </View>
+                <Text style={mds.missionTitle}>Misión</Text>
+                <Text style={mds.missionDesc}>Lee y comprende los conceptos clave</Text>
+                <View style={mds.cardFoot}>
+                  <Text style={mds.missionDetail}>{summarySlides.length} conceptos</Text>
+                  <View style={mds.arrowLight}>
+                    <ChevronRight size={16} color={palette.blanco} strokeWidth={2.5} />
+                  </View>
+                </View>
+              </View>
+            )}
+          </Pressable>
+
+          {/* Secondary modes — side by side */}
+          <View style={{ flexDirection: 'row', gap: 10 }}>
+            {/* Quiz */}
+            <Pressable onPress={() => goMode('quiz')} style={{ flex: 1 }} android_ripple={{ color: 'rgba(0,0,0,0.05)' }}>
+              {({ pressed }) => (
+                <View style={[mds.secondaryCard, pressed && { opacity: 0.9 }]}>
+                  {completedModes.has('quiz') && (
+                    <View style={[mds.doneBadge, { backgroundColor: QUIZ_BG }]}>
+                      <Check size={10} color={QUIZ_COLOR} strokeWidth={3} />
+                      <Text style={[mds.doneBadgeText, { color: QUIZ_COLOR }]}>Listo</Text>
+                    </View>
+                  )}
+                  <Text style={mds.secondaryEmoji}>🧠</Text>
+                  <View style={[mds.secondaryXpBadge, { backgroundColor: QUIZ_BG }]}>
+                    <Text style={[mds.secondaryXpText, { color: QUIZ_COLOR }]}>+{quizXp} XP</Text>
+                  </View>
+                  <Text style={[mds.secondaryTitle, { color: QUIZ_COLOR }]}>Quiz</Text>
+                  <Text style={mds.secondaryDesc}>Pon a prueba lo que aprendiste</Text>
+                  <Text style={mds.secondaryDetail}>{questions.length} preguntas</Text>
+                  <View style={[mds.arrowAccent, { backgroundColor: QUIZ_BG }]}>
+                    <ChevronRight size={14} color={QUIZ_COLOR} strokeWidth={2.5} />
+                  </View>
+                </View>
+              )}
+            </Pressable>
+
+            {/* Tarjetas */}
+            <Pressable onPress={() => goMode('flashcards')} style={{ flex: 1 }} android_ripple={{ color: 'rgba(0,0,0,0.05)' }}>
+              {({ pressed }) => (
+                <View style={[mds.secondaryCard, pressed && { opacity: 0.9 }]}>
+                  {completedModes.has('flashcards') && (
+                    <View style={[mds.doneBadge, { backgroundColor: TEAL_BG }]}>
+                      <Check size={10} color={TEAL_COLOR} strokeWidth={3} />
+                      <Text style={[mds.doneBadgeText, { color: TEAL_COLOR }]}>Listo</Text>
+                    </View>
+                  )}
+                  <Text style={mds.secondaryEmoji}>🃏</Text>
+                  <View style={[mds.secondaryXpBadge, { backgroundColor: TEAL_BG }]}>
+                    <Text style={[mds.secondaryXpText, { color: TEAL_COLOR }]}>+{cardsXp} XP</Text>
+                  </View>
+                  <Text style={[mds.secondaryTitle, { color: TEAL_COLOR }]}>Tarjetas</Text>
+                  <Text style={mds.secondaryDesc}>Memoriza con tarjetas interactivas</Text>
+                  <Text style={mds.secondaryDetail}>{flashcards.length} tarjetas</Text>
+                  <View style={[mds.arrowAccent, { backgroundColor: TEAL_BG }]}>
+                    <ChevronRight size={14} color={TEAL_COLOR} strokeWidth={2.5} />
+                  </View>
+                </View>
+              )}
+            </Pressable>
+          </View>
+
+          {/* Completion reward */}
+          <View style={mds.rewardCard}>
+            <Text style={mds.rewardStar}>⭐</Text>
+            <View style={{ flex: 1 }}>
+              <Text style={mds.rewardTitle}>Completa los 3 modos</Text>
+              <Text style={mds.rewardSub}>Gana +{session.xpReward} XP · Aumenta tu progreso más rápido</Text>
+            </View>
+          </View>
+        </ScrollView>
       </SafeAreaView>
     );
   }
@@ -1174,6 +1420,58 @@ export default function SessionPlayerScreen() {
       slideOpacity.value = withTiming(0, { duration: 180 });
     };
 
+    // MODE_COMPLETION_REDESIGN: replace victory slide with full-screen ModeCompletionScreen
+    if (MODE_COMPLETION_REDESIGN && isLast && slide?.type === 'victory') {
+      const tiempoMs    = missionStartRef.current ? Date.now() - missionStartRef.current : 0;
+      const tiempoStr   = formatMissionTime(tiempoMs);
+      const V_CONCEPT_LOCAL = ['main_concept', 'key_relation', 'process_flow', 'application', 'common_error', 'challenge'];
+      const vConceptsLocal  = missionSlides.filter(s => V_CONCEPT_LOCAL.includes(s.type)).length;
+      const V_INTER_LOCAL   = ['comprehension', 'mini_quiz', 'final_challenge', 'decide', 'order_sequence', 'common_error', 'application', 'challenge', 'wow_fact'];
+      const vInterLocal     = missionSlides.filter(s => V_INTER_LOCAL.includes(s.type) && !!(s as BackendSlide).correctAnswer).length;
+      const vCorrectLocal   = missionSlides.filter((s, i) => V_INTER_LOCAL.includes(s.type) && !!(s as BackendSlide).correctAnswer && quizAnswers[i] === (s as BackendSlide).correctAnswer).length;
+
+      const newSetAfterMision    = new Set([...completedModes, 'summary']);
+      const remainingAfterMision = LOCAL_MODE_ORDER.filter(m => !newSetAfterMision.has(m));
+      const nextLocalMision      = remainingAfterMision[0] ?? null;
+      const continueLabelMision  = newSetAfterMision.size >= 3
+        ? '¡Ver sesión completa! →'
+        : nextLocalMision
+          ? `Continuar con ${LOCAL_MODE_LABEL[nextLocalMision]} →`
+          : 'Continuar →';
+
+      const onContinueMision = () => {
+        const newSet = new Set([...completedModes, 'summary']);
+        setCompleted(newSet);
+        setCelebSrc('summary');
+        if (DAILY_SESSION_LOGIC) markModeComplete(LOCAL_MODE_TO_DAILY['summary']);
+        saveSessionProgress(newSet);
+        if (newSet.size >= 3) {
+          router.push('/session-complete' as any);
+        } else {
+          setPhase(nextLocalMision ? LOCAL_MODE_TO_PHASE[nextLocalMision] : 'mode-select');
+        }
+      };
+
+      return (
+        <ModeCompletionScreen
+          mode="mision"
+          iconNode={<CheckCircle size={44} color={BRAND} strokeWidth={1.5} />}
+          screenTitle="🎯 Misión"
+          title="Misión completa"
+          tiles={[
+            { label: 'enfocado',   value: tiempoStr },
+            { label: 'conceptos',  value: String(vConceptsLocal) },
+            { label: 'XP',         value: `+${earnedXp ?? 0}`, valueColor: BRAND },
+          ]}
+          contextualLine={vInterLocal > 0 ? `Mini-quizzes: ${vCorrectLocal}/${vInterLocal} — los repasarás en el Quiz` : ''}
+          continueLabel={continueLabelMision}
+          onContinue={onContinueMision}
+          onBack={() => setPhase('mode-select')}
+          sessionCompletedCount={newSetAfterMision.size}
+        />
+      );
+    }
+
     // Adaptive correction: insert a conceptual-confusion slide after a wrong answer.
     // Uses the backend-generated wrongAnswerHints — specific explanation for each wrong option.
     // Per REGLA FINAL: skips entirely if no domain-specific hint is available.
@@ -1183,9 +1481,9 @@ export default function SessionPlayerScreen() {
       const corrective: BackendSlide = {
         type: 'challenge' as SummarySlideType,
         emoji: '🧠',
-        title: `err:${selectedKey}`,
-        definition: hint,
-        example: null,
+        title: `err:${_selectedKey}`,
+        definition: _wrongSlide.wrongAnswerHints?.[_selectedKey] ?? '',
+        example: '',
         question: null, options: null, correctAnswer: null,
       };
       setMissionSlides(prev => {
@@ -1199,14 +1497,21 @@ export default function SessionPlayerScreen() {
       <View style={{ flex: 1, backgroundColor: BG }}>
         <StatusBar barStyle="dark-content" backgroundColor={BG} />
         <SafeAreaView style={{ flex: 1 }} edges={['top']}>
-          {/* Story bar */}
-          <View style={sum.storyBar}>
-            {slides.map((_, i) => (
-              <View key={i} style={sum.storySeg}>
-                <View style={[sum.storyFill, { width: i <= summaryIdx ? '100%' : '0%' }]} />
+          {/* Story bar / unified bar */}
+          {UNIFIED_PROGRESS_BAR ? (
+            <UnifiedProgressBar
+              progress={globalPct}
+              currentMode="mision"
+              modeLabel={unifiedModeLabel}
+            />
+          ) : (
+            <View style={sum.storyBar}>
+              <View style={sum.progressTrack}>
+                <View style={[sum.progressFill, { width: `${Math.round((summaryIdx / Math.max(slides.length - 1, 1)) * 100)}%` }]} />
               </View>
-            ))}
-          </View>
+              <Text style={sum.slideCounter}>{summaryIdx + 1}/{slides.length}</Text>
+            </View>
+          )}
 
           {/* Header */}
           <View style={g.topBar}>
@@ -1214,14 +1519,16 @@ export default function SessionPlayerScreen() {
               onPress={() => summaryIdx > 0 ? goPrev() : setPhase('mode-select')}
               style={g.iconBtn} hitSlop={10}
             >
-              <ChevronLeft size={18} color={Colors.ink} strokeWidth={2.5} />
+              <ChevronLeft size={18} color={semantic.textPrimary} strokeWidth={2.5} />
             </Pressable>
             <View style={{ flex: 1, alignItems: 'center' }}>
               <Text style={g.screenTitle}>🎯 Misión</Text>
-              <Text style={sum.slideCounter}>{summaryIdx + 1} / {slides.length}</Text>
+              {!UNIFIED_PROGRESS_BAR && (
+                <Text style={[sum.slideCounter, { minWidth: 0, textAlign: 'center', fontSize: 11 }]}>Paso {summaryIdx + 1} de {slides.length}</Text>
+              )}
             </View>
             <Pressable onPress={() => setPhase('mode-select')} style={g.iconBtn} hitSlop={10}>
-              <X size={16} color={Colors.ink} strokeWidth={2.5} />
+              <X size={16} color={semantic.textPrimary} strokeWidth={2.5} />
             </Pressable>
           </View>
 
@@ -1251,8 +1558,8 @@ export default function SessionPlayerScreen() {
                         style={[sum.quizOption, showGreen && sum.quizOptCorrect, showRed && sum.quizOptWrong, { opacity: dimmed ? 0.35 : 1 }]}
                       >
                         <View style={[sum.quizLetter, showGreen && sum.quizLetterGreen, showRed && sum.quizLetterRed]}>
-                          {showGreen ? <Check size={12} color="white" strokeWidth={3} /> :
-                           showRed   ? <X    size={12} color="white" strokeWidth={3} /> :
+                          {showGreen ? <Check size={12} color={palette.blanco} strokeWidth={3} /> :
+                           showRed   ? <X    size={12} color={palette.blanco} strokeWidth={3} /> :
                            <Text style={sum.quizLetterText}>{LETTERS[i]}</Text>}
                         </View>
                         <Text style={[sum.quizOptText, showGreen && { color: BRAND, fontWeight: '700' }, showRed && { color: '#991B1B', fontWeight: '700' }]}>
@@ -1264,8 +1571,15 @@ export default function SessionPlayerScreen() {
                 </View>
                 {!!slideQuizAnswered && (
                   <View style={[sum.quizFeedback, slideQuizAnswered === slide.correctId ? sum.quizFeedbackOk : sum.quizFeedbackErr]}>
-                    <Text style={sum.quizFeedbackTitle}>{slideQuizAnswered === slide.correctId ? '🎉 ¡Correcto!' : '💡 Casi'}</Text>
-                    <Text style={sum.quizFeedbackText}>{slide.explanation}</Text>
+                    {slideQuizAnswered === slide.correctId ? (
+                      <View style={sum.quizFeedbackHeader}>
+                        <Text style={sum.quizFeedbackTitle}>✓ Correcto</Text>
+                        {!!summaryRewardText && <View style={sum.quizFeedbackXpChip}><Text style={sum.quizFeedbackXpText}>{summaryRewardText}</Text></View>}
+                      </View>
+                    ) : (
+                      <Text style={sum.quizFeedbackTitle}>💡 Incorrecto</Text>
+                    )}
+                    {!!slide.explanation && <Text style={sum.quizFeedbackText}>{slide.explanation}</Text>}
                   </View>
                 )}
               </View>
@@ -1288,20 +1602,48 @@ export default function SessionPlayerScreen() {
 
             // ── Mission model screens ──────────────────────────────
             ) : slide?.type === 'mission' ? (
-              <View style={sum.missionCard}>
-                <LinearGradient colors={[BRAND, '#B44EFF']} start={{ x: 0, y: 1 }} end={{ x: 1, y: 0 }} style={sum.missionGrad}>
-                  <View style={sum.missionBadge}><Text style={sum.missionBadgeText}>🎯 MISIÓN</Text></View>
-                  <Text style={sum.missionEmoji}>{slide.emoji}</Text>
-                  <Text style={sum.missionTitle}>{slide.title}</Text>
-                  {!!slide.definition && <Text style={sum.missionSub}>{slide.definition}</Text>}
-                </LinearGradient>
-              </View>
+              (() => {
+                const coverConcepts = summarySlides
+                  .filter(s => ['main_concept', 'key_relation', 'application'].includes(s.type))
+                  .slice(0, 3)
+                  .map(s => s.title)
+                  .filter((t): t is string => !!t);
+                const coverXp = XP_PER_SUMMARY * Math.max(summarySlides.length, 1);
+                return (
+                  <View style={sum.missionCard}>
+                    <View style={[sum.missionGrad, { backgroundColor: BRAND }]}>
+                      <View style={sum.missionBadge}><Text style={sum.missionBadgeText}>🎯 MISIÓN</Text></View>
+                      <Text style={sum.missionEmoji}>{slide.emoji}</Text>
+                      <Text style={sum.missionTitle}>{slide.title}</Text>
+                      {coverConcepts.length > 0 && (
+                        <View style={sum.missionLearnBlock}>
+                          <Text style={sum.missionLearnLabel}>Qué aprenderás</Text>
+                          {coverConcepts.map((t, i) => (
+                            <View key={i} style={sum.missionLearnRow}>
+                              <Text style={sum.missionLearnBullet}>✓</Text>
+                              <Text style={sum.missionLearnText} numberOfLines={1}>{t}</Text>
+                            </View>
+                          ))}
+                        </View>
+                      )}
+                      <View style={sum.missionMetaRow}>
+                        <View style={sum.missionMetaChip}>
+                          <Text style={sum.missionMetaChipText}>⏱ {session.estimatedDuration} min</Text>
+                        </View>
+                        <View style={[sum.missionMetaChip, sum.missionMetaChipXp]}>
+                          <Text style={[sum.missionMetaChipText, { color: palette.charcoal }]}>⚡ +{coverXp} XP</Text>
+                        </View>
+                      </View>
+                    </View>
+                  </View>
+                );
+              })()
             ) : slide?.type === 'main_concept' ? (
               (() => {
-              // Detect step-by-step format: lines starting with "Paso N:" or "Problema:" or "Resultado:"
               const STEP_RE = /^(Problema|Paso\s*\d+|Resultado)\s*:/i;
               const defLines = (slide.definition ?? '').split(/\\n|\n/).map(l => l.trim()).filter(Boolean);
               const isProcedural = defLines.length >= 3 && defLines.some(l => STEP_RE.test(l));
+              const hasConnector = !!slide.connector?.includes('↓');
               return (
                 <View style={sum.mainCard}>
                   <View style={sum.mainCardHeader}>
@@ -1310,128 +1652,171 @@ export default function SessionPlayerScreen() {
                   <View style={sum.mainCardBody}>
                     <Text style={sum.mainCardEmoji}>{slide.emoji}</Text>
                     <Text style={sum.mainCardTitle}>{slide.title}</Text>
-                    {slide.connector?.includes('↓') ? (
-                      <View style={sum.chainContainer}>
-                        {slide.connector.split('↓').map((part, i) => {
-                          const text = part.trim();
-                          if (!text) return null;
-                          return i % 2 === 0 ? (
-                            <View key={i} style={sum.chainNode}>
-                              <Text style={sum.chainNodeText}>{text}</Text>
-                            </View>
-                          ) : (
-                            <View key={i} style={sum.chainLink}>
-                              <Text style={sum.chainLinkArrow}>↓</Text>
-                              <Text style={sum.chainLinkText}>{text}</Text>
-                            </View>
-                          );
-                        })}
-                      </View>
-                    ) : isProcedural ? (
-                      <View style={sum.stepsContainer}>
-                        {defLines.map((line, i) => {
-                          const isResult = /^Resultado\s*:/i.test(line);
-                          const isProblem = /^Problema\s*:/i.test(line);
-                          const label = line.split(':')[0].trim();
-                          const content = line.slice(line.indexOf(':') + 1).trim();
-                          return (
-                            <View key={i} style={[sum.stepRow, isResult && sum.stepRowResult, isProblem && sum.stepRowProblem]}>
-                              <View style={[sum.stepBadge, isResult && sum.stepBadgeResult, isProblem && sum.stepBadgeProblem]}>
-                                <Text style={sum.stepBadgeText}>{label}</Text>
+                    {hasConnector ? (
+                      <>
+                        <View style={sum.chainContainer}>
+                          {slide.connector!.split('↓').map((part, i) => {
+                            const text = part.trim();
+                            if (!text) return null;
+                            return i % 2 === 0 ? (
+                              <View key={i} style={sum.chainNode}>
+                                <Text style={sum.chainNodeText}>{text}</Text>
                               </View>
-                              <Text style={[sum.stepContent, isResult && sum.stepContentResult]}>{content}</Text>
-                            </View>
-                          );
-                        })}
-                      </View>
+                            ) : (
+                              <View key={i} style={sum.chainLink}>
+                                <Text style={sum.chainLinkArrow}>↓</Text>
+                                <Text style={sum.chainLinkText}>{text}</Text>
+                              </View>
+                            );
+                          })}
+                        </View>
+                        {!!slide.example && (
+                          <View style={sum.exampleBox}>
+                            <Text style={sum.exampleLabel}>📌 Ejemplo</Text>
+                            <Text style={sum.exampleText}>{slide.example}</Text>
+                          </View>
+                        )}
+                      </>
+                    ) : isProcedural ? (
+                      <>
+                        <View style={sum.stepsContainer}>
+                          {defLines.map((line, i) => {
+                            const isResult = /^Resultado\s*:/i.test(line);
+                            const isProblem = /^Problema\s*:/i.test(line);
+                            const label = line.split(':')[0].trim();
+                            const content = line.slice(line.indexOf(':') + 1).trim();
+                            return (
+                              <View key={i} style={[sum.stepRow, isResult && sum.stepRowResult, isProblem && sum.stepRowProblem]}>
+                                <View style={[sum.stepBadge, isResult && sum.stepBadgeResult, isProblem && sum.stepBadgeProblem]}>
+                                  <Text style={sum.stepBadgeText}>{label}</Text>
+                                </View>
+                                <Text style={[sum.stepContent, isResult && sum.stepContentResult]}>{content}</Text>
+                              </View>
+                            );
+                          })}
+                        </View>
+                        {!!slide.example && (
+                          <View style={sum.exampleBox}>
+                            <Text style={sum.exampleLabel}>📌 Ejemplo</Text>
+                            <Text style={sum.exampleText}>{slide.example}</Text>
+                          </View>
+                        )}
+                      </>
                     ) : (
-                      !!slide.definition && <Text style={sum.mainCardDef}>{slide.definition}</Text>
-                    )}
-                    {!!slide.example && (
-                      <View style={sum.exampleBox}>
-                        <Text style={sum.exampleLabel}>✅ Comprobación</Text>
-                        <Text style={sum.exampleText}>{slide.example}</Text>
-                      </View>
+                      // Default: show worked example first, then explanation
+                      <>
+                        {!!slide.example && (
+                          <View style={sum.workedExBox}>
+                            <Text style={sum.workedExText}>{slide.example}</Text>
+                          </View>
+                        )}
+                        {!!slide.definition && (
+                          <Text style={sum.mainCardExplain}>{slide.definition}</Text>
+                        )}
+                      </>
                     )}
                   </View>
                 </View>
               );
               })()
             ) : slide?.type === 'comprehension' ? (
-              <View style={sum.quizCard}>
-                <Text style={[sum.quizLabel, { color: '#7C5AFF' }]}>🧩 COMPRENSIÓN</Text>
-                <Text style={sum.quizQuestion}>{slide.question ?? slide.title}</Text>
-                <View style={{ gap: 8, marginTop: 14 }}>
-                  {slide.options?.map((opt, i) => {
-                    const letter    = LETTERS[i];
-                    const answered  = quizAnswers[summaryIdx];
-                    const isCorrect = slide.correctAnswer === letter;
-                    const showGreen = !!answered && isCorrect;
-                    const showRed   = answered === letter && !isCorrect;
-                    const dimmed    = !!answered && !isCorrect && answered !== letter;
-                    return (
-                      <Pressable key={i}
-                        onPress={() => { if (!answered) { setQuizAnswers(prev => ({ ...prev, [summaryIdx]: letter })); if (isCorrect) showSummaryReward(); else insertCorrectiveSlide(slide as BackendSlide, letter); } }}
-                        style={[sum.quizOption, showGreen && sum.quizOptCorrect, showRed && sum.quizOptWrong, { opacity: dimmed ? 0.35 : 1 }]}
-                      >
-                        <View style={[sum.quizLetter, showGreen && sum.quizLetterGreen, showRed && sum.quizLetterRed]}>
-                          {showGreen ? <Check size={12} color="white" strokeWidth={3} /> :
-                           showRed   ? <X    size={12} color="white" strokeWidth={3} /> :
-                           <Text style={sum.quizLetterText}>{letter}</Text>}
-                        </View>
-                        <Text style={[sum.quizOptText, showGreen && { color: BRAND, fontWeight: '700' }, showRed && { color: '#991B1B', fontWeight: '700' }]}>{opt}</Text>
-                      </Pressable>
-                    );
-                  })}
-                </View>
-                {!!quizAnswers[summaryIdx] && (
-                  <View style={[sum.quizFeedback, quizAnswers[summaryIdx] === slide.correctAnswer ? sum.quizFeedbackOk : sum.quizFeedbackErr]}>
-                    {quizAnswers[summaryIdx] === slide.correctAnswer ? (
-                      <Text style={sum.quizFeedbackTitle}>🎉 ¡Bien! {slide.title}</Text>
+              (() => {
+                const prevSlide = missionSlides[summaryIdx - 1] as BackendSlide | undefined;
+                const isEarlyCheck = prevSlide?.type === 'main_concept';
+                return (
+                  <View style={isEarlyCheck ? sum.checkCard : sum.quizCard}>
+                    {isEarlyCheck ? (
+                      <View style={sum.checkHeader}>
+                        <Text style={sum.checkLabel}>🧠 COMPRUEBA SI ENTENDISTE</Text>
+                        <Text style={sum.checkSubtitle}>Una pregunta rápida antes de continuar.</Text>
+                      </View>
                     ) : (
-                      <>
-                        <Text style={sum.quizFeedbackTitle}>💡 Buena intención</Text>
-                        <Text style={sum.quizFeedbackText}>{slide.definition || `La opción correcta era la ${slide.correctAnswer}.`}</Text>
-                      </>
+                      <Text style={[sum.quizLabel, { color: BRAND }]}>✅ COMPROBACIÓN</Text>
                     )}
+                    {!!slide.example && (
+                      <View style={[sum.comprehensionCtx, isEarlyCheck && { marginHorizontal: SM ? 14 : 18, marginTop: SM ? 10 : 14 }]}>
+                        <Text style={sum.comprehensionCtxText}>{slide.example}</Text>
+                      </View>
+                    )}
+                    <View style={isEarlyCheck ? { paddingHorizontal: SM ? 14 : 18, paddingBottom: SM ? 14 : 18 } : {}}>
+                      <Text style={[sum.quizQuestion, isEarlyCheck && { marginTop: 12 }]}>{slide.question ?? slide.title}</Text>
+                      <View style={{ gap: 8, marginTop: 14 }}>
+                        {slide.options?.map((opt, i) => {
+                          const letter    = LETTERS[i];
+                          const answered  = quizAnswers[summaryIdx];
+                          const isCorrect = slide.correctAnswer === letter;
+                          const showGreen = !!answered && isCorrect;
+                          const showRed   = answered === letter && !isCorrect;
+                          const dimmed    = !!answered && !isCorrect && answered !== letter;
+                          return (
+                            <Pressable key={i}
+                              onPress={() => { if (!answered) { setQuizAnswers(prev => ({ ...prev, [summaryIdx]: letter })); if (isCorrect) showSummaryReward('⚡ +5 XP'); else insertCorrectiveSlide(slide as BackendSlide, letter); } }}
+                              style={[sum.quizOption, showGreen && sum.quizOptCorrect, showRed && sum.quizOptWrong, { opacity: dimmed ? 0.35 : 1 }]}
+                            >
+                              <View style={[sum.quizLetter, showGreen && sum.quizLetterGreen, showRed && sum.quizLetterRed]}>
+                                {showGreen ? <Check size={12} color={palette.blanco} strokeWidth={3} /> :
+                                 showRed   ? <X    size={12} color={palette.blanco} strokeWidth={3} /> :
+                                 <Text style={sum.quizLetterText}>{letter}</Text>}
+                              </View>
+                              <Text style={[sum.quizOptText, showGreen && { color: BRAND, fontWeight: '700' }, showRed && { color: '#991B1B', fontWeight: '700' }]}>{opt}</Text>
+                            </Pressable>
+                          );
+                        })}
+                      </View>
+                      {!!quizAnswers[summaryIdx] && (
+                        <View style={[sum.quizFeedback, quizAnswers[summaryIdx] === slide.correctAnswer ? sum.quizFeedbackOk : sum.quizFeedbackErr]}>
+                          {quizAnswers[summaryIdx] === slide.correctAnswer ? (
+                            <View style={sum.quizFeedbackHeader}>
+                              <Text style={sum.quizFeedbackTitle}>✓ Correcto</Text>
+                              {!!summaryRewardText && <View style={sum.quizFeedbackXpChip}><Text style={sum.quizFeedbackXpText}>{summaryRewardText}</Text></View>}
+                            </View>
+                          ) : (
+                            <>
+                              <Text style={sum.quizFeedbackTitle}>{isEarlyCheck ? '💡 Casi' : '💡 Incorrecto'}</Text>
+                              <Text style={sum.quizFeedbackText}>{isEarlyCheck ? 'Revisa la explicación anterior y sigue avanzando.' : (slide.definition || `La respuesta correcta era la ${slide.correctAnswer}.`)}</Text>
+                            </>
+                          )}
+                        </View>
+                      )}
+                    </View>
                   </View>
-                )}
-              </View>
+                );
+              })()
             ) : slide?.type === 'key_relation' ? (
-              <View style={sum.relationCard}>
-                <Text style={sum.relationLabel}>🔗 RELACIÓN CLAVE</Text>
-                {slide.connector?.includes('↓') ? (
-                  <View style={sum.chainContainer}>
-                    {slide.connector.split('↓').map((part, i) => {
-                      const text = part.trim();
-                      if (!text) return null;
-                      return i % 2 === 0 ? (
-                        <View key={i} style={sum.chainNode}>
-                          <Text style={sum.chainNodeText}>{text}</Text>
-                        </View>
-                      ) : (
-                        <View key={i} style={sum.chainLink}>
-                          <Text style={sum.chainLinkArrow}>↓</Text>
-                          <Text style={sum.chainLinkText}>{text}</Text>
-                        </View>
-                      );
-                    })}
+              (() => {
+                // Build chain from connector (↓-separated) or example (→/↓-separated), else title+definition
+                const raw = slide.connector?.includes('↓') ? slide.connector
+                  : slide.example?.includes('↓') ? slide.example
+                  : slide.example?.includes('→') ? slide.example.replace(/→/g, '↓')
+                  : null;
+                const chain: Array<{ text: string; isArrow: boolean }> = raw
+                  ? raw.split('↓').map((p, i) => ({ text: p.trim(), isArrow: i % 2 === 1 })).filter(x => x.text)
+                  : [
+                      { text: slide.title, isArrow: false },
+                      ...(slide.definition ? [{ text: slide.definition, isArrow: true }, { text: slide.example || '', isArrow: false }] : []),
+                    ].filter(x => x.text);
+                return (
+                  <View style={sum.patternCard}>
+                    <View style={sum.patternHeader}>
+                      <Text style={sum.patternLabel}>🔍 DETECTA EL PATRÓN</Text>
+                    </View>
+                    <View style={sum.patternBody}>
+                      {chain.map((item, i) =>
+                        item.isArrow ? (
+                          <View key={i} style={sum.patternArrowRow}>
+                            <Text style={sum.patternArrowGlyph}>↓</Text>
+                            {item.text !== '↓' && <Text style={sum.patternArrowLabel}>{item.text}</Text>}
+                          </View>
+                        ) : (
+                          <View key={i} style={[sum.patternNode, i === chain.length - 1 && sum.patternNodeFinal]}>
+                            <Text style={[sum.patternNodeText, i === chain.length - 1 && sum.patternNodeTextFinal]}>{item.text}</Text>
+                          </View>
+                        )
+                      )}
+                    </View>
                   </View>
-                ) : (
-                  <View style={sum.relationRow}>
-                    <View style={sum.relationChipA}>
-                      <Text style={sum.relationChipText} numberOfLines={2}>{slide.title}</Text>
-                    </View>
-                    <View style={sum.relationArrow}>
-                      <Text style={sum.relationArrowText}>→</Text>
-                    </View>
-                    <View style={sum.relationChipB}>
-                      <Text style={sum.relationChipText} numberOfLines={2}>{slide.example}</Text>
-                    </View>
-                  </View>
-                )}
-                {!!slide.definition && <Text style={sum.relationDef}>{slide.definition}</Text>}
-              </View>
+                );
+              })()
             ) : slide?.type === 'mini_quiz' ? (
               <View style={sum.quizCard}>
                 <Text style={sum.quizLabel}>⚡ MINI QUIZ</Text>
@@ -1450,8 +1835,8 @@ export default function SessionPlayerScreen() {
                         style={[sum.quizOption, showGreen && sum.quizOptCorrect, showRed && sum.quizOptWrong, { opacity: dimmed ? 0.35 : 1 }]}
                       >
                         <View style={[sum.quizLetter, showGreen && sum.quizLetterGreen, showRed && sum.quizLetterRed]}>
-                          {showGreen ? <Check size={12} color="white" strokeWidth={3} /> :
-                           showRed   ? <X    size={12} color="white" strokeWidth={3} /> :
+                          {showGreen ? <Check size={12} color={palette.blanco} strokeWidth={3} /> :
+                           showRed   ? <X    size={12} color={palette.blanco} strokeWidth={3} /> :
                            <Text style={sum.quizLetterText}>{letter}</Text>}
                         </View>
                         <Text style={[sum.quizOptText, showGreen && { color: BRAND, fontWeight: '700' }, showRed && { color: '#991B1B', fontWeight: '700' }]}>{opt}</Text>
@@ -1462,11 +1847,14 @@ export default function SessionPlayerScreen() {
                 {!!quizAnswers[summaryIdx] && (
                   <View style={[sum.quizFeedback, quizAnswers[summaryIdx] === slide.correctAnswer ? sum.quizFeedbackOk : sum.quizFeedbackErr]}>
                     {quizAnswers[summaryIdx] === slide.correctAnswer ? (
-                      <Text style={sum.quizFeedbackTitle}>🎉 ¡Bien! {slide.title}</Text>
+                      <View style={sum.quizFeedbackHeader}>
+                        <Text style={sum.quizFeedbackTitle}>✓ Correcto</Text>
+                        {!!summaryRewardText && <View style={sum.quizFeedbackXpChip}><Text style={sum.quizFeedbackXpText}>{summaryRewardText}</Text></View>}
+                      </View>
                     ) : (
                       <>
-                        <Text style={sum.quizFeedbackTitle}>💡 Buena intención</Text>
-                        <Text style={sum.quizFeedbackText}>{slide.definition || `La opción correcta era la ${slide.correctAnswer}.`}</Text>
+                        <Text style={sum.quizFeedbackTitle}>💡 Incorrecto</Text>
+                        <Text style={sum.quizFeedbackText}>{slide.definition || `La respuesta correcta era la ${slide.correctAnswer}.`}</Text>
                       </>
                     )}
                   </View>
@@ -1503,9 +1891,17 @@ export default function SessionPlayerScreen() {
                 </View>
                 <View style={sum.appBody}>
                   <Text style={sum.appTitle}>{slide.title}</Text>
+                  {/* Concrete example front-and-center — this is the specific real case */}
+                  {!!slide.example && (
+                    <View style={sum.appScenarioBox}>
+                      <Text style={sum.appScenarioLabel}>CASO REAL</Text>
+                      <Text style={sum.appScenarioText}>{slide.example}</Text>
+                    </View>
+                  )}
+                  {/* Definition as secondary context — only shown if adds new info */}
                   {!!slide.definition && <Text style={sum.appSit}>{slide.definition}</Text>}
+                  {/* Interactive question */}
                   {slide.question && slide.options?.length ? (
-                    // Interactive version
                     <View style={{ marginTop: 10, gap: 8 }}>
                       <Text style={sum.quizQuestion}>{slide.question}</Text>
                       {slide.options.map((opt, i) => {
@@ -1521,26 +1917,29 @@ export default function SessionPlayerScreen() {
                             style={[sum.quizOption, showGreen && sum.quizOptCorrect, showRed && sum.quizOptWrong, { opacity: dimmed ? 0.35 : 1 }]}
                           >
                             <View style={[sum.quizLetter, showGreen && sum.quizLetterGreen, showRed && sum.quizLetterRed]}>
-                              {showGreen ? <Check size={12} color="white" strokeWidth={3} /> :
-                               showRed   ? <X    size={12} color="white" strokeWidth={3} /> :
+                              {showGreen ? <Check size={12} color={palette.blanco} strokeWidth={3} /> :
+                               showRed   ? <X    size={12} color={palette.blanco} strokeWidth={3} /> :
                                <Text style={sum.quizLetterText}>{letter}</Text>}
                             </View>
                             <Text style={[sum.quizOptText, showGreen && { color: BRAND, fontWeight: '700' }, showRed && { color: '#991B1B', fontWeight: '700' }]}>{opt}</Text>
                           </Pressable>
                         );
                       })}
-                      {!!quizAnswers[summaryIdx] && !!slide.example && (
-                        <View style={sum.appAnswerBox}>
-                          <Text style={sum.appAnswerLabel}>Cómo aplica</Text>
-                          <Text style={sum.appAnswerText}>{slide.example}</Text>
+                      {!!quizAnswers[summaryIdx] && (
+                        <View style={[sum.quizFeedback, quizAnswers[summaryIdx] === (slide as BackendSlide).correctAnswer ? sum.quizFeedbackOk : sum.quizFeedbackErr]}>
+                          {quizAnswers[summaryIdx] === (slide as BackendSlide).correctAnswer ? (
+                            <View style={sum.quizFeedbackHeader}>
+                              <Text style={sum.quizFeedbackTitle}>✓ Correcto</Text>
+                              {!!summaryRewardText && <View style={sum.quizFeedbackXpChip}><Text style={sum.quizFeedbackXpText}>{summaryRewardText}</Text></View>}
+                            </View>
+                          ) : (
+                            <>
+                              <Text style={sum.quizFeedbackTitle}>💡 Incorrecto</Text>
+                              <Text style={sum.quizFeedbackText}>{slide.definition || `La respuesta correcta era la ${(slide as BackendSlide).correctAnswer}.`}</Text>
+                            </>
+                          )}
                         </View>
                       )}
-                    </View>
-                  ) : !!slide.example ? (
-                    // Passive version
-                    <View style={sum.appAnswerBox}>
-                      <Text style={sum.appAnswerLabel}>Cómo aplica</Text>
-                      <Text style={sum.appAnswerText}>{slide.example}</Text>
                     </View>
                   ) : null}
                 </View>
@@ -1575,8 +1974,8 @@ export default function SessionPlayerScreen() {
                             style={[sum.quizOption, showGreen && sum.quizOptCorrect, showRed && sum.quizOptWrong, { opacity: dimmed ? 0.35 : 1 }]}
                           >
                             <View style={[sum.quizLetter, showGreen && sum.quizLetterGreen, showRed && sum.quizLetterRed]}>
-                              {showGreen ? <Check size={12} color="white" strokeWidth={3} /> :
-                               showRed   ? <X    size={12} color="white" strokeWidth={3} /> :
+                              {showGreen ? <Check size={12} color={palette.blanco} strokeWidth={3} /> :
+                               showRed   ? <X    size={12} color={palette.blanco} strokeWidth={3} /> :
                                <Text style={sum.quizLetterText}>{letter}</Text>}
                             </View>
                             <Text style={[sum.quizOptText, showGreen && { color: BRAND, fontWeight: '700' }, showRed && { color: '#991B1B', fontWeight: '700' }]}>{opt}</Text>
@@ -1586,7 +1985,7 @@ export default function SessionPlayerScreen() {
                     </View>
                     {!!quizAnswers[summaryIdx] && !!slide.example && (
                       <View style={[sum.errorRightBox, { marginTop: 10 }]}>
-                        <Text style={sum.errorRightLabel}>✅ Solución correcta</Text>
+                        <Text style={sum.errorRightLabel}>💡 Lo correcto es</Text>
                         <Text style={sum.errorRightText}>{slide.example}</Text>
                       </View>
                     )}
@@ -1608,23 +2007,24 @@ export default function SessionPlayerScreen() {
                   </View>
                   <View style={sum.errorBody}>
                     <View style={sum.errorWrongBox}>
-                      <Text style={sum.errorWrongLabel}>❌ Error frecuente</Text>
+                      <Text style={sum.errorWrongLabel}>⚠️ Error detectado</Text>
                       <Text style={sum.errorWrongText}>{slide.definition}</Text>
                     </View>
                     <View style={sum.errorRightBox}>
-                      <Text style={sum.errorRightLabel}>✅ Realidad</Text>
+                      <Text style={sum.errorRightLabel}>💡 Lo correcto es</Text>
                       <Text style={sum.errorRightText}>{slide.example}</Text>
                     </View>
                   </View>
                 </View>
               )
             ) : slide?.type === 'final_challenge' ? (
-              <View style={sum.challengeCard}>
-                <LinearGradient colors={['#FF7A2B', '#FFB347']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={sum.challengeHeader}>
-                  <Text style={sum.challengeTrophy}>🏆</Text>
-                  <Text style={sum.challengeHeaderLabel}>Desafío Final</Text>
-                </LinearGradient>
-                <View style={sum.challengeBody}>
+              <View style={sum.retoCard}>
+                <View style={sum.retoHeader}>
+                  <Text style={sum.retoTrophy}>🏆</Text>
+                  <Text style={sum.retoHeaderLabel}>MINI RETO FINAL</Text>
+                  <Text style={sum.retoHeaderSub}>Última prueba antes de completar la misión.</Text>
+                </View>
+                <View style={sum.retoBody}>
                   <Text style={sum.challengeQuestion}>{slide.question ?? slide.title}</Text>
                   <View style={{ gap: 8 }}>
                     {slide.options?.map((opt, i) => {
@@ -1636,12 +2036,12 @@ export default function SessionPlayerScreen() {
                       const dimmed    = !!answered && !isCorrect && answered !== letter;
                       return (
                         <Pressable key={i}
-                          onPress={() => { if (!answered) { setQuizAnswers(prev => ({ ...prev, [summaryIdx]: letter })); if (slide.correctAnswer !== letter) insertCorrectiveSlide(slide as BackendSlide, letter); } }}
+                          onPress={() => { if (!answered) { setQuizAnswers(prev => ({ ...prev, [summaryIdx]: letter })); if (isCorrect) showSummaryReward('🔥 +10 XP'); else insertCorrectiveSlide(slide as BackendSlide, letter); } }}
                           style={[sum.quizOption, showGreen && sum.quizOptCorrect, showRed && sum.quizOptWrong, { opacity: dimmed ? 0.35 : 1 }]}
                         >
                           <View style={[sum.quizLetter, showGreen && sum.quizLetterGreen, showRed && sum.quizLetterRed]}>
-                            {showGreen ? <Check size={12} color="white" strokeWidth={3} /> :
-                             showRed   ? <X    size={12} color="white" strokeWidth={3} /> :
+                            {showGreen ? <Check size={12} color={palette.blanco} strokeWidth={3} /> :
+                             showRed   ? <X    size={12} color={palette.blanco} strokeWidth={3} /> :
                              <Text style={sum.quizLetterText}>{letter}</Text>}
                           </View>
                           <Text style={[sum.quizOptText, showGreen && { color: BRAND, fontWeight: '700' }, showRed && { color: '#991B1B', fontWeight: '700' }]}>{opt}</Text>
@@ -1650,12 +2050,18 @@ export default function SessionPlayerScreen() {
                     })}
                   </View>
                   {!!quizAnswers[summaryIdx] && (
-                    <View style={[sum.quizFeedback, quizAnswers[summaryIdx] === slide.correctAnswer ? sum.quizFeedbackOk : sum.quizFeedbackErr]}>
+                    <View style={[sum.quizFeedback, quizAnswers[summaryIdx] === slide.correctAnswer ? sum.retoFeedbackOk : sum.quizFeedbackErr]}>
                       {quizAnswers[summaryIdx] === slide.correctAnswer ? (
-                        <Text style={sum.quizFeedbackTitle}>🏆 ¡Superado! {slide.title}</Text>
+                        <>
+                          <View style={sum.quizFeedbackHeader}>
+                            <Text style={[sum.quizFeedbackTitle, { color: LIME }]}>🎉 ¡Lo dominaste!</Text>
+                            {!!summaryRewardText && <View style={sum.quizFeedbackXpChip}><Text style={sum.quizFeedbackXpText}>{summaryRewardText}</Text></View>}
+                          </View>
+                          <Text style={[sum.quizFeedbackText, { color: 'rgba(255,255,255,0.85)', marginTop: 4 }]}>Ya estás listo para el Quiz.</Text>
+                        </>
                       ) : (
                         <>
-                          <Text style={sum.quizFeedbackTitle}>💡 Buena intención</Text>
+                          <Text style={sum.quizFeedbackTitle}>💡 Casi</Text>
                           {!!slide.definition && <Text style={sum.quizFeedbackText}>{slide.definition}</Text>}
                         </>
                       )}
@@ -1681,8 +2087,8 @@ export default function SessionPlayerScreen() {
                         style={[sum.quizOption, showGreen && sum.quizOptCorrect, showRed && sum.quizOptWrong, { opacity: dimmed ? 0.35 : 1 }]}
                       >
                         <View style={[sum.quizLetter, showGreen && sum.quizLetterGreen, showRed && sum.quizLetterRed]}>
-                          {showGreen ? <Check size={12} color="white" strokeWidth={3} /> :
-                           showRed   ? <X    size={12} color="white" strokeWidth={3} /> :
+                          {showGreen ? <Check size={12} color={palette.blanco} strokeWidth={3} /> :
+                           showRed   ? <X    size={12} color={palette.blanco} strokeWidth={3} /> :
                            <Text style={sum.quizLetterText}>{letter}</Text>}
                         </View>
                         <Text style={[sum.quizOptText, showGreen && { color: BRAND, fontWeight: '700' }, showRed && { color: '#991B1B', fontWeight: '700' }]}>{opt}</Text>
@@ -1693,11 +2099,14 @@ export default function SessionPlayerScreen() {
                 {!!quizAnswers[summaryIdx] && (
                   <View style={[sum.quizFeedback, quizAnswers[summaryIdx] === slide.correctAnswer ? sum.quizFeedbackOk : sum.quizFeedbackErr]}>
                     {quizAnswers[summaryIdx] === slide.correctAnswer ? (
-                      <Text style={sum.quizFeedbackTitle}>🎉 ¡Buena decisión!</Text>
+                      <View style={sum.quizFeedbackHeader}>
+                        <Text style={sum.quizFeedbackTitle}>✓ Correcto</Text>
+                        {!!summaryRewardText && <View style={sum.quizFeedbackXpChip}><Text style={sum.quizFeedbackXpText}>{summaryRewardText}</Text></View>}
+                      </View>
                     ) : (
                       <>
-                        <Text style={sum.quizFeedbackTitle}>💡 Buena intención</Text>
-                        <Text style={sum.quizFeedbackText}>{slide.definition || `La opción correcta era la ${slide.correctAnswer}.`}</Text>
+                        <Text style={sum.quizFeedbackTitle}>💡 Incorrecto</Text>
+                        <Text style={sum.quizFeedbackText}>{slide.definition || `La respuesta correcta era la ${slide.correctAnswer}.`}</Text>
                       </>
                     )}
                   </View>
@@ -1770,57 +2179,68 @@ export default function SessionPlayerScreen() {
                 );
               })()
             ) : slide?.type === 'challenge' ? (
-              slide.question && slide.options?.length ? (
-                // Interactive version
-                <View style={sum.challengeRefCard}>
-                  <Text style={sum.challengeRefEmoji}>🤔</Text>
-                  <Text style={sum.challengeRefLabel}>REFLEXIONA</Text>
-                  {!!slide.definition && <Text style={sum.challengeRefQ}>{slide.definition}</Text>}
-                  <View style={{ gap: 8, marginTop: 10, width: '100%' }}>
-                    <Text style={sum.quizQuestion}>{slide.question}</Text>
-                    {slide.options.map((opt, i) => {
-                      const letter = LETTERS[i];
-                      const answered = quizAnswers[summaryIdx];
-                      const isCorrect = (slide as BackendSlide).correctAnswer === letter;
-                      const showGreen = !!answered && isCorrect;
-                      const showRed = answered === letter && !isCorrect;
-                      const dimmed = !!answered && !isCorrect && answered !== letter;
-                      return (
-                        <Pressable key={i}
-                          onPress={() => { if (!answered) { setQuizAnswers(prev => ({ ...prev, [summaryIdx]: letter })); if (isCorrect) showSummaryReward(); else insertCorrectiveSlide(slide as BackendSlide, letter); } }}
-                          style={[sum.quizOption, showGreen && sum.quizOptCorrect, showRed && sum.quizOptWrong, { opacity: dimmed ? 0.35 : 1 }]}
-                        >
-                          <View style={[sum.quizLetter, showGreen && sum.quizLetterGreen, showRed && sum.quizLetterRed]}>
-                            {showGreen ? <Check size={12} color="white" strokeWidth={3} /> :
-                             showRed   ? <X    size={12} color="white" strokeWidth={3} /> :
-                             <Text style={sum.quizLetterText}>{letter}</Text>}
-                          </View>
-                          <Text style={[sum.quizOptText, showGreen && { color: BRAND, fontWeight: '700' }, showRed && { color: '#991B1B', fontWeight: '700' }]}>{opt}</Text>
-                        </Pressable>
-                      );
-                    })}
-                    {!!quizAnswers[summaryIdx] && !!slide.example && (
-                      <View style={sum.challengeRefHintBox}>
-                        <Text style={sum.challengeRefHintLbl}>Reflexión</Text>
-                        <Text style={sum.challengeRefHintTxt}>{slide.example}</Text>
-                      </View>
-                    )}
-                  </View>
-                </View>
-              ) : (
-                // Passive version
-                <View style={sum.challengeRefCard}>
-                  <Text style={sum.challengeRefEmoji}>🤔</Text>
-                  <Text style={sum.challengeRefLabel}>REFLEXIONA</Text>
-                  <Text style={sum.challengeRefQ}>{slide.definition || slide.title}</Text>
-                  {!!slide.example && (
+              // Only interactive challenges reach here (passive ones filtered in buildSummarySlides)
+              <View style={sum.challengeRefCard}>
+                <Text style={sum.challengeRefEmoji}>🤔</Text>
+                <Text style={sum.challengeRefLabel}>DESAFÍO</Text>
+                {!!slide.definition && <Text style={sum.challengeRefQ}>{slide.definition}</Text>}
+                <View style={{ gap: 8, marginTop: 10, width: '100%' }}>
+                  <Text style={sum.quizQuestion}>{slide.question}</Text>
+                  {slide.options?.map((opt, i) => {
+                    const letter = LETTERS[i];
+                    const answered = quizAnswers[summaryIdx];
+                    const isCorrect = (slide as BackendSlide).correctAnswer === letter;
+                    const showGreen = !!answered && isCorrect;
+                    const showRed = answered === letter && !isCorrect;
+                    const dimmed = !!answered && !isCorrect && answered !== letter;
+                    return (
+                      <Pressable key={i}
+                        onPress={() => { if (!answered) { setQuizAnswers(prev => ({ ...prev, [summaryIdx]: letter })); if (isCorrect) showSummaryReward(); else insertCorrectiveSlide(slide as BackendSlide, letter); } }}
+                        style={[sum.quizOption, showGreen && sum.quizOptCorrect, showRed && sum.quizOptWrong, { opacity: dimmed ? 0.35 : 1 }]}
+                      >
+                        <View style={[sum.quizLetter, showGreen && sum.quizLetterGreen, showRed && sum.quizLetterRed]}>
+                          {showGreen ? <Check size={12} color={palette.blanco} strokeWidth={3} /> :
+                           showRed   ? <X    size={12} color={palette.blanco} strokeWidth={3} /> :
+                           <Text style={sum.quizLetterText}>{letter}</Text>}
+                        </View>
+                        <Text style={[sum.quizOptText, showGreen && { color: BRAND, fontWeight: '700' }, showRed && { color: '#991B1B', fontWeight: '700' }]}>{opt}</Text>
+                      </Pressable>
+                    );
+                  })}
+                  {!!quizAnswers[summaryIdx] && !!slide.example && (
                     <View style={sum.challengeRefHintBox}>
-                      <Text style={sum.challengeRefHintLbl}>Pista</Text>
+                      <Text style={sum.challengeRefHintLbl}>Explicación</Text>
                       <Text style={sum.challengeRefHintTxt}>{slide.example}</Text>
                     </View>
                   )}
                 </View>
-              )
+              </View>
+            ) : slide?.type === 'quiz_transition' ? ((() => {
+              const hasFinalChallenge = missionSlides.some(s => s.type === 'final_challenge');
+              const hasApplication    = missionSlides.some(s => s.type === 'application');
+              const hasCommonError    = missionSlides.some(s => s.type === 'common_error');
+              const checkItems = [
+                'Conceptos aprendidos',
+                hasCommonError ? 'Errores comunes identificados' : 'Patrones identificados',
+                hasApplication ? 'Aplicaciones vistas' : 'Ejemplos practicados',
+                ...(hasFinalChallenge ? ['Mini reto completado'] : []),
+              ];
+              return (
+                <View style={sum.qtCard}>
+                  <Text style={sum.qtEmoji}>🚀</Text>
+                  <Text style={sum.qtTitle}>{(slide as BackendSlide).title || 'Preparado para el Quiz'}</Text>
+                  <Text style={sum.qtSub}>{(slide as BackendSlide).definition || 'Ya dominaste los conceptos principales. Ahora ponlos a prueba.'}</Text>
+                  <View style={sum.qtChecklist}>
+                    {checkItems.map((item, i) => (
+                      <View key={i} style={sum.qtCheckRow}>
+                        <Text style={sum.qtCheckIcon}>✓</Text>
+                        <Text style={sum.qtCheckText}>{item}</Text>
+                      </View>
+                    ))}
+                  </View>
+                </View>
+              );
+            })()
             ) : slide?.type === 'victory' ? ((() => {
               // Labels per spec: Dominado / Buen dominio / Vas avanzando / Necesita más práctica
               const masteryConfig = masteryLevel === 'mastered'
@@ -1916,6 +2336,12 @@ export default function SessionPlayerScreen() {
                 setCardIdx(0);
                 setCardFlipped(false);
                 setCardsDone(false);
+                setCardsKnew(0);
+                setCardsDubious(0);
+                setCardsUnknown(0);
+                missionStartRef.current    = null;
+                quizStartRef.current       = null;
+                flashcardsStartRef.current = null;
                 loadedSessionKeyRef.current = newKey;
               };
               // Override victory title to be consistent with actual performance
@@ -1926,6 +2352,100 @@ export default function SessionPlayerScreen() {
                 if (pct < 30) return '¡Misión completada!';
                 return slide.title;
               })();
+
+              // ── Neutral-positive render (NEUTRAL_MISSION_COMPLETION = true) ──
+              if (NEUTRAL_MISSION_COMPLETION) {
+                const tiempoMs    = missionStartRef.current ? Date.now() - missionStartRef.current : 0;
+                const tiempoStr   = formatMissionTime(tiempoMs);
+                const conceptTitles = missionSlides
+                  .filter(s => V_CONCEPT.includes(s.type))
+                  .map(s => (s as BackendSlide).title)
+                  .filter((t): t is string => !!t);
+                return (
+                  <View style={sum.victoryCard}>
+                    <CheckCircle size={44} color={BRAND} strokeWidth={1.5} />
+                    <Text style={[sum.victoryTitle, { marginTop: 10 }]}>Misión completa</Text>
+                    {!!missionProgress && <Text style={sum.missionProgress}>{missionProgress}</Text>}
+
+                    {/* Three stat tiles */}
+                    <View style={sum.victoryStats}>
+                      <View style={sum.victoryStatRow}>
+                        <View style={sum.victoryStat}>
+                          <Text style={sum.victoryStatVal}>{tiempoStr}</Text>
+                          <Text style={sum.victoryStatLbl}>enfocado</Text>
+                        </View>
+                        <View style={sum.victoryStat}>
+                          <Text style={sum.victoryStatVal}>{vConcepts}</Text>
+                          <Text style={sum.victoryStatLbl}>conceptos</Text>
+                        </View>
+                        <View style={sum.victoryStat}>
+                          <Text style={[sum.victoryStatVal, { color: BRAND }]}>+{earnedXp ?? 0}</Text>
+                          <Text style={sum.victoryStatLbl}>XP</Text>
+                        </View>
+                      </View>
+                    </View>
+
+                    {/* Mini-quiz secondary line — framing futuro-positivo */}
+                    {vInterTotal > 0 && (
+                      <Text style={[sum.victorySub, { textAlign: 'center', marginTop: 2 }]}>
+                        {`Mini-quizzes: ${vCorrect}/${vInterTotal} — los repasarás en el Quiz`}
+                      </Text>
+                    )}
+
+                    {/* Conceptos que viste — neutral bullets, no checkmarks */}
+                    {conceptTitles.length > 0 && (
+                      <View style={{ marginTop: 14, alignSelf: 'stretch', gap: 4 }}>
+                        <Text style={[sum.victoryStatLbl, { fontWeight: '700', marginBottom: 4 }]}>Conceptos que viste</Text>
+                        {conceptTitles.map((t, i) => (
+                          <View key={i} style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 6 }}>
+                            <Text style={{ color: semantic.textTertiary, fontSize: 16, lineHeight: 20 }}>·</Text>
+                            <Text style={[sum.kpDef, { flex: 1, fontSize: 13 }]} numberOfLines={2}>{t}</Text>
+                          </View>
+                        ))}
+                      </View>
+                    )}
+
+                    {/* Repasa: concept titles from wrong slides — no truncated question text */}
+                    {wrongSlides.length > 0 && (
+                      <View style={[sum.reflectionBlock, { backgroundColor: 'rgba(108,77,255,0.06)', borderColor: 'rgba(108,77,255,0.18)' }]}>
+                        <Text style={[sum.reflectionText, { color: semantic.textTertiary }]}>
+                          {'Repasa: '}
+                          {wrongSlides.map(w => w.s.title).filter(Boolean).join(' · ')}
+                        </Text>
+                      </View>
+                    )}
+
+                    {/* Next mission — skill transition path (kept) */}
+                    {!!nextMission && (
+                      <View style={sum.nextMissionWrapper}>
+                        <Text style={sum.nextMissionLabel}>Siguiente habilidad</Text>
+                        <Pressable onPress={loadNextMission} style={sum.nextMissionBtn}>
+                          <View style={[sum.nextMissionGrad, { backgroundColor: BRAND }]}>
+                            <Text style={sum.nextMissionText}>⚡ {nextMission.skillLabel ?? 'Próxima misión'}</Text>
+                            <Text style={sum.nextMissionArrow}>Continuar →</Text>
+                          </View>
+                        </Pressable>
+                      </View>
+                    )}
+                    {skillPath && skillPath.totalMissions > 1 && currentMissionIdx >= 0 && (
+                      <View style={sum.upcomingBlock}>
+                        {skillPath.missions.map((m, i) => {
+                          const isCurrent = m.sessionId === currentSessionId;
+                          const isPast    = i < currentMissionIdx;
+                          return (
+                            <View key={i} style={[sum.upcomingRow, isCurrent && sum.upcomingRowCurrent]}>
+                              <Text style={sum.upcomingDot}>{isPast ? '✓' : isCurrent ? '▶' : `${i + 1}`}</Text>
+                              <Text style={[sum.upcomingLabel, isPast && sum.upcomingLabelDone, isCurrent && sum.upcomingLabelCurrent]} numberOfLines={1}>
+                                {m.skillLabel ?? `Misión ${i + 1}`}
+                              </Text>
+                            </View>
+                          );
+                        })}
+                      </View>
+                    )}
+                  </View>
+                );
+              }
 
               return (
               <View style={sum.victoryCard}>
@@ -1956,11 +2476,11 @@ export default function SessionPlayerScreen() {
                         <Text style={sum.victoryStatLbl}>pantallas</Text>
                       </View>
                       <View style={sum.victoryStat}>
-                        <Text style={[sum.victoryStatVal, { color: Colors.muted }]}>0/{vInterTotal}</Text>
+                        <Text style={[sum.victoryStatVal, { color: semantic.textTertiary }]}>0/{vInterTotal}</Text>
                         <Text style={sum.victoryStatLbl}>respondidas</Text>
                       </View>
                       <View style={sum.victoryStat}>
-                        <Text style={[sum.victoryStatVal, { color: Colors.muted }]}>+0</Text>
+                        <Text style={[sum.victoryStatVal, { color: semantic.textTertiary }]}>+0</Text>
                         <Text style={sum.victoryStatLbl}>XP</Text>
                       </View>
                     </View>
@@ -1990,10 +2510,12 @@ export default function SessionPlayerScreen() {
                           <Text style={[sum.victoryStatVal, { color: BRAND }]}>+{earnedXp ?? 0}</Text>
                           <Text style={sum.victoryStatLbl}>XP</Text>
                         </View>
-                        <View style={sum.victoryStat}>
-                          <Text style={[sum.victoryStatVal, { color: '#FF7A2B' }]}>+{(masteryPct ?? 0) >= 70 ? Math.round((session.gemReward ?? 10) * (masteryPct ?? 0) / 100) : 0}</Text>
-                          <Text style={sum.victoryStatLbl}>💎</Text>
-                        </View>
+                        {SHOW_GEMS && (
+                          <View style={sum.victoryStat}>
+                            <Text style={[sum.victoryStatVal, { color: '#FF7A2B' }]}>+{(masteryPct ?? 0) >= 70 ? Math.round((session.gemReward ?? 10) * (masteryPct ?? 0) / 100) : 0}</Text>
+                            <Text style={sum.victoryStatLbl}>💎</Text>
+                          </View>
+                        )}
                       </View>
                     </View>
                     {/* "Lo usarás..." note — first part only, no cross-mission recommendations */}
@@ -2011,12 +2533,12 @@ export default function SessionPlayerScreen() {
                   <View style={sum.nextMissionWrapper}>
                     <Text style={sum.nextMissionLabel}>Siguiente habilidad</Text>
                     <Pressable onPress={loadNextMission} style={sum.nextMissionBtn}>
-                      <LinearGradient colors={[BRAND, NEON]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={sum.nextMissionGrad}>
+                      <View style={[sum.nextMissionGrad, { backgroundColor: BRAND }]}>
                         <Text style={sum.nextMissionText}>
                           ⚡ {nextMission.skillLabel ?? 'Próxima misión'}
                         </Text>
                         <Text style={sum.nextMissionArrow}>Continuar →</Text>
-                      </LinearGradient>
+                      </View>
                     </Pressable>
                   </View>
                 )}
@@ -2055,12 +2577,21 @@ export default function SessionPlayerScreen() {
                 )}
               </View>
             ) : slide?.type === 'wow_fact' ? (
-              <View style={[sum.wowCard, slide.question && { padding: SM ? 18 : 22 }]}>
-                <Text style={sum.wowEmoji}>🤯</Text>
-                <Text style={sum.wowLabel}>¿SABÍAS QUE?</Text>
-                <Text style={sum.wowText}>{slide.definition}</Text>
+              <View style={sum.wowCard}>
+                <Text style={sum.wowEmoji}>{(slide as BackendSlide).emoji || '🤯'}</Text>
+                <Text style={sum.wowLabel}>🧠 ¿SABÍAS QUE?</Text>
+                {/* Title is the surprise hook — the memorable claim */}
+                {!!slide.title && <Text style={sum.wowHook}>{slide.title}</Text>}
+                {/* Definition expands the surprising fact */}
+                <View style={sum.wowDataBox}>
+                  <Text style={sum.wowText}>{slide.definition}</Text>
+                </View>
+                {/* Example as "¿por qué importa?" — only when no question */}
+                {!!slide.example && !slide.question && (
+                  <Text style={sum.wowContext}>{slide.example}</Text>
+                )}
                 {slide.question && slide.options && (
-                  <View style={{ gap: 8, marginTop: 20, alignSelf: 'stretch' }}>
+                  <View style={{ gap: 8, marginTop: 16, alignSelf: 'stretch' }}>
                     <Text style={[sum.quizQuestion, { fontSize: SM ? 13 : 14 }]}>{slide.question}</Text>
                     {slide.options.map((opt, i) => {
                       const letter    = LETTERS[i];
@@ -2075,8 +2606,8 @@ export default function SessionPlayerScreen() {
                           style={[sum.quizOption, showGreen && sum.quizOptCorrect, showRed && sum.quizOptWrong, { opacity: dimmed ? 0.35 : 1 }]}
                         >
                           <View style={[sum.quizLetter, showGreen && sum.quizLetterGreen, showRed && sum.quizLetterRed]}>
-                            {showGreen ? <Check size={12} color="white" strokeWidth={3} /> :
-                             showRed   ? <X    size={12} color="white" strokeWidth={3} /> :
+                            {showGreen ? <Check size={12} color={palette.blanco} strokeWidth={3} /> :
+                             showRed   ? <X    size={12} color={palette.blanco} strokeWidth={3} /> :
                              <Text style={sum.quizLetterText}>{letter}</Text>}
                           </View>
                           <Text style={[sum.quizOptText, showGreen && { color: BRAND, fontWeight: '700' }, showRed && { color: '#991B1B', fontWeight: '700' }]}>{opt}</Text>
@@ -2085,9 +2616,17 @@ export default function SessionPlayerScreen() {
                     })}
                     {!!quizAnswers[summaryIdx] && (
                       <View style={[sum.quizFeedback, quizAnswers[summaryIdx] === slide.correctAnswer ? sum.quizFeedbackOk : sum.quizFeedbackErr]}>
-                        <Text style={sum.quizFeedbackTitle}>
-                          {quizAnswers[summaryIdx] === slide.correctAnswer ? '🤯 ¡Exacto!' : '💡 Buena intención'}
-                        </Text>
+                        {quizAnswers[summaryIdx] === slide.correctAnswer ? (
+                          <View style={sum.quizFeedbackHeader}>
+                            <Text style={sum.quizFeedbackTitle}>✓ ¡Exacto!</Text>
+                            {!!summaryRewardText && <View style={sum.quizFeedbackXpChip}><Text style={sum.quizFeedbackXpText}>{summaryRewardText}</Text></View>}
+                          </View>
+                        ) : (
+                          <>
+                            <Text style={sum.quizFeedbackTitle}>💡 Incorrecto</Text>
+                            {!!slide.example && <Text style={sum.quizFeedbackText}>{slide.example}</Text>}
+                          </>
+                        )}
                       </View>
                     )}
                   </View>
@@ -2126,14 +2665,7 @@ export default function SessionPlayerScreen() {
               </View>
             )}
 
-            {/* Summary mode micro-reward overlay */}
-            {!!summaryRewardText && (
-              <Animated.View style={[sum.summaryRewardOverlay, summaryRewardStyle2]} pointerEvents="none">
-                <View style={sum.summaryRewardBadge}>
-                  <Text style={sum.summaryRewardBadgeTxt}>{summaryRewardText}</Text>
-                </View>
-              </Animated.View>
-            )}
+            {/* Summary micro-reward — integrated into feedback boxes (no floating overlay) */}
           </Animated.View>
 
           {/* CTA */}
@@ -2148,9 +2680,12 @@ export default function SessionPlayerScreen() {
                 onPress={() => isLast ? completeMode('summary') : goNext()}
                 style={{ width: '100%' }}
               >
-                <LinearGradient colors={[BRAND, NEON]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={g.ctaBtn}>
+                <View style={[g.ctaBtn, { backgroundColor: BRAND }]}>
                   <Text style={g.ctaText}>
-                    {isLast && slide?.type === 'victory' ? (noInteractionsAttempted ? 'Cerrar misión' : '🏆 ¡Misión completada!') :
+                    {isLast && slide?.type === 'victory' ? (
+                    NEUTRAL_MISSION_COMPLETION ? 'Continuar al Quiz →' :
+                    noInteractionsAttempted ? 'Cerrar misión' : '🏆 ¡Misión completada!'
+                  ) :
                      isLast ? '✅ Completar resumen' :
                      slide?.type === 'mission' ? '¡Comenzar! →' :
                      (slide?.type === 'challenge' && !(slide as BackendSlide).correctAnswer) ? '🤔 Lo pensé →' :
@@ -2159,7 +2694,7 @@ export default function SessionPlayerScreen() {
                      slide?.type === 'prediction' ? '🧠 Entendido →' :
                      'Siguiente →'}
                   </Text>
-                </LinearGradient>
+                </View>
               </Pressable>
             )}
           </View>
@@ -2174,31 +2709,142 @@ export default function SessionPlayerScreen() {
   if (phase === 'quiz') {
     if (quizDone) {
       const acc = questions.length > 0 ? Math.round((correctCount / questions.length) * 100) : 0;
+
+      if (MODE_COMPLETION_REDESIGN) {
+        const tiempoMs  = quizStartRef.current ? Date.now() - quizStartRef.current : 0;
+        const tiempoStr = formatMissionTime(tiempoMs);
+
+        const newSetAfterQuiz    = new Set([...completedModes, 'quiz']);
+        const remainingAfterQuiz = LOCAL_MODE_ORDER.filter(m => !newSetAfterQuiz.has(m));
+        const nextLocalQuiz      = remainingAfterQuiz[0] ?? null;
+        const continueLabelQuiz  = newSetAfterQuiz.size >= 3
+          ? '¡Ver sesión completa! →'
+          : nextLocalQuiz
+            ? `Continuar con ${LOCAL_MODE_LABEL[nextLocalQuiz]} →`
+            : 'Continuar →';
+
+        const onContinueQuiz = () => {
+          const newSet = new Set([...completedModes, 'quiz']);
+          setCompleted(newSet);
+          setCelebSrc('quiz');
+          if (DAILY_SESSION_LOGIC) markModeComplete(LOCAL_MODE_TO_DAILY['quiz']);
+          saveSessionProgress(newSet);
+          if (newSet.size >= 3) {
+            router.push('/session-complete' as any);
+          } else {
+            setPhase(nextLocalQuiz ? LOCAL_MODE_TO_PHASE[nextLocalQuiz] : 'mode-select');
+          }
+        };
+
+        return (
+          <ModeCompletionScreen
+            mode="quiz"
+            iconNode={<Zap size={44} color={BRAND} strokeWidth={1.5} />}
+            screenTitle="🧠 Quiz"
+            title="Quiz completo"
+            tiles={[
+              { label: 'enfocado',  value: tiempoStr },
+              { label: 'aciertos',  value: `${correctCount}/${questions.length}` },
+              { label: 'XP',        value: `+${xpEarned}`, valueColor: BRAND },
+            ]}
+            contextualLine={`Precisión: ${acc}% · Mejor racha: ${maxStreak}`}
+            continueLabel={continueLabelQuiz}
+            onContinue={onContinueQuiz}
+            onBack={() => setPhase('mode-select')}
+            sessionCompletedCount={newSetAfterQuiz.size}
+          />
+        );
+      }
+
+      if (UNIFIED_QUIZ_COMPLETION) {
+        const tiempoMs  = quizStartRef.current ? Date.now() - quizStartRef.current : 0;
+        const tiempoStr = formatMissionTime(tiempoMs);
+        return (
+          <SafeAreaView style={g.page} edges={['top']}>
+            <StatusBar barStyle="dark-content" backgroundColor={BG} />
+            <View style={g.topBar}>
+              <Pressable onPress={() => setPhase('mode-select')} style={g.iconBtn} hitSlop={10}>
+                <ChevronLeft size={18} color={semantic.textPrimary} strokeWidth={2.5} />
+              </Pressable>
+              <Text style={g.screenTitle}>🧠 Quiz</Text>
+              <Pressable onPress={() => setPhase('mode-select')} style={g.iconBtn} hitSlop={10}>
+                <X size={16} color={semantic.textPrimary} strokeWidth={2.5} />
+              </Pressable>
+            </View>
+            {UNIFIED_PROGRESS_BAR && (
+              <UnifiedProgressBar progress={globalPct} currentMode="quiz" />
+            )}
+            <Animated.View style={[{ flex: 1 }, resultEntryStyle]}>
+              <ScrollView contentContainerStyle={[qz.resultScroll, { paddingBottom: insets.bottom + 24 }]}>
+                <Zap size={44} color={BRAND} strokeWidth={1.5} />
+                <Text style={[qz.resultTitle, { marginTop: 10 }]}>Quiz completo</Text>
+
+                {/* Three neutral tiles */}
+                <View style={qz.resultGrid}>
+                  <View style={qz.resultCell}>
+                    <Text style={{ fontSize: 22 }}>⏱</Text>
+                    <Text style={[qz.resultCellVal, { color: semantic.textPrimary }]}>{tiempoStr}</Text>
+                    <Text style={qz.resultCellLbl}>enfocado</Text>
+                  </View>
+                  <View style={qz.resultCell}>
+                    <Text style={{ fontSize: 22 }}>🎯</Text>
+                    <Text style={[qz.resultCellVal, { color: palette.tealTarjetas }]}>{correctCount}/{questions.length}</Text>
+                    <Text style={qz.resultCellLbl}>aciertos</Text>
+                  </View>
+                  <View style={qz.resultCell}>
+                    <Text style={{ fontSize: 22 }}>⚡</Text>
+                    <Text style={[qz.resultCellVal, { color: BRAND }]}>+{xpEarned}</Text>
+                    <Text style={qz.resultCellLbl}>XP</Text>
+                  </View>
+                </View>
+
+                {/* Secondary contextual line */}
+                <Text style={[qz.resultCellLbl, { textAlign: 'center', marginTop: 6, lineHeight: 18 }]}>
+                  {`Precisión: ${acc}% · Mejor racha de aciertos: ${maxStreak}`}
+                </Text>
+              </ScrollView>
+            </Animated.View>
+
+            <View style={[g.bottom, { paddingBottom: insets.bottom + 12 }]}>
+              <Pressable onPress={() => completeMode('quiz')} style={{ width: '100%' }}>
+                <View style={[g.ctaBtn, { backgroundColor: BRAND }]}>
+                  <Text style={g.ctaText}>Continuar a Tarjetas →</Text>
+                </View>
+              </Pressable>
+            </View>
+          </SafeAreaView>
+        );
+      }
+
+      /* Original result screen — active when UNIFIED_QUIZ_COMPLETION = false */
       return (
         <SafeAreaView style={g.page} edges={['top']}>
           <StatusBar barStyle="dark-content" backgroundColor={BG} />
           <View style={g.topBar}>
             <Pressable onPress={() => setPhase('mode-select')} style={g.iconBtn} hitSlop={10}>
-              <ChevronLeft size={18} color={Colors.ink} strokeWidth={2.5} />
+              <ChevronLeft size={18} color={semantic.textPrimary} strokeWidth={2.5} />
             </Pressable>
             <Text style={g.screenTitle}>🧠 Resultado</Text>
             <Pressable onPress={() => setPhase('mode-select')} style={g.iconBtn} hitSlop={10}>
-              <X size={16} color={Colors.ink} strokeWidth={2.5} />
+              <X size={16} color={semantic.textPrimary} strokeWidth={2.5} />
             </Pressable>
           </View>
+          {UNIFIED_PROGRESS_BAR && (
+            <UnifiedProgressBar progress={globalPct} currentMode="quiz" />
+          )}
           <Animated.View style={[{ flex: 1 }, resultEntryStyle]}>
             <ScrollView contentContainerStyle={[qz.resultScroll, { paddingBottom: insets.bottom + 24 }]}>
               <Text style={qz.resultEmoji}>{acc >= 80 ? '🏆' : acc >= 50 ? '🎯' : '💪'}</Text>
               <Text style={qz.resultTitle}>{acc >= 80 ? '¡Increíble!' : acc >= 50 ? '¡Buen trabajo!' : 'Sigue practicando'}</Text>
               <View style={{ flexDirection: 'row', alignItems: 'baseline', justifyContent: 'center', marginBottom: 20 }}>
                 <AnimatedCounter to={correctCount} delay={0} style={qz.resultScore} />
-                <Text style={[qz.resultScore, { color: Colors.muted, fontSize: 32, fontWeight: '600' }]}>/{questions.length}</Text>
+                <Text style={[qz.resultScore, { color: semantic.textTertiary, fontSize: 32, fontWeight: '600' }]}>/{questions.length}</Text>
               </View>
               <View style={qz.resultGrid}>
                 {([
                   { e: '⚡', to: xpEarned, prefix: '+', suffix: '',  l: 'XP ganados', color: BRAND,        delay: 80  },
-                  { e: '🔥', to: maxStreak, prefix: '',  suffix: '×', l: 'Racha máx.', color: Colors.rose,  delay: 240 },
-                  { e: '🎯', to: acc,       prefix: '',  suffix: '%', l: 'Precisión',  color: Colors.teal,  delay: 400 },
+                  { e: '🔥', to: maxStreak, prefix: '',  suffix: '×', l: 'Racha máx.', color: palette.rojoError,  delay: 240 },
+                  { e: '🎯', to: acc,       prefix: '',  suffix: '%', l: 'Precisión',  color: palette.tealTarjetas,  delay: 400 },
                 ] as const).map(({ e, to, prefix, suffix, l, color, delay }) => (
                   <View key={l} style={qz.resultCell}>
                     <Text style={{ fontSize: 24 }}>{e}</Text>
@@ -2212,9 +2858,9 @@ export default function SessionPlayerScreen() {
                 <Text style={qz.retryText}>Intentar de nuevo</Text>
               </Pressable>
               <Pressable onPress={() => completeMode('quiz')} style={{ width: '100%' }}>
-                <LinearGradient colors={[BRAND, NEON]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={g.ctaBtn}>
+                <View style={[g.ctaBtn, { backgroundColor: BRAND }]}>
                   <Text style={g.ctaText}>🎉 Continuar</Text>
-                </LinearGradient>
+                </View>
               </Pressable>
             </ScrollView>
           </Animated.View>
@@ -2223,6 +2869,8 @@ export default function SessionPlayerScreen() {
     }
 
     const isLastQuestion = quizIdx >= questions.length - 1;
+    const stateB = FIXED_QUIZ_FEEDBACK && quizStep === 'wrong' && currentAttempt < MAX_ATTEMPTS_PER_QUESTION;
+    const stateC = FIXED_QUIZ_FEEDBACK && quizStep === 'wrong' && !stateB;
 
     return (
       <View style={{ flex: 1, backgroundColor: BG }}>
@@ -2255,44 +2903,33 @@ export default function SessionPlayerScreen() {
           {/* Header — matches mission / flashcards pattern */}
           <View style={g.topBar}>
             <Pressable onPress={() => setPhase('mode-select')} style={g.iconBtn} hitSlop={10}>
-              <ChevronLeft size={18} color={Colors.ink} strokeWidth={2.5} />
+              <ChevronLeft size={18} color={semantic.textPrimary} strokeWidth={2.5} />
             </Pressable>
             <View style={{ flex: 1, alignItems: 'center' }}>
               <Text style={g.screenTitle}>🧠 Quiz</Text>
-              <Text style={sum.slideCounter}>{quizIdx + 1} / {questions.length}</Text>
+              {!UNIFIED_PROGRESS_BAR && (
+                <Text style={sum.slideCounter}>{quizIdx + 1} / {questions.length}</Text>
+              )}
             </View>
             <Pressable onPress={() => setPhase('mode-select')} style={g.iconBtn} hitSlop={10}>
-              <X size={16} color={Colors.ink} strokeWidth={2.5} />
+              <X size={16} color={semantic.textPrimary} strokeWidth={2.5} />
             </Pressable>
           </View>
 
-          {/* Stats bar — Streak + Lives | Progress | XP */}
-          <View style={qz.statsBar}>
-            <Animated.View style={[qz.chip, heartShakeStyle]}>
-              <Text style={{ fontSize: 14 }}>🔥</Text>
-              <Text style={qz.chipVal}>{streak}</Text>
-              <View style={{ flexDirection: 'row', gap: 3, marginLeft: 2 }}>
-                {Array.from({ length: MAX_LIVES }).map((_, i) => (
-                  <View key={i} style={[qz.heartDot, i < lives && qz.heartDotActive]} />
-                ))}
-              </View>
-            </Animated.View>
-            {/* Animated progress bar — glow on last question */}
-            <View style={[qz.chip, { flex: 1.8, gap: 6 }, isLastQuestion && qz.chipLastQ]}>
+          {/* Progress bar — unified or per-mode */}
+          {UNIFIED_PROGRESS_BAR ? (
+            <UnifiedProgressBar
+              progress={globalPct}
+              currentMode="quiz"
+              modeLabel={unifiedModeLabel}
+            />
+          ) : (
+            <View style={{ paddingHorizontal: 14, marginBottom: 4 }}>
               <View style={qz.progressTrack}>
                 <Animated.View style={[qz.progressFill, progressFillStyle]} />
               </View>
-              <Text style={qz.counter}>{quizIdx + 1}/{questions.length}</Text>
             </View>
-            <View style={qz.chip}>
-              <Text style={{ fontSize: 14 }}>⚡</Text>
-              <Text style={qz.chipVal}>{xpEarned}</Text>
-              <Text style={qz.chipLbl}>XP</Text>
-            </View>
-          </View>
-
-          {/* Motiv message — second row */}
-          <Animated.Text style={[qz.motivMsg, motivFadeStyle]}>{motivText}</Animated.Text>
+          )}
 
           <ScrollView contentContainerStyle={[qz.scroll, { paddingBottom: 8 }]} showsVerticalScrollIndicator={false}>
             {/* Question card + options wrapped in TikTok transition (FASE 8) */}
@@ -2311,8 +2948,12 @@ export default function SessionPlayerScreen() {
                   const letter    = LETTERS[i] ?? String(i + 1);
                   const isCorrect = opt.id === question.correctOptionId;
                   const isWrong   = quizStep !== 'answering' && selected === opt.id && !isCorrect;
-                  const showBrand = quizStep !== 'answering' && isCorrect;
-                  const dimmed    = quizStep !== 'answering' && !isCorrect && !isWrong;
+                  const showBrand = FIXED_QUIZ_FEEDBACK
+                    ? quizStep === 'correct' || (stateC && isCorrect)
+                    : quizStep !== 'answering' && isCorrect;
+                  const dimmed = FIXED_QUIZ_FEEDBACK
+                    ? !stateB && quizStep !== 'answering' && !isCorrect && !isWrong
+                    : quizStep !== 'answering' && !isCorrect && !isWrong;
                   const baseAnim  = i < optAnimStyles.length ? optAnimStyles[i] : undefined;
                   return (
                     <Animated.View
@@ -2345,14 +2986,14 @@ export default function SessionPlayerScreen() {
                         ]}
                       >
                         <View style={[qz.optLetter, showBrand && qz.optLetterCorrect, isWrong && qz.optLetterRed]}>
-                          {showBrand ? <Check size={13} color="white" strokeWidth={3} /> :
-                           isWrong   ? <X    size={13} color="white" strokeWidth={3} /> :
+                          {showBrand ? <Check size={13} color={palette.blanco} strokeWidth={3} /> :
+                           isWrong   ? <X    size={13} color={palette.blanco} strokeWidth={3} /> :
                            <Text style={[qz.optLetterText, selected === opt.id && quizStep === 'answering' && { color: BRAND, fontWeight: '900' }]}>{letter}</Text>}
                         </View>
                         <Text style={[
                           qz.optText,
                           showBrand && { color: BRAND, fontWeight: '700' },
-                          isWrong   && { color: Colors.muted },
+                          isWrong   && { color: semantic.textTertiary },
                         ]}>
                           {opt.text}
                         </Text>
@@ -2363,8 +3004,8 @@ export default function SessionPlayerScreen() {
               </View>
             </Animated.View>
 
-            {/* Feedback strip — compact */}
-            {quizStep !== 'answering' && question?.explanation ? (
+            {/* Feedback strip (original — active when FIXED_QUIZ_FEEDBACK = false) */}
+            {!FIXED_QUIZ_FEEDBACK && quizStep !== 'answering' && question?.explanation ? (
               <Animated.View style={[qz.feedback, quizStep === 'correct' ? qz.feedbackOk : qz.feedbackFail, feedbackStyle]}>
                 <View style={qz.feedbackHeader}>
                   <Text style={qz.feedbackTitle}>
@@ -2376,7 +3017,36 @@ export default function SessionPlayerScreen() {
                     </View>
                   )}
                 </View>
-                <Text style={qz.feedbackText} numberOfLines={2}>{question.explanation}</Text>
+                <Text style={qz.feedbackText}>{question.explanation}</Text>
+              </Animated.View>
+            ) : null}
+
+            {/* Feedback strip — fixed 3-state (A=correct, B=retry, C=wrong final) */}
+            {FIXED_QUIZ_FEEDBACK && quizStep !== 'answering' ? (
+              <Animated.View style={[qz.feedback, quizStep === 'correct' ? qz.feedbackOk : qz.feedbackFail, feedbackStyle]}>
+                <View style={qz.feedbackHeader}>
+                  <Text style={qz.feedbackTitle}>
+                    {quizStep === 'correct' ? '🎯 ¡Correcto!' : '💪 Casi'}
+                  </Text>
+                  {quizStep === 'correct' && (
+                    <View style={qz.feedbackXP}>
+                      <Text style={qz.feedbackXPText}>+{XP_PER_CORRECT} XP</Text>
+                    </View>
+                  )}
+                </View>
+                {/* State B: retry nudge — no explanation */}
+                {stateB && <Text style={qz.feedbackText}>Vuelve a intentarlo.</Text>}
+                {/* State A/C: show explanation */}
+                {!stateB && !!question?.explanation && (
+                  <Text style={qz.feedbackText}>{question.explanation}</Text>
+                )}
+                {/* State C: reveal correct answer */}
+                {stateC && (
+                  <Text style={[qz.feedbackText, { fontWeight: '700', marginTop: 2 }]}>
+                    {'La respuesta correcta era: '}
+                    {question.options.find(o => o.id === question.correctOptionId)?.text ?? ''}
+                  </Text>
+                )}
               </Animated.View>
             ) : null}
           </ScrollView>
@@ -2384,17 +3054,38 @@ export default function SessionPlayerScreen() {
           {/* CTA — always BRAND/NEON, dynamic text (FASE 10) */}
           <View style={[g.bottom, { paddingBottom: insets.bottom + 12 }]}>
             {quizStep !== 'answering' ? (
-              <Pressable onPress={handleQuizNext} style={{ width: '100%' }}>
-                <LinearGradient colors={[BRAND, NEON]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={g.ctaBtn}>
-                  <Text style={g.ctaText}>
-                    {isLastQuestion
-                      ? '🏆 Ver resultados'
-                      : quizStep === 'correct'
-                        ? '🚀 Continuar'
-                        : '🔁 Intentar otra vez'}
-                  </Text>
-                </LinearGradient>
-              </Pressable>
+              !FIXED_QUIZ_FEEDBACK ? (
+                /* Original behavior — kept while FIXED_QUIZ_FEEDBACK = false */
+                <Pressable onPress={handleQuizNext} style={{ width: '100%' }}>
+                  <View style={[g.ctaBtn, { backgroundColor: BRAND }]}>
+                    <Text style={g.ctaText}>
+                      {isLastQuestion
+                        ? '🏆 Ver resultados'
+                        : quizStep === 'correct'
+                          ? '🚀 Continuar'
+                          : '🔁 Intentar otra vez'}
+                    </Text>
+                  </View>
+                </Pressable>
+              ) : stateB ? (
+                /* State B — retry same question */
+                <Pressable onPress={handleRetry} style={{ width: '100%' }}>
+                  <View style={[g.ctaBtn, { backgroundColor: BRAND }]}>
+                    <Text style={g.ctaText}>🔁 Intentar otra vez</Text>
+                  </View>
+                </Pressable>
+              ) : (
+                /* State A (correct) or C (wrong final) — advance */
+                <Pressable onPress={handleQuizNext} style={{ width: '100%' }}>
+                  <View style={[g.ctaBtn, { backgroundColor: BRAND }]}>
+                    <Text style={g.ctaText}>
+                      {isLastQuestion
+                        ? '🏆 Ver resultados'
+                        : quizStep === 'correct' ? '🚀 Continuar' : '➡️ Continuar'}
+                    </Text>
+                  </View>
+                </Pressable>
+              )
             ) : (
               <View style={g.ctaBtnOff}>
                 <Text style={g.ctaTextOff}>Selecciona una respuesta</Text>
@@ -2411,24 +3102,78 @@ export default function SessionPlayerScreen() {
   // ══════════════════════════════════════════════════════════════
   if (phase === 'flashcards') {
     if (cardsDone) {
+      if (MODE_COMPLETION_REDESIGN) {
+        const tiempoMs    = flashcardsStartRef.current ? Date.now() - flashcardsStartRef.current : 0;
+        const tiempoStr   = formatMissionTime(tiempoMs);
+        const totalCards  = flashcards.length;
+        const dominaste   = cardsKnew;
+        const dudaste     = cardsDubious;
+        const noSabias    = cardsUnknown;
+
+        const newSetAfterTarjetas    = new Set([...completedModes, 'flashcards']);
+        const remainingAfterTarjetas = LOCAL_MODE_ORDER.filter(m => !newSetAfterTarjetas.has(m));
+        const nextLocalTarjetas      = remainingAfterTarjetas[0] ?? null;
+        const continueLabelTarjetas  = newSetAfterTarjetas.size >= 3
+          ? '¡Ver sesión completa! →'
+          : nextLocalTarjetas
+            ? `Continuar con ${LOCAL_MODE_LABEL[nextLocalTarjetas]} →`
+            : 'Continuar →';
+
+        const onContinueTarjetas = () => {
+          const newSet = new Set([...completedModes, 'flashcards']);
+          setCompleted(newSet);
+          setCelebSrc('flashcards');
+          if (DAILY_SESSION_LOGIC) markModeComplete(LOCAL_MODE_TO_DAILY['flashcards']);
+          saveSessionProgress(newSet);
+          if (newSet.size >= 3) {
+            router.push('/session-complete' as any);
+          } else {
+            setPhase(nextLocalTarjetas ? LOCAL_MODE_TO_PHASE[nextLocalTarjetas] : 'mode-select');
+          }
+        };
+
+        return (
+          <ModeCompletionScreen
+            mode="tarjetas"
+            iconNode={<Layers size={44} color="#059669" strokeWidth={1.5} />}
+            screenTitle="🗂️ Tarjetas"
+            title="Tarjetas completas"
+            tiles={[
+              { label: 'enfocado',  value: tiempoStr },
+              { label: 'tarjetas',  value: String(totalCards) },
+              { label: 'XP',        value: `+${xpEarned}`, valueColor: BRAND },
+            ]}
+            contextualLine={totalCards > 0 ? `${dominaste} dominaste · ${dudaste} dudaste · ${noSabias} no sabías` : ''}
+            continueLabel={continueLabelTarjetas}
+            onContinue={onContinueTarjetas}
+            onBack={() => setPhase('mode-select')}
+            sessionCompletedCount={newSetAfterTarjetas.size}
+          />
+        );
+      }
+
+      /* Original tarjetas done screen — active when MODE_COMPLETION_REDESIGN = false */
       return (
         <SafeAreaView style={g.page} edges={['top']}>
           <StatusBar barStyle="dark-content" backgroundColor={BG} />
           <View style={g.topBar}>
             <Pressable onPress={() => setPhase('mode-select')} style={g.iconBtn} hitSlop={10}>
-              <X size={16} color={Colors.ink} strokeWidth={2.5} />
+              <X size={16} color={semantic.textPrimary} strokeWidth={2.5} />
             </Pressable>
             <Text style={g.screenTitle}>Tarjetas completadas</Text>
             <View style={{ width: 36 }} />
           </View>
+          {UNIFIED_PROGRESS_BAR && (
+            <UnifiedProgressBar progress={globalPct} currentMode="tarjetas" />
+          )}
           <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 24 }}>
             <Text style={{ fontSize: 72, marginBottom: 16 }}>🃏</Text>
-            <Text style={{ fontSize: 24, fontWeight: '900', color: Colors.ink, textAlign: 'center', marginBottom: 8 }}>¡Tarjetas completadas!</Text>
-            <Text style={{ fontSize: 14, color: Colors.muted, textAlign: 'center', marginBottom: 32 }}>{flashcards.length} tarjetas repasadas</Text>
+            <Text style={{ fontSize: 24, fontWeight: '900', color: semantic.textPrimary, textAlign: 'center', marginBottom: 8 }}>¡Tarjetas completadas!</Text>
+            <Text style={{ fontSize: 14, color: semantic.textTertiary, textAlign: 'center', marginBottom: 32 }}>{flashcards.length} tarjetas repasadas</Text>
             <Pressable onPress={() => completeMode('flashcards')} style={{ width: '100%' }}>
-              <LinearGradient colors={[BRAND, NEON]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={g.ctaBtn}>
+              <View style={[g.ctaBtn, { backgroundColor: BRAND }]}>
                 <Text style={g.ctaText}>🎉 Continuar</Text>
-              </LinearGradient>
+              </View>
             </Pressable>
           </View>
         </SafeAreaView>
@@ -2441,21 +3186,33 @@ export default function SessionPlayerScreen() {
         <SafeAreaView style={{ flex: 1 }} edges={['top']}>
           <View style={g.topBar}>
             <Pressable onPress={() => setPhase('mode-select')} style={g.iconBtn} hitSlop={10}>
-              <ChevronLeft size={18} color={Colors.ink} strokeWidth={2.5} />
+              <ChevronLeft size={18} color={semantic.textPrimary} strokeWidth={2.5} />
             </Pressable>
             <View style={{ flex: 1, alignItems: 'center' }}>
               <Text style={g.screenTitle}>🗂️ Tarjetas</Text>
-              <Text style={sum.slideCounter}>{cardIdx + 1} / {flashcards.length}</Text>
+              {!UNIFIED_PROGRESS_BAR && (
+                <Text style={sum.slideCounter}>{cardIdx + 1} / {flashcards.length}</Text>
+              )}
             </View>
             <Pressable onPress={() => setPhase('mode-select')} style={g.iconBtn} hitSlop={10}>
-              <X size={16} color={Colors.ink} strokeWidth={2.5} />
+              <X size={16} color={semantic.textPrimary} strokeWidth={2.5} />
             </Pressable>
           </View>
-          <View style={{ paddingHorizontal: 14, marginBottom: 4 }}>
-            <View style={qz.progressTrack}>
-              <Animated.View style={[qz.progressFill, progressFillStyle]} />
+
+          {/* Progress bar — unified or per-mode */}
+          {UNIFIED_PROGRESS_BAR ? (
+            <UnifiedProgressBar
+              progress={globalPct}
+              currentMode="tarjetas"
+              modeLabel={unifiedModeLabel}
+            />
+          ) : (
+            <View style={{ paddingHorizontal: 14, marginBottom: 4 }}>
+              <View style={qz.progressTrack}>
+                <Animated.View style={[qz.progressFill, progressFillStyle]} />
+              </View>
             </View>
-          </View>
+          )}
 
           {/* Card takes all remaining space */}
           <FlipCard
@@ -2468,14 +3225,14 @@ export default function SessionPlayerScreen() {
           {cardFlipped ? (
             <View style={[fcs.srsRow, { paddingBottom: insets.bottom + 12 }]}>
               {[
-                { label: '❌\nNo lo sabía', colors: ['#DC2626', '#B91C1C'] as [string,string] },
-                { label: '🤔\nLo dudé',     colors: [Colors.amber, '#D97706'] as [string,string] },
-                { label: '✅\nLo sabía',    colors: [BRAND, NEON] as [string,string] },
-              ].map(({ label, colors }) => (
-                <Pressable key={label} onPress={handleCardNext} style={{ flex: 1 }}>
-                  <LinearGradient colors={colors} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={fcs.srsBtn}>
+                { label: '❌\nNo lo sabía', response: 'unknown' as const, colors: ['#DC2626', '#B91C1C'] as [string,string] },
+                { label: '🤔\nLo dudé',     response: 'doubt'   as const, colors: [palette.ambar, '#D97706'] as [string,string] },
+                { label: '✅\nLo sabía',    response: 'knew'    as const, colors: [BRAND, NEON] as [string,string] },
+              ].map(({ label, response, colors }) => (
+                <Pressable key={label} onPress={() => handleCardNext(response)} style={{ flex: 1 }}>
+                  <View style={[fcs.srsBtn, { backgroundColor: colors[0] }]}>
                     <Text style={fcs.srsBtnText}>{label}</Text>
-                  </LinearGradient>
+                  </View>
                 </Pressable>
               ))}
             </View>
@@ -2502,10 +3259,10 @@ export default function SessionPlayerScreen() {
         <SafeAreaView style={{ flex: 1 }} edges={['top', 'bottom']}>
           <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 24 }}>
             <Text style={{ fontSize: SM ? 72 : 88, marginBottom: 8 }}>🎉</Text>
-            <Text style={{ fontSize: SM ? 24 : 28, fontWeight: '900', color: Colors.ink, textAlign: 'center', marginBottom: 8 }}>
+            <Text style={{ fontSize: SM ? 24 : 28, fontWeight: '900', color: semantic.textPrimary, textAlign: 'center', marginBottom: 8 }}>
               ¡{modeLabel} completado!
             </Text>
-            <Text style={{ fontSize: 14, color: Colors.muted, textAlign: 'center', marginBottom: 32, lineHeight: 22 }}>
+            <Text style={{ fontSize: 14, color: semantic.textTertiary, textAlign: 'center', marginBottom: 32, lineHeight: 22 }}>
               Sigue así, lo estás haciendo increíble 🔥
             </Text>
             <View style={cel.row}>
@@ -2524,9 +3281,9 @@ export default function SessionPlayerScreen() {
           </View>
           <View style={[g.bottom, { paddingBottom: insets.bottom + 12, gap: 10 }]}>
             <Pressable onPress={() => allDone ? setPhase('complete') : setPhase('mode-select')} style={{ width: '100%' }}>
-              <LinearGradient colors={[BRAND, NEON]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={g.ctaBtn}>
+              <View style={[g.ctaBtn, { backgroundColor: BRAND }]}>
                 <Text style={g.ctaText}>{allDone ? '🏆 Ver resultados finales' : 'Continuar aprendiendo →'}</Text>
-              </LinearGradient>
+              </View>
             </Pressable>
             {!allDone && (
               <Pressable onPress={() => setPhase('complete')} style={g.secBtn}>
@@ -2582,11 +3339,11 @@ export default function SessionPlayerScreen() {
             {/* Level bar */}
             <View style={comp.levelCard}>
               <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 12 }}>
-                <Text style={{ fontSize: 14, fontWeight: '800', color: Colors.ink }}>Nivel 4</Text>
-                <Text style={{ fontSize: 12, color: Colors.muted }}>68% al siguiente</Text>
+                <Text style={{ fontSize: 14, fontWeight: '800', color: semantic.textPrimary }}>Nivel 4</Text>
+                <Text style={{ fontSize: 12, color: semantic.textTertiary }}>68% al siguiente</Text>
               </View>
-              <View style={{ height: 10, borderRadius: 99, backgroundColor: Colors.bgSoft, overflow: 'hidden' }}>
-                <LinearGradient colors={[BRAND, NEON]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={{ width: '68%', height: '100%', borderRadius: 99 }} />
+              <View style={{ height: 10, borderRadius: 99, backgroundColor: palette.crema, overflow: 'hidden' }}>
+                <View style={{ width: '68%', height: '100%', borderRadius: 99, backgroundColor: BRAND }} />
               </View>
             </View>
 
@@ -2608,9 +3365,9 @@ export default function SessionPlayerScreen() {
 
           <View style={[g.bottom, { paddingBottom: insets.bottom + 12, gap: 10 }]}>
             <Pressable onPress={() => router.push('/home' as any)} style={{ width: '100%' }}>
-              <LinearGradient colors={[BRAND, NEON]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={g.ctaBtn}>
+              <View style={[g.ctaBtn, { backgroundColor: BRAND }]}>
                 <Text style={g.ctaText}>🚀 Seguir aprendiendo</Text>
-              </LinearGradient>
+              </View>
             </Pressable>
             <Pressable onPress={() => router.back()} style={g.secBtn}>
               <Text style={g.secText}>Volver al inicio</Text>
@@ -2629,172 +3386,206 @@ const g = StyleSheet.create({
   page:    { flex: 1, backgroundColor: BG },
   scroll:  { paddingHorizontal: 20, paddingTop: 8 },
   topBar:  { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 10, gap: 10 },
-  iconBtn: { width: 36, height: 36, borderRadius: 11, backgroundColor: 'white', borderWidth: 1, borderColor: Colors.line, alignItems: 'center', justifyContent: 'center', shadowColor: '#0B0B1A', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.06, shadowRadius: 5, elevation: 2 },
-  screenTitle: { flex: 1, textAlign: 'center', fontSize: 15, fontWeight: '800', color: Colors.ink, letterSpacing: -0.2 },
-  xpPill:  { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: Colors.ink, borderRadius: 100, paddingVertical: 5, paddingHorizontal: 10 },
+  iconBtn: { width: 36, height: 36, borderRadius: 11, backgroundColor: palette.blanco, borderWidth: 1, borderColor: palette.bordeClaro, alignItems: 'center', justifyContent: 'center' },
+  screenTitle: { flex: 1, textAlign: 'center', fontSize: 15, fontWeight: '800', color: semantic.textPrimary, letterSpacing: -0.2 },
+  xpPill:  { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: semantic.textPrimary, borderRadius: 100, paddingVertical: 5, paddingHorizontal: 10 },
   xpText:  { color: LIME, fontWeight: '800', fontSize: 12 },
-  counterPill: { backgroundColor: Colors.bgSoft, borderRadius: 100, paddingVertical: 4, paddingHorizontal: 10 },
-  counterText: { fontSize: 12, fontWeight: '800', color: Colors.ink },
-  bottom:  { paddingHorizontal: 20, paddingTop: 12, borderTopWidth: 1, borderTopColor: Colors.line, backgroundColor: BG },
-  ctaBtn:  { paddingVertical: 17, borderRadius: 18, alignItems: 'center', justifyContent: 'center' },
-  ctaText: { fontSize: 16, fontWeight: '800', color: 'white' },
-  ctaBtnOff:  { paddingVertical: 17, borderRadius: 18, alignItems: 'center', backgroundColor: Colors.bgSoft },
-  ctaTextOff: { fontSize: 16, fontWeight: '700', color: Colors.muted },
-  secBtn:  { paddingVertical: 13, borderRadius: 18, alignItems: 'center', backgroundColor: Colors.bgSoft },
-  secText: { fontSize: 14, fontWeight: '700', color: Colors.ink2 },
+  counterPill: { backgroundColor: palette.crema, borderRadius: 100, paddingVertical: 4, paddingHorizontal: 10 },
+  counterText: { fontSize: 12, fontWeight: '800', color: semantic.textPrimary },
+  bottom:  { paddingHorizontal: 20, paddingTop: 12, borderTopWidth: 1, borderTopColor: palette.bordeClaro, backgroundColor: BG },
+  ctaBtn:  { paddingVertical: 20, borderRadius: 28, alignItems: 'center', justifyContent: 'center' },
+  ctaText: { fontSize: 16, fontWeight: '800', color: palette.blanco },
+  ctaBtnOff:  { paddingVertical: 17, borderRadius: 18, alignItems: 'center', backgroundColor: palette.crema },
+  ctaTextOff: { fontSize: 16, fontWeight: '700', color: semantic.textTertiary },
+  secBtn:  { paddingVertical: 13, borderRadius: 18, alignItems: 'center', backgroundColor: palette.crema },
+  secText: { fontSize: 14, fontWeight: '700', color: semantic.textPrimary },
 });
 
 // ── Lobby ──────────────────────────────────────────────────────────
 const lob = StyleSheet.create({
-  xpPill:     { backgroundColor: '#F3EEFF', borderRadius: 100, paddingVertical: 6, paddingHorizontal: 12 },
-  xpPillText: { fontSize: SM ? 12 : 13, fontWeight: '800', color: '#6C4DFF' },
-  hero:       { borderRadius: 28, paddingVertical: SM ? 18 : 22, paddingHorizontal: 24, marginBottom: 14, overflow: 'hidden', alignItems: 'center' },
-  glow1:      { position: 'absolute', width: 200, height: 200, borderRadius: 100, backgroundColor: 'rgba(255,91,159,0.2)', top: -60, right: -60 },
-  glow2:      { position: 'absolute', width: 160, height: 160, borderRadius: 80, backgroundColor: 'rgba(196,248,82,0.15)', bottom: -50, left: -40 },
-  heroEmoji:  { fontSize: SM ? 52 : 64, marginBottom: 8 },
-  heroTopic:  { fontSize: SM ? 20 : 24, fontWeight: '900', color: 'white', textAlign: 'center', letterSpacing: -0.5, lineHeight: SM ? 26 : 32, marginBottom: 14 },
-  chips:      { flexDirection: 'row', flexWrap: 'wrap', gap: 6, justifyContent: 'center' },
-  chip:       { backgroundColor: 'rgba(255,255,255,0.15)', borderRadius: 100, paddingVertical: 4, paddingHorizontal: 10 },
-  chipText:   { color: 'white', fontSize: 11, fontWeight: '600' },
-  rewardsRow: { flexDirection: 'row', gap: 10, marginBottom: 14 },
-  rewardCardPrimary: { flex: 1.4, backgroundColor: 'white', borderRadius: 18, borderWidth: 1, borderColor: Colors.line, paddingVertical: SM ? 12 : 16, paddingHorizontal: 8, alignItems: 'center', gap: 2, shadowColor: '#0B0B1A', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 8, elevation: 2 },
-  rewardCardSmall:   { flex: 1, backgroundColor: 'white', borderRadius: 18, borderWidth: 1, borderColor: Colors.line, paddingVertical: SM ? 10 : 12, paddingHorizontal: 6, alignItems: 'center', gap: 2, shadowColor: '#0B0B1A', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 8, elevation: 2 },
-  rewardCard: { flex: 1, backgroundColor: 'white', borderRadius: 18, borderWidth: 1, borderColor: Colors.line, padding: SM ? 10 : 14, alignItems: 'center', gap: 2, shadowColor: '#0B0B1A', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 8, elevation: 2 },
-  rewardValPrimary: { fontSize: SM ? 24 : 28, fontWeight: '900', letterSpacing: -0.5 },
-  rewardVal:  { fontSize: SM ? 16 : 20, fontWeight: '900', letterSpacing: -0.5 },
-  rewardLbl:  { fontSize: 8, fontWeight: '700', color: Colors.muted, letterSpacing: 1 },
-  missionCard:{ backgroundColor: 'white', borderRadius: 20, borderWidth: 1, borderColor: Colors.line, padding: 16, shadowColor: '#0B0B1A', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 8, elevation: 2 },
-  missionHead:{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
-  missionTitle:{ fontSize: 14, fontWeight: '800', color: Colors.ink },
-  missionCounter: { fontSize: 12, fontWeight: '700', color: Colors.muted },
-  missionRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 7 },
-  missionCheck:{ width: 20, height: 20, borderRadius: 10, borderWidth: 2, borderColor: Colors.line2, alignItems: 'center', justifyContent: 'center' },
+  progressPill:     { backgroundColor: palette.moradoBg, borderRadius: 100, paddingVertical: 5, paddingHorizontal: 12 },
+  progressPillText: { fontSize: SM ? 11 : 12, fontWeight: '700', color: BRAND },
+
+  titleBlock: { marginBottom: 16 },
+  titleLabel: { fontSize: SM ? 22 : 26, fontWeight: '900', color: semantic.textPrimary, letterSpacing: -0.5, marginBottom: 4 },
+  titleTopic: { fontSize: SM ? 13 : 14, color: semantic.textSecondary, lineHeight: 21 },
+
+  metricsCard: { backgroundColor: palette.blanco, borderRadius: 20, borderWidth: 1, borderColor: palette.bordeClaro, paddingVertical: 14, marginBottom: 14 },
+  metricsRow:  { flexDirection: 'row', alignItems: 'center' },
+  metricItem:  { flex: 1, alignItems: 'center', gap: 3, paddingVertical: 6 },
+  metricEmoji: { fontSize: 20, marginBottom: 2 },
+  metricVal:   { fontSize: SM ? 16 : 18, fontWeight: '900', color: semantic.textPrimary, letterSpacing: -0.4 },
+  metricLbl:   { fontSize: 10, fontWeight: '600', color: semantic.textTertiary, textTransform: 'uppercase', letterSpacing: 0.3 },
+  metricDiv:   { width: 1, height: 44, backgroundColor: palette.bordeClaro },
+  metricDivH:  { height: 1, backgroundColor: palette.bordeClaro, marginVertical: 4 },
+
+  missionCard:     { backgroundColor: palette.blanco, borderRadius: 20, borderWidth: 1, borderColor: palette.bordeClaro, padding: 16 },
+  missionHead:     { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
+  missionTitle:    { fontSize: 14, fontWeight: '800', color: semantic.textPrimary },
+  missionCounter:  { fontSize: 12, fontWeight: '700', color: semantic.textTertiary },
+  missionRow:      { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 7 },
+  missionCheck:    { width: 20, height: 20, borderRadius: 10, borderWidth: 2, borderColor: palette.bordeMedio, alignItems: 'center', justifyContent: 'center' },
   missionCheckDone:{ backgroundColor: BRAND, borderColor: BRAND },
-  missionLabel:{ fontSize: 13, color: Colors.ink2, fontWeight: '600' },
-  missionLabelDone:{ color: Colors.muted, textDecorationLine: 'line-through' },
+  missionLabel:    { fontSize: 14, color: semantic.textPrimary, fontWeight: '600', flex: 1 },
+  missionLabelDone:{ color: semantic.textTertiary, textDecorationLine: 'line-through' },
 });
 
 // ── Mode select ────────────────────────────────────────────────────
 const mds = StyleSheet.create({
-  heading: { fontSize: SM ? 20 : 22, fontWeight: '900', color: Colors.ink, letterSpacing: -0.5, marginBottom: 4, textAlign: 'center' },
-  sub:     { fontSize: 13, color: Colors.muted, textAlign: 'center' },
-  // card is now a Pressable with flex:1 — no fixed height needed
-  gradient:{ flex: 1, borderRadius: 20, padding: SM ? 14 : 16, justifyContent: 'space-between',
-             shadowColor: '#0B0B1A', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.12, shadowRadius: 14, elevation: 6 },
-  doneBadge:{ flexDirection: 'row', alignItems: 'center', gap: 4, alignSelf: 'flex-start', backgroundColor: 'rgba(255,255,255,0.92)', borderRadius: 100, paddingVertical: 2, paddingHorizontal: 8, marginBottom: 6 },
-  doneBadgeText:{ fontSize: 10, fontWeight: '800' },
-  cardTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 },
-  cardEmoji:{ fontSize: SM ? 32 : 36 },
-  xpBadge: { backgroundColor: 'rgba(255,255,255,0.2)', borderRadius: 100, paddingVertical: 3, paddingHorizontal: 9 },
-  xpBadgeText:{ color: 'white', fontSize: 11, fontWeight: '800' },
-  cardTitle:{ fontSize: SM ? 18 : 20, fontWeight: '900', color: 'white', marginBottom: 2 },
-  cardDesc: { fontSize: 12, color: 'rgba(255,255,255,0.8)' },
+  hero:      { marginTop: 4, marginBottom: 8 },
+  heroTitle: { fontSize: SM ? 22 : 26, fontWeight: '900', color: semantic.textPrimary, letterSpacing: -0.5, marginBottom: 3 },
+  heroSub:   { fontSize: 14, color: semantic.textSecondary, fontWeight: '500' },
+
+  missionCard:    { backgroundColor: BRAND, borderRadius: 20, padding: SM ? 16 : 20 },
+  missionEmoji:   { fontSize: SM ? 34 : 40, marginBottom: 4 },
+  missionXpBadge: { backgroundColor: 'rgba(255,255,255,0.2)', borderRadius: 100, paddingVertical: 3, paddingHorizontal: 10 },
+  missionXpText:  { color: palette.blanco, fontSize: 12, fontWeight: '800' },
+  missionTitle:   { fontSize: SM ? 20 : 24, fontWeight: '900', color: palette.blanco, marginBottom: 3, marginTop: 4 },
+  missionDesc:    { fontSize: 13, color: 'rgba(255,255,255,0.8)', marginBottom: 12 },
+  missionDetail:  { fontSize: 12, color: 'rgba(255,255,255,0.65)' },
+
+  secondaryCard:    { backgroundColor: palette.blanco, borderRadius: 18, borderWidth: 1, borderColor: palette.bordeClaro, padding: SM ? 12 : 14, minHeight: SM ? 160 : 180 },
+  secondaryEmoji:   { fontSize: SM ? 26 : 30, marginBottom: 6 },
+  secondaryXpBadge: { borderRadius: 100, paddingVertical: 3, paddingHorizontal: 8, alignSelf: 'flex-start', marginBottom: 6 },
+  secondaryXpText:  { fontSize: 11, fontWeight: '800' },
+  secondaryTitle:   { fontSize: SM ? 16 : 18, fontWeight: '900', marginBottom: 3 },
+  secondaryDesc:    { fontSize: 11, color: semantic.textSecondary, lineHeight: 16, marginBottom: 4 },
+  secondaryDetail:  { fontSize: 11, color: semantic.textTertiary, marginBottom: 8 },
+
+  cardTop:  { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 4 },
   cardFoot: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 8 },
-  cardDetail:{ fontSize: 11, color: 'rgba(255,255,255,0.65)' },
-  arrow:    { width: 26, height: 26, borderRadius: 13, backgroundColor: 'rgba(255,255,255,0.15)', alignItems: 'center', justifyContent: 'center' },
-  tip:      { flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: 'rgba(196,248,82,0.12)', borderRadius: 14, borderWidth: 1, borderColor: 'rgba(196,248,82,0.3)', paddingVertical: 10, paddingHorizontal: 14 },
-  tipText:  { flex: 1, fontSize: 12, color: Colors.ink2, lineHeight: 17, fontWeight: '600' },
+  doneBadge:    { flexDirection: 'row', alignItems: 'center', gap: 4, alignSelf: 'flex-start', backgroundColor: 'rgba(255,255,255,0.92)', borderRadius: 100, paddingVertical: 2, paddingHorizontal: 8, marginBottom: 8 },
+  doneBadgeText:{ fontSize: 10, fontWeight: '800' },
+  arrowLight:  { width: 28, height: 28, borderRadius: 14, backgroundColor: 'rgba(255,255,255,0.2)', alignItems: 'center', justifyContent: 'center' },
+  arrowAccent: { width: 26, height: 26, borderRadius: 13, alignItems: 'center', justifyContent: 'center', alignSelf: 'flex-end' },
+
+  rewardCard:  { flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: 'rgba(196,248,82,0.12)', borderRadius: 16, borderWidth: 1, borderColor: 'rgba(196,248,82,0.35)', paddingVertical: 12, paddingHorizontal: 14 },
+  rewardStar:  { fontSize: 22 },
+  rewardTitle: { fontSize: 14, fontWeight: '800', color: semantic.textPrimary, marginBottom: 2 },
+  rewardSub:   { fontSize: 12, color: semantic.textSecondary, lineHeight: 17 },
 });
 
 // ── Summary ────────────────────────────────────────────────────────
 const sum = StyleSheet.create({
-  storyBar:     { flexDirection: 'row', paddingHorizontal: 16, gap: 4, paddingVertical: 8 },
-  storySeg:     { flex: 1, height: 4, borderRadius: 2, overflow: 'hidden', backgroundColor: Colors.line },
-  storyFill:    { height: '100%', borderRadius: 2, backgroundColor: BRAND },
-  slideCounter: { fontSize: 11, color: Colors.muted, fontWeight: '600', marginTop: 1 },
+  // Story progress bar — thick single bar
+  storyBar:     { flexDirection: 'row', paddingHorizontal: 20, paddingVertical: 8, alignItems: 'center', gap: 10 },
+  progressTrack:{ flex: 1, height: 8, borderRadius: 4, backgroundColor: palette.bordeClaro, overflow: 'hidden' },
+  progressFill: { height: '100%', borderRadius: 4, backgroundColor: BRAND },
+  slideCounter: { fontSize: 12, color: semantic.textSecondary, fontWeight: '700', minWidth: 40, textAlign: 'right' },
   progressBarOuter: { width: 72, height: 3, borderRadius: 2, backgroundColor: 'rgba(0,0,0,0.07)', overflow: 'hidden', marginTop: 3 },
   progressBarFill:  { height: '100%', borderRadius: 2, backgroundColor: BRAND },
   slideArea:    { flex: 1, paddingHorizontal: 20, justifyContent: 'center' },
 
   // Summary micro-reward overlay
   summaryRewardOverlay: { position: 'absolute', alignSelf: 'center', top: '30%', zIndex: 50 },
-  summaryRewardBadge:   { backgroundColor: BRAND, borderRadius: 100, paddingVertical: 9, paddingHorizontal: 20, shadowColor: BRAND, shadowOpacity: 0.35, shadowRadius: 12, shadowOffset: { width: 0, height: 4 }, elevation: 6 },
-  summaryRewardBadgeTxt:{ fontSize: 15, fontWeight: '800', color: 'white' },
+  summaryRewardBadge:   { backgroundColor: BRAND, borderRadius: 100, paddingVertical: 9, paddingHorizontal: 20 },
+  summaryRewardBadgeTxt:{ fontSize: 15, fontWeight: '800', color: palette.blanco },
 
   // Concept card
-  introCard:    { backgroundColor: 'white', borderRadius: 28, padding: SM ? 18 : 22, shadowColor: '#0B0B1A', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.09, shadowRadius: 20, elevation: 5 },
+  introCard:    { backgroundColor: palette.blanco, borderRadius: 28, padding: SM ? 18 : 22 },
   slideEmoji:   { fontSize: SM ? 38 : 44, marginBottom: 10 },
-  introHeading: { fontSize: SM ? 20 : 23, fontWeight: '900', color: Colors.ink, letterSpacing: -0.4, lineHeight: SM ? 26 : 30, marginBottom: 8 },
-  introDef:     { fontSize: SM ? 14 : 15, color: Colors.ink2, lineHeight: SM ? 21 : 23, fontWeight: '500', marginBottom: 2 },
+  introHeading: { fontSize: SM ? 20 : 23, fontWeight: '900', color: semantic.textPrimary, letterSpacing: -0.4, lineHeight: SM ? 26 : 30, marginBottom: 8 },
+  introDef:     { fontSize: SM ? 14 : 15, color: semantic.textPrimary, lineHeight: SM ? 21 : 23, fontWeight: '500', marginBottom: 2 },
 
   // Accent card (key_fact, important, remember, curiosity)
-  kpCard:       { borderRadius: 28, borderLeftWidth: 4, padding: SM ? 16 : 20, shadowColor: '#0B0B1A', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.06, shadowRadius: 12, elevation: 3 },
+  kpCard:       { borderRadius: 28, borderLeftWidth: 4, padding: SM ? 16 : 20 },
   kpEmoji:      { fontSize: SM ? 32 : 36, marginBottom: 6 },
   kpLabel:      { fontSize: 10, fontWeight: '800', letterSpacing: 0.8, marginBottom: 6, textTransform: 'uppercase' },
-  kpTitle:      { fontSize: SM ? 16 : 18, fontWeight: '900', color: Colors.ink, marginBottom: 6, letterSpacing: -0.3 },
-  kpDef:        { fontSize: SM ? 13 : 14, color: Colors.ink2, lineHeight: SM ? 20 : 22, fontWeight: '500' },
+  kpTitle:      { fontSize: SM ? 16 : 18, fontWeight: '900', color: semantic.textPrimary, marginBottom: 6, letterSpacing: -0.3 },
+  kpDef:        { fontSize: SM ? 13 : 14, color: semantic.textPrimary, lineHeight: SM ? 20 : 22, fontWeight: '500' },
 
   // Shared example block
-  exampleBox:   { marginTop: SM ? 10 : 14, paddingTop: SM ? 10 : 12, borderTopWidth: 1, borderTopColor: Colors.line },
-  exampleLabel: { fontSize: 10, fontWeight: '800', color: Colors.muted, letterSpacing: 0.6, marginBottom: 4, textTransform: 'uppercase' },
-  exampleText:  { fontSize: SM ? 13 : 14, color: Colors.ink, lineHeight: SM ? 20 : 22, fontWeight: '600' },
+  exampleBox:   { marginTop: SM ? 10 : 14, paddingTop: SM ? 10 : 12, borderTopWidth: 1, borderTopColor: palette.bordeClaro },
+  exampleLabel: { fontSize: 10, fontWeight: '800', color: semantic.textTertiary, letterSpacing: 0.6, marginBottom: 4, textTransform: 'uppercase' },
+  exampleText:  { fontSize: SM ? 13 : 14, color: semantic.textPrimary, lineHeight: SM ? 20 : 22, fontWeight: '600' },
 
-  // Wow fact card
-  wowCard:      { backgroundColor: 'white', borderRadius: 28, padding: SM ? 28 : 34, alignItems: 'center', shadowColor: '#0B0B1A', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.09, shadowRadius: 20, elevation: 5 },
-  wowEmoji:     { fontSize: SM ? 56 : 68, marginBottom: 16 },
-  wowLabel:     { fontSize: 11, fontWeight: '900', color: '#FF4D6D', letterSpacing: 1.5, marginBottom: 14, textTransform: 'uppercase' },
-  wowText:      { fontSize: SM ? 17 : 20, fontWeight: '700', color: Colors.ink, textAlign: 'center', lineHeight: SM ? 26 : 30, letterSpacing: -0.3 },
+  // Wow fact card — lavender WOW moment
+  wowCard:      { backgroundColor: 'rgba(91,61,245,0.07)', borderRadius: 28, padding: SM ? 24 : 30, alignItems: 'center' },
+  wowEmoji:     { fontSize: SM ? 56 : 68, marginBottom: 12 },
+  wowLabel:     { fontSize: 11, fontWeight: '900', color: BRAND, letterSpacing: 1.5, marginBottom: 8, textTransform: 'uppercase' },
+  wowHook:      { fontSize: SM ? 17 : 20, fontWeight: '900', color: semantic.textPrimary, textAlign: 'center', letterSpacing: -0.4, lineHeight: SM ? 24 : 28, marginBottom: 12 },
+  wowText:      { fontSize: SM ? 15 : 17, fontWeight: '600', color: semantic.textPrimary, textAlign: 'center', lineHeight: SM ? 23 : 26, letterSpacing: -0.2 },
+  wowDataBox:   { backgroundColor: palette.blanco, borderRadius: 16, padding: SM ? 14 : 16, marginTop: 4, alignSelf: 'stretch' },
+  wowContext:   { fontSize: SM ? 11 : 12, color: semantic.textSecondary, textAlign: 'center', fontWeight: '600', marginTop: 12, lineHeight: SM ? 17 : 19 },
 
   // Quiz card
-  quizCard:          { backgroundColor: 'white', borderRadius: 28, padding: SM ? 16 : 20, shadowColor: '#0B0B1A', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.09, shadowRadius: 20, elevation: 5 },
+  quizCard:          { backgroundColor: palette.blanco, borderRadius: 28, padding: SM ? 16 : 20 },
   quizLabel:         { fontSize: 10, fontWeight: '900', color: BRAND, letterSpacing: 1.5, marginBottom: 10, textTransform: 'uppercase' },
-  quizQuestion:      { fontSize: SM ? 16 : 18, fontWeight: '800', color: Colors.ink, lineHeight: SM ? 24 : 27, letterSpacing: -0.2 },
-  quizOption:        { flexDirection: 'row', alignItems: 'center', gap: 10, padding: 12, borderRadius: 14, borderWidth: 2, borderColor: Colors.line, backgroundColor: Colors.bgSoft },
-  quizOptCorrect:    { borderColor: BRAND, borderWidth: 2, backgroundColor: 'rgba(108,77,255,0.06)' },
-  quizOptWrong:      { borderColor: '#DC2626', backgroundColor: 'rgba(220,38,38,0.06)' },
-  quizLetter:        { width: 28, height: 28, borderRadius: 8, backgroundColor: Colors.line, alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
+  quizQuestion:      { fontSize: SM ? 16 : 18, fontWeight: '800', color: semantic.textPrimary, lineHeight: SM ? 24 : 27, letterSpacing: -0.2 },
+  quizOption:        { flexDirection: 'row', alignItems: 'center', gap: 10, padding: 12, borderRadius: 14, borderWidth: 2, borderColor: palette.bordeClaro, backgroundColor: palette.blanco },
+  quizOptCorrect:    { borderColor: BRAND, borderWidth: 2, backgroundColor: 'rgba(91,61,245,0.05)' },
+  quizOptWrong:      { borderColor: palette.bordeMedio, backgroundColor: 'rgba(0,0,0,0.02)' },
+  quizLetter:        { width: 28, height: 28, borderRadius: 8, backgroundColor: palette.crema, alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
   quizLetterGreen:   { backgroundColor: BRAND },
-  quizLetterRed:     { backgroundColor: '#DC2626' },
-  quizLetterText:    { fontSize: 12, fontWeight: '800', color: Colors.ink },
-  quizOptText:       { flex: 1, fontSize: SM ? 13 : 14, color: Colors.ink, fontWeight: '600', lineHeight: 20 },
-  quizFeedback:      { marginTop: 12, borderRadius: 12, padding: 12 },
-  quizFeedbackOk:    { backgroundColor: 'rgba(108,77,255,0.07)', borderWidth: 1, borderColor: 'rgba(108,77,255,0.2)' },
-  quizFeedbackErr:   { backgroundColor: 'rgba(220,38,38,0.07)', borderWidth: 1, borderColor: 'rgba(220,38,38,0.2)' },
-  quizFeedbackTitle: { fontSize: 13, fontWeight: '800', color: Colors.ink, marginBottom: 4 },
-  quizFeedbackText:  { fontSize: 12, color: Colors.ink2, lineHeight: 19 },
+  quizLetterRed:     { backgroundColor: palette.bordeMedio },
+  quizLetterText:    { fontSize: 12, fontWeight: '800', color: semantic.textPrimary },
+  quizOptText:       { flex: 1, fontSize: SM ? 13 : 14, color: semantic.textPrimary, fontWeight: '600', lineHeight: 20 },
+  quizFeedback:      { marginTop: 12, borderRadius: 14, padding: 12 },
+  quizFeedbackOk:    { backgroundColor: 'rgba(91,61,245,0.07)', borderWidth: 1.5, borderColor: 'rgba(91,61,245,0.2)' },
+  quizFeedbackErr:   { backgroundColor: 'rgba(0,0,0,0.03)', borderWidth: 1, borderColor: palette.bordeClaro },
+  quizFeedbackHeader:{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 },
+  quizFeedbackTitle: { fontSize: 13, fontWeight: '800', color: semantic.textPrimary },
+  quizFeedbackXpChip:{ backgroundColor: BRAND, borderRadius: 100, paddingVertical: 2, paddingHorizontal: 8 },
+  quizFeedbackXpText:{ fontSize: 11, fontWeight: '900', color: LIME },
+  quizFeedbackText:  { fontSize: 12, color: semantic.textSecondary, lineHeight: 19 },
 
   // Prediction card
-  predCard:     { backgroundColor: '#F0EDFF', borderRadius: 28, padding: SM ? 22 : 28, alignItems: 'center', shadowColor: '#0B0B1A', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.09, shadowRadius: 20, elevation: 5 },
+  predCard:     { backgroundColor: '#F0EDFF', borderRadius: 28, padding: SM ? 22 : 28, alignItems: 'center' },
   predIcon:     { fontSize: SM ? 52 : 64, marginBottom: 12 },
   predLabel:    { fontSize: 10, fontWeight: '900', color: BRAND, letterSpacing: 1.5, marginBottom: 14, textTransform: 'uppercase' },
-  predPrompt:   { fontSize: SM ? 18 : 21, fontWeight: '900', color: Colors.ink, textAlign: 'center', lineHeight: SM ? 26 : 30, letterSpacing: -0.4, marginBottom: 20 },
-  predHintBox:  { backgroundColor: 'white', borderRadius: 14, padding: SM ? 12 : 14, width: '100%' },
-  predHintLabel:{ fontSize: 9, fontWeight: '800', color: Colors.muted, letterSpacing: 1, marginBottom: 6, textTransform: 'uppercase' },
-  predHint:     { fontSize: SM ? 13 : 14, color: Colors.ink2, lineHeight: SM ? 20 : 22, fontWeight: '500' },
+  predPrompt:   { fontSize: SM ? 18 : 21, fontWeight: '900', color: semantic.textPrimary, textAlign: 'center', lineHeight: SM ? 26 : 30, letterSpacing: -0.4, marginBottom: 20 },
+  predHintBox:  { backgroundColor: palette.blanco, borderRadius: 14, padding: SM ? 12 : 14, width: '100%' },
+  predHintLabel:{ fontSize: 9, fontWeight: '800', color: semantic.textTertiary, letterSpacing: 1, marginBottom: 6, textTransform: 'uppercase' },
+  predHint:     { fontSize: SM ? 13 : 14, color: semantic.textPrimary, lineHeight: SM ? 20 : 22, fontWeight: '500' },
 
   // Motivation card
-  motivCard:    { backgroundColor: 'white', borderRadius: 28, padding: SM ? 32 : 40, alignItems: 'center', shadowColor: '#0B0B1A', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.09, shadowRadius: 20, elevation: 5 },
+  motivCard:    { backgroundColor: palette.blanco, borderRadius: 28, padding: SM ? 32 : 40, alignItems: 'center' },
   motivEmoji:   { fontSize: SM ? 64 : 80, marginBottom: 16 },
-  motivMsg:     { fontSize: SM ? 22 : 26, fontWeight: '900', color: Colors.ink, textAlign: 'center', letterSpacing: -0.5, marginBottom: 8 },
-  motivSub:     { fontSize: SM ? 13 : 15, color: Colors.muted, textAlign: 'center', lineHeight: SM ? 20 : 23, fontWeight: '500' },
+  motivMsg:     { fontSize: SM ? 22 : 26, fontWeight: '900', color: semantic.textPrimary, textAlign: 'center', letterSpacing: -0.5, marginBottom: 8 },
+  motivSub:     { fontSize: SM ? 13 : 15, color: semantic.textTertiary, textAlign: 'center', lineHeight: SM ? 20 : 23, fontWeight: '500' },
 
   // Example / Scenario card
-  scenarioCard:  { backgroundColor: 'white', borderRadius: 28, overflow: 'hidden', shadowColor: '#0B0B1A', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.09, shadowRadius: 20, elevation: 5 },
+  scenarioCard:  { backgroundColor: palette.blanco, borderRadius: 28, overflow: 'hidden' },
   scenarioBand:  { backgroundColor: '#FFF7ED', flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: SM ? 16 : 20, paddingVertical: SM ? 12 : 14, borderBottomWidth: 1, borderBottomColor: 'rgba(255,122,43,0.12)' },
   scenarioEmoji: { fontSize: SM ? 26 : 30 },
   scenarioLabel: { fontSize: 10, fontWeight: '900', color: '#FF7A2B', letterSpacing: 1.2, textTransform: 'uppercase' },
   scenarioBody:  { padding: SM ? 16 : 20 },
-  scenarioTitle: { fontSize: SM ? 16 : 18, fontWeight: '900', color: Colors.ink, marginBottom: 8, letterSpacing: -0.3 },
-  scenarioDef:   { fontSize: SM ? 13 : 14, color: Colors.ink2, lineHeight: SM ? 20 : 22, fontWeight: '500', marginBottom: 10 },
-  scenarioEx:    { fontSize: SM ? 13 : 14, color: Colors.ink, lineHeight: SM ? 20 : 22, fontWeight: '700' },
+  scenarioTitle: { fontSize: SM ? 16 : 18, fontWeight: '900', color: semantic.textPrimary, marginBottom: 8, letterSpacing: -0.3 },
+  scenarioDef:   { fontSize: SM ? 13 : 14, color: semantic.textPrimary, lineHeight: SM ? 20 : 22, fontWeight: '500', marginBottom: 10 },
+  scenarioEx:    { fontSize: SM ? 13 : 14, color: semantic.textPrimary, lineHeight: SM ? 20 : 22, fontWeight: '700' },
 
-  // Mission hero card
-  missionCard:      { borderRadius: 28, overflow: 'hidden', shadowColor: BRAND, shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.18, shadowRadius: 24, elevation: 8 },
-  missionGrad:      { borderRadius: 28, paddingVertical: SM ? 26 : 36, paddingHorizontal: 24, alignItems: 'center' },
-  missionBadge:     { backgroundColor: 'rgba(255,255,255,0.2)', borderRadius: 100, paddingVertical: 5, paddingHorizontal: 16, marginBottom: 18 },
-  missionBadgeText: { color: 'white', fontSize: 11, fontWeight: '800', letterSpacing: 1.5 },
-  missionEmoji:     { fontSize: SM ? 56 : 68, marginBottom: 14 },
-  missionTitle:     { fontSize: SM ? 22 : 26, fontWeight: '900', color: 'white', textAlign: 'center', letterSpacing: -0.5, lineHeight: SM ? 28 : 34, marginBottom: 10 },
+  // Mission hero card — challenge screen format
+  missionCard:      { borderRadius: 28, overflow: 'hidden' },
+  missionGrad:      { borderRadius: 28, paddingVertical: SM ? 20 : 26, paddingHorizontal: 22, alignItems: 'center' },
+  missionBadge:     { backgroundColor: 'rgba(255,255,255,0.2)', borderRadius: 100, paddingVertical: 5, paddingHorizontal: 16, marginBottom: 14 },
+  missionBadgeText: { color: palette.blanco, fontSize: 11, fontWeight: '800', letterSpacing: 1.5 },
+  missionEmoji:     { fontSize: SM ? 44 : 54, marginBottom: 10 },
+  missionTitle:     { fontSize: SM ? 20 : 24, fontWeight: '900', color: palette.blanco, textAlign: 'center', letterSpacing: -0.5, lineHeight: SM ? 26 : 32, marginBottom: 14 },
   missionSub:       { fontSize: SM ? 13 : 15, color: 'rgba(255,255,255,0.75)', textAlign: 'center', lineHeight: SM ? 20 : 24, fontWeight: '500' },
+  // Mission cover — "Qué aprenderás" block
+  missionLearnBlock:{ alignSelf: 'stretch', backgroundColor: 'rgba(255,255,255,0.12)', borderRadius: 14, padding: 12, marginBottom: 14, gap: 6 },
+  missionLearnLabel:{ fontSize: 10, fontWeight: '800', color: 'rgba(255,255,255,0.65)', letterSpacing: 1, textTransform: 'uppercase', marginBottom: 4 },
+  missionLearnRow:  { flexDirection: 'row', alignItems: 'flex-start', gap: 8 },
+  missionLearnBullet:{ fontSize: 13, color: LIME, fontWeight: '900', lineHeight: 20 },
+  missionLearnText: { flex: 1, fontSize: SM ? 12 : 13, color: 'rgba(255,255,255,0.9)', fontWeight: '600', lineHeight: 20 },
+  missionMetaRow:   { flexDirection: 'row', gap: 8 },
+  missionMetaChip:  { backgroundColor: 'rgba(255,255,255,0.15)', borderRadius: 100, paddingVertical: 5, paddingHorizontal: 12 },
+  missionMetaChipText:{ fontSize: 12, color: palette.blanco, fontWeight: '700' },
+  missionMetaChipXp:{ backgroundColor: LIME },
 
   // Main concept card
-  mainCard:       { backgroundColor: 'white', borderRadius: 28, overflow: 'hidden', shadowColor: '#0B0B1A', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.09, shadowRadius: 20, elevation: 5 },
-  mainCardHeader: { backgroundColor: 'rgba(91,61,245,0.07)', paddingHorizontal: SM ? 18 : 22, paddingVertical: SM ? 10 : 12 },
-  mainCardLabel:  { fontSize: 10, fontWeight: '900', color: BRAND, letterSpacing: 1.5, textTransform: 'uppercase' },
-  mainCardBody:   { paddingHorizontal: SM ? 18 : 22, paddingVertical: SM ? 14 : 18 },
-  mainCardEmoji:  { fontSize: SM ? 36 : 44, marginBottom: 10 },
-  mainCardTitle:  { fontSize: SM ? 20 : 24, fontWeight: '900', color: Colors.ink, letterSpacing: -0.4, lineHeight: SM ? 26 : 30, marginBottom: 8 },
-  mainCardDef:    { fontSize: SM ? 14 : 15, color: Colors.ink2, lineHeight: SM ? 21 : 24, fontWeight: '500' },
+  mainCard:         { backgroundColor: palette.blanco, borderRadius: 28, overflow: 'hidden' },
+  mainCardHeader:   { backgroundColor: 'rgba(91,61,245,0.07)', paddingHorizontal: SM ? 18 : 22, paddingVertical: SM ? 10 : 12 },
+  mainCardLabel:    { fontSize: 10, fontWeight: '900', color: BRAND, letterSpacing: 1.5, textTransform: 'uppercase' },
+  mainCardBody:     { paddingHorizontal: SM ? 18 : 22, paddingVertical: SM ? 14 : 18 },
+  mainCardEmoji:    { fontSize: SM ? 36 : 44, marginBottom: 10 },
+  mainCardTitle:    { fontSize: SM ? 20 : 24, fontWeight: '900', color: semantic.textPrimary, letterSpacing: -0.4, lineHeight: SM ? 26 : 30, marginBottom: 8 },
+  mainCardDef:      { fontSize: SM ? 14 : 15, color: semantic.textPrimary, lineHeight: SM ? 21 : 24, fontWeight: '500' },
+  workedExBox:      { backgroundColor: 'rgba(91,61,245,0.05)', borderRadius: 14, borderWidth: 1.5, borderColor: 'rgba(91,61,245,0.15)', padding: SM ? 14 : 16, marginBottom: SM ? 10 : 12 },
+  workedExText:     { fontSize: SM ? 18 : 22, fontWeight: '800', color: BRAND, textAlign: 'center', letterSpacing: -0.3, lineHeight: SM ? 26 : 30 },
+  mainCardExplain:  { fontSize: SM ? 13 : 14, color: semantic.textSecondary, lineHeight: SM ? 20 : 22, fontWeight: '500', fontStyle: 'italic' },
+  comprehensionCtx: { backgroundColor: 'rgba(91,61,245,0.05)', borderRadius: 12, padding: SM ? 10 : 12, marginBottom: 10, borderWidth: 1, borderColor: 'rgba(91,61,245,0.1)' },
+  comprehensionCtxText: { fontSize: SM ? 16 : 18, fontWeight: '800', color: BRAND, textAlign: 'center', letterSpacing: -0.2 },
 
   // Step-by-step renderer (main_concept procedural)
   stepsContainer: { gap: 8, marginTop: 4 },
@@ -2804,12 +3595,16 @@ const sum = StyleSheet.create({
   stepBadge:      { backgroundColor: BRAND, borderRadius: 8, paddingHorizontal: 8, paddingVertical: 3, minWidth: 54, alignItems: 'center' },
   stepBadgeProblem: { backgroundColor: '#888' },
   stepBadgeResult:{ backgroundColor: '#059669' },
-  stepBadgeText:  { fontSize: 10, fontWeight: '900', color: 'white', letterSpacing: 0.5 },
-  stepContent:    { flex: 1, fontSize: SM ? 13 : 14, color: Colors.ink2, lineHeight: 20, fontWeight: '500' },
+  stepBadgeText:  { fontSize: 10, fontWeight: '900', color: palette.blanco, letterSpacing: 0.5 },
+  stepContent:    { flex: 1, fontSize: SM ? 13 : 14, color: semantic.textPrimary, lineHeight: 20, fontWeight: '500' },
   stepContentResult: { color: '#065F46', fontWeight: '700' },
 
-  // Key relation card
-  relationCard:       { backgroundColor: 'white', borderRadius: 28, padding: SM ? 20 : 24, shadowColor: '#0B0B1A', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.09, shadowRadius: 20, elevation: 5 },
+  // Key relation card (now "Regla fácil")
+  relationCard:       { backgroundColor: palette.blanco, borderRadius: 28, padding: SM ? 20 : 24 },
+  ruleLabel:          { fontSize: 10, fontWeight: '900', color: BRAND, letterSpacing: 1.5, marginBottom: 14, textTransform: 'uppercase' },
+  ruleBox:            { backgroundColor: 'rgba(91,61,245,0.06)', borderRadius: 16, borderLeftWidth: 4, borderLeftColor: BRAND, padding: SM ? 14 : 16, marginBottom: SM ? 10 : 12 },
+  ruleText:           { fontSize: SM ? 16 : 18, fontWeight: '800', color: semantic.textPrimary, lineHeight: SM ? 24 : 27, letterSpacing: -0.3 },
+  // legacy — kept to avoid crashes if referenced elsewhere
   relationLabel:      { fontSize: 10, fontWeight: '900', color: '#00C2A8', letterSpacing: 1.5, marginBottom: 16, textTransform: 'uppercase' },
   relationRow:        { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 12, flexWrap: 'wrap' },
   relationChipA:      { flex: 1, backgroundColor: 'rgba(91,61,245,0.08)', borderRadius: 12, paddingVertical: 8, paddingHorizontal: 12, borderWidth: 1, borderColor: 'rgba(91,61,245,0.15)' },
@@ -2818,63 +3613,104 @@ const sum = StyleSheet.create({
   relationArrow:      { width: 32, height: 32, borderRadius: 16, backgroundColor: 'rgba(0,194,168,0.1)', alignItems: 'center', justifyContent: 'center', borderWidth: 1.5, borderColor: '#00C2A8', flexShrink: 0 },
   relationArrowText:  { fontSize: 14, color: '#00C2A8', fontWeight: '900' },
   relationConnector:  { fontSize: SM ? 11 : 12, fontWeight: '700', color: '#00C2A8', textAlign: 'center', marginBottom: 10, fontStyle: 'italic' },
-  relationDef:        { fontSize: SM ? 13 : 14, color: Colors.ink2, lineHeight: SM ? 20 : 22, fontWeight: '500', paddingTop: 12, borderTopWidth: 1, borderTopColor: Colors.line },
+  relationDef:        { fontSize: SM ? 13 : 14, color: semantic.textPrimary, lineHeight: SM ? 20 : 22, fontWeight: '500', paddingTop: 12, borderTopWidth: 1, borderTopColor: palette.bordeClaro },
 
   // Process flow card
-  processCard:      { backgroundColor: 'white', borderRadius: 28, padding: SM ? 18 : 22, shadowColor: '#0B0B1A', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.09, shadowRadius: 20, elevation: 5 },
+  processCard:      { backgroundColor: palette.blanco, borderRadius: 28, padding: SM ? 18 : 22 },
   processLabel:     { fontSize: 10, fontWeight: '900', color: NEON, letterSpacing: 1.5, marginBottom: 8, textTransform: 'uppercase' },
-  processTitle:     { fontSize: SM ? 16 : 18, fontWeight: '900', color: Colors.ink, marginBottom: 4, letterSpacing: -0.3 },
-  processDef:       { fontSize: SM ? 13 : 14, color: Colors.ink2, lineHeight: SM ? 20 : 22, fontWeight: '500', marginBottom: 14 },
+  processTitle:     { fontSize: SM ? 16 : 18, fontWeight: '900', color: semantic.textPrimary, marginBottom: 4, letterSpacing: -0.3 },
+  processDef:       { fontSize: SM ? 13 : 14, color: semantic.textPrimary, lineHeight: SM ? 20 : 22, fontWeight: '500', marginBottom: 14 },
   processSteps:     { gap: 10 },
   processStep:      { flexDirection: 'row', alignItems: 'flex-start', gap: 12 },
   processNum:       { width: 26, height: 26, borderRadius: 13, backgroundColor: BRAND, alignItems: 'center', justifyContent: 'center', flexShrink: 0, marginTop: 1 },
-  processNumText:   { fontSize: 12, fontWeight: '900', color: 'white' },
-  processStepText:  { flex: 1, fontSize: SM ? 13 : 14, color: Colors.ink, lineHeight: SM ? 20 : 22, fontWeight: '600', paddingTop: 3 },
+  processNumText:   { fontSize: 12, fontWeight: '900', color: palette.blanco },
+  processStepText:  { flex: 1, fontSize: SM ? 13 : 14, color: semantic.textPrimary, lineHeight: SM ? 20 : 22, fontWeight: '600', paddingTop: 3 },
 
-  // Application card
-  appCard:        { backgroundColor: 'white', borderRadius: 28, overflow: 'hidden', shadowColor: '#0B0B1A', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.09, shadowRadius: 20, elevation: 5 },
-  appBand:        { backgroundColor: '#F0FDF4', flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: SM ? 16 : 20, paddingVertical: SM ? 12 : 14, borderBottomWidth: 1, borderBottomColor: 'rgba(5,150,105,0.12)' },
+  // Application card — storytelling format, morado themed
+  appCard:        { backgroundColor: palette.blanco, borderRadius: 28, overflow: 'hidden' },
+  appBand:        { backgroundColor: 'rgba(91,61,245,0.05)', flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: SM ? 16 : 20, paddingVertical: SM ? 10 : 12, borderBottomWidth: 1, borderBottomColor: 'rgba(91,61,245,0.08)' },
   appEmoji:       { fontSize: SM ? 24 : 28 },
-  appLabel:       { fontSize: 10, fontWeight: '900', color: '#059669', letterSpacing: 1.2, textTransform: 'uppercase' },
-  appBody:        { padding: SM ? 16 : 20 },
-  appTitle:       { fontSize: SM ? 16 : 18, fontWeight: '900', color: Colors.ink, marginBottom: 8, letterSpacing: -0.3 },
-  appSit:         { fontSize: SM ? 13 : 14, color: Colors.ink2, lineHeight: SM ? 20 : 22, fontWeight: '500', marginBottom: 10 },
-  appAnswerBox:   { backgroundColor: 'rgba(5,150,105,0.07)', borderRadius: 12, padding: SM ? 10 : 12, borderLeftWidth: 3, borderLeftColor: '#059669' },
-  appAnswerLabel: { fontSize: 9, fontWeight: '800', color: '#059669', letterSpacing: 1, marginBottom: 4, textTransform: 'uppercase' },
-  appAnswerText:  { fontSize: SM ? 13 : 14, color: '#065F46', lineHeight: SM ? 20 : 22, fontWeight: '700' },
+  appLabel:       { fontSize: 10, fontWeight: '900', color: BRAND, letterSpacing: 1.2, textTransform: 'uppercase' },
+  appBody:        { padding: SM ? 14 : 18 },
+  appTitle:       { fontSize: SM ? 15 : 17, fontWeight: '900', color: semantic.textPrimary, marginBottom: 6, letterSpacing: -0.3 },
+  appSit:          { fontSize: SM ? 12 : 13, color: semantic.textSecondary, lineHeight: SM ? 19 : 21, fontWeight: '500', marginBottom: 6, marginTop: 4 },
+  appScenarioBox:  { backgroundColor: 'rgba(91,61,245,0.06)', borderRadius: 14, borderLeftWidth: 3, borderLeftColor: BRAND, padding: SM ? 12 : 14, marginBottom: 8 },
+  appScenarioLabel:{ fontSize: 9, fontWeight: '900', color: BRAND, letterSpacing: 1.2, marginBottom: 5, textTransform: 'uppercase' },
+  appScenarioText: { fontSize: SM ? 14 : 16, color: semantic.textPrimary, lineHeight: SM ? 22 : 25, fontWeight: '700' },
+  appAnswerBox:    { backgroundColor: 'rgba(91,61,245,0.06)', borderRadius: 12, padding: SM ? 10 : 12, borderLeftWidth: 3, borderLeftColor: BRAND },
+  appAnswerLabel:  { fontSize: 9, fontWeight: '800', color: BRAND, letterSpacing: 1, marginBottom: 4, textTransform: 'uppercase' },
+  appAnswerText:   { fontSize: SM ? 13 : 14, color: semantic.textPrimary, lineHeight: SM ? 20 : 22, fontWeight: '600' },
 
-  // Common error card
-  errorCard:        { backgroundColor: 'white', borderRadius: 28, overflow: 'hidden', shadowColor: '#DC2626', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.1, shadowRadius: 20, elevation: 5, borderWidth: 1, borderColor: 'rgba(220,38,38,0.12)' },
-  errorHeader:      { backgroundColor: '#FEF2F2', flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: SM ? 16 : 20, paddingVertical: SM ? 12 : 14, borderBottomWidth: 1, borderBottomColor: 'rgba(220,38,38,0.15)' },
+  // Common error card — morado dominant, subtle amber for wrong
+  errorCard:        { backgroundColor: palette.blanco, borderRadius: 28, overflow: 'hidden', borderWidth: 1, borderColor: 'rgba(91,61,245,0.12)' },
+  errorHeader:      { backgroundColor: 'rgba(91,61,245,0.05)', flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: SM ? 16 : 20, paddingVertical: SM ? 12 : 14, borderBottomWidth: 1, borderBottomColor: 'rgba(91,61,245,0.08)' },
   errorIcon:        { fontSize: SM ? 22 : 26 },
-  errorHeaderLabel: { fontSize: 11, fontWeight: '900', color: '#DC2626', letterSpacing: 1.5, textTransform: 'uppercase' },
+  errorHeaderLabel: { fontSize: 11, fontWeight: '900', color: BRAND, letterSpacing: 1.5, textTransform: 'uppercase' },
   errorBody:        { padding: SM ? 14 : 18, gap: 10 },
-  errorWrongBox:    { backgroundColor: 'rgba(220,38,38,0.05)', borderRadius: 12, padding: SM ? 10 : 12, borderLeftWidth: 3, borderLeftColor: '#DC2626' },
-  errorWrongLabel:  { fontSize: 10, fontWeight: '900', color: '#DC2626', letterSpacing: 0.5, marginBottom: 5, textTransform: 'uppercase' },
-  errorWrongText:   { fontSize: SM ? 13 : 14, color: '#991B1B', lineHeight: SM ? 20 : 22, fontWeight: '600' },
-  errorRightBox:    { backgroundColor: 'rgba(5,150,105,0.05)', borderRadius: 12, padding: SM ? 10 : 12, borderLeftWidth: 3, borderLeftColor: '#059669' },
-  errorRightLabel:  { fontSize: 10, fontWeight: '900', color: '#059669', letterSpacing: 0.5, marginBottom: 5, textTransform: 'uppercase' },
-  errorRightText:   { fontSize: SM ? 13 : 14, color: '#065F46', lineHeight: SM ? 20 : 22, fontWeight: '600' },
+  errorWrongBox:    { backgroundColor: 'rgba(245,158,11,0.07)', borderRadius: 12, padding: SM ? 10 : 12, borderLeftWidth: 3, borderLeftColor: '#F59E0B' },
+  errorWrongLabel:  { fontSize: 10, fontWeight: '900', color: '#92400E', letterSpacing: 0.5, marginBottom: 5, textTransform: 'uppercase' },
+  errorWrongText:   { fontSize: SM ? 13 : 14, color: semantic.textPrimary, lineHeight: SM ? 20 : 22, fontWeight: '500' },
+  errorRightBox:    { backgroundColor: 'rgba(91,61,245,0.06)', borderRadius: 12, padding: SM ? 10 : 12, borderLeftWidth: 3, borderLeftColor: BRAND },
+  errorRightLabel:  { fontSize: 10, fontWeight: '900', color: BRAND, letterSpacing: 0.5, marginBottom: 5, textTransform: 'uppercase' },
+  errorRightText:   { fontSize: SM ? 13 : 14, color: semantic.textPrimary, lineHeight: SM ? 20 : 22, fontWeight: '600' },
 
   // Final challenge card
-  challengeCard:        { backgroundColor: 'white', borderRadius: 28, overflow: 'hidden', shadowColor: '#FF7A2B', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.14, shadowRadius: 20, elevation: 6 },
+  // Comprueba si entendiste card
+  checkCard:     { backgroundColor: palette.blanco, borderRadius: 28, overflow: 'hidden' },
+  checkHeader:   { backgroundColor: BRAND, paddingVertical: SM ? 14 : 18, paddingHorizontal: SM ? 14 : 18, alignItems: 'center' },
+  checkLabel:    { fontSize: 11, fontWeight: '900', color: palette.blanco, letterSpacing: 1.5, textTransform: 'uppercase', marginBottom: 4 },
+  checkSubtitle: { fontSize: SM ? 11 : 12, color: 'rgba(255,255,255,0.8)', fontWeight: '500', textAlign: 'center' },
+
+  // Mini Reto Final card
+  retoCard:        { backgroundColor: palette.blanco, borderRadius: 28, overflow: 'hidden' },
+  retoHeader:      { backgroundColor: BRAND, paddingVertical: SM ? 16 : 20, paddingHorizontal: SM ? 18 : 22, alignItems: 'center' },
+  retoTrophy:      { fontSize: SM ? 36 : 44, marginBottom: 6 },
+  retoHeaderLabel: { fontSize: 11, fontWeight: '900', color: palette.blanco, letterSpacing: 2, textTransform: 'uppercase', marginBottom: 3 },
+  retoHeaderSub:   { fontSize: SM ? 11 : 12, color: 'rgba(255,255,255,0.8)', fontWeight: '500', textAlign: 'center' },
+  retoBody:        { padding: SM ? 14 : 18, gap: 12 },
+  retoFeedbackOk:  { backgroundColor: BRAND, borderWidth: 0, borderRadius: 14, padding: SM ? 10 : 12 },
+
+  challengeCard:        { backgroundColor: palette.blanco, borderRadius: 28, overflow: 'hidden' },
   challengeHeader:      { paddingVertical: SM ? 14 : 18, paddingHorizontal: SM ? 18 : 22, alignItems: 'center' },
   challengeTrophy:      { fontSize: SM ? 36 : 44, marginBottom: 4 },
-  challengeHeaderLabel: { fontSize: 11, fontWeight: '900', color: 'white', letterSpacing: 2, textTransform: 'uppercase' },
+  challengeHeaderLabel: { fontSize: 11, fontWeight: '900', color: palette.blanco, letterSpacing: 2, textTransform: 'uppercase' },
   challengeBody:        { padding: SM ? 14 : 18, gap: 12 },
-  challengeQuestion:    { fontSize: SM ? 15 : 17, fontWeight: '800', color: Colors.ink, lineHeight: SM ? 22 : 26, letterSpacing: -0.2 },
+  challengeQuestion:    { fontSize: SM ? 15 : 17, fontWeight: '800', color: semantic.textPrimary, lineHeight: SM ? 22 : 26, letterSpacing: -0.2 },
+
+  // Detecta el Patrón card (key_relation)
+  patternCard:         { backgroundColor: palette.blanco, borderRadius: 28, overflow: 'hidden' },
+  patternHeader:       { backgroundColor: BRAND, paddingVertical: SM ? 10 : 12, paddingHorizontal: SM ? 16 : 18, alignItems: 'center' },
+  patternLabel:        { fontSize: 11, fontWeight: '900', color: palette.blanco, letterSpacing: 1.5, textTransform: 'uppercase' },
+  patternBody:         { padding: SM ? 16 : 20, gap: 0, alignItems: 'stretch' },
+  patternNode:         { backgroundColor: 'rgba(91,61,245,0.06)', borderRadius: 14, borderWidth: 1.5, borderColor: 'rgba(91,61,245,0.25)', paddingVertical: SM ? 10 : 12, paddingHorizontal: SM ? 14 : 16 },
+  patternNodeFinal:    { backgroundColor: BRAND, borderColor: BRAND },
+  patternNodeText:     { fontSize: SM ? 15 : 17, fontWeight: '800', color: BRAND, textAlign: 'center', lineHeight: SM ? 22 : 25, letterSpacing: -0.2 },
+  patternNodeTextFinal:{ color: palette.blanco },
+  patternArrowRow:     { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: SM ? 6 : 8, gap: 8 },
+  patternArrowGlyph:   { fontSize: SM ? 18 : 22, color: '#7C5CF6', fontWeight: '900' },
+  patternArrowLabel:   { fontSize: SM ? 11 : 12, fontWeight: '700', color: '#7C5CF6', fontStyle: 'italic' },
+
+  // Quiz Transition card
+  qtCard:      { backgroundColor: palette.blanco, borderRadius: 28, padding: SM ? 22 : 28, alignItems: 'center' },
+  qtEmoji:     { fontSize: SM ? 48 : 60, marginBottom: 10 },
+  qtTitle:     { fontSize: SM ? 20 : 24, fontWeight: '900', color: semantic.textPrimary, textAlign: 'center', letterSpacing: -0.5, marginBottom: 8 },
+  qtSub:       { fontSize: SM ? 13 : 15, color: semantic.textSecondary, textAlign: 'center', lineHeight: SM ? 20 : 22, fontWeight: '500', marginBottom: 20 },
+  qtChecklist: { alignSelf: 'stretch', backgroundColor: palette.crema, borderRadius: 16, padding: SM ? 14 : 18, gap: 10, borderWidth: 1, borderColor: palette.bordeClaro },
+  qtCheckRow:  { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  qtCheckIcon: { fontSize: SM ? 15 : 17, color: '#059669', fontWeight: '900', width: 22, textAlign: 'center' },
+  qtCheckText: { fontSize: SM ? 13 : 15, fontWeight: '600', color: semantic.textPrimary, flex: 1 },
 
   // Victory card
-  victoryCard:      { backgroundColor: 'white', borderRadius: 28, padding: SM ? 22 : 28, alignItems: 'center', shadowColor: BRAND, shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.14, shadowRadius: 24, elevation: 8 },
+  victoryCard:      { backgroundColor: palette.blanco, borderRadius: 28, padding: SM ? 22 : 28, alignItems: 'center' },
   victoryEmoji:     { fontSize: SM ? 54 : 68, marginBottom: 10 },
-  victoryTitle:     { fontSize: SM ? 20 : 24, fontWeight: '900', color: Colors.ink, textAlign: 'center', letterSpacing: -0.5, lineHeight: SM ? 26 : 32, marginBottom: 6 },
-  victorySub:       { fontSize: SM ? 12 : 14, color: Colors.ink2, textAlign: 'center', lineHeight: SM ? 18 : 22, fontWeight: '500', marginBottom: 14 },
-  victoryStats:     { width: '100%', backgroundColor: Colors.bgSoft, borderRadius: 16, paddingVertical: SM ? 12 : 14, paddingHorizontal: 8, marginBottom: 10, borderWidth: 1, borderColor: Colors.line },
+  victoryTitle:     { fontSize: SM ? 20 : 24, fontWeight: '900', color: semantic.textPrimary, textAlign: 'center', letterSpacing: -0.5, lineHeight: SM ? 26 : 32, marginBottom: 6 },
+  victorySub:       { fontSize: SM ? 12 : 14, color: semantic.textPrimary, textAlign: 'center', lineHeight: SM ? 18 : 22, fontWeight: '500', marginBottom: 14 },
+  victoryStats:     { width: '100%', backgroundColor: palette.crema, borderRadius: 16, paddingVertical: SM ? 12 : 14, paddingHorizontal: 8, marginBottom: 10, borderWidth: 1, borderColor: palette.bordeClaro },
   victoryStatRow:   { flexDirection: 'row', justifyContent: 'space-around' },
   victoryStat:      { alignItems: 'center', gap: 2 },
-  victoryStatVal:   { fontSize: SM ? 18 : 22, fontWeight: '900', color: Colors.ink, letterSpacing: -0.5 },
-  victoryStatLbl:   { fontSize: 9, fontWeight: '700', color: Colors.muted, letterSpacing: 0.3, textTransform: 'uppercase' },
-  victoryNote:      { fontSize: SM ? 11 : 12, color: Colors.muted, textAlign: 'center', fontWeight: '600', marginTop: 2 },
+  victoryStatVal:   { fontSize: SM ? 18 : 22, fontWeight: '900', color: semantic.textPrimary, letterSpacing: -0.5 },
+  victoryStatLbl:   { fontSize: 9, fontWeight: '700', color: semantic.textTertiary, letterSpacing: 0.3, textTransform: 'uppercase' },
+  victoryNote:      { fontSize: SM ? 11 : 12, color: semantic.textTertiary, textAlign: 'center', fontWeight: '600', marginTop: 2 },
 
   // Mastery badge
   masteryBadge:     { borderRadius: 100, borderWidth: 1.5, paddingVertical: 6, paddingHorizontal: 18, marginBottom: 10, alignItems: 'center' },
@@ -2882,31 +3718,31 @@ const sum = StyleSheet.create({
   masteryBadgeSub:  { fontSize: 11, fontWeight: '600', marginTop: 2, opacity: 0.8 },
   reflectionBlock:  { backgroundColor: 'rgba(245,158,11,0.08)', borderRadius: 12, borderWidth: 1, borderColor: 'rgba(245,158,11,0.25)', paddingVertical: 10, paddingHorizontal: 14, marginTop: 8, marginBottom: 4, alignSelf: 'stretch' },
   reflectionText:   { fontSize: 12, color: '#92400E', fontWeight: '600', lineHeight: 18 },
-  noInteractionBlock: { width: '100%', backgroundColor: 'rgba(0,0,0,0.04)', borderRadius: 14, padding: 14, borderWidth: 1, borderColor: Colors.line, alignItems: 'center', gap: 12 },
-  noInteractionText:  { fontSize: 13, color: Colors.muted, fontWeight: '500', textAlign: 'center', lineHeight: 19 },
+  noInteractionBlock: { width: '100%', backgroundColor: 'rgba(0,0,0,0.04)', borderRadius: 14, padding: 14, borderWidth: 1, borderColor: palette.bordeClaro, alignItems: 'center', gap: 12 },
+  noInteractionText:  { fontSize: 13, color: semantic.textTertiary, fontWeight: '500', textAlign: 'center', lineHeight: 19 },
   noInteractionStats: { flexDirection: 'row', gap: 16, justifyContent: 'center' },
 
   // Skill dominance chip + mission progress
-  missionProgress:    { fontSize: 11, fontWeight: '700', color: Colors.muted, letterSpacing: 0.5, textTransform: 'uppercase', marginBottom: 6 },
+  missionProgress:    { fontSize: 11, fontWeight: '700', color: semantic.textTertiary, letterSpacing: 0.5, textTransform: 'uppercase', marginBottom: 6 },
   skillDominatedChip: { backgroundColor: 'rgba(5,150,105,0.10)', borderRadius: 20, paddingHorizontal: 14, paddingVertical: 5, borderWidth: 1.5, borderColor: 'rgba(5,150,105,0.3)', marginBottom: 10 },
   skillDominatedText: { fontSize: 12, fontWeight: '800', color: '#065F46', letterSpacing: 0.2 },
 
   // Next mission button — skill transition
   nextMissionWrapper: { width: '100%', marginBottom: 12 },
-  nextMissionLabel:   { fontSize: 10, fontWeight: '700', color: Colors.muted, letterSpacing: 1, textTransform: 'uppercase', textAlign: 'center', marginBottom: 6 },
+  nextMissionLabel:   { fontSize: 10, fontWeight: '700', color: semantic.textTertiary, letterSpacing: 1, textTransform: 'uppercase', textAlign: 'center', marginBottom: 6 },
   nextMissionBtn:     { width: '100%', borderRadius: 16, overflow: 'hidden' },
   nextMissionGrad:    { paddingVertical: 14, paddingHorizontal: 20, alignItems: 'center', justifyContent: 'center', gap: 2 },
-  nextMissionText:    { fontSize: 16, fontWeight: '900', color: 'white', letterSpacing: -0.3 },
+  nextMissionText:    { fontSize: 16, fontWeight: '900', color: palette.blanco, letterSpacing: -0.3 },
   nextMissionArrow:   { fontSize: 11, fontWeight: '700', color: 'rgba(255,255,255,0.75)', letterSpacing: 0.5 },
 
   // Upcoming missions list
-  upcomingBlock:        { width: '100%', backgroundColor: Colors.bgSoft, borderRadius: 14, padding: 12, borderWidth: 1, borderColor: Colors.line, gap: 8 },
+  upcomingBlock:        { width: '100%', backgroundColor: palette.crema, borderRadius: 14, padding: 12, borderWidth: 1, borderColor: palette.bordeClaro, gap: 8 },
   upcomingRow:          { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 2 },
   upcomingRowCurrent:   { opacity: 1 },
-  upcomingDot:          { fontSize: 13, fontWeight: '800', color: Colors.muted, width: 20, textAlign: 'center' },
-  upcomingLabel:        { flex: 1, fontSize: 13, fontWeight: '600', color: Colors.muted },
+  upcomingDot:          { fontSize: 13, fontWeight: '800', color: semantic.textTertiary, width: 20, textAlign: 'center' },
+  upcomingLabel:        { flex: 1, fontSize: 13, fontWeight: '600', color: semantic.textTertiary },
   upcomingLabelDone:    { color: '#059669', fontWeight: '700' },
-  upcomingLabelCurrent: { color: Colors.ink, fontWeight: '800' },
+  upcomingLabelCurrent: { color: semantic.textPrimary, fontWeight: '800' },
 
   // Chain diagram (key_relation)
   chainContainer:   { gap: 0, alignItems: 'stretch', marginVertical: 10 },
@@ -2917,30 +3753,30 @@ const sum = StyleSheet.create({
   chainLinkText:    { fontSize: SM ? 11 : 12, fontWeight: '700', color: '#00C2A8', fontStyle: 'italic', lineHeight: SM ? 14 : 16 },
 
   // Challenge reflection card
-  challengeRefCard:    { backgroundColor: '#F5F3FF', borderRadius: 28, padding: SM ? 26 : 32, alignItems: 'center', shadowColor: NEON, shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.1, shadowRadius: 20, elevation: 5 },
+  challengeRefCard:    { backgroundColor: '#F5F3FF', borderRadius: 28, padding: SM ? 26 : 32, alignItems: 'center' },
   challengeRefEmoji:   { fontSize: SM ? 52 : 64, marginBottom: 14 },
   challengeRefLabel:   { fontSize: 10, fontWeight: '900', color: NEON, letterSpacing: 1.5, marginBottom: 14, textTransform: 'uppercase' },
-  challengeRefQ:       { fontSize: SM ? 17 : 21, fontWeight: '800', color: Colors.ink, textAlign: 'center', lineHeight: SM ? 25 : 30, letterSpacing: -0.3, marginBottom: 16 },
-  challengeRefHintBox: { backgroundColor: 'white', borderRadius: 14, padding: SM ? 10 : 12, width: '100%' },
-  challengeRefHintLbl: { fontSize: 9, fontWeight: '800', color: Colors.muted, letterSpacing: 1, marginBottom: 4, textTransform: 'uppercase' },
-  challengeRefHintTxt: { fontSize: SM ? 13 : 14, color: Colors.ink2, lineHeight: SM ? 20 : 22, fontWeight: '500' },
+  challengeRefQ:       { fontSize: SM ? 17 : 21, fontWeight: '800', color: semantic.textPrimary, textAlign: 'center', lineHeight: SM ? 25 : 30, letterSpacing: -0.3, marginBottom: 16 },
+  challengeRefHintBox: { backgroundColor: palette.blanco, borderRadius: 14, padding: SM ? 10 : 12, width: '100%' },
+  challengeRefHintLbl: { fontSize: 9, fontWeight: '800', color: semantic.textTertiary, letterSpacing: 1, marginBottom: 4, textTransform: 'uppercase' },
+  challengeRefHintTxt: { fontSize: SM ? 13 : 14, color: semantic.textPrimary, lineHeight: SM ? 20 : 22, fontWeight: '500' },
 
   // Order sequence card
-  orderCard:        { backgroundColor: 'white', borderRadius: 28, padding: SM ? 16 : 20, shadowColor: '#0B0B1A', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.09, shadowRadius: 20, elevation: 5 },
+  orderCard:        { backgroundColor: palette.blanco, borderRadius: 28, padding: SM ? 16 : 20 },
   orderLabel:       { fontSize: 10, fontWeight: '900', color: '#7C5AFF', letterSpacing: 1.5, marginBottom: 8, textTransform: 'uppercase' },
-  orderTitle:       { fontSize: SM ? 15 : 17, fontWeight: '800', color: Colors.ink, lineHeight: SM ? 22 : 25, letterSpacing: -0.2, marginBottom: 6 },
-  orderHint:        { fontSize: SM ? 12 : 13, color: Colors.muted, fontWeight: '600', marginBottom: 14 },
+  orderTitle:       { fontSize: SM ? 15 : 17, fontWeight: '800', color: semantic.textPrimary, lineHeight: SM ? 22 : 25, letterSpacing: -0.2, marginBottom: 6 },
+  orderHint:        { fontSize: SM ? 12 : 13, color: semantic.textTertiary, fontWeight: '600', marginBottom: 14 },
   orderItems:       { gap: 8, alignSelf: 'stretch' },
-  orderItem:        { flexDirection: 'row', alignItems: 'center', gap: 10, padding: SM ? 10 : 12, borderRadius: 14, borderWidth: 2, borderColor: Colors.line, backgroundColor: Colors.bgSoft },
+  orderItem:        { flexDirection: 'row', alignItems: 'center', gap: 10, padding: SM ? 10 : 12, borderRadius: 14, borderWidth: 2, borderColor: palette.bordeClaro, backgroundColor: palette.crema },
   orderItemSelected:{ borderColor: BRAND, backgroundColor: 'rgba(91,61,245,0.06)' },
   orderItemCorrect: { borderColor: '#059669', backgroundColor: 'rgba(5,150,105,0.07)' },
-  orderNum:         { width: 28, height: 28, borderRadius: 8, backgroundColor: Colors.line2, alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
+  orderNum:         { width: 28, height: 28, borderRadius: 8, backgroundColor: palette.bordeMedio, alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
   orderNumSelected: { backgroundColor: BRAND },
   orderNumCorrect:  { backgroundColor: '#059669' },
-  orderNumTxt:      { fontSize: 13, fontWeight: '900', color: 'white' },
-  orderNumTxtMuted: { fontSize: 13, fontWeight: '700', color: Colors.muted },
-  orderItemTxt:     { flex: 1, fontSize: SM ? 13 : 14, color: Colors.ink2, fontWeight: '600', lineHeight: 19 },
-  orderItemTxtSelected: { color: Colors.ink, fontWeight: '700' },
+  orderNumTxt:      { fontSize: 13, fontWeight: '900', color: palette.blanco },
+  orderNumTxtMuted: { fontSize: 13, fontWeight: '700', color: semantic.textTertiary },
+  orderItemTxt:     { flex: 1, fontSize: SM ? 13 : 14, color: semantic.textPrimary, fontWeight: '600', lineHeight: 19 },
+  orderItemTxtSelected: { color: semantic.textPrimary, fontWeight: '700' },
   orderSuccessRow:  { marginTop: 12, backgroundColor: 'rgba(5,150,105,0.08)', borderRadius: 10, paddingVertical: 8, paddingHorizontal: 12, borderWidth: 1, borderColor: 'rgba(5,150,105,0.2)', alignSelf: 'stretch', alignItems: 'center' },
   orderSuccessTxt:  { fontSize: 13, fontWeight: '800', color: '#065F46' },
 });
@@ -2948,10 +3784,10 @@ const sum = StyleSheet.create({
 // ── Quiz ───────────────────────────────────────────────────────────
 const qz = StyleSheet.create({
   statsBar: { flexDirection: 'row', paddingHorizontal: 14, paddingVertical: 6, gap: 7, alignItems: 'center' },
-  chip:     { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: 'white', borderRadius: 14, borderWidth: 1, borderColor: Colors.line, paddingHorizontal: 10, paddingVertical: 7, shadowColor: '#0B0B1A', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.04, shadowRadius: 4, elevation: 1 },
-  chipVal:  { fontSize: 15, fontWeight: '900', color: Colors.ink },
-  chipLbl:  { fontSize: 10, color: Colors.muted, fontWeight: '600' },
-  counter:  { fontSize: 11, fontWeight: '700', color: Colors.muted, flexShrink: 0 },
+  chip:     { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: palette.blanco, borderRadius: 14, borderWidth: 1, borderColor: palette.bordeClaro, paddingHorizontal: 10, paddingVertical: 7 },
+  chipVal:  { fontSize: 15, fontWeight: '900', color: semantic.textPrimary },
+  chipLbl:  { fontSize: 10, color: semantic.textTertiary, fontWeight: '600' },
+  counter:  { fontSize: 11, fontWeight: '700', color: semantic.textTertiary, flexShrink: 0 },
 
   // Lives dots — displayed inside streak chip
   heartDot:       { width: 7, height: 7, borderRadius: 3.5, backgroundColor: 'rgba(0,0,0,0.12)' },
@@ -2964,101 +3800,101 @@ const qz = StyleSheet.create({
   // Kept for style compatibility (no longer rendered)
   livesRow:  { flexDirection: 'row', gap: 4, paddingHorizontal: 16, marginBottom: 2 },
   comboRow:         { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 16, paddingVertical: 4 },
-  comboLabel:       { fontSize: 11, fontWeight: '800', color: Colors.ink2 },
+  comboLabel:       { fontSize: 11, fontWeight: '800', color: semantic.textPrimary },
   comboBlocks:      { flexDirection: 'row', gap: 4 },
-  comboBlock:       { width: 24, height: 8, borderRadius: 4, backgroundColor: Colors.line2 },
+  comboBlock:       { width: 24, height: 8, borderRadius: 4, backgroundColor: palette.bordeMedio },
   comboBlockFilled: { backgroundColor: '#FF7A2B' },
 
-  motivMsg: { fontSize: 11, fontWeight: '700', color: Colors.muted, paddingHorizontal: 16, paddingBottom: 6, textAlign: 'center' },
+  motivMsg: { fontSize: 11, fontWeight: '700', color: semantic.textTertiary, paddingHorizontal: 16, paddingBottom: 6, textAlign: 'center' },
 
   scroll:   { paddingHorizontal: 14, paddingTop: 4 },
 
   // Question card — reduced padding ~22% vs original
-  questionCard: { backgroundColor: 'white', borderRadius: 20, paddingHorizontal: SM ? 13 : 15, paddingVertical: SM ? 11 : 12, marginBottom: 8, shadowColor: '#0B0B1A', shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.07, shadowRadius: 12, elevation: 3 },
+  questionCard: { backgroundColor: palette.blanco, borderRadius: 20, paddingHorizontal: SM ? 13 : 15, paddingVertical: SM ? 11 : 12, marginBottom: 8 },
   questionMeta: { flexDirection: 'row', alignItems: 'center', marginBottom: 7 },
   questionChip: { fontSize: 10, fontWeight: '800', color: BRAND, letterSpacing: 0.4, backgroundColor: 'rgba(91,61,245,0.08)', paddingVertical: 3, paddingHorizontal: 8, borderRadius: 100 },
-  questionText: { fontSize: SM ? 15 : 17, fontWeight: '800', color: Colors.ink, lineHeight: SM ? 22 : 25, letterSpacing: -0.2 },
+  questionText: { fontSize: SM ? 15 : 17, fontWeight: '800', color: semantic.textPrimary, lineHeight: SM ? 22 : 25, letterSpacing: -0.2 },
 
-  option:           { flexDirection: 'row', alignItems: 'center', gap: 10, padding: 12, borderRadius: 16, borderWidth: 2, borderColor: Colors.line, backgroundColor: 'white' },
-  optCorrect:       { borderColor: BRAND, borderWidth: 2.5, backgroundColor: 'rgba(91,61,245,0.05)', shadowColor: BRAND, shadowOpacity: 0.22, shadowRadius: 12, elevation: 4 },
+  option:           { flexDirection: 'row', alignItems: 'center', gap: 10, padding: 12, borderRadius: 16, borderWidth: 2, borderColor: palette.bordeClaro, backgroundColor: palette.blanco },
+  optCorrect:       { borderColor: BRAND, borderWidth: 2.5, backgroundColor: 'rgba(91,61,245,0.05)' },
   optWrong:         { borderColor: '#DC2626', borderWidth: 2, backgroundColor: 'rgba(220,38,38,0.04)' },
-  optLetter:        { width: 30, height: 30, borderRadius: 9, backgroundColor: Colors.bgSoft, alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
+  optLetter:        { width: 30, height: 30, borderRadius: 9, backgroundColor: palette.crema, alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
   optLetterCorrect: { backgroundColor: BRAND },
   optLetterRed:     { backgroundColor: '#DC2626' },
-  optLetterText:    { fontSize: 13, fontWeight: '800', color: Colors.ink },
-  optText:          { flex: 1, fontSize: 14, color: Colors.ink, fontWeight: '600', lineHeight: 20 },
+  optLetterText:    { fontSize: 13, fontWeight: '800', color: semantic.textPrimary },
+  optText:          { flex: 1, fontSize: 14, color: semantic.textPrimary, fontWeight: '600', lineHeight: 20 },
 
   // Feedback — compact (max 2 visible lines)
   feedback:      { borderRadius: 14, paddingVertical: 8, paddingHorizontal: 13, marginBottom: 8 },
   feedbackOk:    { borderLeftWidth: 3, borderLeftColor: BRAND, backgroundColor: 'rgba(91,61,245,0.05)' },
   feedbackFail:  { borderLeftWidth: 3, borderLeftColor: '#DC2626', backgroundColor: 'rgba(220,38,38,0.04)' },
   feedbackHeader:{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 },
-  feedbackTitle: { fontSize: 13, fontWeight: '900', color: Colors.ink },
+  feedbackTitle: { fontSize: 13, fontWeight: '900', color: semantic.textPrimary },
   feedbackXP:    { backgroundColor: BRAND, borderRadius: 100, paddingVertical: 2, paddingHorizontal: 9 },
-  feedbackXPText:{ fontSize: 11, fontWeight: '900', color: 'white' },
-  feedbackText:  { fontSize: 12, color: Colors.ink2, lineHeight: 18 },
+  feedbackXPText:{ fontSize: 11, fontWeight: '900', color: palette.blanco },
+  feedbackText:  { fontSize: 12, color: semantic.textPrimary, lineHeight: 18 },
 
   // XP float — slightly larger for reward feel
-  xpFloat:     { backgroundColor: BRAND, borderRadius: 100, paddingVertical: 10, paddingHorizontal: 22, shadowColor: BRAND, shadowOffset: { width: 0, height: 5 }, shadowOpacity: 0.5, shadowRadius: 16, elevation: 10 },
+  xpFloat:     { backgroundColor: BRAND, borderRadius: 100, paddingVertical: 10, paddingHorizontal: 22 },
   xpFloatText: { color: LIME, fontWeight: '900', fontSize: 18, letterSpacing: 0.3 },
 
-  streakBadge:    { backgroundColor: 'white', borderRadius: 100, paddingVertical: 10, paddingHorizontal: 22, shadowColor: '#0B0B1A', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.12, shadowRadius: 14, elevation: 6, borderWidth: 1, borderColor: Colors.line },
-  streakBadgeText:{ fontSize: 15, fontWeight: '900', color: Colors.ink },
+  streakBadge:    { backgroundColor: palette.blanco, borderRadius: 100, paddingVertical: 10, paddingHorizontal: 22, borderWidth: 1, borderColor: palette.bordeClaro },
+  streakBadgeText:{ fontSize: 15, fontWeight: '900', color: semantic.textPrimary },
 
   // Combo / micro reward — enlarged for more prominence
-  microBadge:    { backgroundColor: Colors.ink, borderRadius: 100, paddingVertical: 11, paddingHorizontal: 24, shadowColor: Colors.ink, shadowOffset: { width: 0, height: 5 }, shadowOpacity: 0.3, shadowRadius: 16, elevation: 8 },
+  microBadge:    { backgroundColor: semantic.textPrimary, borderRadius: 100, paddingVertical: 11, paddingHorizontal: 24 },
   microBadgeText:{ fontSize: 16, fontWeight: '900', color: LIME },
 
   resultScroll:  { paddingHorizontal: 24, paddingTop: 24, alignItems: 'center' },
   resultEmoji:   { fontSize: 72, marginBottom: 12 },
-  resultTitle:   { fontSize: 26, fontWeight: '900', color: Colors.ink, marginBottom: 6, textAlign: 'center' },
+  resultTitle:   { fontSize: 26, fontWeight: '900', color: semantic.textPrimary, marginBottom: 6, textAlign: 'center' },
   resultScore:   { fontSize: 48, fontWeight: '900', color: BRAND, letterSpacing: -1, marginBottom: 20 },
   resultGrid:    { flexDirection: 'row', gap: 10, marginBottom: 24, width: '100%' },
-  resultCell:    { flex: 1, backgroundColor: 'white', borderRadius: 16, borderWidth: 1, borderColor: Colors.line, padding: 14, alignItems: 'center', gap: 4 },
-  resultCellVal: { fontSize: 16, fontWeight: '900', color: Colors.ink },
-  resultCellLbl: { fontSize: 10, color: Colors.muted, fontWeight: '600' },
-  retryBtn:      { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: Colors.bgSoft, borderRadius: 14, paddingVertical: 12, paddingHorizontal: 20, marginBottom: 12 },
+  resultCell:    { flex: 1, backgroundColor: palette.blanco, borderRadius: 16, borderWidth: 1, borderColor: palette.bordeClaro, padding: 14, alignItems: 'center', gap: 4 },
+  resultCellVal: { fontSize: 16, fontWeight: '900', color: semantic.textPrimary },
+  resultCellLbl: { fontSize: 10, color: semantic.textTertiary, fontWeight: '600' },
+  retryBtn:      { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: palette.crema, borderRadius: 14, paddingVertical: 12, paddingHorizontal: 20, marginBottom: 12 },
   retryText:     { fontSize: 14, fontWeight: '700', color: BRAND },
 
   // Nemi character widget
-  nemiWidget: { backgroundColor: 'white', borderRadius: 16, paddingVertical: 8, paddingHorizontal: 12, shadowColor: '#0B0B1A', shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.1, shadowRadius: 10, elevation: 5, borderWidth: 1, borderColor: Colors.line, maxWidth: 180 },
+  nemiWidget: { backgroundColor: palette.blanco, borderRadius: 16, paddingVertical: 8, paddingHorizontal: 12, borderWidth: 1, borderColor: palette.bordeClaro, maxWidth: 180 },
   nemiLabel:  { fontSize: 10, fontWeight: '800', color: BRAND, marginBottom: 3, letterSpacing: 0.5 },
-  nemiText:   { fontSize: 12, color: Colors.ink2, fontWeight: '600', lineHeight: 17 },
+  nemiText:   { fontSize: 12, color: semantic.textPrimary, fontWeight: '600', lineHeight: 17 },
 
   // Last-question glow state
-  chipLastQ: { borderColor: BRAND, shadowColor: BRAND, shadowOpacity: 0.3, shadowRadius: 8, elevation: 4 },
-  lastQChip: { fontSize: 10, fontWeight: '800', color: Colors.rose, backgroundColor: 'rgba(255,77,109,0.1)', paddingVertical: 3, paddingHorizontal: 8, borderRadius: 100, marginLeft: 6 },
+  chipLastQ: { borderColor: BRAND },
+  lastQChip: { fontSize: 10, fontWeight: '800', color: palette.rojoError, backgroundColor: 'rgba(255,77,109,0.1)', paddingVertical: 3, paddingHorizontal: 8, borderRadius: 100, marginLeft: 6 },
 });
 
 // ── Flashcard SRS buttons ──────────────────────────────────────────
 const fcs = StyleSheet.create({
   srsRow: { flexDirection: 'row', gap: 8, paddingHorizontal: 16, paddingTop: 10 },
   srsBtn: { paddingVertical: 13, borderRadius: 16, alignItems: 'center' },
-  srsBtnText: { fontSize: SM ? 10 : 11, fontWeight: '800', color: 'white', textAlign: 'center', lineHeight: 16 },
+  srsBtnText: { fontSize: SM ? 10 : 11, fontWeight: '800', color: palette.blanco, textAlign: 'center', lineHeight: 16 },
 });
 
 // ── Celebration ────────────────────────────────────────────────────
 const cel = StyleSheet.create({
   row:  { flexDirection: 'row', gap: 12, width: '100%', marginBottom: 16 },
-  cell: { flex: 1, backgroundColor: 'white', borderRadius: 18, borderWidth: 1, borderColor: Colors.line, padding: 16, alignItems: 'center', gap: 4, shadowColor: '#0B0B1A', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.06, shadowRadius: 8, elevation: 2 },
-  val:  { fontSize: 20, fontWeight: '900', color: Colors.ink, letterSpacing: -0.5 },
-  lbl:  { fontSize: 10, fontWeight: '700', color: Colors.muted, letterSpacing: 0.5 },
+  cell: { flex: 1, backgroundColor: palette.blanco, borderRadius: 18, borderWidth: 1, borderColor: palette.bordeClaro, padding: 16, alignItems: 'center', gap: 4 },
+  val:  { fontSize: 20, fontWeight: '900', color: semantic.textPrimary, letterSpacing: -0.5 },
+  lbl:  { fontSize: 10, fontWeight: '700', color: semantic.textTertiary, letterSpacing: 0.5 },
 });
 
 // ── Complete ───────────────────────────────────────────────────────
 const comp = StyleSheet.create({
   scroll:   { paddingHorizontal: 20, paddingTop: 20, alignItems: 'center' },
   trophy:   { fontSize: SM ? 80 : 96, textAlign: 'center', marginBottom: 8 },
-  title:    { fontSize: SM ? 26 : 32, fontWeight: '900', color: Colors.ink, textAlign: 'center', letterSpacing: -0.5, marginBottom: 6 },
-  subtitle: { fontSize: 13, color: Colors.muted, textAlign: 'center', marginBottom: 24, paddingHorizontal: 16 },
+  title:    { fontSize: SM ? 26 : 32, fontWeight: '900', color: semantic.textPrimary, textAlign: 'center', letterSpacing: -0.5, marginBottom: 6 },
+  subtitle: { fontSize: 13, color: semantic.textTertiary, textAlign: 'center', marginBottom: 24, paddingHorizontal: 16 },
   grid:     { flexDirection: 'row', flexWrap: 'wrap', gap: 10, width: '100%', marginBottom: 16 },
-  cell:     { width: '47%', backgroundColor: 'white', borderRadius: 18, borderWidth: 1, borderColor: Colors.line, padding: 16, alignItems: 'center', gap: 4, shadowColor: '#0B0B1A', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.06, shadowRadius: 8, elevation: 2 },
-  cellVal:  { fontSize: 22, fontWeight: '900', color: Colors.ink, letterSpacing: -0.5 },
-  cellLbl:  { fontSize: 10, fontWeight: '700', color: Colors.muted, letterSpacing: 0.5 },
-  levelCard:{ backgroundColor: 'white', borderRadius: 18, borderWidth: 1, borderColor: Colors.line, padding: 18, width: '100%', marginBottom: 16, shadowColor: '#0B0B1A', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 8, elevation: 2 },
-  achCard:  { backgroundColor: 'white', borderRadius: 18, borderWidth: 1, borderColor: Colors.line, padding: 18, width: '100%', marginBottom: 16, shadowColor: '#0B0B1A', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 8, elevation: 2 },
-  achTitle: { fontSize: 14, fontWeight: '800', color: Colors.ink, marginBottom: 14 },
+  cell:     { width: '47%', backgroundColor: palette.blanco, borderRadius: 18, borderWidth: 1, borderColor: palette.bordeClaro, padding: 16, alignItems: 'center', gap: 4 },
+  cellVal:  { fontSize: 22, fontWeight: '900', color: semantic.textPrimary, letterSpacing: -0.5 },
+  cellLbl:  { fontSize: 10, fontWeight: '700', color: semantic.textTertiary, letterSpacing: 0.5 },
+  levelCard:{ backgroundColor: palette.blanco, borderRadius: 18, borderWidth: 1, borderColor: palette.bordeClaro, padding: 18, width: '100%', marginBottom: 16 },
+  achCard:  { backgroundColor: palette.blanco, borderRadius: 18, borderWidth: 1, borderColor: palette.bordeClaro, padding: 18, width: '100%', marginBottom: 16 },
+  achTitle: { fontSize: 14, fontWeight: '800', color: semantic.textPrimary, marginBottom: 14 },
   achRow:   { flexDirection: 'row', alignItems: 'center', gap: 14, marginBottom: 12 },
-  achName:  { fontSize: 14, fontWeight: '700', color: Colors.ink, marginBottom: 2 },
-  achDesc:  { fontSize: 12, color: Colors.muted },
+  achName:  { fontSize: 14, fontWeight: '700', color: semantic.textPrimary, marginBottom: 2 },
+  achDesc:  { fontSize: 12, color: semantic.textTertiary },
 });

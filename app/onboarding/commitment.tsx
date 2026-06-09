@@ -1,7 +1,7 @@
 import ScreenContainer from '@/components/ScreenContainer';
 import { useOnboarding } from '@/contexts/OnboardingContext';
+import { palette } from '@/theme/colors';
 import { TIME_COMMITMENTS } from '@/types/onboarding';
-import { LinearGradient } from 'expo-linear-gradient';
 import { ArrowRight, Check, ChevronLeft, Flame, Gem, Lightbulb, Target, Zap } from 'lucide-react-native';
 import { useEffect, useRef } from 'react';
 import { Pressable, ScrollView, StatusBar, StyleSheet, Text, View } from 'react-native';
@@ -15,9 +15,9 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 
-const BG = '#09051A';
-const NEON = '#7C5AFF';
-const LIME = '#C4F852';
+const BG = palette.charcoal;
+const NEON = palette.morado;
+const LIME = palette.limaElectrica;
 const GLASS = 'rgba(255,255,255,0.06)';
 const GLASS_BORDER = 'rgba(255,255,255,0.12)';
 const TOTAL_STEPS = 4;
@@ -28,22 +28,22 @@ const DISPLAY_COMMITMENTS = TIME_COMMITMENTS.filter((t) => t.id !== '2hours');
 type LucideIcon = React.ComponentType<{ size?: number; color?: string; strokeWidth?: number }>;
 
 const TIME_ICONS: LucideIcon[] = [Zap, Target, Flame, Gem];
-const TIME_ICON_COLORS: [string, string][] = [
-  ['#5B3DF5', '#9340FF'],
-  ['#FF5B9F', '#FF3D8A'],
-  ['#FF7A2B', '#FFB547'],
-  ['#00C2A8', '#00A08A'],
+const TIME_ICON_COLORS: string[] = [
+  palette.morado,
+  palette.rosaQuiz,
+  palette.naranja,
+  palette.tealTarjetas,
 ];
 
 // Individual card component so Reanimated hooks are per-instance, not in a loop
 function TimeCard({
-  time, isActive, onPress, Icon, iconColors, enterDelay,
+  time, isActive, onPress, Icon, iconColor, enterDelay,
 }: {
   time: (typeof DISPLAY_COMMITMENTS)[number];
   isActive: boolean;
   onPress: () => void;
   Icon: LucideIcon;
-  iconColors: [string, string];
+  iconColor: string;
   enterDelay: number;
 }) {
   const sc = useSharedValue(1);
@@ -80,28 +80,25 @@ function TimeCard({
         android_ripple={{ color: 'rgba(124,90,255,0.2)' }}
       >
         {isActive && (
-          <LinearGradient
-            colors={['rgba(91,61,245,0.28)', 'rgba(155,77,255,0.16)']}
-            style={[StyleSheet.absoluteFill, { borderRadius: 16 }]}
-          />
+          <View style={[StyleSheet.absoluteFill, styles.timeCardActiveBg, { borderRadius: 16 }]} />
         )}
-        <LinearGradient colors={iconColors} style={styles.timeIconCircle}>
+        <View style={[styles.timeIconCircle, { backgroundColor: iconColor }]}>
           <Icon size={20} color="rgba(255,255,255,0.92)" strokeWidth={1.8} />
-        </LinearGradient>
+        </View>
         <View style={styles.timeInfo}>
           <View style={styles.timeTopRow}>
             <Text style={styles.timeAmount}>{time.amount}</Text>
             {time.tag && (
-              <LinearGradient colors={[LIME, '#A8E020']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={styles.timeBadge}>
+              <View style={styles.timeBadge}>
                 <Text style={styles.timeBadgeText}>★ {time.tag}</Text>
-              </LinearGradient>
+              </View>
             )}
           </View>
           <Text style={styles.timeDesc}>{time.description}</Text>
         </View>
         {isActive && (
           <View style={styles.timeCheck}>
-            <Check size={14} color="#09051A" strokeWidth={3} />
+            <Check size={14} color={palette.charcoal} strokeWidth={3} />
           </View>
         )}
       </Pressable>
@@ -148,7 +145,6 @@ export default function CommitmentScreen() {
   return (
     <ScreenContainer style={styles.root}>
       <StatusBar barStyle="light-content" backgroundColor={BG} />
-      <LinearGradient colors={[BG, '#120B2F', '#1A1045']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={StyleSheet.absoluteFill} />
       <View style={styles.orb1} />
       <View style={styles.orb2} />
 
@@ -161,7 +157,7 @@ export default function CommitmentScreen() {
           {Array.from({ length: TOTAL_STEPS }).map((_, i) => {
             const done = i < state.currentStep;
             return done ? (
-              <LinearGradient key={i} colors={[NEON, '#C44EFF']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={styles.progressSeg} />
+              <View key={i} style={[styles.progressSeg, styles.progressSegOn]} />
             ) : (
               <View key={i} style={[styles.progressSeg, styles.progressSegOff]} />
             );
@@ -191,7 +187,7 @@ export default function CommitmentScreen() {
               isActive={state.data.dailyCommitment === time.id}
               onPress={() => setDailyCommitment(time.id)}
               Icon={TIME_ICONS[i]}
-              iconColors={TIME_ICON_COLORS[i]}
+              iconColor={TIME_ICON_COLORS[i]}
               enterDelay={200 + i * 110}
             />
           ))}
@@ -220,16 +216,11 @@ export default function CommitmentScreen() {
             pressed && canContinue && styles.ctaPressed,
           ]}
         >
-          <LinearGradient
-            colors={canContinue ? [NEON, '#B44EFF'] : ['rgba(255,255,255,0.1)', 'rgba(255,255,255,0.07)']}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 0 }}
-            style={styles.cta}
-          >
+          <View style={[styles.cta, { backgroundColor: canContinue ? NEON : palette.bordeClaro }]}>
             {canContinue && <Animated.View style={[styles.ctaShine, ctaShineStyle]} />}
             <Text style={[styles.ctaText, !canContinue && styles.ctaTextOff]}>Siguiente</Text>
-            <ArrowRight size={17} color={canContinue ? '#FFF' : 'rgba(255,255,255,0.35)'} strokeWidth={2.5} />
-          </LinearGradient>
+            <ArrowRight size={17} color={canContinue ? palette.blanco : 'rgba(255,255,255,0.35)'} strokeWidth={2.5} />
+          </View>
         </Pressable>
       </View>
     </ScreenContainer>
@@ -246,6 +237,7 @@ const styles = StyleSheet.create({
   backBtnText: { fontSize: 22, fontWeight: '700', color: 'rgba(255,255,255,0.8)', lineHeight: 26 },
   progressWrap: { flex: 1, flexDirection: 'row', gap: 6 },
   progressSeg: { flex: 1, borderRadius: 3, height: 6 },
+  progressSegOn: { backgroundColor: NEON },
   progressSegOff: { backgroundColor: 'rgba(255,255,255,0.12)' },
   stepLbl: { backgroundColor: GLASS, borderRadius: 8, paddingVertical: 4, paddingHorizontal: 8, borderWidth: 1, borderColor: GLASS_BORDER },
   stepLblText: { fontSize: 11, fontWeight: '700', color: 'rgba(255,255,255,0.6)' },
@@ -255,7 +247,7 @@ const styles = StyleSheet.create({
 
   header: { alignItems: 'center', paddingTop: 4, marginBottom: 12 },
   emoji: { fontSize: 44, marginBottom: 8 },
-  title: { fontSize: 30, fontWeight: '900', color: '#FFF', textAlign: 'center', lineHeight: 38, marginBottom: 6 },
+  title: { fontSize: 30, fontWeight: '900', color: palette.blanco, textAlign: 'center', lineHeight: 38, marginBottom: 6 },
   lime: { color: LIME },
   subtitle: { fontSize: 13, color: 'rgba(255,255,255,0.55)', textAlign: 'center', lineHeight: 19 },
 
@@ -268,24 +260,21 @@ const styles = StyleSheet.create({
     borderRadius: 16, paddingVertical: 10, paddingHorizontal: 14,
     gap: 14, overflow: 'hidden',
   },
-  timeCardActive: {
-    borderColor: NEON,
-    shadowColor: NEON, shadowOffset: { width: 0, height: 0 }, shadowOpacity: 0.3, shadowRadius: 10, elevation: 5,
-  },
+  timeCardActive: { borderColor: NEON },
+  timeCardActiveBg: { backgroundColor: 'rgba(91,61,245,0.28)' },
   timeCardPressed: { opacity: 0.85 },
   timeIconCircle: { width: 42, height: 42, borderRadius: 13, alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
   timeIconEmoji: { fontSize: 20 },
   timeInfo: { flex: 1 },
   timeTopRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 3 },
-  timeAmount: { fontSize: 15, fontWeight: '800', color: '#FFF' },
+  timeAmount: { fontSize: 15, fontWeight: '800', color: palette.blanco },
 
-  // Gaming-style badge with gradient
-  timeBadge: { borderRadius: 8, paddingVertical: 3, paddingHorizontal: 8 },
-  timeBadgeText: { fontSize: 8, fontWeight: '900', color: '#09051A', letterSpacing: 0.5 },
+  timeBadge: { borderRadius: 8, paddingVertical: 3, paddingHorizontal: 8, backgroundColor: LIME },
+  timeBadgeText: { fontSize: 8, fontWeight: '900', color: palette.charcoal, letterSpacing: 0.5 },
 
   timeDesc: { fontSize: 12, color: 'rgba(255,255,255,0.5)' },
   timeCheck: { width: 26, height: 26, borderRadius: 13, backgroundColor: LIME, alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
-  timeCheckText: { fontSize: 13, color: '#09051A', fontWeight: '900' },
+  timeCheckText: { fontSize: 13, color: palette.charcoal, fontWeight: '900' },
 
   tip: {
     flexDirection: 'row', alignItems: 'flex-start', gap: 10,
@@ -298,12 +287,12 @@ const styles = StyleSheet.create({
   tipBold: { fontWeight: '800', color: LIME },
 
   bottom: { paddingHorizontal: 24, paddingBottom: 32, paddingTop: 8 },
-  ctaWrap: { borderRadius: 18, overflow: 'hidden', shadowColor: NEON, shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.45, shadowRadius: 16, elevation: 10 },
-  ctaDisabled: { shadowOpacity: 0, elevation: 0 },
+  ctaWrap: { borderRadius: 18, overflow: 'hidden' },
+  ctaDisabled: {},
   ctaPressed: { opacity: 0.88 },
   cta: { paddingVertical: 18, alignItems: 'center', flexDirection: 'row', justifyContent: 'center', gap: 10 },
   ctaShine: { position: 'absolute', top: 0, left: 0, right: 0, height: 22, backgroundColor: 'rgba(255,255,255,0.22)' },
-  ctaText: { fontSize: 17, fontWeight: '900', color: '#FFF' },
-  ctaArrow: { fontSize: 17, fontWeight: '900', color: '#FFF' },
+  ctaText: { fontSize: 17, fontWeight: '900', color: palette.blanco },
+  ctaArrow: { fontSize: 17, fontWeight: '900', color: palette.blanco },
   ctaTextOff: { color: 'rgba(255,255,255,0.35)' },
 });

@@ -1,18 +1,22 @@
-import { Colors } from '@/constants/Colors';
+import { SHOW_GEMS } from '@/config/features';
+import { palette, semantic } from '@/theme/colors';
 import { useOnboarding } from '@/contexts/OnboardingContext';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as DocumentPicker from 'expo-document-picker';
 import * as ImagePicker from 'expo-image-picker';
-import { LinearGradient } from 'expo-linear-gradient';
 import { useFocusEffect, useRouter } from 'expo-router';
 import {
   ArrowLeft,
   BookOpen,
+  Bot,
   Brain,
+  Check,
+  ChevronDown,
+  Clock,
   FileText,
   ImageIcon,
+  Layers,
   Plus,
-  Target,
   X,
   Zap,
 } from 'lucide-react-native';
@@ -43,10 +47,9 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 
 const { height: SCREEN_H } = Dimensions.get('window');
 const SM    = SCREEN_H < 740;
-const BG    = '#F8F9FC';
-const BRAND = '#5B3DF5';
-const NEON  = '#7C5AFF';
-const LIME  = '#C4F852';
+const BG    = palette.crema;
+const BRAND = palette.morado;
+const LIME  = palette.limaElectrica;
 
 // ── Types ─────────────────────────────────────────────────────────
 type UploadedFile = {
@@ -54,31 +57,45 @@ type UploadedFile = {
 };
 // ── Constants ─────────────────────────────────────────────────────
 const BACKEND_BASE_URL = 'https://nemup-production.up.railway.app';
-const GRAD_UPLOAD = ['#5B3DF5', '#F45BA5'] as const;
-
-const UPLOAD_CHIPS = ['📚 Resúmenes', '🧠 Quiz', '⚡ XP'] as const;
 
 const EMPTY_BENEFITS = [
-  { Icon: BookOpen, label: 'Resumen inteligente' },
+  { Icon: Zap,    label: '+60 XP promedio' },
+  { Icon: Brain,  label: 'Quiz personalizado' },
+  { Icon: Layers, label: 'Tarjetas inteligentes' },
+  { Icon: Clock,  label: 'Menos de 1 minuto' },
+];
+
+const SESSION_ITEMS = [
+  { Icon: BookOpen, label: 'Misión personalizada' },
   { Icon: Brain,    label: 'Quiz personalizado' },
+  { Icon: Layers,   label: 'Tarjetas interactivas' },
   { Icon: Zap,      label: 'XP por completar actividades' },
 ];
 
-
 const GEN_STAGES = [
-  { Icon: BookOpen, title: 'Analizando apuntes',  sub: 'Buscando los temas más importantes.' },
-  { Icon: Brain,    title: 'Detectando conceptos', sub: 'Identificando ideas clave para practicar.' },
-  { Icon: Target,   title: 'Creando desafíos',     sub: 'Generando preguntas adaptadas a ti.' },
-  { Icon: Zap,      title: 'Finalizando',           sub: 'Preparando tu sesión personalizada.' },
-];
+  { title: 'Analizando apuntes',          sub: 'Identificando temas y estructura de tu documento.' },
+  { title: 'Detectando conceptos',        sub: 'Encontrando los conceptos clave para practicar.' },
+  { title: 'Construyendo contenido',      sub: 'Preparando actividades personalizadas para ti.' },
+  { title: 'Preparando tu entrenamiento', sub: 'Ajustando la dificultad y el tiempo de estudio.' },
+] as const;
 
-const STAGE_PROGRESS = [0.25, 0.50, 0.75, 1.0] as const;
+const STAGE_PROGRESS = [0.35, 0.65, 0.90, 0.99] as const;
 
-const MOTIV_PILLS = [
-  '📚 Estamos encontrando los temas más importantes para tu prueba.',
-  '🧠 Identificando conceptos que podrían aparecer en la evaluación.',
-  '🎯 Personalizando ejercicios para reforzar tus puntos débiles.',
-  '⚡ Tu entrenamiento personalizado está casi listo.',
+const CONCEPT_CHIPS = [
+  'Términos semejantes', 'Sinónimos', 'Antónimos',
+  'Contexto', 'Idea principal', 'Semántica',
+] as const;
+
+const BUILDING_ITEMS = [
+  { emoji: '📚', label: 'Misión' },
+  { emoji: '🧠', label: 'Quiz' },
+  { emoji: '🃏', label: 'Tarjetas' },
+] as const;
+
+const PREPARING_LINES = [
+  'Generando dificultad personalizada.',
+  'Estimando tiempo de estudio.',
+  'Optimizando ejercicios.',
 ] as const;
 
 
@@ -165,15 +182,11 @@ function ShimmerProgress({ step, progressValue }: { step: number; progressValue?
   }));
   const shimmerStyle = useAnimatedStyle(() => ({ transform: [{ translateX: shimmerX.value }] }));
   return (
-    <View style={{ flex: 1, height: 5, backgroundColor: Colors.line, borderRadius: 99, overflow: 'hidden', marginHorizontal: 10 }}>
+    <View style={{ flex: 1, height: 5, backgroundColor: palette.bordeClaro, borderRadius: 99, overflow: 'hidden', marginHorizontal: 10 }}>
       <Animated.View style={[{ height: '100%', borderRadius: 99, overflow: 'hidden' }, fillStyle]}>
-        <LinearGradient colors={[BRAND, NEON]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={{ flex: 1 }} />
+        <View style={{ flex: 1, backgroundColor: BRAND }} />
         <Animated.View style={[{ position: 'absolute', top: 0, bottom: 0, width: 60 }, shimmerStyle]}>
-          <LinearGradient
-            colors={['transparent', 'rgba(255,255,255,0.55)', 'transparent']}
-            start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
-            style={{ flex: 1 }}
-          />
+          <View style={{ flex: 1, backgroundColor: 'rgba(255,255,255,0.35)' }} />
         </Animated.View>
       </Animated.View>
     </View>
@@ -237,7 +250,6 @@ export default function UploadFlowScreen() {
   const [generationError, setGenerationError] = useState<string | null>(null);
   const [sessionResult, setSessionResult]     = useState<any | null>(null);
   const [stageIdx, setStageIdx]               = useState(0);
-  const [motivIdx, setMotivIdx]               = useState(0);
   const [displayPct, setDisplayPct]           = useState(0);
   const [recentExpanded, setRecentExpanded]   = useState(false);
   const [recentFiles, setRecentFiles]         = useState<UploadedFile[]>([]);
@@ -276,35 +288,40 @@ export default function UploadFlowScreen() {
   );
 
   // ── Shared values (ALL unconditional) ─────────────────────────
-  const stageOpacity  = useSharedValue(1);
-  const stageScale    = useSharedValue(1);
-  const progressFill  = useSharedValue(0);
-  const motivOpacity  = useSharedValue(1);
-  const celebScale    = useSharedValue(0);
-  const celebPulse    = useSharedValue(1);
-  const ctaPulse      = useSharedValue(0);
-  const s2Entry1      = useSharedValue(0);
-  const s2Entry2      = useSharedValue(0);
-  const s2Entry3      = useSharedValue(0);
-  const s2Entry4         = useSharedValue(0);
-  const iconPulse        = useSharedValue(1);
-  const iconRotate       = useSharedValue(0);
-  const iconGlow         = useSharedValue(0);
-  const confettiOpacity  = useSharedValue(1);
-  const filesAnim        = useSharedValue(0);
+  const stageOpacity    = useSharedValue(1);
+  const stageScale      = useSharedValue(1);
+  const progressFill    = useSharedValue(0);
+  const celebScale      = useSharedValue(0);
+  const celebPulse      = useSharedValue(1);
+  const ctaPulse        = useSharedValue(0);
+  const s2Entry1        = useSharedValue(0);
+  const s2Entry2        = useSharedValue(0);
+  const s2Entry3        = useSharedValue(0);
+  const s2Entry4        = useSharedValue(0);
+  const confettiOpacity = useSharedValue(1);
+  const filesAnim       = useSharedValue(0);
+  // Stage-specific animation SVs
+  const docScanPhase    = useSharedValue(0);
+  const chip1sv         = useSharedValue(0);
+  const chip2sv         = useSharedValue(0);
+  const chip3sv         = useSharedValue(0);
+  const chip4sv         = useSharedValue(0);
+  const chip5sv         = useSharedValue(0);
+  const chip6sv         = useSharedValue(0);
+  const check1sv        = useSharedValue(0);
+  const check2sv        = useSharedValue(0);
+  const check3sv        = useSharedValue(0);
 
   // ── Animated styles (ALL unconditional) ───────────────────────
-  const stageAnimStyle  = useAnimatedStyle(() => ({
+  const stageAnimStyle    = useAnimatedStyle(() => ({
     opacity: stageOpacity.value,
     transform: [{ scale: stageScale.value }],
   }));
   const progressFillStyle = useAnimatedStyle(() => ({ width: `${progressFill.value * 100}%` as any }));
-  const motivAnimStyle  = useAnimatedStyle(() => ({ opacity: motivOpacity.value }));
-  const celebScaleAnim  = useAnimatedStyle(() => ({ transform: [{ scale: celebScale.value }] }));
-  const celebPulseAnim  = useAnimatedStyle(() => ({ transform: [{ scale: celebPulse.value }] }));
-  const ctaPulseAnim    = useAnimatedStyle(() => ({
+  const celebScaleAnim    = useAnimatedStyle(() => ({ transform: [{ scale: celebScale.value }] }));
+  const celebPulseAnim    = useAnimatedStyle(() => ({ transform: [{ scale: celebPulse.value }] }));
+  const ctaPulseAnim      = useAnimatedStyle(() => ({
     transform: [{ scale: 1 + ctaPulse.value * 0.013 }],
-    shadowOpacity: 0.22 + ctaPulse.value * 0.14,
   }));
   const s2Entry1Style = useAnimatedStyle(() => ({
     opacity: s2Entry1.value,
@@ -322,20 +339,32 @@ export default function UploadFlowScreen() {
     opacity: s2Entry4.value,
     transform: [{ translateY: (1 - s2Entry4.value) * 18 }],
   }));
-  const iconPulseStyle  = useAnimatedStyle(() => ({ transform: [{ scale: iconPulse.value }] }));
-  const iconRotateStyle = useAnimatedStyle(() => ({ transform: [{ rotate: `${iconRotate.value}deg` }] }));
-  const iconGlowStyle   = useAnimatedStyle(() => ({
-    shadowOpacity: iconGlow.value * 0.45,
-    shadowRadius:  8 + iconGlow.value * 10,
-    shadowColor:   BRAND,
-    shadowOffset:  { width: 0, height: 0 },
-    elevation:     iconGlow.value * 10,
-  }));
-  const confettiStyle   = useAnimatedStyle(() => ({ opacity: confettiOpacity.value }));
-  const filesAnimStyle    = useAnimatedStyle(() => ({
+  const confettiStyle  = useAnimatedStyle(() => ({ opacity: confettiOpacity.value }));
+  const filesAnimStyle = useAnimatedStyle(() => ({
     opacity:   filesAnim.value,
     transform: [{ translateY: (1 - filesAnim.value) * 8 }],
   }));
+  // Doc scan — 3 lines cycle through highlight
+  const docLine1Style = useAnimatedStyle(() => ({
+    backgroundColor: docScanPhase.value < 0.34 ? BRAND : 'rgba(155,149,166,0.22)',
+  }));
+  const docLine2Style = useAnimatedStyle(() => ({
+    backgroundColor: docScanPhase.value >= 0.34 && docScanPhase.value < 0.67 ? BRAND : 'rgba(155,149,166,0.22)',
+  }));
+  const docLine3Style = useAnimatedStyle(() => ({
+    backgroundColor: docScanPhase.value >= 0.67 ? BRAND : 'rgba(155,149,166,0.22)',
+  }));
+  // Concept chips — fade + slide in
+  const chip1Style = useAnimatedStyle(() => ({ opacity: chip1sv.value, transform: [{ translateY: (1 - chip1sv.value) * 12 }] }));
+  const chip2Style = useAnimatedStyle(() => ({ opacity: chip2sv.value, transform: [{ translateY: (1 - chip2sv.value) * 12 }] }));
+  const chip3Style = useAnimatedStyle(() => ({ opacity: chip3sv.value, transform: [{ translateY: (1 - chip3sv.value) * 12 }] }));
+  const chip4Style = useAnimatedStyle(() => ({ opacity: chip4sv.value, transform: [{ translateY: (1 - chip4sv.value) * 12 }] }));
+  const chip5Style = useAnimatedStyle(() => ({ opacity: chip5sv.value, transform: [{ translateY: (1 - chip5sv.value) * 12 }] }));
+  const chip6Style = useAnimatedStyle(() => ({ opacity: chip6sv.value, transform: [{ translateY: (1 - chip6sv.value) * 12 }] }));
+  // Checklist + preparing lines — scale + fade in
+  const check1Style = useAnimatedStyle(() => ({ opacity: check1sv.value, transform: [{ scale: 0.85 + check1sv.value * 0.15 }] }));
+  const check2Style = useAnimatedStyle(() => ({ opacity: check2sv.value, transform: [{ scale: 0.85 + check2sv.value * 0.15 }] }));
+  const check3Style = useAnimatedStyle(() => ({ opacity: check3sv.value, transform: [{ scale: 0.85 + check3sv.value * 0.15 }] }));
 
   // ── Effects ────────────────────────────────────────────────────
 
@@ -375,8 +404,6 @@ export default function UploadFlowScreen() {
     currentStageRef.current   = 0;
     progressTargetRef.current = 0;
     setStageIdx(0);
-    setMotivIdx(0);
-    motivOpacity.value = 1;
 
     // Progress: jump to stage-0 target immediately, then advance per stage
     progressFill.value = 0;
@@ -390,10 +417,8 @@ export default function UploadFlowScreen() {
           const next = (currentStageRef.current + 1) % GEN_STAGES.length;
           currentStageRef.current = next;
           runOnJS(setStageIdx)(next);
-          runOnJS(setMotivIdx)(next % MOTIV_PILLS.length);
           stageOpacity.value = withTiming(1, { duration: 280 });
           stageScale.value   = withSpring(1, { damping: 14, stiffness: 200 });
-          motivOpacity.value = withTiming(1, { duration: 350 });
           const target = STAGE_PROGRESS[Math.min(next, STAGE_PROGRESS.length - 1)];
           if (target > progressTargetRef.current) {
             progressTargetRef.current = target;
@@ -401,8 +426,7 @@ export default function UploadFlowScreen() {
           }
         }
       });
-      stageScale.value  = withTiming(0.82, { duration: 220 });
-      motivOpacity.value = withTiming(0, { duration: 220 });
+      stageScale.value = withTiming(0.82, { duration: 220 });
     }, 2500);
 
     return () => { clearInterval(stageInterval); };
@@ -551,59 +575,36 @@ export default function UploadFlowScreen() {
     filesAnim.value = hasFiles ? withTiming(1, { duration: 260 }) : 0;
   }, [hasFiles]);
 
-  // Per-stage icon microanimation
+  // Per-stage content animations
   useEffect(() => {
     if (step !== 1) return;
-    iconPulse.value  = 1;
-    iconRotate.value = 0;
-    iconGlow.value   = 0;
+    docScanPhase.value = 0;
+    chip1sv.value = 0; chip2sv.value = 0; chip3sv.value = 0;
+    chip4sv.value = 0; chip5sv.value = 0; chip6sv.value = 0;
+    check1sv.value = 0; check2sv.value = 0; check3sv.value = 0;
+
     if (stageIdx === 0) {
-      iconPulse.value = withRepeat(
-        withSequence(
-          withTiming(1.07, { duration: 900, easing: Easing.inOut(Easing.sin) }),
-          withTiming(1.00, { duration: 900, easing: Easing.inOut(Easing.sin) }),
-        ), -1, false,
+      docScanPhase.value = withRepeat(
+        withTiming(1, { duration: 1800, easing: Easing.linear }), -1, false,
       );
     } else if (stageIdx === 1) {
-      iconPulse.value = withRepeat(
-        withSequence(
-          withTiming(1.04, { duration: 1100, easing: Easing.inOut(Easing.sin) }),
-          withTiming(1.00, { duration: 1100, easing: Easing.inOut(Easing.sin) }),
-        ), -1, false,
-      );
-      iconGlow.value = withRepeat(
-        withSequence(
-          withTiming(1,   { duration: 1000 }),
-          withTiming(0.3, { duration: 1000 }),
-        ), -1, false,
-      );
+      const sp = { damping: 16, stiffness: 190 };
+      chip1sv.value = withSpring(1, sp);
+      chip2sv.value = withDelay(140, withSpring(1, sp));
+      chip3sv.value = withDelay(280, withSpring(1, sp));
+      chip4sv.value = withDelay(420, withSpring(1, sp));
+      chip5sv.value = withDelay(560, withSpring(1, sp));
+      chip6sv.value = withDelay(700, withSpring(1, sp));
     } else if (stageIdx === 2) {
-      iconPulse.value = withRepeat(
-        withSequence(
-          withTiming(1.08, { duration: 700, easing: Easing.out(Easing.cubic) }),
-          withTiming(1.00, { duration: 700, easing: Easing.in(Easing.cubic) }),
-        ), -1, false,
-      );
-      iconRotate.value = withRepeat(
-        withSequence(
-          withTiming(10,  { duration: 600, easing: Easing.inOut(Easing.sin) }),
-          withTiming(-10, { duration: 600, easing: Easing.inOut(Easing.sin) }),
-          withTiming(0,   { duration: 300, easing: Easing.inOut(Easing.sin) }),
-        ), -1, false,
-      );
+      const sp = { damping: 18, stiffness: 210 };
+      check1sv.value = withDelay(200,  withSpring(1, sp));
+      check2sv.value = withDelay(680,  withSpring(1, sp));
+      check3sv.value = withDelay(1160, withSpring(1, sp));
     } else {
-      iconPulse.value = withRepeat(
-        withSequence(
-          withTiming(1.10, { duration: 350, easing: Easing.out(Easing.cubic) }),
-          withTiming(1.00, { duration: 350, easing: Easing.in(Easing.cubic) }),
-        ), -1, false,
-      );
-      iconGlow.value = withRepeat(
-        withSequence(
-          withTiming(1,   { duration: 350 }),
-          withTiming(0.2, { duration: 350 }),
-        ), -1, false,
-      );
+      const sp = { damping: 18, stiffness: 210 };
+      check1sv.value = withDelay(150,  withSpring(1, sp));
+      check2sv.value = withDelay(650,  withSpring(1, sp));
+      check3sv.value = withDelay(1150, withSpring(1, sp));
     }
   }, [stageIdx, step]);
 
@@ -652,19 +653,14 @@ export default function UploadFlowScreen() {
   };
 
   // ══════════════════════════════════════════════════════════════
-  // SCREEN 2 — Tu entrenamiento está listo
+  // SCREEN 2 — Tu misión está lista
   // ══════════════════════════════════════════════════════════════
   if (step === 2) {
     const s = completedSession;
-    const allTopics: string[] = s?.summary?.slides?.map((sl: any) => sl.title) ?? [
-      'Conceptos del tema',
-      'Ideas principales',
-      'Material estudiado',
-    ];
-    const visibleTopics = allTopics.slice(0, 3);
-    const extraCount    = Math.max(0, allTopics.length - 3);
-    const xp   = s?.xpReward  ?? 45;
-    const gems = s?.gemReward ?? 10;
+    const allTopics: string[] = s?.summary?.slides?.map((sl: any) => sl.title) ?? [];
+    const conceptCount = allTopics.length || 8;
+    const xp     = s?.xpReward         ?? 60;
+    const estMin = s?.estimatedDuration ?? 25;
 
     return (
       <SafeAreaView style={{ flex: 1, backgroundColor: BG }} edges={['top']}>
@@ -678,99 +674,87 @@ export default function UploadFlowScreen() {
         {/* Header */}
         <View style={sh.header}>
           <Pressable onPress={handleBack} style={sh.iconBtn} hitSlop={10}>
-            <ArrowLeft size={16} color={Colors.ink} strokeWidth={2.5} />
+            <ArrowLeft size={16} color={semantic.textPrimary} strokeWidth={2.5} />
           </Pressable>
           <ShimmerProgress step={step} />
           <Pressable onPress={handleClose} style={sh.iconBtn} hitSlop={10}>
-            <X size={16} color={Colors.ink} strokeWidth={2.5} />
+            <X size={16} color={semantic.textPrimary} strokeWidth={2.5} />
           </Pressable>
         </View>
 
-        {/* Content */}
-        <View style={[s2.content, { paddingBottom: insets.bottom + 24 }]}>
-
-          {/* 1. Hero */}
+        {/* Scrollable content */}
+        <ScrollView
+          style={{ flex: 1 }}
+          contentContainerStyle={s2.scrollContent}
+          showsVerticalScrollIndicator={false}
+        >
+          {/* Hero */}
           <Animated.View style={[s2.heroBlock, s2Entry1Style]}>
             <Animated.View style={celebScaleAnim}>
               <Animated.View style={celebPulseAnim}>
-                <Text style={s2.heroEmoji}>🎉</Text>
+                <Text style={s2.heroEmoji}>🚀</Text>
               </Animated.View>
             </Animated.View>
-            <Text style={s2.title}>
-              {completedMissions.length > 1
-                ? `¡${completedMissions.length} misiones generadas!`
-                : '¡Tu entrenamiento está listo!'}
-            </Text>
+            <Text style={s2.title}>Tu misión está lista</Text>
+            <Text style={s2.titleSub}>Generada a partir de tus apuntes</Text>
           </Animated.View>
 
-          {/* 2. Compact success badge */}
-          <Animated.View style={[s2.successBadge, s2Entry2Style]}>
-            <Text style={s2.successText}>
-              {completedMissions.length > 1
-                ? `✅ ${completedMissions.length} misiones · ruta de aprendizaje lista`
-                : '✅ Entrenamiento listo'}
-            </Text>
-          </Animated.View>
-
-          {/* 3. Rewards row */}
-          <Animated.View style={[s2.rewardsRow, s2Entry2Style]}>
-            <View style={s2.rewardCard}>
-              <Text style={s2.rewardEmoji}>⚡</Text>
-              <Text style={s2.rewardVal}>+{xp}</Text>
-              <Text style={s2.rewardLbl}>XP</Text>
+          {/* Stats hero card */}
+          <Animated.View style={[s2.statsCard, s2Entry2Style]}>
+            <View style={s2.statItem}>
+              <Text style={s2.statEmoji}>⏱</Text>
+              <Text style={s2.statValue}>{estMin} min</Text>
+              <Text style={s2.statLabel}>estimados</Text>
             </View>
-            <View style={s2.rewardCard}>
-              <Text style={s2.rewardEmoji}>💎</Text>
-              <Text style={s2.rewardVal}>+{gems}</Text>
-              <Text style={s2.rewardLbl}>Gemas</Text>
+            <View style={s2.statDivider} />
+            <View style={s2.statItem}>
+              <Text style={s2.statEmoji}>⚡</Text>
+              <Text style={s2.statValue}>+{xp}</Text>
+              <Text style={s2.statLabel}>XP</Text>
             </View>
-            <View style={s2.rewardCard}>
-              <Text style={s2.rewardEmoji}>🔥</Text>
-              <Text style={s2.rewardVal}>Racha</Text>
-              <Text style={s2.rewardLbl}>activa</Text>
+            <View style={s2.statDivider} />
+            <View style={s2.statItem}>
+              <Text style={s2.statEmoji}>🎯</Text>
+              <Text style={s2.statValue}>3</Text>
+              <Text style={s2.statLabel}>modos</Text>
             </View>
           </Animated.View>
 
-          {/* 4. Topics */}
-          <Animated.View style={s2Entry3Style}>
-            <Text style={s2.sectionLabel}>📚 Temas que aprenderás</Text>
-            <View style={s2.chipsWrap}>
-              {visibleTopics.map((topic, i) => (
-                <View key={i} style={s2.topicChip}>
-                  <Text style={s2.topicChipText} numberOfLines={1}>{topic}</Text>
-                </View>
-              ))}
-              {extraCount > 0 && (
-                <View style={s2.topicChipMore}>
-                  <Text style={s2.topicChipMoreText}>+{extraCount} más</Text>
-                </View>
-              )}
+          {/* Concepts detected */}
+          <Animated.View style={[s2.conceptsRow, s2Entry3Style]}>
+            <View style={s2.conceptsBadge}>
+              <Text style={s2.conceptsBadgeText}>🔍 {conceptCount} conceptos clave detectados</Text>
             </View>
           </Animated.View>
 
-          {/* 5. Session preview */}
+          {/* Study modes */}
           <Animated.View style={s2Entry4Style}>
-            <Text style={s2.sectionLabel}>📦 Esta sesión incluye</Text>
-            <View style={s2.previewRow}>
-              {(['📚 Resumen', '🧠 Quiz', '🃏 Tarjetas', '⚡ XP'] as const).map(chip => (
-                <View key={chip} style={s2.previewChip}>
-                  <Text style={s2.previewChipText}>{chip}</Text>
+            <Text style={s2.modesLabel}>Modos de estudio</Text>
+            <View style={s2.modesRow}>
+              {([
+                { emoji: '📚', label: 'Misión' },
+                { emoji: '🧠', label: 'Quiz' },
+                { emoji: '🃏', label: 'Tarjetas' },
+              ] as const).map(({ emoji, label }) => (
+                <View key={label} style={s2.modeCard}>
+                  <Text style={s2.modeEmoji}>{emoji}</Text>
+                  <Text style={s2.modeLabel}>{label}</Text>
                 </View>
               ))}
             </View>
           </Animated.View>
-        </View>
+        </ScrollView>
 
-        {/* CTA */}
+        {/* CTA — sticky bottom */}
         <View style={[sh.bottom, { paddingBottom: insets.bottom + 12 }]}>
           <Pressable onPress={handleStart} style={{ width: '100%' }}>
             <Animated.View style={ctaPulseAnim}>
-              <LinearGradient colors={[...GRAD_UPLOAD]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={sh.ctaBtn}>
-                <Text style={sh.ctaText}>⚡ Practicar ahora</Text>
-              </LinearGradient>
+              <View style={[sh.ctaBtn, { backgroundColor: LIME }]}>
+                <Text style={[sh.ctaText, { color: palette.charcoal }]}>⚡ Comenzar misión</Text>
+              </View>
             </Animated.View>
           </Pressable>
-          <Pressable hitSlop={12} style={{ marginTop: 10 }}>
+          <Pressable hitSlop={12} style={{ marginTop: 10, alignItems: 'center' }}>
             <Text style={s2.saveLink}>Guardar para después</Text>
           </Pressable>
         </View>
@@ -783,7 +767,8 @@ export default function UploadFlowScreen() {
   // ══════════════════════════════════════════════════════════════
   if (step === 1) {
     const stage = GEN_STAGES[stageIdx];
-    const { Icon } = stage;
+    const chipStyles = [chip1Style, chip2Style, chip3Style, chip4Style, chip5Style, chip6Style];
+    const checkStyles = [check1Style, check2Style, check3Style];
 
     return (
       <SafeAreaView style={{ flex: 1, backgroundColor: BG }} edges={['top']}>
@@ -791,27 +776,77 @@ export default function UploadFlowScreen() {
 
         <View style={sh.header}>
           <Pressable onPress={handleBack} style={sh.iconBtn} hitSlop={10}>
-            <ArrowLeft size={16} color={Colors.ink} strokeWidth={2.5} />
+            <ArrowLeft size={16} color={semantic.textPrimary} strokeWidth={2.5} />
           </Pressable>
           <ShimmerProgress step={step} progressValue={progressFill} />
           <Pressable onPress={handleClose} style={sh.iconBtn} hitSlop={10}>
-            <X size={16} color={Colors.ink} strokeWidth={2.5} />
+            <X size={16} color={semantic.textPrimary} strokeWidth={2.5} />
           </Pressable>
         </View>
 
-        {/* Main content — single unified block */}
         <View style={[s1.centerWrap, { paddingBottom: insets.bottom + 100 }]}>
 
-          {/* Icon + title + sub — animated between stages */}
+          {/* Stage block — fades between stages */}
           <Animated.View style={[s1.stageBlock, stageAnimStyle]}>
-            <Animated.View style={[s1.iconWrap, iconGlowStyle]}>
-              <Animated.View style={iconPulseStyle}>
-                <Animated.View style={iconRotateStyle}>
-                  <Icon size={56} color={BRAND} strokeWidth={1.5} />
-                </Animated.View>
-              </Animated.View>
-            </Animated.View>
             <Text style={s1.stageTitle}>{stage.title}</Text>
+
+            {/* Stage 0: document scan */}
+            {stageIdx === 0 && (
+              <View style={s1.docCard}>
+                <View style={s1.docCardHeader}>
+                  <FileText size={13} color={BRAND} strokeWidth={2} />
+                  <Text style={s1.docCardName} numberOfLines={1}>
+                    {selectedFiles[0]?.name ?? 'apuntes.pdf'}
+                  </Text>
+                </View>
+                <View style={s1.docLines}>
+                  <Animated.View style={[s1.docLine, s1.docLineLong, docLine1Style]} />
+                  <Animated.View style={[s1.docLine, s1.docLineMed,  docLine2Style]} />
+                  <Animated.View style={[s1.docLine, s1.docLineLong, docLine3Style]} />
+                  <View style={[s1.docLine, s1.docLineMed,  { backgroundColor: 'rgba(155,149,166,0.18)' }]} />
+                  <View style={[s1.docLine, s1.docLineShort, { backgroundColor: 'rgba(155,149,166,0.18)' }]} />
+                </View>
+              </View>
+            )}
+
+            {/* Stage 1: concept chips */}
+            {stageIdx === 1 && (
+              <View style={s1.chipsGrid}>
+                {CONCEPT_CHIPS.map((chip, i) => (
+                  <Animated.View key={chip} style={[s1.conceptChip, chipStyles[i]]}>
+                    <Text style={s1.conceptChipText}>{chip}</Text>
+                  </Animated.View>
+                ))}
+              </View>
+            )}
+
+            {/* Stage 2: content checklist */}
+            {stageIdx === 2 && (
+              <View style={s1.checkList}>
+                {BUILDING_ITEMS.map(({ emoji, label }, i) => (
+                  <Animated.View key={label} style={[s1.checkItem, checkStyles[i]]}>
+                    <View style={s1.checkCircle}>
+                      <Check size={11} color={palette.blanco} strokeWidth={3} />
+                    </View>
+                    <Text style={s1.checkItemText}>{emoji} {label}</Text>
+                  </Animated.View>
+                ))}
+              </View>
+            )}
+
+            {/* Stage 3: preparing — items appear one by one */}
+            {stageIdx === 3 && (
+              <View style={s1.checkList}>
+                {PREPARING_LINES.map((line, i) => (
+                  <Animated.View key={line} style={[s1.checkItem, checkStyles[i]]}>
+                    <View style={s1.preparingDot} />
+                    <Text style={s1.preparingItemText}>{line}</Text>
+                  </Animated.View>
+                ))}
+              </View>
+            )}
+
+            {/* Sub-text */}
             <Text style={s1.stageSub}>{stage.sub}</Text>
           </Animated.View>
 
@@ -819,18 +854,11 @@ export default function UploadFlowScreen() {
           <View style={s1.progressGroup}>
             <View style={s1.progressTrack}>
               <Animated.View style={[s1.progressFillWrap, progressFillStyle]}>
-                <LinearGradient colors={[BRAND, NEON]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={{ flex: 1, borderRadius: 99 }} />
+                <View style={{ flex: 1, borderRadius: 99, backgroundColor: BRAND }} />
               </Animated.View>
             </View>
             <Text style={s1.progressPct}>{displayPct}%</Text>
           </View>
-
-          {/* Reward pill — synced with stage, or active mission label */}
-          <Animated.View style={[s1.motivPill, motivAnimStyle]}>
-            <Text style={s1.motivPillText}>
-              {activeMissionLabel ? `⚡ Misión ${activeMissionLabel}` : MOTIV_PILLS[motivIdx]}
-            </Text>
-          </Animated.View>
         </View>
 
         {/* Error overlay */}
@@ -844,9 +872,9 @@ export default function UploadFlowScreen() {
                 onPress={() => { setStep(0); setGenerationError(null); }}
                 style={s1.errorPrimaryWrap}
               >
-                <LinearGradient colors={[...GRAD_UPLOAD]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={s1.errorPrimaryBtn}>
+                <View style={[s1.errorPrimaryBtn, { backgroundColor: BRAND }]}>
                   <Text style={s1.errorPrimaryText}>Elegir otro archivo</Text>
-                </LinearGradient>
+                </View>
               </Pressable>
             </View>
           </View>
@@ -856,7 +884,7 @@ export default function UploadFlowScreen() {
   }
 
   // ══════════════════════════════════════════════════════════════
-  // SCREEN 0 — Sube tus documentos
+  // SCREEN 0 — Crea tu misión
   // ══════════════════════════════════════════════════════════════
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: BG }} edges={['top']}>
@@ -864,11 +892,11 @@ export default function UploadFlowScreen() {
 
       <View style={sh.header}>
         <Pressable onPress={handleClose} style={sh.iconBtn} hitSlop={10}>
-          <ArrowLeft size={16} color={Colors.ink} strokeWidth={2.5} />
+          <ArrowLeft size={16} color={semantic.textPrimary} strokeWidth={2.5} />
         </Pressable>
         <ShimmerProgress step={step} />
         <Pressable onPress={handleClose} style={sh.iconBtn} hitSlop={10}>
-          <X size={16} color={Colors.ink} strokeWidth={2.5} />
+          <X size={16} color={semantic.textPrimary} strokeWidth={2.5} />
         </Pressable>
       </View>
 
@@ -878,61 +906,99 @@ export default function UploadFlowScreen() {
         showsVerticalScrollIndicator={false}
       >
         {/* Title */}
-        <Text style={s0.title}>Sube tus apuntes</Text>
-        <Text style={s0.tagline}>Convierte tus apuntes en una sesión interactiva de estudio.</Text>
-
-        {/* Benefits label + chips */}
-        <Text style={s0.benefitsLabel}>✨ Tu sesión incluirá</Text>
-        <View style={s0.chipsRow}>
-          {UPLOAD_CHIPS.map(chip => (
-            <View key={chip} style={s0.chip}>
-              <Text style={s0.chipText}>{chip}</Text>
-            </View>
-          ))}
-        </View>
+        <Text style={s0.title}>Convierte tus apuntes{'\n'}en una misión</Text>
+        <Text style={s0.tagline}>NEMup creará una misión personalizada, un quiz y tarjetas interactivas para ayudarte a estudiar.</Text>
 
         {!hasFiles ? (
           <>
-            {/* Empty state with benefits */}
-            <View style={s0.emptyBlock}>
-              <Text style={s0.emptyIcon}>📚</Text>
-              <Text style={s0.emptyTitle}>Sube un documento para comenzar</Text>
-              <Text style={s0.emptySub}>NEMup creará una sesión personalizada en menos de un minuto.</Text>
-              <View style={s0.benefitsList}>
-                {EMPTY_BENEFITS.map(({ Icon, label }) => (
-                  <View key={label} style={s0.benefitRow}>
-                    <View style={s0.benefitIconWrap}>
-                      <Icon size={13} color={BRAND} strokeWidth={2.2} />
+            {/* Central flow visual */}
+            <View style={s0.flowCard}>
+              {/* Node: document */}
+              <View style={s0.flowNodeRow}>
+                <View style={s0.flowNodeIcon}>
+                  <FileText size={20} color={BRAND} strokeWidth={1.8} />
+                </View>
+                <Text style={s0.flowNodeLabel}>Tus apuntes</Text>
+              </View>
+
+              <View style={s0.flowConnector}>
+                <View style={s0.flowConnectorLine} />
+                <ChevronDown size={14} color={palette.grisClaro} strokeWidth={2} style={{ marginTop: -6 }} />
+              </View>
+
+              {/* Node: AI */}
+              <View style={s0.flowNodeRow}>
+                <View style={[s0.flowNodeIcon, s0.flowNodeIconAi]}>
+                  <Bot size={20} color={palette.blanco} strokeWidth={1.8} />
+                </View>
+                <View>
+                  <Text style={s0.flowAiLabel}>NEMup IA</Text>
+                  <Text style={s0.flowAiSub}>Analiza y crea contenido</Text>
+                </View>
+              </View>
+
+              <View style={s0.flowConnector}>
+                <View style={s0.flowConnectorLine} />
+                <ChevronDown size={14} color={palette.grisClaro} strokeWidth={2} style={{ marginTop: -6 }} />
+              </View>
+
+              {/* Output trio */}
+              <View style={s0.flowOutputRow}>
+                {([
+                  { Icon: BookOpen, label: 'Misión' },
+                  { Icon: Brain,    label: 'Quiz' },
+                  { Icon: Layers,   label: 'Tarjetas' },
+                ] as const).map(({ Icon, label }) => (
+                  <View key={label} style={s0.flowOutput}>
+                    <View style={s0.flowOutputIcon}>
+                      <Icon size={16} color={BRAND} strokeWidth={2} />
                     </View>
-                    <Text style={s0.benefitText}>{label}</Text>
+                    <Text style={s0.flowOutputLabel}>{label}</Text>
                   </View>
                 ))}
               </View>
-              <Text style={s0.trustLine}>Más de 1.200 sesiones creadas por estudiantes</Text>
+            </View>
+
+            {/* Benefits */}
+            <View style={s0.benefitsList}>
+              {EMPTY_BENEFITS.map(({ Icon, label }) => (
+                <View key={label} style={s0.benefitRow}>
+                  <View style={s0.benefitIconWrap}>
+                    <Icon size={13} color={BRAND} strokeWidth={2.2} />
+                  </View>
+                  <Text style={s0.benefitText}>{label}</Text>
+                </View>
+              ))}
             </View>
 
             {!!uploadError && <Text style={s0.error}>{uploadError}</Text>}
 
             {/* Primary CTA */}
             <Pressable onPress={handleFilePick} style={s0.primaryBtnWrap}>
-              <LinearGradient colors={[...GRAD_UPLOAD]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={s0.primaryBtn}>
-                <Text style={s0.primaryBtnText}>🚀 Subir apuntes</Text>
-              </LinearGradient>
+              <View style={[s0.primaryBtn, { backgroundColor: BRAND }]}>
+                <FileText size={16} color={palette.blanco} strokeWidth={2.2} style={{ marginRight: 6 }} />
+                <Text style={s0.primaryBtnText}>Subir apuntes</Text>
+              </View>
             </Pressable>
 
             {/* Secondary CTA */}
             <Pressable style={s0.cameraBtn} onPress={handleCameraPick}>
-              <Text style={s0.cameraBtnText}>📷 Tomar foto</Text>
+              <Text style={s0.cameraBtnText}>Tomar foto</Text>
             </Pressable>
           </>
         ) : (
           <Animated.View style={filesAnimStyle}>
-            {/* Selection summary */}
-            <View style={s0.summaryBlock}>
-              <Text style={s0.summaryCheck}>✅ Todo listo para practicar</Text>
-              <Text style={s0.summarySub}>
-                {selectedFiles.length} {selectedFiles.length === 1 ? 'documento cargado' : 'documentos cargados'}
-              </Text>
+            {/* Compact success state */}
+            <View style={s0.compactSuccess}>
+              <View style={s0.compactSuccessCheck}>
+                <Check size={14} color={palette.blanco} strokeWidth={3} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={s0.compactSuccessTitle}>
+                  {selectedFiles.length === 1 ? 'Documento cargado' : `${selectedFiles.length} documentos cargados`}
+                </Text>
+                <Text style={s0.compactSuccessSub}>Todo listo para crear tu misión.</Text>
+              </View>
             </View>
 
             {/* File card(s) */}
@@ -944,7 +1010,7 @@ export default function UploadFlowScreen() {
                   <Text style={s0.fileCardMeta}>{file.sizeText}</Text>
                 </View>
                 <Pressable onPress={() => removeFile(file.uri)} hitSlop={8} style={s0.removeBtn}>
-                  <X size={13} color={Colors.muted} strokeWidth={2.5} />
+                  <X size={13} color={semantic.textTertiary} strokeWidth={2.5} />
                 </Pressable>
               </View>
             ))}
@@ -955,10 +1021,10 @@ export default function UploadFlowScreen() {
               <Text style={s0.addMoreText}>Agregar otro documento</Text>
             </Pressable>
 
-            {/* Session preview card */}
+            {/* Session preview */}
             <View style={s0.sessionCard}>
-              <Text style={s0.sessionCardTitle}>🎯 Tu sesión tendrá</Text>
-              {EMPTY_BENEFITS.map(({ Icon, label }) => (
+              <Text style={s0.sessionCardTitle}>Tu misión incluirá</Text>
+              {SESSION_ITEMS.map(({ Icon, label }) => (
                 <View key={label} style={s0.sessionCardRow}>
                   <View style={s0.benefitIconWrap}>
                     <Icon size={13} color={BRAND} strokeWidth={2.2} />
@@ -975,13 +1041,10 @@ export default function UploadFlowScreen() {
 
       {hasFiles && (
         <Animated.View style={[sh.bottom, { paddingBottom: insets.bottom + 12, gap: 10 }, filesAnimStyle]}>
-          <View style={s0.xpRewardPill}>
-            <Text style={s0.xpRewardText}>⚡ Completa esta práctica para ganar XP</Text>
-          </View>
           <Pressable onPress={handleContinue} style={{ width: '100%' }}>
-            <LinearGradient colors={[...GRAD_UPLOAD]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={sh.ctaBtn}>
-              <Text style={sh.ctaText}>🚀 Crear sesión</Text>
-            </LinearGradient>
+            <View style={[sh.ctaBtn, { backgroundColor: BRAND }]}>
+              <Text style={sh.ctaText}>🚀 Crear misión</Text>
+            </View>
           </Pressable>
         </Animated.View>
       )}
@@ -992,117 +1055,138 @@ export default function UploadFlowScreen() {
 // ── Shared ────────────────────────────────────────────────────────
 const sh = StyleSheet.create({
   header:  { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 10 },
-  iconBtn: { width: 36, height: 36, borderRadius: 11, backgroundColor: 'white', borderWidth: 1, borderColor: Colors.line, alignItems: 'center', justifyContent: 'center', shadowColor: '#0B0B1A', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.06, shadowRadius: 5, elevation: 2 },
-  bottom:  { paddingHorizontal: 20, paddingTop: 12, borderTopWidth: 1, borderTopColor: Colors.line, backgroundColor: BG },
+  iconBtn: { width: 36, height: 36, borderRadius: 11, backgroundColor: palette.blanco, borderWidth: 1, borderColor: palette.bordeClaro, alignItems: 'center', justifyContent: 'center' },
+  bottom:  { paddingHorizontal: 20, paddingTop: 12, borderTopWidth: 1, borderTopColor: palette.bordeClaro, backgroundColor: BG },
   ctaBtn:  { paddingVertical: 17, borderRadius: 18, alignItems: 'center', justifyContent: 'center' },
-  ctaText: { fontSize: 16, fontWeight: '800', color: 'white' },
+  ctaText: { fontSize: 16, fontWeight: '800', color: palette.blanco },
 });
 
 // ── Screen 0 ──────────────────────────────────────────────────────
 const s0 = StyleSheet.create({
-  title:   { fontSize: SM ? 24 : 28, fontWeight: '900', color: Colors.ink, letterSpacing: -0.5, marginBottom: 6 },
-  tagline: { fontSize: 14, color: Colors.ink3, lineHeight: 21, marginBottom: 14 },
+  title:   { fontSize: SM ? 24 : 28, fontWeight: '900', color: semantic.textPrimary, letterSpacing: -0.5, marginBottom: 8, lineHeight: SM ? 30 : 34 },
+  tagline: { fontSize: 14, color: semantic.textSecondary, lineHeight: 21, marginBottom: 18 },
 
-  benefitsLabel: { fontSize: 12, fontWeight: '700', color: Colors.ink3, letterSpacing: 0.3, marginBottom: 8 },
-  chipsRow: { flexDirection: 'row', gap: 8, marginBottom: 16 },
-  chip:     { backgroundColor: 'rgba(91,61,245,0.07)', borderRadius: 20, paddingVertical: 6, paddingHorizontal: 13, borderWidth: 1, borderColor: 'rgba(91,61,245,0.14)' },
-  chipText: { fontSize: 13, fontWeight: '700', color: BRAND },
+  // Flow visual card
+  flowCard:          { backgroundColor: palette.blanco, borderRadius: 20, borderWidth: 1, borderColor: palette.bordeClaro, padding: 18, marginBottom: 16, alignItems: 'flex-start' },
+  flowNodeRow:       { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  flowNodeIcon:      { width: 40, height: 40, borderRadius: 12, backgroundColor: palette.moradoBg, alignItems: 'center', justifyContent: 'center' },
+  flowNodeIconAi:    { backgroundColor: BRAND },
+  flowNodeLabel:     { fontSize: 14, fontWeight: '700', color: semantic.textPrimary },
+  flowAiLabel:       { fontSize: 14, fontWeight: '700', color: semantic.textPrimary },
+  flowAiSub:         { fontSize: 12, color: semantic.textTertiary, marginTop: 1 },
+  flowConnector:     { alignItems: 'center', paddingLeft: 19, paddingVertical: 2 },
+  flowConnectorLine: { width: 1, height: 10, backgroundColor: palette.bordeMedio },
+  flowOutputRow:     { flexDirection: 'row', gap: 8, marginTop: 2, width: '100%' },
+  flowOutput:        { flex: 1, alignItems: 'center', gap: 5, backgroundColor: palette.moradoBg, borderRadius: 12, paddingVertical: 10 },
+  flowOutputIcon:    { width: 30, height: 30, borderRadius: 9, backgroundColor: 'rgba(91,61,245,0.12)', alignItems: 'center', justifyContent: 'center' },
+  flowOutputLabel:   { fontSize: 12, fontWeight: '700', color: BRAND },
 
-  emptyBlock: { borderRadius: 24, backgroundColor: '#F8F6FF', borderWidth: 1, borderColor: 'rgba(91,61,245,0.1)', paddingVertical: 20, paddingHorizontal: 22, alignItems: 'center', marginBottom: 20, justifyContent: 'center' },
-  emptyIcon:  { fontSize: 44, marginBottom: 10 },
-  emptyTitle: { fontSize: SM ? 15 : 17, fontWeight: '800', color: Colors.ink, letterSpacing: -0.3, textAlign: 'center', marginBottom: 6 },
-  emptySub:   { fontSize: 13, color: Colors.ink3, lineHeight: 19, textAlign: 'center' },
+  // Benefits list
+  benefitsList:    { gap: 8, marginBottom: 18 },
+  benefitRow:      { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  benefitIconWrap: { width: 28, height: 28, borderRadius: 9, backgroundColor: 'rgba(91,61,245,0.08)', alignItems: 'center', justifyContent: 'center' },
+  benefitText:     { fontSize: 14, color: semantic.textPrimary, fontWeight: '600', flex: 1 },
 
-  benefitsList:   { width: '100%', marginTop: 14, gap: 8 },
-  benefitRow:     { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  benefitIconWrap:{ width: 24, height: 24, borderRadius: 8, backgroundColor: 'rgba(91,61,245,0.10)', alignItems: 'center', justifyContent: 'center' },
-  benefitText:    { fontSize: 13, color: Colors.ink, fontWeight: '700', flex: 1 },
-  trustLine:      { fontSize: 11, color: Colors.muted, textAlign: 'center', marginTop: 14, fontWeight: '500' },
+  error: { color: palette.rojoError, fontSize: 12, fontWeight: '700', marginBottom: 10 },
 
-  primaryBtnWrap:  { width: '100%', marginBottom: 12 },
-  primaryBtn:      { paddingVertical: 19, borderRadius: 18, alignItems: 'center', justifyContent: 'center', shadowColor: '#5B3DF5', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.45, shadowRadius: 20, elevation: 10 },
-  primaryBtnText:  { fontSize: 17, fontWeight: '900', color: 'white', letterSpacing: 0.2 },
+  primaryBtnWrap: { width: '100%', marginBottom: 10 },
+  primaryBtn:     { paddingVertical: 17, borderRadius: 18, alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: 6 },
+  primaryBtnText: { fontSize: 16, fontWeight: '800', color: palette.blanco },
 
-  cameraBtn:     { backgroundColor: 'white', borderRadius: 14, borderWidth: 1.5, borderColor: 'rgba(91,61,245,0.2)', paddingVertical: 15, alignItems: 'center', marginBottom: 14 },
-  cameraBtnText: { fontSize: 14, fontWeight: '700', color: BRAND },
+  cameraBtn:     { borderRadius: 14, borderWidth: 1, borderColor: palette.bordeMedio, paddingVertical: 15, alignItems: 'center', marginBottom: 14, backgroundColor: palette.crema },
+  cameraBtnText: { fontSize: 14, fontWeight: '600', color: semantic.textSecondary },
 
-  error: { color: Colors.rose, fontSize: 12, fontWeight: '700', marginBottom: 10 },
+  // Loaded state
+  compactSuccess:      { flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: 'rgba(29,158,117,0.07)', borderRadius: 14, borderWidth: 1, borderColor: 'rgba(29,158,117,0.2)', paddingVertical: 11, paddingHorizontal: 14, marginBottom: 12 },
+  compactSuccessCheck: { width: 26, height: 26, borderRadius: 13, backgroundColor: palette.verde, alignItems: 'center', justifyContent: 'center' },
+  compactSuccessTitle: { fontSize: 14, fontWeight: '800', color: semantic.textPrimary },
+  compactSuccessSub:   { fontSize: 12, color: semantic.textSecondary, marginTop: 1 },
 
-  summaryBlock: { backgroundColor: '#F0EDFF', borderRadius: 16, borderWidth: 1, borderColor: 'rgba(91,61,245,0.15)', paddingVertical: 12, paddingHorizontal: 16, marginBottom: 12 },
-  summaryCheck: { fontSize: 14, fontWeight: '800', color: Colors.ink, marginBottom: 2 },
-  summarySub:   { fontSize: 12, color: Colors.ink3, fontWeight: '600' },
-
-  fileCard:     { flexDirection: 'row', alignItems: 'center', backgroundColor: 'white', borderRadius: 16, borderWidth: 1, borderColor: Colors.line, paddingVertical: 10, paddingHorizontal: 14, gap: 12, shadowColor: '#0B0B1A', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 8, elevation: 2, marginBottom: 8 },
-  fileCardName: { fontSize: 13, fontWeight: '700', color: Colors.ink, marginBottom: 1 },
-  fileCardMeta: { fontSize: 11, color: Colors.muted },
-  removeBtn:    { width: 26, height: 26, borderRadius: 8, backgroundColor: Colors.bgSoft, alignItems: 'center', justifyContent: 'center' },
+  fileCard:     { flexDirection: 'row', alignItems: 'center', backgroundColor: palette.blanco, borderRadius: 16, borderWidth: 1, borderColor: palette.bordeClaro, paddingVertical: 10, paddingHorizontal: 14, gap: 12, marginBottom: 8 },
+  fileCardName: { fontSize: 13, fontWeight: '700', color: semantic.textPrimary, marginBottom: 1 },
+  fileCardMeta: { fontSize: 11, color: semantic.textTertiary },
+  removeBtn:    { width: 26, height: 26, borderRadius: 8, backgroundColor: palette.crema, alignItems: 'center', justifyContent: 'center' },
 
   addMoreBtn:  { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7, borderRadius: 14, borderWidth: 1.5, borderColor: 'rgba(91,61,245,0.25)', borderStyle: 'dashed', paddingVertical: 13, marginTop: 2, marginBottom: 12, backgroundColor: 'rgba(91,61,245,0.03)' },
   addMoreText: { fontSize: 14, fontWeight: '700', color: BRAND },
 
-  sessionCard:      { backgroundColor: '#F3EEFF', borderRadius: 16, borderWidth: 1, borderColor: 'rgba(91,61,245,0.13)', padding: 14, marginBottom: 4, gap: 8 },
-  sessionCardTitle: { fontSize: 13, fontWeight: '800', color: Colors.ink, marginBottom: 2 },
+  sessionCard:      { backgroundColor: palette.moradoBg, borderRadius: 16, borderWidth: 1, borderColor: palette.moradoBg, padding: 14, marginBottom: 4, gap: 8 },
+  sessionCardTitle: { fontSize: 13, fontWeight: '800', color: semantic.textPrimary, marginBottom: 2 },
   sessionCardRow:   { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  sessionCardText:  { fontSize: 13, color: Colors.ink2, fontWeight: '600', flex: 1 },
-
-  xpRewardPill: { backgroundColor: 'rgba(196,248,82,0.15)', borderRadius: 99, borderWidth: 1, borderColor: 'rgba(196,248,82,0.4)', paddingVertical: 8, paddingHorizontal: 16, alignItems: 'center' },
-  xpRewardText: { fontSize: 13, fontWeight: '700', color: '#2D6A00' },
+  sessionCardText:  { fontSize: 13, color: semantic.textPrimary, fontWeight: '600', flex: 1 },
 });
 
 // ── Screen 1 ──────────────────────────────────────────────────────
 const s1 = StyleSheet.create({
-  centerWrap: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 28, gap: 20 },
+  centerWrap: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 24, gap: 20 },
 
   stageBlock: { alignItems: 'center', gap: 10, width: '100%' },
-  iconWrap:   { width: 88, height: 88, borderRadius: 24, backgroundColor: 'rgba(91,61,245,0.08)', alignItems: 'center', justifyContent: 'center', marginBottom: 4 },
-  stageTitle: { fontSize: SM ? 20 : 23, fontWeight: '900', color: Colors.ink, textAlign: 'center', letterSpacing: -0.4 },
-  stageSub:   { fontSize: SM ? 13 : 14, color: Colors.ink3, textAlign: 'center', lineHeight: 20 },
+  stageTitle: { fontSize: SM ? 20 : 23, fontWeight: '900', color: semantic.textPrimary, textAlign: 'center', letterSpacing: -0.4 },
+  stageSub:   { fontSize: SM ? 13 : 14, color: semantic.textSecondary, textAlign: 'center', lineHeight: 20, marginTop: 4 },
+
+  // Stage 0 — document scan
+  docCard:       { width: '100%', backgroundColor: palette.blanco, borderRadius: 16, borderWidth: 1, borderColor: palette.bordeClaro, padding: 14, gap: 8, marginTop: 10 },
+  docCardHeader: { flexDirection: 'row', alignItems: 'center', gap: 7, marginBottom: 2 },
+  docCardName:   { fontSize: 12, fontWeight: '700', color: semantic.textSecondary, flex: 1 },
+  docLines:      { gap: 9 },
+  docLine:       { height: 10, borderRadius: 6 },
+  docLineLong:   { width: '100%' },
+  docLineMed:    { width: '72%' },
+  docLineShort:  { width: '50%' },
+
+  // Stage 1 — concept chips
+  chipsGrid:       { flexDirection: 'row', flexWrap: 'wrap', gap: 8, justifyContent: 'center', marginTop: 12, width: '100%' },
+  conceptChip:     { backgroundColor: palette.moradoBg, borderRadius: 999, paddingVertical: 7, paddingHorizontal: 14, borderWidth: 1, borderColor: 'rgba(91,61,245,0.18)' },
+  conceptChipText: { fontSize: 13, fontWeight: '700', color: BRAND },
+
+  // Stages 2 & 3 — checklist / preparing list
+  checkList:        { width: '100%', gap: 10, marginTop: 12 },
+  checkItem:        { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  checkCircle:      { width: 22, height: 22, borderRadius: 11, backgroundColor: BRAND, alignItems: 'center', justifyContent: 'center' },
+  checkItemText:    { fontSize: 15, fontWeight: '700', color: semantic.textPrimary },
+  preparingDot:     { width: 8, height: 8, borderRadius: 4, backgroundColor: BRAND, marginLeft: 7 },
+  preparingItemText:{ fontSize: 14, color: semantic.textSecondary, fontWeight: '600', flex: 1 },
 
   progressGroup:    { width: '100%', alignItems: 'flex-end', gap: 6 },
-  progressTrack:    { width: '100%', height: 8, backgroundColor: Colors.line, borderRadius: 99, overflow: 'hidden' },
+  progressTrack:    { width: '100%', height: 8, backgroundColor: palette.bordeClaro, borderRadius: 99, overflow: 'hidden' },
   progressFillWrap: { height: '100%', borderRadius: 99, overflow: 'hidden', minWidth: 8 },
   progressPct:      { fontSize: 12, fontWeight: '800', color: BRAND },
 
-  motivPill:     { backgroundColor: 'rgba(196,248,82,0.12)', borderRadius: 99, borderWidth: 1, borderColor: 'rgba(196,248,82,0.35)', paddingVertical: 10, paddingHorizontal: 18, width: '100%' },
-  motivPillText: { fontSize: 13, fontWeight: '700', color: '#2D6A00', textAlign: 'center' },
-
   errorBackdrop:    { backgroundColor: 'rgba(11,11,26,0.6)', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 24, zIndex: 100 },
-  errorModal:       { backgroundColor: 'white', borderRadius: 28, padding: 28, alignItems: 'center', gap: 10, width: '100%', shadowColor: '#0B0B1A', shadowOffset: { width: 0, height: 12 }, shadowOpacity: 0.2, shadowRadius: 32, elevation: 16 },
+  errorModal:       { backgroundColor: palette.blanco, borderRadius: 28, padding: 28, alignItems: 'center', gap: 10, width: '100%' },
   errorEmoji:       { fontSize: 48, marginBottom: 2 },
-  errorTitle:       { fontSize: SM ? 20 : 22, fontWeight: '900', color: Colors.ink, letterSpacing: -0.3, textAlign: 'center' },
-  errorMsg:         { fontSize: 14, color: Colors.ink3, lineHeight: 21, textAlign: 'center', marginBottom: 6 },
+  errorTitle:       { fontSize: SM ? 20 : 22, fontWeight: '900', color: semantic.textPrimary, letterSpacing: -0.3, textAlign: 'center' },
+  errorMsg:         { fontSize: 14, color: semantic.textSecondary, lineHeight: 21, textAlign: 'center', marginBottom: 6 },
   errorPrimaryWrap: { width: '100%', borderRadius: 18, overflow: 'hidden' },
   errorPrimaryBtn:  { paddingVertical: 17, alignItems: 'center' as const },
-  errorPrimaryText: { fontSize: 16, fontWeight: '800', color: 'white' },
+  errorPrimaryText: { fontSize: 16, fontWeight: '800', color: palette.blanco },
 });
 
 // ── Screen 2 ──────────────────────────────────────────────────────
 const s2 = StyleSheet.create({
-  content: { flex: 1, paddingHorizontal: 20, paddingTop: 8, gap: 12, justifyContent: 'center' },
+  scrollContent: { paddingHorizontal: 20, paddingTop: 8, paddingBottom: 24, gap: 14 },
 
-  heroBlock: { alignItems: 'center', gap: 6 },
-  heroEmoji: { fontSize: SM ? 48 : 60, marginBottom: 2 },
-  title:     { fontSize: SM ? 20 : 24, fontWeight: '900', color: Colors.ink, letterSpacing: -0.5, textAlign: 'center' },
+  heroBlock: { alignItems: 'center', gap: 6, paddingTop: SM ? 8 : 16 },
+  heroEmoji: { fontSize: SM ? 52 : 64, marginBottom: 2 },
+  title:     { fontSize: SM ? 22 : 26, fontWeight: '900', color: semantic.textPrimary, letterSpacing: -0.5, textAlign: 'center' },
+  titleSub:  { fontSize: 14, color: semantic.textSecondary, textAlign: 'center' },
 
-  successBadge: { alignItems: 'center', backgroundColor: 'rgba(22,163,74,0.08)', borderRadius: 14, borderWidth: 1, borderColor: 'rgba(22,163,74,0.2)', paddingVertical: 10, paddingHorizontal: 16 },
-  successText:  { fontSize: 14, fontWeight: '800', color: '#15803D' },
+  statsCard:   { backgroundColor: palette.blanco, borderRadius: 20, borderWidth: 1, borderColor: palette.bordeClaro, flexDirection: 'row', paddingVertical: 14 },
+  statItem:    { flex: 1, alignItems: 'center', gap: 3, paddingVertical: 4 },
+  statEmoji:   { fontSize: 22, marginBottom: 2 },
+  statValue:   { fontSize: SM ? 17 : 20, fontWeight: '900', color: semantic.textPrimary, letterSpacing: -0.4 },
+  statLabel:   { fontSize: 11, fontWeight: '600', color: semantic.textTertiary },
+  statDivider: { width: 1, backgroundColor: palette.bordeClaro, marginVertical: 8 },
 
-  rewardsRow:  { flexDirection: 'row', gap: 8 },
-  rewardCard:  { flex: 1, backgroundColor: 'white', borderRadius: 14, borderWidth: 1, borderColor: Colors.line, paddingVertical: 10, paddingHorizontal: 6, alignItems: 'center', gap: 2, shadowColor: '#0B0B1A', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 6, elevation: 2 },
-  rewardEmoji: { fontSize: 20, marginBottom: 2 },
-  rewardVal:   { fontSize: SM ? 13 : 15, fontWeight: '900', color: Colors.ink, letterSpacing: -0.3 },
-  rewardLbl:   { fontSize: 10, fontWeight: '600', color: Colors.muted },
+  conceptsRow:       { alignItems: 'center' },
+  conceptsBadge:     { backgroundColor: 'rgba(91,61,245,0.07)', borderRadius: 999, paddingVertical: 9, paddingHorizontal: 18, borderWidth: 1, borderColor: 'rgba(91,61,245,0.15)' },
+  conceptsBadgeText: { fontSize: 14, fontWeight: '700', color: BRAND },
 
-  sectionLabel:     { fontSize: 13, fontWeight: '800', color: Colors.ink, marginBottom: 8 },
-  chipsWrap:        { flexDirection: 'row', flexWrap: 'wrap', gap: 7 },
-  topicChip:        { backgroundColor: 'rgba(91,61,245,0.08)', borderRadius: 999, paddingHorizontal: 12, paddingVertical: 6 },
-  topicChipText:    { fontSize: 12, fontWeight: '700', color: BRAND },
-  topicChipMore:    { backgroundColor: 'rgba(91,61,245,0.04)', borderRadius: 999, paddingHorizontal: 12, paddingVertical: 6, borderWidth: 1, borderColor: 'rgba(91,61,245,0.15)' },
-  topicChipMoreText:{ fontSize: 12, fontWeight: '700', color: Colors.muted },
+  modesLabel: { fontSize: 13, fontWeight: '800', color: semantic.textPrimary, marginBottom: 10 },
+  modesRow:   { flexDirection: 'row', gap: 10 },
+  modeCard:   { flex: 1, backgroundColor: palette.blanco, borderRadius: 16, borderWidth: 1, borderColor: palette.bordeClaro, paddingVertical: 14, paddingHorizontal: 8, alignItems: 'center', gap: 6 },
+  modeEmoji:  { fontSize: 22 },
+  modeLabel:  { fontSize: 13, fontWeight: '700', color: semantic.textPrimary },
 
-  previewRow:      { flexDirection: 'row', flexWrap: 'wrap', gap: 7 },
-  previewChip:     { backgroundColor: 'rgba(91,61,245,0.06)', borderRadius: 12, paddingHorizontal: 12, paddingVertical: 7, borderWidth: 1, borderColor: 'rgba(91,61,245,0.12)' },
-  previewChipText: { fontSize: 12, fontWeight: '700', color: Colors.ink2 },
-
-  saveLink: { fontSize: 13, fontWeight: '500', color: Colors.muted, textAlign: 'center' },
+  saveLink: { fontSize: 13, fontWeight: '500', color: semantic.textTertiary, textAlign: 'center' },
 });

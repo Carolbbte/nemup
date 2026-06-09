@@ -1,4 +1,4 @@
-import { Colors } from '@/constants/Colors';
+import { palette, semantic } from '@/theme/colors';
 import { useOnboarding } from '@/contexts/OnboardingContext';
 import { SUBJECTS } from '@/types/onboarding';
 import {
@@ -44,7 +44,7 @@ export default function SubjectsScreen() {
       <View style={styles.screenTop}>
         <Pressable onPress={prevStep}>
           <View style={styles.backBtn}>
-            <ChevronLeft size={20} color={Colors.ink} strokeWidth={2.5} />
+            <ChevronLeft size={20} color={semantic.textPrimary} strokeWidth={2.5} />
           </View>
         </Pressable>
       </View>
@@ -66,7 +66,7 @@ export default function SubjectsScreen() {
       {/* Body */}
       <View style={styles.body}>
         <View style={{ alignItems: 'center', marginTop: 16, marginBottom: 12 }}>
-          <BookOpen size={48} color={Colors.brand} strokeWidth={1.5} />
+          <BookOpen size={48} color={palette.morado} strokeWidth={1.5} />
         </View>
         <Text style={styles.title}>¿Qué ramos estudias?</Text>
         <Text style={styles.subtitle}>Selecciona tus asignaturas</Text>
@@ -83,12 +83,12 @@ export default function SubjectsScreen() {
                 style={[styles.subjectCard, active && styles.subjectCardActive]}
               >
                 <View style={[styles.subjectEmoji, active && styles.subjectEmojiActive]}>
-                  <SubIcon size={14} color={active ? Colors.brand : Colors.ink3} strokeWidth={2} />
+                  <SubIcon size={14} color={active ? palette.morado : semantic.textSecondary} strokeWidth={2} />
                 </View>
                 <Text style={styles.subjectName}>{subject.name}</Text>
                 {active && (
                   <View style={styles.checkmark}>
-                    <Check size={10} color="white" strokeWidth={3} />
+                    <Check size={10} color={palette.blanco} strokeWidth={3} />
                   </View>
                 )}
               </Pressable>
@@ -116,7 +116,7 @@ export default function SubjectsScreen() {
           disabled={!canContinue}
         >
           <Text style={styles.continueBtnText}>Siguiente</Text>
-          <ArrowRight size={16} color="white" strokeWidth={2.5} />
+          <ArrowRight size={16} color={palette.blanco} strokeWidth={2.5} />
         </Pressable>
       </View>
     </ScreenContainer>
@@ -126,7 +126,7 @@ export default function SubjectsScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: Colors.paper,
+    backgroundColor: semantic.background,
   },
   statusBar: {
     flexDirection: 'row',
@@ -137,7 +137,7 @@ const styles = StyleSheet.create({
   time: {
     fontSize: 12,
     fontWeight: '600',
-    color: Colors.ink,
+    color: semantic.textPrimary,
   },
   screenTop: {
     flexDirection: 'row',
@@ -148,14 +148,14 @@ const styles = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: 10,
-    backgroundColor: Colors.bgSoft,
+    backgroundColor: palette.crema,
     justifyContent: 'center',
     alignItems: 'center',
   },
   backBtnText: {
     fontSize: 20,
     fontWeight: '700',
-    color: Colors.ink,
+    color: semantic.textPrimary,
   },
   progressDots: {
     flexDirection: 'row',
@@ -166,14 +166,14 @@ const styles = StyleSheet.create({
   dot: {
     flex: 1,
     height: 3,
-    backgroundColor: Colors.line,
+    backgroundColor: palette.bordeClaro,
     borderRadius: 2,
   },
   dotActive: {
-    backgroundColor: Colors.brand,
+    backgroundColor: palette.morado,
   },
   dotDone: {
-    backgroundColor: Colors.brand,
+    backgroundColor: palette.morado,
   },
   body: {
     flex: 1,
@@ -190,11 +190,11 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     textAlign: 'center',
     marginBottom: 8,
-    color: Colors.ink,
+    color: semantic.textPrimary,
   },
   subtitle: {
     fontSize: 14,
-    color: Colors.ink3,
+    color: semantic.textSecondary,
     textAlign: 'center',
     marginBottom: 20,
   },
@@ -206,9 +206,9 @@ const styles = StyleSheet.create({
   },
   subjectCard: {
     width: '48%',
-    backgroundColor: Colors.paper,
+    backgroundColor: semantic.surface,
     borderWidth: 1.5,
-    borderColor: Colors.line,
+    borderColor: palette.bordeClaro,
     borderRadius: 12,
     paddingVertical: 12,
     paddingHorizontal: 10,
@@ -216,8 +216,8 @@ const styles = StyleSheet.create({
     position: 'relative',
   },
   subjectCardActive: {
-    borderColor: Colors.brand,
-    backgroundColor: Colors.brandSoft,
+    borderColor: palette.morado,
+    backgroundColor: palette.moradoBg,
   },
   subjectEmoji: {
     width: 28,
@@ -228,7 +228,7 @@ const styles = StyleSheet.create({
     marginBottom: 6,
   },
   subjectEmojiActive: {
-    backgroundColor: 'white',
+    backgroundColor: palette.blanco,
   },
   subjectEmojiText: {
     fontSize: 14,
@@ -236,7 +236,7 @@ const styles = StyleSheet.create({
   subjectName: {
     fontSize: 12,
     fontWeight: '600',
-    color: Colors.ink,
+    color: semantic.textPrimary,
     textAlign: 'center',
   },
   checkmark: {
@@ -246,17 +246,17 @@ const styles = StyleSheet.create({
     width: 16,
     height: 16,
     borderRadius: 50,
-    backgroundColor: Colors.brand,
+    backgroundColor: palette.morado,
     justifyContent: 'center',
     alignItems: 'center',
   },
   checkmarkText: {
     fontSize: 10,
     fontWeight: '700',
-    color: 'white',
+    color: palette.blanco,
   },
   counter: {
-    backgroundColor: Colors.bgSoft,
+    backgroundColor: palette.crema,
     borderRadius: 20,
     paddingVertical: 8,
     paddingHorizontal: 12,
@@ -265,10 +265,10 @@ const styles = StyleSheet.create({
   counterText: {
     fontSize: 12,
     fontWeight: '600',
-    color: Colors.ink3,
+    color: semantic.textSecondary,
   },
   counterBold: {
-    color: Colors.brand,
+    color: palette.morado,
     fontWeight: '700',
   },
   bottom: {
@@ -278,7 +278,7 @@ const styles = StyleSheet.create({
   },
   continueBtn: {
     width: '100%',
-    backgroundColor: Colors.brand,
+    backgroundColor: palette.morado,
     paddingVertical: 14,
     borderRadius: 14,
     flexDirection: 'row',
@@ -287,17 +287,17 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   continueBtnDisabled: {
-    backgroundColor: Colors.line,
+    backgroundColor: palette.bordeClaro,
     opacity: 0.5,
   },
   continueBtnText: {
     fontSize: 16,
     fontWeight: '700',
-    color: 'white',
+    color: palette.blanco,
   },
   continueBtnArrow: {
     fontSize: 16,
     fontWeight: '700',
-    color: 'white',
+    color: palette.blanco,
   },
 });

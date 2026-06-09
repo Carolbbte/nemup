@@ -1,379 +1,635 @@
+import ProgressDots from '@/components/ProgressDots';
 import ScreenContainer from '@/components/ScreenContainer';
 import { useOnboarding } from '@/contexts/OnboardingContext';
-import { LinearGradient } from 'expo-linear-gradient';
-import { ArrowRight, ChevronLeft, Dumbbell, Target } from 'lucide-react-native';
-import { useEffect, useRef } from 'react';
-import { Dimensions, PanResponder, Pressable, ScrollView, StatusBar, StyleSheet, Text, View } from 'react-native';
-import Animated, {
+import { palette, semantic } from '@/theme/colors';
+import { Image as ExpoImage } from 'expo-image';
+import * as Haptics from 'expo-haptics';
+import { ChevronLeft } from 'lucide-react-native';
+import { useEffect, useRef, useState } from 'react';
+import {
+  Animated,
   Easing,
-  useAnimatedStyle,
-  useSharedValue,
-  withDelay,
-  withRepeat,
-  withSequence,
-  withSpring,
-  withTiming,
-} from 'react-native-reanimated';
+  PanResponder,
+  Pressable,
+  StatusBar,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 
-const BG = '#09051A';
-const NEON = '#7C5AFF';
-const LIME = '#C4F852';
-const GLASS = 'rgba(255,255,255,0.06)';
-const GLASS_BORDER = 'rgba(255,255,255,0.12)';
-const TOTAL_STEPS = 4;
-const PRESETS = [4, 5, 6, 7] as const;
-const { height: SCREEN_H } = Dimensions.get('window');
-const SM = SCREEN_H < 740;
-const GOAL_WRAP   = SM ? 118 : 150;
-const GOAL_CIRCLE = SM ? 84  : 112;
-const CIRCLE_R    = SM ? 42  : 56;
+// ── Tokens ────────────────────────────────────────────────────
+const BG   = palette.crema;
+const DARK = semantic.textPrimary;
+const MED  = semantic.textSecondary;
+const PRIM = palette.morado;
+const GOLD = palette.ambar;
 
-function getGoalMessage(goal: number) {
-  if (goal >= 7) return '¡Meta perfecta! Vas por el máximo';
-  if (goal >= 6) return '¡Excelente! Estás apuntando muy alto';
-  if (goal >= 5) return 'Un objetivo sólido. ¡Puedes lograrlo!';
-  return 'Buen punto de partida. ¡Vas a crecer!';
-}
+// ── NEM scale: display 5.0–7.0 ↔ stored ×100 (500–700) ──────
+const NEM_MIN  = 5.0;
+const NEM_MAX  = 7.0;
+const NEM_STEP = 0.1;
+const toStored = (v: number) => Math.round(v * 100);
+const toDisplay = (v: number) => v / 100;
 
-// Preset button with spring scale animation on activation
-function PresetBtn({
-  value, active, onPress,
-}: { value: number; active: boolean; onPress: () => void }) {
-  const sc = useSharedValue(1);
-  const wasActive = useRef(false);
+// ── Road waypoints — calibrate x/y to match goal-roadmap.png ─
+// x=0 left, x=1 right; y=0 top, y=1 bottom; fractions of road zone
+const WAYPOINTS = [
+  { nem: 5.0, x: 0.50, y: 0.88 },
+  { nem: 5.5, x: 0.35, y: 0.70 },
+  { nem: 6.0, x: 0.54, y: 0.52 },
+  { nem: 6.5, x: 0.38, y: 0.32 },
+  { nem: 7.0, x: 0.50, y: 0.14 },
+];
 
-  useEffect(() => {
-    if (active && !wasActive.current) {
-      sc.value = withSequence(
-        withSpring(1.1, { mass: 0.35, stiffness: 420, damping: 10 }),
-        withSpring(1,   { mass: 0.35, stiffness: 260, damping: 14 })
-      );
+// ── Checkpoints (visual only — stored scale stays 500–700) ────
+const CHECKPOINTS = [
+  { nem: 5.5, emoji: '🚙', vehicle: 'Hatchback Deportivo' },
+  { nem: 6.0, emoji: '🏎️', vehicle: 'Deportivo Premium'  },
+  { nem: 6.5, emoji: '🚀', vehicle: 'Superdeportivo'      },
+  { nem: 7.0, emoji: '🏆', vehicle: 'Hypercar Elite'      },
+];
+
+// ── Car geometry ──────────────────────────────────────────────
+const CAR_W  = 80;
+const CAR_H  = 70;
+// ── Slider geometry ───────────────────────────────────────────
+const THUMB_D = 32;
+const TRACK_H = 10;
+const CP_R    = 14; // checkpoint ring radius
+
+// ── Helpers ───────────────────────────────────────────────────
+function nemToPos(nem: number, rH: number, rW: number) {
+  const clamped = Math.max(NEM_MIN, Math.min(NEM_MAX, nem));
+  for (let i = 0; i < WAYPOINTS.length - 1; i++) {
+    const a = WAYPOINTS[i], b = WAYPOINTS[i + 1];
+    if (clamped >= a.nem && clamped <= b.nem) {
+      const t = (clamped - a.nem) / (b.nem - a.nem);
+      // Smooth easing between waypoints
+      const te = t * t * (3 - 2 * t); // smoothstep
+      return { x: (a.x + (b.x - a.x) * te) * rW, y: (a.y + (b.y - a.y) * te) * rH };
     }
-    wasActive.current = active;
-  }, [active]);
-
-  const animStyle = useAnimatedStyle(() => ({ transform: [{ scale: sc.value }] }));
-
-  return (
-    <Animated.View style={[styles.presetBtn, active && styles.presetBtnActive, animStyle]}>
-      <Pressable
-        onPress={onPress}
-        style={styles.presetPressable}
-        android_ripple={{ color: 'rgba(124,90,255,0.3)' }}
-      >
-        {active && (
-          <LinearGradient colors={[NEON, '#C44EFF']} style={[StyleSheet.absoluteFill, { borderRadius: 14 }]} />
-        )}
-        <Text style={[styles.presetText, active && styles.presetTextActive]}>{value}.0</Text>
-      </Pressable>
-    </Animated.View>
-  );
+  }
+  const last = WAYPOINTS[WAYPOINTS.length - 1];
+  return { x: last.x * rW, y: last.y * rH };
 }
 
+function initVehicle(nem: number) {
+  for (let i = CHECKPOINTS.length - 1; i >= 0; i--) {
+    if (nem >= CHECKPOINTS[i].nem - NEM_STEP / 2) return CHECKPOINTS[i];
+  }
+  return { emoji: '🚗', vehicle: 'City Car Sport' };
+}
+
+// ── Screen ────────────────────────────────────────────────────
 export default function GoalScreen() {
   const { state, setGoal, nextStep, prevStep } = useOnboarding();
 
-  // Entrance animations
-  const fade  = useSharedValue(0);
-  const slide = useSharedValue(28);
-
-  // Goal circle animations
-  const goalSc     = useSharedValue(1);
-  const ringPulse  = useSharedValue(1);
-  const circleFloat = useSharedValue(0);
-  const ctaShine   = useSharedValue(0);
-
-  // Slider PanResponder refs
-  const sliderRef    = useRef<View>(null);
-  const trackMetrics = useRef({ left: 0, width: 0 });
-
-  // Keep goal setter stable across renders
-  const setGoalRef = useRef(setGoal);
-  setGoalRef.current = setGoal;
-
-  const triggerGoalAnim = () => {
-    goalSc.value = withSequence(
-      withSpring(1.18, { mass: 0.35, stiffness: 380, damping: 10 }),
-      withSpring(1,    { mass: 0.35, stiffness: 220, damping: 14 })
-    );
+  const initNem = () => {
+    const s = state.data.goal;
+    return s >= 500 && s <= 700 ? toDisplay(s) : 6.0;
   };
 
-  const applyGoalRef = useRef((pageX: number) => {
-    const { left, width } = trackMetrics.current;
-    if (width === 0) return;
-    const pct  = Math.max(0, Math.min(1, (pageX - left) / width));
-    const raw  = 4 + pct * 3;
-    const next = Math.min(7, Math.max(4, Math.round(raw * 10) / 10));
-    setGoalRef.current(next);
-    triggerGoalAnim();
-  });
+  const [nemGoal,    setNemGoal]    = useState(initNem);
+  const [trackW,     setTrackW]     = useState(0);
+  const [roadH,      setRoadH]      = useState(0);
+  const [roadW,      setRoadW]      = useState(0);
+  const [ready,      setReady]      = useState(false);
+  const [confirming, setConfirming] = useState(false);
+  const [displayVeh, setDisplayVeh] = useState(() => initVehicle(initNem()));
 
-  const pan = useRef(
-    PanResponder.create({
-      onStartShouldSetPanResponder: () => true,
-      onMoveShouldSetPanResponder:  () => true,
-      onPanResponderGrant: (e) => applyGoalRef.current(e.nativeEvent.pageX),
-      onPanResponderMove:  (e) => applyGoalRef.current(e.nativeEvent.pageX),
-    })
-  ).current;
+  // ── Mutable refs ──────────────────────────────────────────────
+  const roadHRef      = useRef(0);
+  const roadWRef      = useRef(0);
+  const trackWRef     = useRef(0);
+  const nemRef        = useRef(initNem());
+  const readyRef      = useRef(false);
+  const sliderStartF  = useRef(0);
+  const idleRef       = useRef<Animated.CompositeAnimation | null>(null);
+  const movingRef     = useRef(false);
+  const draggingRef   = useRef(false);
+  const cpReached     = useRef(CHECKPOINTS.map(() => false));
 
-  const measureSlider = () => {
-    sliderRef.current?.measure((_x, _y, w, _h, pageX) => {
-      trackMetrics.current = { left: pageX, width: w };
+  // ── Animated values ───────────────────────────────────────────
+  const carBaseX  = useRef(new Animated.Value(0)).current;
+  const carBaseY  = useRef(new Animated.Value(0)).current;
+  const carScale  = useRef(new Animated.Value(0)).current;
+  const carOp     = useRef(new Animated.Value(0)).current;
+  const idleDelta = useRef(new Animated.Value(0)).current;
+  const carY      = useRef(Animated.add(carBaseY, idleDelta)).current;
+
+  const titleOp   = useRef(new Animated.Value(0)).current;
+  const subOp     = useRef(new Animated.Value(0)).current;
+
+  const cpOp      = useRef(CHECKPOINTS.map(() => new Animated.Value(0.25))).current;
+  const cpPop     = useRef(CHECKPOINTS.map(() => new Animated.Value(1))).current;
+
+  const flagScale = useRef(new Animated.Value(1)).current;
+  const flagGlow  = useRef(new Animated.Value(0)).current;
+
+  const cardOp    = useRef(new Animated.Value(0)).current;
+  const cardSlide = useRef(new Animated.Value(20)).current;
+
+  const confirmOp = useRef(new Animated.Value(0)).current;
+
+  // ── Flag: wave + gold glow every 4 s ─────────────────────────
+  useEffect(() => {
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(flagScale, { toValue: 1.07, duration: 800, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
+        Animated.timing(flagScale, { toValue: 1.0,  duration: 800, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
+      ])
+    ).start();
+
+    const glowCycle = () =>
+      Animated.sequence([
+        Animated.delay(3600),
+        Animated.timing(flagGlow, { toValue: 0.6,  duration: 350, useNativeDriver: true }),
+        Animated.timing(flagGlow, { toValue: 0,    duration: 650, useNativeDriver: true }),
+      ]).start(() => glowCycle());
+    glowCycle();
+  }, []);
+
+  // ── Entry animation ───────────────────────────────────────────
+  useEffect(() => {
+    if (!ready) return;
+    const rH = roadHRef.current, rW = roadWRef.current;
+    const target = nemRef.current;
+
+    // Park car at NEM 5.0 start
+    const start = nemToPos(NEM_MIN, rH, rW);
+    carBaseX.setValue(start.x - CAR_W / 2);
+    carBaseY.setValue(start.y - CAR_H / 2);
+
+    // 1 – Titles
+    Animated.timing(titleOp, { toValue: 1, duration: 240, delay: 80, useNativeDriver: true }).start();
+    Animated.timing(subOp,   { toValue: 1, duration: 240, delay: 220, useNativeDriver: true }).start();
+
+    // 2 – Car appears with bounce
+    Animated.sequence([
+      Animated.delay(400),
+      Animated.parallel([
+        Animated.timing(carOp,    { toValue: 1,    duration: 220, useNativeDriver: true }),
+        Animated.timing(carScale, { toValue: 1.18, duration: 200, useNativeDriver: true }),
+      ]),
+      Animated.timing(carScale, { toValue: 1.0, duration: 160, useNativeDriver: true }),
+    ]).start(() => {
+      // 3 – Drive to saved NEM
+      if (Math.abs(target - NEM_MIN) > NEM_STEP / 2) {
+        movingRef.current = true;
+        const dest = nemToPos(target, rH, rW);
+        Animated.parallel([
+          Animated.timing(carBaseX, { toValue: dest.x - CAR_W / 2, duration: 650, easing: Easing.out(Easing.cubic), useNativeDriver: true }),
+          Animated.timing(carBaseY, { toValue: dest.y - CAR_H / 2, duration: 650, easing: Easing.out(Easing.cubic), useNativeDriver: true }),
+        ]).start(() => {
+          movingRef.current = false;
+          // Mark reached checkpoints silently
+          CHECKPOINTS.forEach((cp, i) => {
+            if (target >= cp.nem - NEM_STEP / 2) {
+              cpReached.current[i] = true;
+              cpOp[i].setValue(1);
+            }
+          });
+          startIdle();
+        });
+      } else {
+        startIdle();
+      }
+    });
+
+    // 4 – Vehicle card slides in
+    Animated.parallel([
+      Animated.timing(cardOp,    { toValue: 1, duration: 280, delay: 620, useNativeDriver: true }),
+      Animated.timing(cardSlide, { toValue: 0, duration: 280, delay: 620, easing: Easing.out(Easing.cubic), useNativeDriver: true }),
+    ]).start();
+  }, [ready]);
+
+  // ── Cleanup ───────────────────────────────────────────────────
+  useEffect(() => () => { if (idleRef.current) idleRef.current.stop(); }, []);
+
+  // ── Idle ──────────────────────────────────────────────────────
+  const startIdle = () => {
+    if (movingRef.current || draggingRef.current) return;
+    const a = Animated.loop(
+      Animated.sequence([
+        Animated.timing(idleDelta, { toValue: -3, duration: 1000, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
+        Animated.timing(idleDelta, { toValue:  3, duration: 1000, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
+      ])
+    );
+    idleRef.current = a;
+    a.start();
+  };
+
+  const stopIdle = () => {
+    if (idleRef.current) { idleRef.current.stop(); idleRef.current = null; }
+    idleDelta.setValue(0);
+  };
+
+  // ── NEM change (from slider) ──────────────────────────────────
+  const handleNemChange = (raw: number) => {
+    const nem = Math.max(NEM_MIN, Math.min(NEM_MAX, Math.round(raw * 10) / 10));
+    nemRef.current = nem;
+    setNemGoal(nem);
+
+    const rH = roadHRef.current, rW = roadWRef.current;
+    if (!rH || !rW) return;
+
+    const pos = nemToPos(nem, rH, rW);
+    carBaseX.setValue(pos.x - CAR_W / 2);
+    carBaseY.setValue(pos.y - CAR_H / 2);
+
+    // Check checkpoint arrivals and departures
+    CHECKPOINTS.forEach((cp, i) => {
+      const reached = nem >= cp.nem - NEM_STEP / 2;
+
+      if (!cpReached.current[i] && reached) {
+        // ── New checkpoint reached ──
+        cpReached.current[i] = true;
+
+        Animated.parallel([
+          Animated.timing(cpOp[i],  { toValue: 1,   duration: 250, useNativeDriver: true }),
+          Animated.sequence([
+            Animated.timing(cpPop[i], { toValue: 1.6, duration: 180, useNativeDriver: true }),
+            Animated.timing(cpPop[i], { toValue: 1.0, duration: 180, useNativeDriver: true }),
+          ]),
+        ]).start();
+
+        Animated.sequence([
+          Animated.timing(carScale, { toValue: 1.12, duration: 100, useNativeDriver: true }),
+          Animated.timing(carScale, { toValue: 1.0,  duration: 100, useNativeDriver: true }),
+        ]).start();
+
+        try { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); } catch (_) {}
+
+        // Swap vehicle card
+        swapCard({ emoji: cp.emoji, vehicle: cp.vehicle });
+
+      } else if (cpReached.current[i] && !reached) {
+        // ── Checkpoint un-reached (slider moved back) ──
+        cpReached.current[i] = false;
+        Animated.timing(cpOp[i], { toValue: 0.25, duration: 250, useNativeDriver: true }).start();
+
+        // Find the highest still-reached checkpoint (or default)
+        const prev = [...CHECKPOINTS].reverse().find((_, j) => cpReached.current[CHECKPOINTS.length - 1 - j]);
+        const vehicle = prev
+          ? { emoji: prev.emoji, vehicle: prev.vehicle }
+          : { emoji: '🚗', vehicle: 'City Car Sport' };
+        swapCard(vehicle);
+      }
     });
   };
 
-  useEffect(() => {
-    fade.value  = withTiming(1, { duration: 600 });
-    slide.value = withSpring(0, { mass: 0.6, stiffness: 160, damping: 18 });
-
-    ringPulse.value = withDelay(
-      400,
-      withRepeat(
-        withSequence(
-          withTiming(1.15, { duration: 1700, easing: Easing.inOut(Easing.ease) }),
-          withTiming(1,    { duration: 1700, easing: Easing.inOut(Easing.ease) })
-        ),
-        -1, false
-      )
-    );
-
-    circleFloat.value = withDelay(
-      600,
-      withRepeat(
-        withSequence(
-          withTiming(-7, { duration: 2200, easing: Easing.inOut(Easing.sin) }),
-          withTiming(0,  { duration: 2200, easing: Easing.inOut(Easing.sin) })
-        ),
-        -1, false
-      )
-    );
-
-    ctaShine.value = withDelay(
-      900,
-      withRepeat(
-        withSequence(
-          withTiming(0.2, { duration: 1400 }),
-          withTiming(0,   { duration: 1400 })
-        ),
-        -1, false
-      )
-    );
-  }, []);
-
-  const handleSetGoal = (val: number) => {
-    setGoal(val);
-    triggerGoalAnim();
+  // ── Swap vehicle card with animation ─────────────────────────
+  const swapCard = (veh: { emoji: string; vehicle: string }) => {
+    Animated.parallel([
+      Animated.timing(cardOp,    { toValue: 0,  duration: 120, useNativeDriver: true }),
+      Animated.timing(cardSlide, { toValue: 10, duration: 120, useNativeDriver: true }),
+    ]).start(() => {
+      setDisplayVeh(veh);
+      Animated.parallel([
+        Animated.timing(cardOp,    { toValue: 1, duration: 200, useNativeDriver: true }),
+        Animated.timing(cardSlide, { toValue: 0, duration: 200, easing: Easing.out(Easing.cubic), useNativeDriver: true }),
+      ]).start();
+    });
   };
 
-  const pct = ((state.data.goal - 4) / 3) * 100;
+  // ── Slider PanResponder ───────────────────────────────────────
+  const sliderPan = useRef(
+    PanResponder.create({
+      onStartShouldSetPanResponder: () => true,
+      onMoveShouldSetPanResponder:  () => true,
 
-  const bodyStyle   = useAnimatedStyle(() => ({ opacity: fade.value, transform: [{ translateY: slide.value }] }));
-  const goalScStyle = useAnimatedStyle(() => ({ transform: [{ scale: goalSc.value }] }));
-  const ringStyle   = useAnimatedStyle(() => ({ transform: [{ scale: ringPulse.value }] }));
-  const floatStyle     = useAnimatedStyle(() => ({ transform: [{ translateY: circleFloat.value }] }));
-  const ctaShineStyle  = useAnimatedStyle(() => ({ opacity: ctaShine.value }));
+      onPanResponderGrant: (evt) => {
+        draggingRef.current = true;
+        carBaseX.stopAnimation();
+        carBaseY.stopAnimation();
+        if (idleRef.current) { idleRef.current.stop(); idleRef.current = null; }
+        idleDelta.setValue(0);
+        const f = Math.max(0, Math.min(1, evt.nativeEvent.locationX / trackWRef.current));
+        sliderStartF.current = f;
+        handleNemChange(NEM_MIN + f * (NEM_MAX - NEM_MIN));
+      },
 
+      onPanResponderMove: (_, gs) => {
+        const w = trackWRef.current;
+        if (!w) return;
+        const f = Math.max(0, Math.min(1, sliderStartF.current + gs.dx / w));
+        handleNemChange(NEM_MIN + f * (NEM_MAX - NEM_MIN));
+      },
+
+      onPanResponderRelease: () => {
+        draggingRef.current = false;
+        startIdle();
+      },
+    })
+  ).current;
+
+  // ── Confirm handler ───────────────────────────────────────────
+  const handleConfirm = () => {
+    if (confirming) return;
+    setConfirming(true);
+    setGoal(toStored(nemRef.current));
+    try { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); } catch (_) {}
+
+    Animated.sequence([
+      Animated.timing(carScale, { toValue: 0.88, duration: 80,  useNativeDriver: true }),
+      Animated.timing(carScale, { toValue: 1.2,  duration: 200, useNativeDriver: true }),
+      Animated.timing(carScale, { toValue: 1.0,  duration: 160, useNativeDriver: true }),
+    ]).start();
+
+    Animated.sequence([
+      Animated.timing(confirmOp, { toValue: 1, duration: 280, useNativeDriver: true }),
+      Animated.delay(800),
+      Animated.timing(confirmOp, { toValue: 0, duration: 220, useNativeDriver: true }),
+    ]).start(() => nextStep());
+  };
+
+  // ── Derived slider progress ───────────────────────────────────
+  const sliderFraction = (nemGoal - NEM_MIN) / (NEM_MAX - NEM_MIN);
+  const thumbLeft = trackW > 0 ? trackW * sliderFraction - THUMB_D / 2 : 0;
+  const fillWidth = trackW > 0 ? trackW * sliderFraction : 0;
+
+  // ── Render ────────────────────────────────────────────────────
   return (
-    <ScreenContainer style={styles.root}>
-      <StatusBar barStyle="light-content" backgroundColor={BG} />
-      <LinearGradient colors={[BG, '#120B2F', '#1A1045']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={StyleSheet.absoluteFill} />
-      <View style={styles.orb1} />
-      <View style={styles.orb2} />
+    <ScreenContainer style={s.root} edges={['top', 'bottom']}>
+      <StatusBar barStyle="dark-content" backgroundColor="transparent" translucent />
 
-      {/* Top bar */}
-      <View style={styles.topBar}>
-        <Pressable onPress={prevStep} style={styles.backBtn}>
-          <ChevronLeft size={22} color="rgba(255,255,255,0.8)" strokeWidth={2.2} />
+      {/* Full-screen road-map background */}
+      <ExpoImage
+        source={require('@/assets/images/goal-roadmap.png')}
+        contentFit="fill"
+        style={StyleSheet.absoluteFill}
+      />
+
+      {/* Back button */}
+      <View style={s.topBar}>
+        <Pressable onPress={prevStep} style={s.backBtn}>
+          <ChevronLeft size={22} color={DARK} strokeWidth={2.2} />
         </Pressable>
-        <View style={styles.progressWrap}>
-          {Array.from({ length: TOTAL_STEPS }).map((_, i) => {
-            const done = i < state.currentStep;
-            return done ? (
-              <LinearGradient key={i} colors={[NEON, '#C44EFF']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={styles.progressSeg} />
-            ) : (
-              <View key={i} style={[styles.progressSeg, styles.progressSegOff]} />
-            );
-          })}
-        </View>
-        <View style={styles.stepLbl}>
-          <Text style={styles.stepLblText}>{state.currentStep}/{TOTAL_STEPS}</Text>
-        </View>
       </View>
 
-      <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false} bounces={false}>
-        <Animated.View style={[styles.body, bodyStyle]}>
-          <View style={{ alignItems: 'center', marginBottom: SM ? 4 : 8 }}>
-            <Target size={SM ? 36 : 44} color={LIME} strokeWidth={1.6} />
-          </View>
-          <Text style={styles.title}>¿Cuál es tu <Text style={styles.lime}>meta?</Text></Text>
-          <Text style={styles.subtitle}>La nota que quieres alcanzar este año</Text>
-
-          {/* Goal display — floating + pulsing rings */}
-          <View style={styles.goalDisplay}>
-            <Animated.View style={[styles.goalGlowWrap, floatStyle]}>
-              <Animated.View style={[styles.goalGlowRing2, ringStyle]} />
-              <Animated.View style={[styles.goalGlowRing1, ringStyle]} />
-              <Animated.View style={[styles.goalCircle, goalScStyle]}>
-                <LinearGradient
-                  colors={['rgba(196,248,82,0.22)', 'rgba(124,90,255,0.32)']}
-                  style={[StyleSheet.absoluteFill, { borderRadius: CIRCLE_R }]}
-                />
-                <Text style={styles.goalNumber}>{state.data.goal.toFixed(1)}</Text>
-                <Text style={styles.goalLabel}>NIVEL OBJETIVO</Text>
+      {/* Road area */}
+      <View
+        style={s.roadArea}
+        onLayout={({ nativeEvent: { layout } }) => {
+          roadHRef.current = layout.height;
+          roadWRef.current = layout.width;
+          setRoadH(layout.height);
+          setRoadW(layout.width);
+          if (!readyRef.current) { readyRef.current = true; setReady(true); }
+        }}
+      >
+        {ready && roadW > 0 && (
+          <>
+            {/* Title overlay */}
+            <Animated.View pointerEvents="none" style={[s.titleBar, { opacity: titleOp }]}>
+              <Text style={s.title}>¿Hasta dónde quieres llegar?</Text>
+              <Animated.View style={{ opacity: subOp }}>
+                <Text style={s.subtitle}>Desliza para fijar tu NEM objetivo.</Text>
               </Animated.View>
             </Animated.View>
-          </View>
 
-          {/* Draggable slider */}
-          <View style={styles.sliderCard}>
-            <Text style={styles.sliderTitle}>Ajusta tu meta</Text>
-            {/* Touch area is taller than the visible track for easy interaction */}
-            <View style={styles.sliderTouchArea} {...pan.panHandlers}>
-              <View
-                ref={sliderRef}
-                style={styles.sliderTrack}
-                onLayout={measureSlider}
-              >
-                <LinearGradient
-                  colors={[NEON, LIME]}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 0 }}
-                  style={[styles.sliderFill, { width: `${pct}%` as any }]}
+            {/* Checkpoint rings */}
+            {CHECKPOINTS.map((cp, i) => {
+              const pos = nemToPos(cp.nem, roadH, roadW);
+              return (
+                <Animated.View
+                  key={`cp-${i}`}
+                  pointerEvents="none"
+                  style={[
+                    s.cpRing,
+                    {
+                      left: pos.x - CP_R,
+                      top:  pos.y - CP_R,
+                      opacity: cpOp[i],
+                      transform: [{ scale: cpPop[i] }],
+                    },
+                  ]}
                 />
-              </View>
-              {/* Thumb — positioned over the touch area */}
-              <View style={[styles.sliderThumb, { left: `${pct}%` as any }]} />
-            </View>
-            <View style={styles.sliderEdges}>
-              <Text style={styles.sliderEdgeText}>4.0</Text>
-              <Text style={styles.sliderEdgeText}>7.0</Text>
-            </View>
-          </View>
+              );
+            })}
 
-          {/* Preset buttons */}
-          <View style={styles.presets}>
-            {PRESETS.map((p) => (
-              <PresetBtn
-                key={p}
-                value={p}
-                active={state.data.goal === p}
-                onPress={() => handleSetGoal(p)}
+            {/* Flag at NEM 7.0 */}
+            {(() => {
+              const fp = nemToPos(NEM_MAX, roadH, roadW);
+              return (
+                <Animated.View
+                  pointerEvents="none"
+                  style={[s.flagWrap, { left: fp.x - 20, top: fp.y - 48 }]}
+                >
+                  <Animated.View style={[s.flagGlowCircle, { opacity: flagGlow }]} />
+                  <Animated.View style={{ transform: [{ scale: flagScale }] }}>
+                    <Text style={s.flagEmoji}>🏁</Text>
+                  </Animated.View>
+                </Animated.View>
+              );
+            })()}
+
+            {/* Draggable car (idle-only, slider controls position) */}
+            <Animated.View
+              pointerEvents="none"
+              style={[
+                s.car,
+                {
+                  opacity: carOp,
+                  transform: [
+                    { translateX: carBaseX },
+                    { translateY: carY },
+                    { scale: carScale },
+                  ],
+                },
+              ]}
+            >
+              <ExpoImage
+                source={require('@/assets/images/city-car-detras.png')}
+                contentFit="contain"
+                style={{ width: CAR_W, height: CAR_H }}
               />
-            ))}
-          </View>
+            </Animated.View>
 
-          {/* Motivator */}
-          <View style={styles.motivator}>
-            <Dumbbell size={20} color={LIME} strokeWidth={1.8} />
-            <Text style={styles.motivatorText}>{getGoalMessage(state.data.goal)}</Text>
+            {/* "Objetivo configurado" overlay */}
+            <Animated.View pointerEvents="none" style={[s.confirmOverlay, { opacity: confirmOp }]}>
+              <View style={s.confirmBadge}>
+                <Text style={s.confirmBadgeText}>✅  Objetivo configurado</Text>
+              </View>
+            </Animated.View>
+          </>
+        )}
+      </View>
+
+      {/* NEM panel */}
+      <View style={s.nemPanel}>
+
+        {/* Vehicle card */}
+        <Animated.View style={[s.vehicleCard, { opacity: cardOp, transform: [{ translateY: cardSlide }] }]}>
+          <Text style={s.vehicleEmoji}>{displayVeh.emoji}</Text>
+          <View style={s.vehicleInfo}>
+            <Text style={s.vehicleName}>{displayVeh.vehicle}</Text>
+            <Text style={s.vehicleHint}>Vehículo desbloqueado</Text>
           </View>
         </Animated.View>
-      </ScrollView>
 
-      {/* CTA */}
-      <View style={styles.bottom}>
-        <Pressable
-          onPress={nextStep}
-          style={({ pressed }) => [styles.ctaWrap, pressed && styles.ctaPressed]}
+        {/* NEM value row */}
+        <View style={s.nemRow}>
+          <Text style={s.nemLabel}>NEM objetivo</Text>
+          <Text style={s.nemValue}>{nemGoal.toFixed(1)}</Text>
+        </View>
+
+        {/* Custom slider */}
+        <View
+          style={s.sliderHit}
+          onLayout={({ nativeEvent: { layout } }) => {
+            trackWRef.current = layout.width;
+            setTrackW(layout.width);
+          }}
+          {...sliderPan.panHandlers}
         >
-          <LinearGradient colors={[NEON, '#B44EFF']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={styles.cta}>
-            <Animated.View style={[styles.ctaShine, ctaShineStyle]} />
-            <Text style={styles.ctaText}>Siguiente</Text>
-            <ArrowRight size={17} color="#FFF" strokeWidth={2.5} />
-          </LinearGradient>
-        </Pressable>
+          {/* Track */}
+          <View style={s.trackBg} />
+          <View style={[s.trackFill, { width: fillWidth }]} />
+
+          {/* Checkpoint ticks */}
+          {CHECKPOINTS.map((cp, i) => {
+            const f = (cp.nem - NEM_MIN) / (NEM_MAX - NEM_MIN);
+            return (
+              <View
+                key={i}
+                style={[s.trackTick, { left: trackW * f - 1.5 }]}
+              />
+            );
+          })}
+
+          {/* Thumb */}
+          <View style={[s.trackThumb, { left: thumbLeft }]} />
+        </View>
+
+        {/* Min / max labels */}
+        <View style={s.sliderLabels}>
+          <Text style={s.sliderLabel}>5.0</Text>
+          <Text style={s.sliderLabel}>7.0</Text>
+        </View>
+
+        {/* Confirm row */}
+        <View style={s.confirmRow}>
+          <ProgressDots current={4} />
+          <Pressable
+            onPress={handleConfirm}
+            disabled={confirming}
+            style={[s.confirmBtn, confirming && s.confirmBtnDim]}
+          >
+            <Text style={s.confirmBtnText}>🚀  Comenzar mi viaje</Text>
+          </Pressable>
+        </View>
       </View>
     </ScreenContainer>
   );
 }
 
-const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: BG },
-  orb1: { position: 'absolute', width: 220, height: 220, borderRadius: 110, backgroundColor: 'rgba(196,248,82,0.06)', top: -60, left: -60 },
-  orb2: { position: 'absolute', width: 250, height: 250, borderRadius: 125, backgroundColor: 'rgba(91,61,245,0.12)', bottom: 80, right: -80 },
-
-  topBar: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, paddingTop: 8, paddingBottom: 14, gap: 12 },
-  backBtn: { width: 38, height: 38, borderRadius: 12, backgroundColor: GLASS, borderWidth: 1, borderColor: GLASS_BORDER, alignItems: 'center', justifyContent: 'center' },
-  backBtnText: { fontSize: 22, fontWeight: '700', color: 'rgba(255,255,255,0.8)', lineHeight: 26 },
-  progressWrap: { flex: 1, flexDirection: 'row', gap: 6 },
-  progressSeg: { flex: 1, borderRadius: 3, height: 6 },
-  progressSegOff: { backgroundColor: 'rgba(255,255,255,0.12)' },
-  stepLbl: { backgroundColor: GLASS, borderRadius: 8, paddingVertical: 4, paddingHorizontal: 8, borderWidth: 1, borderColor: GLASS_BORDER },
-  stepLblText: { fontSize: 11, fontWeight: '700', color: 'rgba(255,255,255,0.6)' },
-
-  scroll: { flex: 1 },
-  scrollContent: { flexGrow: 1, paddingBottom: 24 },
-  body: { paddingHorizontal: 24, paddingBottom: 12 },
-
-  emoji: { fontSize: SM ? 36 : 44, textAlign: 'center', marginBottom: SM ? 4 : 8 },
-  title: { fontSize: 30, fontWeight: '900', color: '#FFF', textAlign: 'center', lineHeight: 38, marginBottom: 6 },
-  lime: { color: LIME },
-  subtitle: { fontSize: 13, color: 'rgba(255,255,255,0.55)', textAlign: 'center', lineHeight: 19, marginBottom: SM ? 10 : 16 },
-
-  goalDisplay: { alignItems: 'center', marginBottom: SM ? 12 : 18 },
-  goalGlowWrap: { alignItems: 'center', justifyContent: 'center', width: GOAL_WRAP, height: GOAL_WRAP },
-  goalGlowRing2: { position: 'absolute', width: GOAL_WRAP, height: GOAL_WRAP, borderRadius: GOAL_WRAP / 2, backgroundColor: 'rgba(196,248,82,0.06)' },
-  goalGlowRing1: { position: 'absolute', width: GOAL_WRAP * 0.79, height: GOAL_WRAP * 0.79, borderRadius: (GOAL_WRAP * 0.79) / 2, backgroundColor: 'rgba(196,248,82,0.11)' },
-  goalCircle: {
-    width: GOAL_CIRCLE, height: GOAL_CIRCLE, borderRadius: CIRCLE_R,
-    backgroundColor: 'rgba(196,248,82,0.07)',
-    borderWidth: 2, borderColor: 'rgba(196,248,82,0.38)',
-    alignItems: 'center', justifyContent: 'center', overflow: 'hidden',
-    shadowColor: LIME, shadowOffset: { width: 0, height: 0 }, shadowOpacity: 0.5, shadowRadius: 20, elevation: 8,
+// ── Styles ────────────────────────────────────────────────────
+const s = StyleSheet.create({
+  root:    { flex: 1, backgroundColor: BG },
+  topBar:  { paddingHorizontal: 16, paddingTop: 4, paddingBottom: 4 },
+  backBtn: {
+    width: 38, height: 38, borderRadius: 12,
+    backgroundColor: palette.blanco, borderWidth: 1, borderColor: palette.bordeClaro,
+    alignItems: 'center', justifyContent: 'center',
   },
-  goalNumber: { fontSize: SM ? 40 : 50, fontWeight: '900', color: LIME, lineHeight: SM ? 44 : 54, letterSpacing: -2 },
-  goalLabel: { fontSize: 8, fontWeight: '800', color: 'rgba(196,248,82,0.7)', letterSpacing: 1.5, marginTop: -4 },
 
-  sliderCard: { backgroundColor: GLASS, borderRadius: 18, padding: SM ? 12 : 16, marginBottom: SM ? 10 : 14, borderWidth: 1, borderColor: GLASS_BORDER },
-  sliderTitle: { fontSize: 12, fontWeight: '700', color: 'rgba(255,255,255,0.55)', marginBottom: SM ? 10 : 16 },
+  roadArea: { flex: 1 },
 
-  // Tall touch area — makes the slider easy to grab on any device
-  sliderTouchArea: {
-    height: 40,
-    justifyContent: 'center',
-    marginBottom: 10,
-    position: 'relative',
+  // Title overlay
+  titleBar: {
+    position: 'absolute', top: 14, left: 0, right: 0,
+    alignItems: 'center', zIndex: 20,
   },
-  sliderTrack: {
-    height: 8,
-    backgroundColor: 'rgba(255,255,255,0.1)',
-    borderRadius: 4,
-    overflow: 'visible',
-  },
-  sliderFill: { height: '100%', borderRadius: 4 },
-  sliderThumb: {
+  title:    { fontSize: 16, fontWeight: '800', color: DARK, textAlign: 'center' },
+  subtitle: { fontSize: 11, color: MED, marginTop: 3, textAlign: 'center' },
+
+  // Checkpoint ring
+  cpRing: {
     position: 'absolute',
-    width: 26, height: 26, borderRadius: 13,
-    backgroundColor: '#FFF',
-    borderWidth: 3, borderColor: NEON,
-    top: 7, marginLeft: -13,
-    shadowColor: NEON, shadowOffset: { width: 0, height: 0 }, shadowOpacity: 0.9, shadowRadius: 10, elevation: 6,
+    width: CP_R * 2, height: CP_R * 2, borderRadius: CP_R,
+    borderWidth: 2.5, borderColor: PRIM,
+    backgroundColor: 'rgba(91,61,245,0.18)',
+    zIndex: 8,
   },
-  sliderEdges: { flexDirection: 'row', justifyContent: 'space-between' },
-  sliderEdgeText: { fontSize: 10, color: 'rgba(255,255,255,0.4)', fontWeight: '600' },
 
-  presets: { flexDirection: 'row', gap: 10, marginBottom: SM ? 10 : 14 },
-  presetBtn: { flex: 1, backgroundColor: GLASS, borderWidth: 1.5, borderColor: GLASS_BORDER, borderRadius: 14, overflow: 'hidden' },
-  presetBtnActive: { borderColor: NEON, shadowColor: NEON, shadowOffset: { width: 0, height: 0 }, shadowOpacity: 0.4, shadowRadius: 8, elevation: 4 },
-  presetPressable: { paddingVertical: 13, alignItems: 'center', justifyContent: 'center' },
-  presetText: { fontSize: 15, fontWeight: '700', color: 'rgba(255,255,255,0.5)' },
-  presetTextActive: { color: '#FFF', fontWeight: '900' },
-
-  motivator: {
-    flexDirection: 'row', alignItems: 'center', gap: 12,
-    backgroundColor: 'rgba(196,248,82,0.08)',
-    borderWidth: 1, borderColor: 'rgba(196,248,82,0.2)',
-    borderRadius: 14, paddingHorizontal: 14, paddingVertical: 12,
+  // Flag
+  flagWrap:       { position: 'absolute', alignItems: 'center', zIndex: 18 },
+  flagGlowCircle: {
+    position: 'absolute', width: 52, height: 52, borderRadius: 26,
+    backgroundColor: GOLD, top: -6,
   },
-  motivatorEmoji: { fontSize: 20 },
-  motivatorText: { fontSize: 13, color: 'rgba(255,255,255,0.8)', fontWeight: '600', flex: 1, lineHeight: 19 },
+  flagEmoji: { fontSize: 30, zIndex: 1 },
 
-  bottom: { paddingHorizontal: 24, paddingBottom: 32, paddingTop: 8 },
-  ctaWrap: { borderRadius: 18, overflow: 'hidden', shadowColor: NEON, shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.45, shadowRadius: 16, elevation: 10 },
-  ctaPressed: { opacity: 0.88 },
-  cta: { paddingVertical: 18, alignItems: 'center', flexDirection: 'row', justifyContent: 'center', gap: 10 },
-  ctaText: { fontSize: 17, fontWeight: '900', color: '#FFF' },
-  ctaArrow: { fontSize: 17, fontWeight: '900', color: '#FFF' },
-  ctaShine: { position: 'absolute', top: 0, left: 0, right: 0, height: 22, backgroundColor: 'rgba(255,255,255,0.20)' },
+  // Car
+  car: { position: 'absolute', top: 0, left: 0, zIndex: 15 },
+
+  // "Objetivo configurado" overlay
+  confirmOverlay: {
+    position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
+    alignItems: 'center', justifyContent: 'center', zIndex: 30,
+  },
+  confirmBadge: {
+    backgroundColor: 'rgba(255,255,255,0.96)',
+    borderRadius: 22, paddingHorizontal: 28, paddingVertical: 16,
+  },
+  confirmBadgeText: { fontSize: 16, fontWeight: '800', color: DARK },
+
+  // NEM Panel
+  nemPanel: {
+    backgroundColor: BG,
+    borderTopLeftRadius: 24, borderTopRightRadius: 24,
+    paddingTop: 14, paddingHorizontal: 20, paddingBottom: 12,
+  },
+
+  vehicleCard: {
+    flexDirection: 'row', alignItems: 'center',
+    backgroundColor: palette.blanco, borderRadius: 16,
+    paddingVertical: 10, paddingHorizontal: 16, marginBottom: 12,
+  },
+  vehicleEmoji: { fontSize: 26, marginRight: 12 },
+  vehicleInfo:  { flex: 1 },
+  vehicleName:  { fontSize: 14, fontWeight: '800', color: DARK },
+  vehicleHint:  { fontSize: 10, color: MED, marginTop: 1 },
+
+  nemRow: {
+    flexDirection: 'row', alignItems: 'center',
+    justifyContent: 'space-between', marginBottom: 8,
+  },
+  nemLabel: { fontSize: 11, fontWeight: '700', color: MED, letterSpacing: 0.5 },
+  nemValue: { fontSize: 30, fontWeight: '900', color: PRIM },
+
+  // Slider
+  sliderHit: { height: 44, justifyContent: 'center', marginBottom: 4 },
+  trackBg:   {
+    position: 'absolute', left: 0, right: 0,
+    height: TRACK_H, borderRadius: TRACK_H / 2, backgroundColor: palette.bordeClaro,
+  },
+  trackFill: {
+    position: 'absolute', left: 0,
+    height: TRACK_H, borderRadius: TRACK_H / 2, backgroundColor: PRIM,
+  },
+  trackTick: {
+    position: 'absolute', top: (44 - 18) / 2,
+    width: 3, height: 18, borderRadius: 2,
+    backgroundColor: 'rgba(255,255,255,0.85)',
+  },
+  trackThumb: {
+    position: 'absolute', top: (44 - THUMB_D) / 2,
+    width: THUMB_D, height: THUMB_D, borderRadius: THUMB_D / 2,
+    backgroundColor: PRIM, borderWidth: 3, borderColor: palette.blanco,
+  },
+
+  sliderLabels: {
+    flexDirection: 'row', justifyContent: 'space-between', marginBottom: 12,
+  },
+  sliderLabel: { fontSize: 10, color: MED, fontWeight: '600' },
+
+  confirmRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  confirmBtn: {
+    flex: 1, backgroundColor: PRIM, borderRadius: 28,
+    paddingVertical: 14, alignItems: 'center',
+  },
+  confirmBtnDim:  { opacity: 0.65 },
+  confirmBtnText: { fontSize: 15, fontWeight: '800', color: palette.blanco },
 });
