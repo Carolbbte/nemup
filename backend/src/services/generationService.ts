@@ -309,21 +309,21 @@ PANTALLA "main_concept" — CONCEPTO NUCLEAR [OBLIGATORIA — UNA POR SECCIÓN]
   Enseña UN concepto nuclear. Responde: ¿Qué es? + ¿Cómo funciona? + ¿Cómo se ve en acción?
   Los conceptos Tipo B de este nuclear se mencionan AQUÍ, brevemente, como apoyo.
   - title: nombre del concepto nuclear (max 5 palabras)
-  - definition: 2 frases, max 25 palabras total.
-    Frase 1: pregunta que el estudiante no puede responder aún (gancho de curiosidad)
-    Frase 2: el descubrimiento — responde la pregunta, simple, sin jerga
+  - definition: explicación conceptual real. Entre 60 y 120 palabras. OBLIGATORIO incluir los 4 componentes:
+    1. IDEA PRINCIPAL: ¿Qué es este concepto en una oración directa?
+    2. EXPLICACIÓN: ¿Cómo funciona? Desarrollar el mecanismo en 2-3 frases simples, sin jerga.
+    3. ANALOGÍA COTIDIANA: Una comparación con algo de la vida diaria del estudiante chileno.
+       Usar: ropa, música, deportes, comida, tecnología, redes sociales — lo que un adolescente conoce.
+    4. EJEMPLO CONCRETO: Un número o caso específico del documento que muestra el concepto en acción.
     SOLO FORMATO — escribe sobre ESTE documento, nunca copies estos temas:
-    ✅ "¿Por qué los murciélagos vuelan en oscuridad total? Emiten sonidos y detectan el eco que rebota en objetos." [Física]
-    ❌ "En esta sección aprenderemos sobre [tema]." — declaración, no descubrimiento.
+    ✅ "Los términos semejantes son grupos con la misma letra y exponente — del mismo 'equipo'. Cuando tienes 3x y 2x, ambos tienen x, así que se suman: 3x + 2x = 5x. Es como naranjas con naranjas: no puedes sumar naranjas con manzanas, igual que no puedes sumar 3x con 2y. Si simplificás 4a + 2b − a + 3b, agrupás los 'a' y los 'b' por separado: resultado = 3a + 5b." [Álgebra]
+    ❌ "Los términos semejantes son expresiones con la misma parte literal." — demasiado corto, sin analogía ni ejemplo.
   - example: SITUACIÓN ESPECÍFICA que un estudiante chileno encontrará HOY. Nombre concreto o número.
     ✗ PROHIBIDO: "Esto es relevante para la vida cotidiana." — abstracto, no aporta valor.
-  - connector: cadena causal visual en EXACTAMENTE este formato:
-    "emoji1 Acción1 ↓ verbo ↓ emoji2 Consecuencia ↓ verbo ↓ emoji3 Resultado"
-    Cada nodo = emoji + max 3 palabras. Cada verbo = 1 palabra transitiva de acción.
-    REGLA DE VERBOS: cada verbo debe describir lo que el NodoA HACE para causar el NodoB — NO el estado del NodoB.
-    ✅ Verbos correctos: genera, eleva, activa, reduce, impulsa, causa, provoca, transforma, libera
-    ✗ PROHIBIDO: nodos abstractos que solo nombran un concepto sin mostrar una acción real.
-    ✗ PROHIBIDO: "ConceptoA ↓ sube ↓ ConceptoB" — describe estado, no acción.
+  - connector: OPCIONAL. Usar null si no hay cadena causal real entre el concepto y su consecuencia.
+    Solo incluir si existe una transformación concreta y secuencial — no para nombrar conceptos.
+    Los diagramas visuales complejos pertenecen a key_relation, no a main_concept.
+    Si se incluye: "emoji1 Nodo1 ↓ verbo ↓ emoji2 Nodo2 ↓ verbo ↓ emoji3 Nodo3"
 
 PANTALLA "comprehension" — COMPRUEBA SI ENTENDISTE [OBLIGATORIA — UNA POR SECCIÓN]
   ⚠️ REGLA FUNDAMENTAL: Solo puede evaluar LO QUE LA PANTALLA main_concept INMEDIATAMENTE ANTERIOR ENSEÑÓ.
@@ -340,10 +340,10 @@ PANTALLA "comprehension" — COMPRUEBA SI ENTENDISTE [OBLIGATORIA — UNA POR SE
     Debe mencionar POR QUÉ la respuesta correcta explica la situación de la pregunta.
 
 PANTALLA "key_relation" — DETECTA EL PATRÓN [OPCIONAL — máximo UNA por sección]
+  Es la pantalla ideal para representar visualmente las relaciones y cadenas causales entre conceptos.
   Generar SOLO si existe una regla, transformación o patrón REAL derivado de este concepto nuclear.
   ✗ NO generar si el documento no describe una transformación o regla concreta.
-  ✗ NO generar para conceptos donde la relación ya fue explicada en main_concept.
-  - connector: cadena de transformación visible (nunca conceptos abstractos):
+  - connector: cadena de transformación visual (ESTE es el lugar para diagramas de cadena con ↓):
     "Situación real ↓ verbo ↓ Cambio visible ↓ verbo ↓ Resultado concreto"
     SOLO FORMATO — derivar de ESTE documento:
     ✅ Física: "🎵 Fuente vibra rápido ↓ genera ↓ 🌊 Frecuencia alta ↓ reduce ↓ 📏 Longitud de onda corta" [SOLO FORMATO]
@@ -432,6 +432,7 @@ PANTALLA "victory" — MISIÓN COMPLETADA [UNA SOLA — al final]
 LÍMITES DE TEXTO — aplican a CADA pantalla:
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 - definition: máximo 2 oraciones O 30 palabras — lo que sea más corto.
+  EXCEPCIÓN main_concept: entre 60 y 120 palabras (ver especificación de esa pantalla).
 - example: máximo 20 palabras.
 - title: máximo 8 palabras.
 Prefiere frases escaneables sobre prosa conectada.
@@ -1553,6 +1554,14 @@ async function callOpenAIAndBuildResult(
   console.log(`[Audit] Slide types: ${aiSlideTypes.join(' -> ') || '(vacío)'}`);
   console.log(`[Audit] main_concept slides: ${nuclearConcepts.length}`);
   console.log('[Audit] main concepts:', nuclearConcepts.map((s: any) => s.title ?? '(sin título)'));
+  nuclearConcepts.forEach((s: any, i: number) => {
+    const defWords = (s.definition ?? '').split(/\s+/).filter(Boolean).length;
+    console.log(`[Audit] main_concept #${i + 1}:`);
+    console.log(`  title = ${s.title ?? '(sin título)'}`);
+    console.log(`  definition words = ${defWords}`);
+    if (defWords < 60) console.log(`  ⚠ definition demasiado corta (< 60 palabras) — verificar prompt`);
+    if (defWords > 120) console.log(`  ⚠ definition demasiado larga (> 120 palabras)`);
+  });
   rawAiSlides.forEach((s: any, i: number) => {
     const inter = s.question ? ' [interactivo]' : '';
     console.log(`  [${i}] ${s.type}${inter} — "${(s.title ?? '').slice(0, 60)}"`);
