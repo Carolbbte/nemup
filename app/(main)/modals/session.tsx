@@ -2810,7 +2810,6 @@ export default function SessionPlayerScreen() {
                           {!!streakLabel && <View style={sum.mStreakBadge}><Text style={sum.mStreakText}>{streakLabel}</Text></View>}
                         </View>
                         <Text style={sum.mFbTitle}>{celebMsg.text}</Text>
-                        {!!bs?.definition && <Text style={sum.mFbExpl} numberOfLines={3}>{bs.definition}</Text>}
                         <Animated.View style={[sum.mXpChip, mXpPopStyle]}>
                           <Text style={sum.mXpText}>{xpLabel}</Text>
                         </Animated.View>
