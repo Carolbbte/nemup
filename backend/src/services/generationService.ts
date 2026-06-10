@@ -625,6 +625,39 @@ LEYES ABSOLUTAS:
 • NUNCA usar nodos abstractos en cadenas causales — solo acciones y situaciones visibles.
 • NUNCA usar marcas comerciales (Spotify, TikTok, Netflix, etc.) salvo que aparezcan en la transcripción.
 • CONSISTENCIA: en cada pantalla interactiva, la pregunta, la respuesta correcta y el feedback deben tratar EL MISMO concepto. Verificar: "¿Mi feedback explica exactamente por qué la respuesta correcta responde ESTA pregunta específica?" Si NO → reescribir el feedback.
+
+⛔ ANTI-PATRÓN CRÍTICO — RECHAZAR ANTES DE GENERAR JSON:
+Un micro_challenge o reinforcement_challenge SIN question+options+correctAnswer no es un challenge.
+Es un main_concept mal tipado. Dispara regeneración automática.
+
+❌ ESTO ESTÁ PROHIBIDO — challenge sin pregunta:
+  { "type": "micro_challenge", "title": "Checkpoint",
+    "definition": "El coeficiente es el número que multiplica la parte literal.",
+    "question": null, "options": null, "correctAnswer": null }
+  → NO ES UN CHALLENGE. Es texto informativo. El estudiante lo lee, no interactúa. INCORRECTO.
+
+✅ ESTO ES OBLIGATORIO — challenge con pregunta:
+  { "type": "micro_challenge", "title": "Checkpoint",
+    "question": "¿Cuál de estos términos tiene coeficiente 5?",
+    "options": ["A. 5x²", "B. 3x", "C. x²"],
+    "correctAnswer": "A",
+    "definition": "El 5 multiplica la parte literal x²: es el coeficiente." }
+  → EL ESTUDIANTE RESPONDE. Luego lee el insight. Así funciona el Duolingo Loop.
+
+❌ ESTO ESTÁ PROHIBIDO — reinforcement sin pregunta:
+  { "type": "reinforcement_challenge", "title": "Refuerzo",
+    "definition": "La parte numérica que multiplica a la parte literal.",
+    "question": null, "options": null, "correctAnswer": null }
+  → INCORRECTO. El refuerzo es interacción, no texto.
+
+✅ ESTO ES OBLIGATORIO — reinforcement con pregunta:
+  { "type": "reinforcement_challenge", "title": "Refuerzo",
+    "question": "En el término 3x², ¿cuál es el coeficiente?",
+    "options": ["A. 3", "B. x", "C. 2"],
+    "correctAnswer": "A",
+    "definition": "El 3 multiplica x²: siempre es el número delante de la parte literal." }
+
+REGLA DE ORO: si no tiene question+options+correctAnswer → no lo tipifiques como challenge. Cámbialo a main_concept o elimínalo.
 • DOCUMENT-FIRST: 100% del contenido académico debe derivarse de la transcripción. Si un concepto, ejemplo o aplicación no puede trazarse a la transcripción → eliminarlo.
 • PROGRESIÓN: la dificultad entre pantallas interactivas debe crecer. comprehension (Nivel 1 Recordar) → application (Nivel 3 Aplicar) → final_challenge (Nivel 4 Analizar).
 • NO-REPETICIÓN: Cada pantalla debe enseñar o evaluar algo DIFERENTE. Antes de escribir cada pantalla: "¿Ya mostré esta idea?" Si SÍ → usar un concepto distinto.
@@ -645,6 +678,8 @@ VALIDACIÓN FINAL — ejecutar antes de generar JSON:
 10. ¿La complejidad corresponde a ${curso}? → Si NO → ajustar lenguaje y profundidad.
 11. ¿Cada sección tiene su tríada obligatoria micro_challenge → main_concept → reinforcement_challenge en ese orden? → Si NO → agregar el reinforcement_challenge faltante.
 12. ¿El reinforcement_challenge de cada sección usa una situación distinta a la del micro_challenge de esa misma sección? → Si NO → reescribir la pregunta.
+13. ¿CADA micro_challenge tiene question + options + correctAnswer? → Si NO → es texto disfrazado de challenge. CORRÍGELO: escribe una pregunta real con 3 opciones.
+14. ¿CADA reinforcement_challenge tiene question + options + correctAnswer? → Si NO → es texto disfrazado de refuerzo. CORRÍGELO: escribe una pregunta de aplicación real con 3 opciones.
 Si alguna verificación falla → corregir antes de generar JSON.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -2161,9 +2196,10 @@ export async function generateSessionContent(
     : 1 - gConsistency.inconsistentSlides.length / gConsistency.results.length;
   const gUnknown        = detectUnknownConcepts(transcription, (base.summary?.slides ?? []) as SummarySlide[], tipoACandidates);
   const qualityScore    = computeQualityScore(gGrounding.score, gSemantic.overallOverlap, consistencyScore, gUnknown.penalty);
-  const gMicroChallenge = validateMicroChallengeInteractivity((base.summary?.slides ?? []) as SummarySlide[]);
-  const gEngagement     = validateEngagement((base.summary?.slides ?? []) as SummarySlide[]);
-  const gDuolingoLoop   = validateDuolingoLoop((base.summary?.slides ?? []) as SummarySlide[]);
+  const gMicroChallenge   = validateMicroChallengeInteractivity((base.summary?.slides ?? []) as SummarySlide[]);
+  const gEngagement       = validateEngagement((base.summary?.slides ?? []) as SummarySlide[]);
+  const gDuolingoLoop     = validateDuolingoLoop((base.summary?.slides ?? []) as SummarySlide[]);
+  const gInteractiveLoops = validateInteractiveLoops((base.summary?.slides ?? []) as SummarySlide[]);
 
   console.log('\n[QUALITY REPORT]');
   console.log(`  groundingScore:   ${gGrounding.score.toFixed(2)}`);
@@ -2192,27 +2228,30 @@ export async function generateSessionContent(
   console.log(`  passes:                  ${gEngagement.passesThreshold ? 'YES' : 'NO'}`);
 
   console.log('\n[DUOLINGO LOOP REPORT]');
-  console.log(`  concepts_detected:       ${gDuolingoLoop.conceptsDetected}`);
-  console.log(`  concepts_full_loop:      ${gDuolingoLoop.conceptsWithFullLoop}`);
-  console.log(`  total_interactions:      ${gDuolingoLoop.totalLearningInteractions}`);
-  console.log(`  boss_challenge:          ${gDuolingoLoop.bossChallengePresent ? 'YES' : 'NO'}`);
-  console.log(`  loop_compliance:         ${(gDuolingoLoop.loopCompliance * 100).toFixed(0)}%`);
-  console.log(`  passes:                  ${gDuolingoLoop.passesThreshold ? 'YES' : 'NO'}`);
+  gInteractiveLoops.concepts.forEach(c => {
+    console.log(`\n  concept: ${c.conceptTitle}`);
+    console.log(`    micro_challenge:          interactive=${c.microChallenge.interactive} present=${c.microChallenge.present}`);
+    console.log(`    main_concept:             present=${c.mainConcept.present}`);
+    console.log(`    reinforcement_challenge:  interactive=${c.reinforcementChallenge.interactive} present=${c.reinforcementChallenge.present}`);
+    console.log(`    loop_complete=${c.loopComplete}`);
+  });
+  console.log(`\n  interactiveLoopCompliance: ${(gInteractiveLoops.interactiveLoopCompliance * 100).toFixed(0)}% (${gInteractiveLoops.completeLoops}/${gInteractiveLoops.totalConcepts})`);
+  console.log(`  passes:                    ${gInteractiveLoops.passesThreshold ? 'YES' : 'NO'}`);
 
-  const needsRegeneration = qualityScore < 0.65 || gMicroChallenge.hasPassive || !gEngagement.passesThreshold || !gDuolingoLoop.passesThreshold;
+  const needsRegeneration = qualityScore < 0.65 || gMicroChallenge.hasPassive || !gEngagement.passesThreshold || !gInteractiveLoops.passesThreshold;
   let finalBase = base;
   if (needsRegeneration) {
     const reasons: string[] = [];
     if (qualityScore < 0.65)              reasons.push('quality');
     if (gMicroChallenge.hasPassive)       reasons.push('micro_challenge pasivos');
-    if (!gEngagement.passesThreshold)     reasons.push(`engagement (score=${gEngagement.engagementScore.toFixed(2)}, cfViolations=${gEngagement.challengeFirstViolations})`);
-    if (!gDuolingoLoop.passesThreshold)   reasons.push(`duolingo_loop (${gDuolingoLoop.conceptsWithFullLoop}/${gDuolingoLoop.conceptsDetected} conceptos con loop completo)`);
+    if (!gEngagement.passesThreshold)       reasons.push(`engagement (score=${gEngagement.engagementScore.toFixed(2)}, cfViolations=${gEngagement.challengeFirstViolations})`);
+    if (!gInteractiveLoops.passesThreshold) reasons.push(`interactive_loops (${gInteractiveLoops.completeLoops}/${gInteractiveLoops.totalConcepts} loops completos)`);
     console.log(`  action:           REGENERATE (${reasons.join(', ')})`);
 
     const feedbackParts: string[] = [buildQualityFeedback(gUnknown.unknownConcepts, gSemantic.overallOverlap)];
-    if (gMicroChallenge.hasPassive)       feedbackParts.push(buildMicroChallengeFeedback(gMicroChallenge.passiveSlides));
-    if (!gEngagement.passesThreshold)     feedbackParts.push(buildEngagementFeedback(gEngagement));
-    if (!gDuolingoLoop.passesThreshold)   feedbackParts.push(buildDuolingoLoopFeedback(gDuolingoLoop));
+    if (gMicroChallenge.hasPassive)         feedbackParts.push(buildMicroChallengeFeedback(gMicroChallenge.passiveSlides));
+    if (!gEngagement.passesThreshold)       feedbackParts.push(buildEngagementFeedback(gEngagement));
+    if (!gInteractiveLoops.passesThreshold) feedbackParts.push(buildInteractiveLoopsFeedback(gInteractiveLoops));
     const retryPrompt = `${prompt}\n\n${'━'.repeat(40)}\n${feedbackParts.join('\n\n')}\n${'━'.repeat(40)}`;
     finalBase = await callOpenAIAndBuildResult(retryPrompt, systemMsg, configValues);
     console.log('[QUALITY REPORT] Regeneración completada.');
@@ -2600,6 +2639,92 @@ function buildEngagementFeedback(r: ChallengeFirstReport): string {
     lines.push(`✗ ${r.maxConsecutiveInformative} slides pasivos consecutivos. Máximo permitido: 2.`);
     lines.push('  Intercala siempre un desafío entre slides informativos.');
   }
+  return lines.join('\n');
+}
+
+// ── Interactive loops validator (per-concept: checks BOTH presence and interactivity) ──
+
+export interface ConceptLoopStatus {
+  conceptTitle: string;
+  conceptIdx: number;
+  microChallenge: { present: boolean; interactive: boolean };
+  mainConcept: { present: boolean };
+  reinforcementChallenge: { present: boolean; interactive: boolean };
+  loopComplete: boolean;
+}
+
+export interface InteractiveLoopsReport {
+  concepts: ConceptLoopStatus[];
+  totalConcepts: number;
+  completeLoops: number;
+  interactiveLoopCompliance: number;
+  passesThreshold: boolean;
+}
+
+export function validateInteractiveLoops(slides: SummarySlide[]): InteractiveLoopsReport {
+  const isInteractive = (s: unknown): boolean => {
+    const slide = s as { question?: string | null; options?: unknown[] | null; correctAnswer?: string | null };
+    return typeof slide?.question === 'string' && slide.question.trim().length > 0
+      && Array.isArray(slide?.options) && (slide.options as unknown[]).length >= 2
+      && typeof slide?.correctAnswer === 'string' && slide.correctAnswer.trim().length > 0;
+  };
+
+  const concepts: ConceptLoopStatus[] = [];
+
+  slides.forEach((slide, i) => {
+    const s = slide as { type?: string; title?: string };
+    if (s.type !== 'main_concept') return;
+
+    const prev = slides[i - 1] as { type?: string } | undefined;
+    const next = slides[i + 1] as { type?: string } | undefined;
+
+    const hasMicro          = prev?.type === 'micro_challenge';
+    const hasReinforcement  = next?.type === 'reinforcement_challenge';
+
+    concepts.push({
+      conceptTitle: (s.title ?? `concepto ${i}`).slice(0, 60),
+      conceptIdx: i,
+      microChallenge:         { present: hasMicro,         interactive: hasMicro         && isInteractive(slides[i - 1]) },
+      mainConcept:            { present: true },
+      reinforcementChallenge: { present: hasReinforcement,  interactive: hasReinforcement  && isInteractive(slides[i + 1]) },
+      loopComplete: hasMicro && isInteractive(slides[i - 1]) && hasReinforcement && isInteractive(slides[i + 1]),
+    });
+  });
+
+  const completeLoops = concepts.filter(c => c.loopComplete).length;
+  const compliance    = concepts.length > 0 ? completeLoops / concepts.length : 0;
+
+  return {
+    concepts,
+    totalConcepts: concepts.length,
+    completeLoops,
+    interactiveLoopCompliance: compliance,
+    passesThreshold: compliance === 1.0,
+  };
+}
+
+function buildInteractiveLoopsFeedback(r: InteractiveLoopsReport): string {
+  const lines = ['🔁 CORRECCIÓN NECESARIA — DUOLINGO LOOP: CHALLENGES SIN INTERACCIÓN:'];
+  r.concepts.forEach(c => {
+    if (!c.loopComplete) {
+      lines.push(`\n✗ Concepto "${c.conceptTitle}":`);
+      if (!c.microChallenge.present) {
+        lines.push('  - Falta micro_challenge ANTES de main_concept.');
+      } else if (!c.microChallenge.interactive) {
+        lines.push('  - micro_challenge SIN question+options+correctAnswer. Es texto disfrazado de challenge.');
+        lines.push('    CORRECCIÓN OBLIGATORIA: escribe una pregunta real con 3 opciones (A/B/C) y correctAnswer.');
+        lines.push('    El micro_challenge debe provocar acción — el estudiante responde ANTES de ver el insight.');
+      }
+      if (!c.reinforcementChallenge.present) {
+        lines.push('  - Falta reinforcement_challenge DESPUÉS de main_concept.');
+      } else if (!c.reinforcementChallenge.interactive) {
+        lines.push('  - reinforcement_challenge SIN question+options+correctAnswer. Es texto disfrazado de refuerzo.');
+        lines.push('    CORRECCIÓN OBLIGATORIA: escribe una pregunta de aplicación con 3 opciones (A/B/C) y correctAnswer.');
+        lines.push('    El reinforcement_challenge debe aplicar el concepto del main_concept en una situación nueva.');
+      }
+    }
+  });
+  lines.push('\nREGLA ABSOLUTA: sin question+options+correctAnswer no es un challenge. Es un main_concept mal tipado.');
   return lines.join('\n');
 }
 
