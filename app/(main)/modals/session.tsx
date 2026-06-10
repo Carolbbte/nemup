@@ -111,6 +111,45 @@ const MICRO_REWARD_MSGS: Record<number, string> = {
   10: '📚 ¡Tema completado!',
 };
 const SUMMARY_REWARDS = ['✨ +10 XP', '🔥 Correcto', '⚡ Muy bien', '🎯 Excelente'];
+
+const MISSION_FB_OK: Array<{ emoji: string; text: string }> = [
+  { emoji: '🎉', text: '¡Bien hecho!' },
+  { emoji: '⚡', text: '¡Excelente!' },
+  { emoji: '🔥', text: '¡Vas muy bien!' },
+  { emoji: '🚀', text: '¡Lo dominaste!' },
+  { emoji: '🏆', text: '¡Respuesta perfecta!' },
+  { emoji: '⭐', text: '¡Gran trabajo!' },
+  { emoji: '💎', text: '¡Nivel desbloqueado!' },
+  { emoji: '🎯', text: '¡Exacto!' },
+  { emoji: '🧠', text: '¡Lo entendiste!' },
+  { emoji: '✨', text: '¡Brillante!' },
+  { emoji: '👊', text: '¡Eso es!' },
+  { emoji: '🌟', text: '¡Espectacular!' },
+  { emoji: '💡', text: '¡Lo captaste!' },
+  { emoji: '🎊', text: '¡Increíble!' },
+  { emoji: '🦁', text: '¡Como un experto!' },
+  { emoji: '🏅', text: '¡De primera!' },
+  { emoji: '🌈', text: '¡Perfecto!' },
+  { emoji: '🔑', text: '¡Clave encontrada!' },
+  { emoji: '💥', text: '¡Boom, correcto!' },
+  { emoji: '🎮', text: '¡Siguiente nivel!' },
+  { emoji: '🌊', text: '¡Imparable!' },
+  { emoji: '🦋', text: '¡Volando alto!' },
+];
+
+const MISSION_FB_ERR: Array<{ emoji: string; text: string }> = [
+  { emoji: '💡', text: 'Casi.' },
+  { emoji: '🤔', text: 'Buena prueba.' },
+  { emoji: '🎯', text: 'Estuviste cerca.' },
+  { emoji: '💪', text: 'Sigue intentando.' },
+  { emoji: '🧩', text: 'Ya lo tendrás.' },
+  { emoji: '🌱', text: 'Aprendiste algo nuevo.' },
+  { emoji: '🔄', text: 'Así se aprende.' },
+  { emoji: '🤗', text: 'No te preocupes.' },
+  { emoji: '🎓', text: 'Buen intento.' },
+  { emoji: '💫', text: 'La próxima es tuya.' },
+  { emoji: '🛸', text: 'Sigue adelante.' },
+];
 const NEMI_MSGS = [
   'Buen comienzo.',
   'Ya entendiste este concepto.',
@@ -700,6 +739,7 @@ export default function SessionPlayerScreen() {
   const [correctCount, setCorrectCount]   = useState(0);
   const [streak, setStreak]               = useState(0);
   const [maxStreak, setMaxStreak]         = useState(0);
+  const [missionStreak, setMissionStreak] = useState(0);
   const [quizDone, setQuizDone]           = useState(false);
   const [comboCount, setComboCount]       = useState(0);
   const [streakMsg, setStreakMsg]         = useState('');
@@ -771,6 +811,19 @@ export default function SessionPlayerScreen() {
     transform: [{ translateY: summaryRewardYSV.value }],
   }));
 
+  // Mission feedback bar (Duolingo-style bottom panel)
+  const mFbY  = useSharedValue(220);
+  const mFbOp = useSharedValue(0);
+  const mXpSV = useSharedValue(0);
+  const mFbStyle    = useAnimatedStyle(() => ({
+    opacity:   mFbOp.value,
+    transform: [{ translateY: mFbY.value }],
+  }));
+  const mXpPopStyle = useAnimatedStyle(() => ({
+    opacity:   mXpSV.value,
+    transform: [{ scale: 0.7 + mXpSV.value * 0.3 }],
+  }));
+
   // New: TikTok question transition
   const questionX    = useSharedValue(0);
   const questionOp   = useSharedValue(1);
@@ -808,6 +861,42 @@ export default function SessionPlayerScreen() {
     slideX.value = withSpring(0, { damping: 22, stiffness: 220 });
     slideOpacity.value = withTiming(1, { duration: 240 });
   }, [summaryIdx, phase]);
+
+  // Reset mission feedback bar on slide change
+  useEffect(() => {
+    if (phase !== 'summary') return;
+    mFbY.value  = 220;
+    mFbOp.value = 0;
+    mXpSV.value = 0;
+    wrongShakeSV.value = 0;
+  }, [summaryIdx, phase]);
+
+  // Animate feedback bar and update streak when mission question answered
+  useEffect(() => {
+    if (phase !== 'summary') return;
+    const answered = quizAnswers[summaryIdx];
+    if (!answered) return;
+    const bs = missionSlides[summaryIdx] as { correctAnswer?: string | null } | undefined;
+    const correct = !!bs?.correctAnswer && answered === bs.correctAnswer;
+
+    mFbY.value  = withSpring(0, { damping: 22, stiffness: 240 });
+    mFbOp.value = withTiming(1, { duration: 160 });
+
+    if (correct) {
+      setMissionStreak(s => s + 1);
+      mXpSV.value = withDelay(200, withSpring(1, { damping: 12, stiffness: 300 }));
+    } else {
+      setMissionStreak(0);
+      wrongShakeSV.value = withSequence(
+        withTiming(-10, { duration: 55 }),
+        withTiming(10,  { duration: 55 }),
+        withTiming(-7,  { duration: 45 }),
+        withTiming(7,   { duration: 45 }),
+        withTiming(0,   { duration: 40 }),
+      );
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [quizAnswers[summaryIdx], summaryIdx, phase]);
 
   // Capture mission start time on first entry to summary phase
   useEffect(() => {
@@ -1780,43 +1869,29 @@ export default function SessionPlayerScreen() {
                           const showRed   = answered === letter && !isCorrect;
                           const dimmed    = !!answered && !isCorrect && answered !== letter;
                           return (
-                            <Pressable key={i}
-                              onPress={() => { if (!answered) { setQuizAnswers(prev => ({ ...prev, [summaryIdx]: letter })); if (isCorrect) showSummaryReward('⚡ +5 XP'); else insertCorrectiveSlide(slide as BackendSlide, letter); } }}
-                              style={[sum.quizOption, showGreen && sum.quizOptCorrect, showRed && sum.quizOptWrong, { opacity: dimmed ? 0.35 : 1 }]}
-                            >
-                              <View style={[sum.quizLetter, showGreen && sum.quizLetterGreen, showRed && sum.quizLetterRed]}>
-                                {showGreen ? <Check size={12} color={palette.blanco} strokeWidth={3} /> :
-                                 showRed   ? <X    size={12} color={palette.blanco} strokeWidth={3} /> :
-                                 <Text style={sum.quizLetterText}>{letter}</Text>}
-                              </View>
-                              <Text style={[sum.quizOptText, showGreen && { color: BRAND, fontWeight: '700' }, showRed && { color: '#991B1B', fontWeight: '700' }]}>{opt}</Text>
-                            </Pressable>
+                            <Animated.View key={i} style={showRed ? wrongShakeStyle : {}}>
+                              <Pressable
+                                onPress={() => { if (!answered) setQuizAnswers(prev => ({ ...prev, [summaryIdx]: letter })); }}
+                                style={[sum.quizOption, showGreen && sum.quizOptCorrect, showRed && sum.quizOptWrong, { opacity: dimmed ? 0.35 : 1 }]}
+                              >
+                                <View style={[sum.quizLetter, showGreen && sum.quizLetterGreen, showRed && sum.quizLetterRed]}>
+                                  {showGreen ? <Check size={12} color={palette.blanco} strokeWidth={3} /> :
+                                   showRed   ? <X    size={12} color={palette.blanco} strokeWidth={3} /> :
+                                   <Text style={sum.quizLetterText}>{letter}</Text>}
+                                </View>
+                                <Text style={[sum.quizOptText, showGreen && { color: BRAND, fontWeight: '700' }, showRed && { color: '#991B1B', fontWeight: '700' }]}>{opt}</Text>
+                              </Pressable>
+                            </Animated.View>
                           );
                         })}
                       </View>
-                      {!!quizAnswers[summaryIdx] && (
-                        <View style={[sum.quizFeedback, quizAnswers[summaryIdx] === slide.correctAnswer ? sum.quizFeedbackOk : sum.quizFeedbackErr]}>
-                          {quizAnswers[summaryIdx] === slide.correctAnswer ? (
-                            <View style={sum.quizFeedbackHeader}>
-                              <Text style={sum.quizFeedbackTitle}>✓ Correcto</Text>
-                              {!!summaryRewardText && <View style={sum.quizFeedbackXpChip}><Text style={sum.quizFeedbackXpText}>{summaryRewardText}</Text></View>}
-                            </View>
-                          ) : (
-                            <>
-                              <Text style={sum.quizFeedbackTitle}>{isEarlyCheck ? '💡 Casi' : '💡 Incorrecto'}</Text>
-                              <Text style={sum.quizFeedbackText}>{isEarlyCheck ? 'Revisa la explicación anterior y sigue avanzando.' : (slide.definition || `La respuesta correcta era la ${slide.correctAnswer}.`)}</Text>
-                            </>
-                          )}
-                        </View>
-                      )}
                     </View>
                   </View>
                 );
               })()
             ) : slide?.type === 'micro_challenge' ? (
               (() => {
-                const answered  = quizAnswers[summaryIdx];
-                const isCorrect = answered === slide.correctAnswer;
+                const answered = quizAnswers[summaryIdx];
                 return (
                   <View style={sum.microCard}>
                     <View style={sum.microHeader}>
@@ -1833,36 +1908,22 @@ export default function SessionPlayerScreen() {
                           const showRed   = answered === letter && !isOpt;
                           const dimmed    = !!answered && !isOpt && answered !== letter;
                           return (
-                            <Pressable key={i}
-                              onPress={() => { if (!answered) { setQuizAnswers(prev => ({ ...prev, [summaryIdx]: letter })); if (isOpt) showSummaryReward('⚡ +5 XP'); } }}
-                              style={[sum.quizOption, showGreen && sum.quizOptCorrect, showRed && sum.quizOptWrong, { opacity: dimmed ? 0.35 : 1 }]}
-                            >
-                              <View style={[sum.quizLetter, showGreen && sum.quizLetterGreen, showRed && sum.quizLetterRed]}>
-                                {showGreen ? <Check size={12} color={palette.blanco} strokeWidth={3} /> :
-                                 showRed   ? <X    size={12} color={palette.blanco} strokeWidth={3} /> :
-                                 <Text style={sum.quizLetterText}>{letter}</Text>}
-                              </View>
-                              <Text style={[sum.quizOptText, showGreen && { color: BRAND, fontWeight: '700' }, showRed && { color: '#991B1B', fontWeight: '700' }]}>{opt}</Text>
-                            </Pressable>
+                            <Animated.View key={i} style={showRed ? wrongShakeStyle : {}}>
+                              <Pressable
+                                onPress={() => { if (!answered) setQuizAnswers(prev => ({ ...prev, [summaryIdx]: letter })); }}
+                                style={[sum.quizOption, showGreen && sum.quizOptCorrect, showRed && sum.quizOptWrong, { opacity: dimmed ? 0.35 : 1 }]}
+                              >
+                                <View style={[sum.quizLetter, showGreen && sum.quizLetterGreen, showRed && sum.quizLetterRed]}>
+                                  {showGreen ? <Check size={12} color={palette.blanco} strokeWidth={3} /> :
+                                   showRed   ? <X    size={12} color={palette.blanco} strokeWidth={3} /> :
+                                   <Text style={sum.quizLetterText}>{letter}</Text>}
+                                </View>
+                                <Text style={[sum.quizOptText, showGreen && { color: BRAND, fontWeight: '700' }, showRed && { color: '#991B1B', fontWeight: '700' }]}>{opt}</Text>
+                              </Pressable>
+                            </Animated.View>
                           );
                         })}
                       </View>
-                      {!!answered && (
-                        <View style={[sum.quizFeedback, isCorrect ? sum.quizFeedbackOk : sum.quizFeedbackErr]}>
-                          {isCorrect ? (
-                            <View style={sum.quizFeedbackHeader}>
-                              <Text style={sum.quizFeedbackTitle}>✓ Correcto</Text>
-                              {!!summaryRewardText && <View style={sum.quizFeedbackXpChip}><Text style={sum.quizFeedbackXpText}>{summaryRewardText}</Text></View>}
-                            </View>
-                          ) : (
-                            <>
-                              <Text style={sum.quizFeedbackTitle}>💡 Casi</Text>
-                              <Text style={sum.quizFeedbackText}>{slide.definition || `La respuesta correcta era la ${slide.correctAnswer}.`}</Text>
-                            </>
-                          )}
-                          {isCorrect && !!slide.definition && <Text style={[sum.quizFeedbackText, { marginTop: 4 }]}>{slide.definition}</Text>}
-                        </View>
-                      )}
                     </View>
                   </View>
                 );
@@ -1915,35 +1976,22 @@ export default function SessionPlayerScreen() {
                     const showRed   = answered === letter && !isCorrect;
                     const dimmed    = !!answered && !isCorrect && answered !== letter;
                     return (
-                      <Pressable key={i}
-                        onPress={() => { if (!answered) { setQuizAnswers(prev => ({ ...prev, [summaryIdx]: letter })); if (isCorrect) showSummaryReward(); else insertCorrectiveSlide(slide as BackendSlide, letter); } }}
-                        style={[sum.quizOption, showGreen && sum.quizOptCorrect, showRed && sum.quizOptWrong, { opacity: dimmed ? 0.35 : 1 }]}
-                      >
-                        <View style={[sum.quizLetter, showGreen && sum.quizLetterGreen, showRed && sum.quizLetterRed]}>
-                          {showGreen ? <Check size={12} color={palette.blanco} strokeWidth={3} /> :
-                           showRed   ? <X    size={12} color={palette.blanco} strokeWidth={3} /> :
-                           <Text style={sum.quizLetterText}>{letter}</Text>}
-                        </View>
-                        <Text style={[sum.quizOptText, showGreen && { color: BRAND, fontWeight: '700' }, showRed && { color: '#991B1B', fontWeight: '700' }]}>{opt}</Text>
-                      </Pressable>
+                      <Animated.View key={i} style={showRed ? wrongShakeStyle : {}}>
+                        <Pressable
+                          onPress={() => { if (!answered) setQuizAnswers(prev => ({ ...prev, [summaryIdx]: letter })); }}
+                          style={[sum.quizOption, showGreen && sum.quizOptCorrect, showRed && sum.quizOptWrong, { opacity: dimmed ? 0.35 : 1 }]}
+                        >
+                          <View style={[sum.quizLetter, showGreen && sum.quizLetterGreen, showRed && sum.quizLetterRed]}>
+                            {showGreen ? <Check size={12} color={palette.blanco} strokeWidth={3} /> :
+                             showRed   ? <X    size={12} color={palette.blanco} strokeWidth={3} /> :
+                             <Text style={sum.quizLetterText}>{letter}</Text>}
+                          </View>
+                          <Text style={[sum.quizOptText, showGreen && { color: BRAND, fontWeight: '700' }, showRed && { color: '#991B1B', fontWeight: '700' }]}>{opt}</Text>
+                        </Pressable>
+                      </Animated.View>
                     );
                   })}
                 </View>
-                {!!quizAnswers[summaryIdx] && (
-                  <View style={[sum.quizFeedback, quizAnswers[summaryIdx] === slide.correctAnswer ? sum.quizFeedbackOk : sum.quizFeedbackErr]}>
-                    {quizAnswers[summaryIdx] === slide.correctAnswer ? (
-                      <View style={sum.quizFeedbackHeader}>
-                        <Text style={sum.quizFeedbackTitle}>✓ Correcto</Text>
-                        {!!summaryRewardText && <View style={sum.quizFeedbackXpChip}><Text style={sum.quizFeedbackXpText}>{summaryRewardText}</Text></View>}
-                      </View>
-                    ) : (
-                      <>
-                        <Text style={sum.quizFeedbackTitle}>💡 Incorrecto</Text>
-                        <Text style={sum.quizFeedbackText}>{slide.definition || `La respuesta correcta era la ${slide.correctAnswer}.`}</Text>
-                      </>
-                    )}
-                  </View>
-                )}
               </View>
             ) : slide?.type === 'process_flow' ? (
               <View style={sum.processCard}>
@@ -2120,38 +2168,22 @@ export default function SessionPlayerScreen() {
                       const showRed   = answered === letter && !isCorrect;
                       const dimmed    = !!answered && !isCorrect && answered !== letter;
                       return (
-                        <Pressable key={i}
-                          onPress={() => { if (!answered) { setQuizAnswers(prev => ({ ...prev, [summaryIdx]: letter })); if (isCorrect) showSummaryReward('🔥 +10 XP'); else insertCorrectiveSlide(slide as BackendSlide, letter); } }}
-                          style={[sum.quizOption, showGreen && sum.quizOptCorrect, showRed && sum.quizOptWrong, { opacity: dimmed ? 0.35 : 1 }]}
-                        >
-                          <View style={[sum.quizLetter, showGreen && sum.quizLetterGreen, showRed && sum.quizLetterRed]}>
-                            {showGreen ? <Check size={12} color={palette.blanco} strokeWidth={3} /> :
-                             showRed   ? <X    size={12} color={palette.blanco} strokeWidth={3} /> :
-                             <Text style={sum.quizLetterText}>{letter}</Text>}
-                          </View>
-                          <Text style={[sum.quizOptText, showGreen && { color: BRAND, fontWeight: '700' }, showRed && { color: '#991B1B', fontWeight: '700' }]}>{opt}</Text>
-                        </Pressable>
+                        <Animated.View key={i} style={showRed ? wrongShakeStyle : {}}>
+                          <Pressable
+                            onPress={() => { if (!answered) setQuizAnswers(prev => ({ ...prev, [summaryIdx]: letter })); }}
+                            style={[sum.quizOption, showGreen && sum.quizOptCorrect, showRed && sum.quizOptWrong, { opacity: dimmed ? 0.35 : 1 }]}
+                          >
+                            <View style={[sum.quizLetter, showGreen && sum.quizLetterGreen, showRed && sum.quizLetterRed]}>
+                              {showGreen ? <Check size={12} color={palette.blanco} strokeWidth={3} /> :
+                               showRed   ? <X    size={12} color={palette.blanco} strokeWidth={3} /> :
+                               <Text style={sum.quizLetterText}>{letter}</Text>}
+                            </View>
+                            <Text style={[sum.quizOptText, showGreen && { color: BRAND, fontWeight: '700' }, showRed && { color: '#991B1B', fontWeight: '700' }]}>{opt}</Text>
+                          </Pressable>
+                        </Animated.View>
                       );
                     })}
                   </View>
-                  {!!quizAnswers[summaryIdx] && (
-                    <View style={[sum.quizFeedback, quizAnswers[summaryIdx] === slide.correctAnswer ? sum.retoFeedbackOk : sum.quizFeedbackErr]}>
-                      {quizAnswers[summaryIdx] === slide.correctAnswer ? (
-                        <>
-                          <View style={sum.quizFeedbackHeader}>
-                            <Text style={[sum.quizFeedbackTitle, { color: LIME }]}>🎉 ¡Lo dominaste!</Text>
-                            {!!summaryRewardText && <View style={sum.quizFeedbackXpChip}><Text style={sum.quizFeedbackXpText}>{summaryRewardText}</Text></View>}
-                          </View>
-                          <Text style={[sum.quizFeedbackText, { color: 'rgba(255,255,255,0.85)', marginTop: 4 }]}>Ya estás listo para el Quiz.</Text>
-                        </>
-                      ) : (
-                        <>
-                          <Text style={sum.quizFeedbackTitle}>💡 Casi</Text>
-                          {!!slide.definition && <Text style={sum.quizFeedbackText}>{slide.definition}</Text>}
-                        </>
-                      )}
-                    </View>
-                  )}
                 </View>
               </View>
             ) : slide?.type === 'decide' ? (
@@ -2167,35 +2199,22 @@ export default function SessionPlayerScreen() {
                     const showRed   = answered === letter && !isCorrect;
                     const dimmed    = !!answered && !isCorrect && answered !== letter;
                     return (
-                      <Pressable key={i}
-                        onPress={() => { if (!answered) { setQuizAnswers(prev => ({ ...prev, [summaryIdx]: letter })); if (isCorrect) showSummaryReward(); else insertCorrectiveSlide(slide as BackendSlide, letter); } }}
-                        style={[sum.quizOption, showGreen && sum.quizOptCorrect, showRed && sum.quizOptWrong, { opacity: dimmed ? 0.35 : 1 }]}
-                      >
-                        <View style={[sum.quizLetter, showGreen && sum.quizLetterGreen, showRed && sum.quizLetterRed]}>
-                          {showGreen ? <Check size={12} color={palette.blanco} strokeWidth={3} /> :
-                           showRed   ? <X    size={12} color={palette.blanco} strokeWidth={3} /> :
-                           <Text style={sum.quizLetterText}>{letter}</Text>}
-                        </View>
-                        <Text style={[sum.quizOptText, showGreen && { color: BRAND, fontWeight: '700' }, showRed && { color: '#991B1B', fontWeight: '700' }]}>{opt}</Text>
-                      </Pressable>
+                      <Animated.View key={i} style={showRed ? wrongShakeStyle : {}}>
+                        <Pressable
+                          onPress={() => { if (!answered) setQuizAnswers(prev => ({ ...prev, [summaryIdx]: letter })); }}
+                          style={[sum.quizOption, showGreen && sum.quizOptCorrect, showRed && sum.quizOptWrong, { opacity: dimmed ? 0.35 : 1 }]}
+                        >
+                          <View style={[sum.quizLetter, showGreen && sum.quizLetterGreen, showRed && sum.quizLetterRed]}>
+                            {showGreen ? <Check size={12} color={palette.blanco} strokeWidth={3} /> :
+                             showRed   ? <X    size={12} color={palette.blanco} strokeWidth={3} /> :
+                             <Text style={sum.quizLetterText}>{letter}</Text>}
+                          </View>
+                          <Text style={[sum.quizOptText, showGreen && { color: BRAND, fontWeight: '700' }, showRed && { color: '#991B1B', fontWeight: '700' }]}>{opt}</Text>
+                        </Pressable>
+                      </Animated.View>
                     );
                   })}
                 </View>
-                {!!quizAnswers[summaryIdx] && (
-                  <View style={[sum.quizFeedback, quizAnswers[summaryIdx] === slide.correctAnswer ? sum.quizFeedbackOk : sum.quizFeedbackErr]}>
-                    {quizAnswers[summaryIdx] === slide.correctAnswer ? (
-                      <View style={sum.quizFeedbackHeader}>
-                        <Text style={sum.quizFeedbackTitle}>✓ Correcto</Text>
-                        {!!summaryRewardText && <View style={sum.quizFeedbackXpChip}><Text style={sum.quizFeedbackXpText}>{summaryRewardText}</Text></View>}
-                      </View>
-                    ) : (
-                      <>
-                        <Text style={sum.quizFeedbackTitle}>💡 Incorrecto</Text>
-                        <Text style={sum.quizFeedbackText}>{slide.definition || `La respuesta correcta era la ${slide.correctAnswer}.`}</Text>
-                      </>
-                    )}
-                  </View>
-                )}
               </View>
             ) : slide?.type === 'order_sequence' ? (
               // IIFE to define local shuffle vars inline
@@ -2753,36 +2772,90 @@ export default function SessionPlayerScreen() {
             {/* Summary micro-reward — integrated into feedback boxes (no floating overlay) */}
           </Animated.View>
 
-          {/* CTA */}
-          <View style={[g.bottom, { paddingBottom: insets.bottom + 12 }]}>
-            {((slide?.type === 'quiz' && !slideQuizAnswered) ||
-              ((slide?.type === 'comprehension' || slide?.type === 'mini_quiz' || slide?.type === 'final_challenge' || slide?.type === 'decide' || slide?.type === 'order_sequence' || (slide?.type === 'common_error' && !!slide.question) || (slide?.type === 'wow_fact' && !!slide.question) || (slide?.type === 'application' && !!slide.question) || (slide?.type === 'challenge' && !!slide.question)) && !quizAnswers[summaryIdx])) ? (
-              <View style={g.ctaBtnOff}>
-                <Text style={g.ctaTextOff}>Elige una opción</Text>
-              </View>
-            ) : (
-              <Pressable
-                onPress={() => isLast ? completeMode('summary') : goNext()}
-                style={{ width: '100%' }}
-              >
-                <View style={[g.ctaBtn, { backgroundColor: BRAND }]}>
-                  <Text style={g.ctaText}>
-                    {isLast && slide?.type === 'victory' ? (
-                    NEUTRAL_MISSION_COMPLETION ? 'Continuar al Quiz →' :
-                    noInteractionsAttempted ? 'Cerrar misión' : '🏆 ¡Misión completada!'
-                  ) :
-                     isLast ? '✅ Completar resumen' :
-                     slide?.type === 'mission' ? '¡Comenzar! →' :
-                     (slide?.type === 'challenge' && !(slide as BackendSlide).correctAnswer) ? '🤔 Lo pensé →' :
-                     slide?.type === 'decide' ? '✅ Decidido →' :
-                     slide?.type === 'motivation' ? '¡Seguimos! →' :
-                     slide?.type === 'prediction' ? '🧠 Entendido →' :
-                     'Siguiente →'}
-                  </Text>
+          {/* CTA — feedback bar or navigation button */}
+          {(() => {
+            const bs = slide as BackendSlide | undefined;
+            const MISSION_QUIZ_TYPES = new Set(['micro_challenge', 'comprehension', 'mini_quiz', 'final_challenge', 'decide']);
+            const isMissionInteractive = MISSION_QUIZ_TYPES.has(slide?.type ?? '') ||
+              (['common_error', 'wow_fact', 'application', 'challenge'].includes(slide?.type ?? '') && !!bs?.question);
+            const missionAnswered = isMissionInteractive ? quizAnswers[summaryIdx] : undefined;
+            const missionCorrect  = !!missionAnswered && missionAnswered === bs?.correctAnswer;
+            const _seed = (summaryIdx * 2654435761) >>> 0;
+            const celebMsg = MISSION_FB_OK[_seed % MISSION_FB_OK.length];
+            const errMsg   = MISSION_FB_ERR[(_seed ^ 0xDEAD) % MISSION_FB_ERR.length];
+            const streakLabel = missionStreak >= 5 ? `⚡ ¡${missionStreak} en racha!` :
+                                missionStreak === 4 ? '⚡ ¡Racha de 4!' :
+                                missionStreak === 3 ? '🔥 ¡3 seguidas!' :
+                                missionStreak === 2 ? '🔥 ¡Racha de 2!' : null;
+            const xpLabel = slide?.type === 'final_challenge' ? '+10 XP' : '+5 XP';
+
+            if (isMissionInteractive && !!missionAnswered) {
+              return (
+                <Animated.View style={[sum.mFeedbackBar, missionCorrect ? sum.mFeedbackBarOk : sum.mFeedbackBarErr, mFbStyle, { paddingBottom: insets.bottom + 12 }]}>
+                  <View style={sum.mFbContent}>
+                    {missionCorrect ? (
+                      <>
+                        <View style={sum.mFbRow}>
+                          <Text style={sum.mFbEmoji}>{celebMsg.emoji}</Text>
+                          {!!streakLabel && <View style={sum.mStreakBadge}><Text style={sum.mStreakText}>{streakLabel}</Text></View>}
+                        </View>
+                        <Text style={sum.mFbTitle}>{celebMsg.text}</Text>
+                        {!!bs?.definition && <Text style={sum.mFbExpl} numberOfLines={3}>{bs.definition}</Text>}
+                        <Animated.View style={[sum.mXpChip, mXpPopStyle]}>
+                          <Text style={sum.mXpText}>{xpLabel}</Text>
+                        </Animated.View>
+                      </>
+                    ) : (
+                      <>
+                        <Text style={sum.mFbTitle}>{errMsg.emoji} {errMsg.text}</Text>
+                        {!!bs?.definition && <Text style={sum.mFbExpl} numberOfLines={3}>{bs.definition}</Text>}
+                        {!!bs?.correctAnswer && (
+                          <Text style={sum.mFbCorrect}>Respuesta: {bs.correctAnswer}</Text>
+                        )}
+                      </>
+                    )}
+                  </View>
+                  <Pressable
+                    onPress={() => isLast ? completeMode('summary') : goNext()}
+                    style={[sum.mContinueBtn, !missionCorrect && sum.mContinueBtnErr]}
+                  >
+                    <Text style={sum.mContinueBtnText}>{isLast ? '¡Misión completada! →' : 'Continuar'}</Text>
+                  </Pressable>
+                </Animated.View>
+              );
+            }
+
+            if ((slide?.type === 'quiz' && !slideQuizAnswered) || (isMissionInteractive && !missionAnswered)) {
+              return (
+                <View style={[g.bottom, { paddingBottom: insets.bottom + 12 }]}>
+                  <View style={g.ctaBtnOff}>
+                    <Text style={g.ctaTextOff}>Elige una opción</Text>
+                  </View>
                 </View>
-              </Pressable>
-            )}
-          </View>
+              );
+            }
+
+            return (
+              <View style={[g.bottom, { paddingBottom: insets.bottom + 12 }]}>
+                <Pressable onPress={() => isLast ? completeMode('summary') : goNext()} style={{ width: '100%' }}>
+                  <View style={[g.ctaBtn, { backgroundColor: BRAND }]}>
+                    <Text style={g.ctaText}>
+                      {isLast && slide?.type === 'victory' ? (
+                        NEUTRAL_MISSION_COMPLETION ? 'Continuar al Quiz →' :
+                        noInteractionsAttempted ? 'Cerrar misión' : '🏆 ¡Misión completada!'
+                      ) :
+                      isLast ? '✅ Completar resumen' :
+                      slide?.type === 'mission' ? '¡Comenzar! →' :
+                      (slide?.type === 'challenge' && !bs?.correctAnswer) ? '🤔 Lo pensé →' :
+                      slide?.type === 'motivation' ? '¡Seguimos! →' :
+                      slide?.type === 'prediction' ? '🧠 Entendido →' :
+                      'Siguiente →'}
+                    </Text>
+                  </View>
+                </Pressable>
+              </View>
+            );
+          })()}
         </SafeAreaView>
       </View>
     );
@@ -3754,6 +3827,24 @@ const sum = StyleSheet.create({
   microHeader:   { backgroundColor: 'rgba(91,61,245,0.1)', paddingVertical: SM ? 12 : 14, paddingHorizontal: SM ? 14 : 18, alignItems: 'center', borderBottomWidth: 1, borderBottomColor: 'rgba(91,61,245,0.15)' },
   microLabel:    { fontSize: 11, fontWeight: '900', color: BRAND, letterSpacing: 1.5, textTransform: 'uppercase', marginBottom: 2 },
   microSubtitle: { fontSize: SM ? 11 : 12, color: semantic.textSecondary, fontWeight: '500' },
+
+  // Mission feedback bar (Duolingo-style bottom panel)
+  mFeedbackBar:  { paddingHorizontal: 20, paddingTop: SM ? 16 : 20, gap: 12 },
+  mFeedbackBarOk:{ backgroundColor: 'rgba(91,61,245,0.08)', borderTopWidth: 2, borderTopColor: 'rgba(91,61,245,0.2)' },
+  mFeedbackBarErr:{ backgroundColor: 'rgba(239,68,68,0.05)', borderTopWidth: 2, borderTopColor: 'rgba(239,68,68,0.18)' },
+  mFbContent:    { gap: 4 },
+  mFbRow:        { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 2 },
+  mFbEmoji:      { fontSize: SM ? 28 : 34 },
+  mFbTitle:      { fontSize: SM ? 20 : 23, fontWeight: '900', color: semantic.textPrimary, letterSpacing: -0.4, lineHeight: SM ? 26 : 30 },
+  mFbExpl:       { fontSize: SM ? 13 : 14, color: semantic.textSecondary, lineHeight: SM ? 19 : 22, fontWeight: '500', marginTop: 2 },
+  mFbCorrect:    { fontSize: SM ? 13 : 14, fontWeight: '700', color: BRAND, marginTop: 4 },
+  mStreakBadge:  { backgroundColor: 'rgba(255,144,0,0.12)', borderRadius: 100, paddingVertical: 3, paddingHorizontal: 10, borderWidth: 1, borderColor: 'rgba(255,144,0,0.3)' },
+  mStreakText:   { fontSize: 12, fontWeight: '800', color: '#E07000' },
+  mXpChip:       { alignSelf: 'flex-start', backgroundColor: BRAND, borderRadius: 100, paddingVertical: 4, paddingHorizontal: 14, marginTop: 6 },
+  mXpText:       { fontSize: 13, fontWeight: '900', color: LIME, letterSpacing: 0.3 },
+  mContinueBtn:  { height: 52, borderRadius: 28, alignItems: 'center', justifyContent: 'center', backgroundColor: BRAND },
+  mContinueBtnErr:{ backgroundColor: '#991B1B' },
+  mContinueBtnText:{ fontSize: 16, fontWeight: '800', color: palette.blanco, letterSpacing: 0.2 },
 
   // Mini Reto Final card
   retoCard:        { backgroundColor: palette.blanco, borderRadius: 28, overflow: 'hidden' },
