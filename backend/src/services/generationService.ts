@@ -2200,6 +2200,7 @@ export async function generateSessionContent(
   const gEngagement       = validateEngagement((base.summary?.slides ?? []) as SummarySlide[]);
   const gDuolingoLoop     = validateDuolingoLoop((base.summary?.slides ?? []) as SummarySlide[]);
   const gInteractiveLoops = validateInteractiveLoops((base.summary?.slides ?? []) as SummarySlide[]);
+  const gFlow             = validatePedagogicalFlow((base.summary?.slides ?? []) as SummarySlide[]);
 
   console.log('\n[QUALITY REPORT]');
   console.log(`  groundingScore:   ${gGrounding.score.toFixed(2)}`);
@@ -2238,7 +2239,16 @@ export async function generateSessionContent(
   console.log(`\n  interactiveLoopCompliance: ${(gInteractiveLoops.interactiveLoopCompliance * 100).toFixed(0)}% (${gInteractiveLoops.completeLoops}/${gInteractiveLoops.totalConcepts})`);
   console.log(`  passes:                    ${gInteractiveLoops.passesThreshold ? 'YES' : 'NO'}`);
 
-  const needsRegeneration = qualityScore < 0.65 || gMicroChallenge.hasPassive || !gEngagement.passesThreshold || !gInteractiveLoops.passesThreshold;
+  console.log('\n[PEDAGOGICAL FLOW AUDIT]');
+  if (gFlow.violations.length === 0) {
+    console.log('  violations: (none)');
+  } else {
+    gFlow.violations.forEach(v => console.log(`  ✗ [${v.type}] slide ${v.slideIdx >= 0 ? v.slideIdx : 'global'}: ${v.detail}`));
+  }
+  console.log(`  pedagogicalFlowScore: ${gFlow.pedagogicalFlowScore}/100`);
+  console.log(`  passes:               ${gFlow.passesThreshold ? 'YES' : 'NO'}`);
+
+  const needsRegeneration = qualityScore < 0.65 || gMicroChallenge.hasPassive || !gEngagement.passesThreshold || !gInteractiveLoops.passesThreshold || !gFlow.passesThreshold;
   let finalBase = base;
   if (needsRegeneration) {
     const reasons: string[] = [];
@@ -2246,12 +2256,14 @@ export async function generateSessionContent(
     if (gMicroChallenge.hasPassive)       reasons.push('micro_challenge pasivos');
     if (!gEngagement.passesThreshold)       reasons.push(`engagement (score=${gEngagement.engagementScore.toFixed(2)}, cfViolations=${gEngagement.challengeFirstViolations})`);
     if (!gInteractiveLoops.passesThreshold) reasons.push(`interactive_loops (${gInteractiveLoops.completeLoops}/${gInteractiveLoops.totalConcepts} loops completos)`);
+    if (!gFlow.passesThreshold)             reasons.push(`pedagogical_flow (score=${gFlow.pedagogicalFlowScore}, violations=${gFlow.violations.map(v => v.type).join(',')})`);
     console.log(`  action:           REGENERATE (${reasons.join(', ')})`);
 
     const feedbackParts: string[] = [buildQualityFeedback(gUnknown.unknownConcepts, gSemantic.overallOverlap)];
     if (gMicroChallenge.hasPassive)         feedbackParts.push(buildMicroChallengeFeedback(gMicroChallenge.passiveSlides));
     if (!gEngagement.passesThreshold)       feedbackParts.push(buildEngagementFeedback(gEngagement));
     if (!gInteractiveLoops.passesThreshold) feedbackParts.push(buildInteractiveLoopsFeedback(gInteractiveLoops));
+    if (!gFlow.passesThreshold)             feedbackParts.push(buildFlowFeedback(gFlow));
     const retryPrompt = `${prompt}\n\n${'━'.repeat(40)}\n${feedbackParts.join('\n\n')}\n${'━'.repeat(40)}`;
     finalBase = await callOpenAIAndBuildResult(retryPrompt, systemMsg, configValues);
     console.log('[QUALITY REPORT] Regeneración completada.');
@@ -2740,6 +2752,147 @@ function buildDuolingoLoopFeedback(r: DuolingoLoopReport): string {
   if (!r.bossChallengePresent) {
     lines.push('✗ Falta el final_challenge (Boss Battle). Es OBLIGATORIO después de application.');
   }
+  return lines.join('\n');
+}
+
+// ── Pedagogical flow validator ────────────────────────────────────────────────
+
+export type FlowViolationType =
+  | 'feedback_without_attempt'
+  | 'reinforcement_without_challenge'
+  | 'first_after_mission_passive'
+  | 'consecutive_explanations';
+
+export interface FlowViolation {
+  type: FlowViolationType;
+  slideIdx: number;
+  detail: string;
+}
+
+export interface PedagogicalFlowReport {
+  violations: FlowViolation[];
+  pedagogicalFlowScore: number; // 0–100; 100 = no violations
+  passesThreshold: boolean;     // violations.length === 0
+}
+
+export function validatePedagogicalFlow(slides: SummarySlide[]): PedagogicalFlowReport {
+  const violations: FlowViolation[] = [];
+
+  const FEEDBACK_PHRASES = ['correcto', 'exacto', 'acertaste', 'bien hecho', 'lo captaste', 'perfecto', 'muy bien'];
+  const PASSIVE = new Set(['main_concept', 'key_relation', 'wow_fact', 'mission', 'process_flow', 'victory', 'quiz_transition']);
+  const CHALLENGE_TYPES = new Set(['micro_challenge', 'reinforcement_challenge', 'comprehension', 'mini_quiz', 'final_challenge', 'decide', 'order_sequence', 'common_error', 'application', 'challenge']);
+
+  let checksTotal   = 0;
+  let checksPassed  = 0;
+
+  slides.forEach((slide, i) => {
+    const s   = slide as { type?: string; title?: string; definition?: string | null };
+    const t   = s.type ?? '';
+    const def = (s.definition ?? '').toLowerCase();
+
+    // REGLA 1 — feedback_without_attempt: challenge definition must not contain pre-answered feedback phrases
+    if (t === 'micro_challenge' || t === 'reinforcement_challenge') {
+      checksTotal++;
+      const found = FEEDBACK_PHRASES.find(p => def.includes(p));
+      if (found) {
+        violations.push({
+          type: 'feedback_without_attempt',
+          slideIdx: i,
+          detail: `${t} [${i}] "${s.title ?? ''}" contiene frase de feedback prematura ("${found}") en definition — el estudiante aún no ha respondido.`,
+        });
+      } else {
+        checksPassed++;
+      }
+    }
+
+    // REGLA 2 — reinforcement_without_challenge: reinforcement_challenge must be immediately after main_concept which is after micro_challenge
+    if (t === 'reinforcement_challenge') {
+      checksTotal++;
+      const prev1 = (slides[i - 1] as { type?: string } | undefined)?.type ?? '';
+      const prev2 = (slides[i - 2] as { type?: string } | undefined)?.type ?? '';
+      if (prev1 !== 'main_concept' || prev2 !== 'micro_challenge') {
+        violations.push({
+          type: 'reinforcement_without_challenge',
+          slideIdx: i,
+          detail: `reinforcement_challenge [${i}] no está precedido por micro_challenge → main_concept. Secuencia encontrada: [${prev2}] → [${prev1}] → [reinforcement_challenge].`,
+        });
+      } else {
+        checksPassed++;
+      }
+    }
+
+    // REGLA 3 — first_after_mission_passive: first slide after mission must be an interactive challenge
+    if (i > 0 && (slides[i - 1] as { type?: string })?.type === 'mission') {
+      checksTotal++;
+      if (PASSIVE.has(t)) {
+        violations.push({
+          type: 'first_after_mission_passive',
+          slideIdx: i,
+          detail: `Slide [${i}] tipo "${t}" es pasivo — la primera pantalla después de mission debe ser micro_challenge u otro challenge interactivo.`,
+        });
+      } else {
+        checksPassed++;
+      }
+    }
+  });
+
+  // REGLA 4 — consecutive_explanations: never 3+ consecutive passive slides
+  checksTotal++;
+  let maxRun = 0, run = 0;
+  slides.forEach(slide => {
+    const t = (slide as { type?: string }).type ?? '';
+    if (PASSIVE.has(t) && t !== 'mission' && t !== 'victory' && t !== 'quiz_transition') {
+      run++;
+      maxRun = Math.max(maxRun, run);
+    } else {
+      run = 0;
+    }
+  });
+  if (maxRun >= 3) {
+    violations.push({
+      type: 'consecutive_explanations',
+      slideIdx: -1,
+      detail: `${maxRun} slides pasivos consecutivos detectados. Máximo permitido: 2. El estudiante no debe leer 3+ pantallas seguidas sin interactuar.`,
+    });
+  } else {
+    checksPassed++;
+  }
+
+  const score = checksTotal > 0 ? Math.round((checksPassed / checksTotal) * 100) : 100;
+
+  return {
+    violations,
+    pedagogicalFlowScore: score,
+    passesThreshold: violations.length === 0,
+  };
+}
+
+function buildFlowFeedback(r: PedagogicalFlowReport): string {
+  const lines = ['🚦 CORRECCIÓN NECESARIA — PEDAGOGICAL FLOW AUDIT:'];
+  r.violations.forEach(v => {
+    switch (v.type) {
+      case 'feedback_without_attempt':
+        lines.push(`\n✗ [REGLA 1] ${v.detail}`);
+        lines.push('  CORRECCIÓN: el campo definition de micro_challenge y reinforcement_challenge es feedback POST-respuesta.');
+        lines.push('  NO debe contener "Correcto", "Exacto", "Acertaste", "Bien hecho", "Lo captaste", "Perfecto", "Muy bien".');
+        lines.push('  Reescribir como explicación factual: "El coeficiente es el número que multiplica la parte literal."');
+        break;
+      case 'reinforcement_without_challenge':
+        lines.push(`\n✗ [REGLA 2] ${v.detail}`);
+        lines.push('  CORRECCIÓN: reinforcement_challenge SOLO puede aparecer DESPUÉS de micro_challenge → main_concept.');
+        lines.push('  Verificar que cada sección siga el orden obligatorio: micro_challenge → main_concept → reinforcement_challenge.');
+        break;
+      case 'first_after_mission_passive':
+        lines.push(`\n✗ [REGLA 3] ${v.detail}`);
+        lines.push('  CORRECCIÓN: el primer slide después de mission DEBE ser micro_challenge — el estudiante descubre el primer concepto respondiendo.');
+        break;
+      case 'consecutive_explanations':
+        lines.push(`\n✗ [REGLA 4] ${v.detail}`);
+        lines.push('  CORRECCIÓN: intercalar siempre un slide interactivo después de 2 slides pasivos consecutivos.');
+        lines.push('  Estructura obligatoria por concepto: micro_challenge (activo) → main_concept (pasivo) → reinforcement_challenge (activo).');
+        break;
+    }
+  });
   return lines.join('\n');
 }
 
