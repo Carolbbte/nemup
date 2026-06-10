@@ -1496,6 +1496,20 @@ export default function SessionPlayerScreen() {
   if (phase === 'summary') {
     const slides            = missionSlides;
     const slide             = slides[summaryIdx];
+    // [TEMP] Mission renderer audit
+    if (slide) {
+      const bs = slide as BackendSlide;
+      console.log(
+        `\n[SLIDE RENDER] idx=${summaryIdx}/${slides.length - 1}` +
+        `\n  type=${slide.type}` +
+        `\n  title="${String(bs.title ?? '').slice(0, 60)}"` +
+        (bs.question ? `\n  question="${String(bs.question).slice(0, 80)}"` : '\n  question=null') +
+        `\n  options=${Array.isArray(bs.options) ? bs.options.length : 'null'}` +
+        `\n  correctAnswer=${bs.correctAnswer ?? 'null'}` +
+        `\n  content="${String(bs.definition ?? '').slice(0, 100)}"`
+      );
+    }
+    // [/TEMP]
     const isLast            = summaryIdx >= slides.length - 1;
     const slideQuizAnswered = slide?.type === 'quiz' ? quizAnswers[summaryIdx] : undefined;
     // Stats for victory screen — computed once, used in victory card renderer and CTA button
