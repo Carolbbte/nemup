@@ -2187,6 +2187,53 @@ export async function generateSessionContent(
 
   const base = await callOpenAIAndBuildResult(prompt, systemMsg, configValues);
 
+  // ── [TEMP] RAW OPENAI RESPONSE AUDIT ─────────────────────────────────────────
+  {
+    const rawSlides = (base.summary?.slides ?? []) as unknown as Array<Record<string, unknown>>;
+    console.log('\n════════════════════════════════════════════════════════════════');
+    console.log('[RAW OPENAI RESPONSE] — antes de cualquier sanitización');
+    console.log(`  total_slides: ${rawSlides.length}`);
+    rawSlides.forEach((s, i) => {
+      const opts = Array.isArray(s.options) ? (s.options as unknown[]).length : 0;
+      const content = String(s.definition ?? s.title ?? '').slice(0, 100);
+      console.log(`\n  SLIDE ${i + 1}`);
+      console.log(`    type=${s.type ?? '(undefined)'}`);
+      console.log(`    title="${String(s.title ?? '').slice(0, 60)}"`);
+      if (s.question) console.log(`    question="${String(s.question).slice(0, 80)}"`);
+      if (opts > 0)   console.log(`    options=${opts}`);
+      if (s.correctAnswer) console.log(`    correctAnswer=${s.correctAnswer}`);
+      console.log(`    content="${content}"`);
+    });
+
+    const micros = rawSlides.filter(s => s.type === 'micro_challenge');
+    const reinforcements = rawSlides.filter(s => s.type === 'reinforcement_challenge');
+    const hasQ = (s: Record<string, unknown>) =>
+      typeof s.question === 'string' && (s.question as string).trim().length > 0 &&
+      Array.isArray(s.options) && (s.options as unknown[]).length >= 2 &&
+      typeof s.correctAnswer === 'string';
+
+    console.log('\n[MICRO CHALLENGE AUDIT]');
+    console.log(`  total_micro_challenges:    ${micros.length}`);
+    console.log(`  micro_with_question:       ${micros.filter(hasQ).length}`);
+    console.log(`  micro_without_question:    ${micros.filter(s => !hasQ(s)).length}`);
+    if (micros.filter(s => !hasQ(s)).length > 0) {
+      micros.forEach((s, i) => { if (!hasQ(s)) console.log(`    ✗ micro[${i}] "${String(s.title ?? '').slice(0, 50)}" — SIN PREGUNTA`); });
+    }
+
+    console.log('\n[REINFORCEMENT AUDIT]');
+    console.log(`  total_reinforcement:            ${reinforcements.length}`);
+    console.log(`  reinforcement_with_question:    ${reinforcements.filter(hasQ).length}`);
+    console.log(`  reinforcement_without_question: ${reinforcements.filter(s => !hasQ(s)).length}`);
+    if (reinforcements.filter(s => !hasQ(s)).length > 0) {
+      reinforcements.forEach((s, i) => { if (!hasQ(s)) console.log(`    ✗ reinforcement[${i}] "${String(s.title ?? '').slice(0, 50)}" — SIN PREGUNTA`); });
+    }
+
+    console.log('\n[FINAL STRUCTURE]');
+    rawSlides.forEach((s, i) => console.log(`  ${i + 1}. ${s.type ?? '(undefined)'}`));
+    console.log('════════════════════════════════════════════════════════════════\n');
+  }
+  // ── [/TEMP] ───────────────────────────────────────────────────────────────────
+
   // ── Quality Gate ─────────────────────────────────────────────────────────────
   const gGrounding      = validateGrounding(base as unknown as GenerationResult, transcription);
   const gSemantic       = checkSemanticGrounding(transcription, (base.summary?.slides ?? []) as SummarySlide[]);
