@@ -1820,8 +1820,8 @@ export default function SessionPlayerScreen() {
                 return (
                   <View style={sum.microCard}>
                     <View style={sum.microHeader}>
-                      <Text style={sum.microLabel}>⚡ MICRO RETO</Text>
-                      <Text style={sum.microSubtitle}>Aplica lo que acabas de aprender</Text>
+                      <Text style={sum.microLabel}>🏁 CHECKPOINT</Text>
+                      <Text style={sum.microSubtitle}>Responde antes de continuar</Text>
                     </View>
                     <View style={{ paddingHorizontal: SM ? 14 : 18, paddingBottom: SM ? 14 : 18 }}>
                       <Text style={[sum.quizQuestion, { marginTop: 12 }]}>{slide.question ?? slide.title}</Text>

@@ -347,22 +347,43 @@ PANTALLA "main_concept" — CONCEPTO NUCLEAR [OBLIGATORIA — UNA POR SECCIÓN]
     Los diagramas visuales complejos pertenecen a key_relation, no a main_concept.
     Si se incluye: "emoji1 Nodo1 ↓ verbo ↓ emoji2 Nodo2 ↓ verbo ↓ emoji3 Nodo3"
 
-PANTALLA "micro_challenge" — MICRO RETO [OBLIGATORIA — UNA POR SECCIÓN, JUSTO DESPUÉS DE main_concept]
-  Crea el ciclo aprendizaje → acción → feedback inmediato.
+PANTALLA "micro_challenge" — CHECKPOINT CHALLENGE [OBLIGATORIA — UNA POR SECCIÓN, JUSTO DESPUÉS DE main_concept]
+  ⚠️⚠️ OBLIGACIÓN ABSOLUTA: question + options + correctAnswer son CAMPOS OBLIGATORIOS sin excepción.
+  Un micro_challenge que solo contiene texto en definition y NO tiene question/options es un ERROR GRAVE.
+  NUNCA generar una pantalla micro_challenge con solo texto informativo o motivacional.
+
+  Recuperación activa inmediata: el estudiante toma una decisión antes de continuar.
   Evalúa ÚNICAMENTE el concepto que el main_concept inmediatamente anterior acaba de enseñar.
-  ⚠️ REGLA CRÍTICA: NO usar conceptos que aparecerán en secciones futuras. Solo el concepto recién explicado.
-  - title: "Micro reto" (texto fijo)
-  - question: pregunta directa sobre el concepto recién enseñado (max 20 palabras).
-    Nivel de reconocimiento o identificación simple — no cálculo ni inferencia compleja.
-    ✓ "¿Cuál de estos es un monomio?" — reconoce el concepto enseñado en main_concept anterior
-    ✗ "¿Cuánto es 3x + 2x?" — cálculo que puede no haber sido enseñado aún
+  NO usar conceptos que aparecerán en secciones futuras.
+
+  PRIORIDAD DE EJEMPLOS (obligatoria — respetar este orden):
+  1. Usar ejemplos, cifras o expresiones que aparecen literalmente en el documento fuente
+  2. Variaciones mínimas de esos ejemplos (cambiar un número, una letra)
+  3. Ejemplos nuevos equivalentes — SOLO si no existen ejemplos en el documento
+  NUNCA al revés. Los ejemplos del documento son prioritarios.
+
+  SOLO FORMATO — nunca copiar estos temas, crear preguntas sobre ESTE documento:
+  Concepto "partes del término algebraico" → "¿Cuál es el coeficiente en −6m⁴?"  A) m  B) 4  C) −6
+  Concepto "clasificación de expresiones"  → "¿Qué tipo de expresión es 3m + 1?" A) Monomio B) Binomio C) Trinomio
+  Concepto "reducción de semejantes"       → "¿Cuáles son términos semejantes?"   A) 3m y 7m  B) 3m y 7n  C) 3m² y 3m
+
+  - title: "Checkpoint" (texto fijo)
+  - question: pregunta de reconocimiento o identificación. Max 20 palabras. Responder en < 10 segundos.
+    Formatos permitidos: selección múltiple, verdadero/falso, identificar el elemento correcto.
+    ✓ "¿Cuál es el coeficiente en −6m⁴?" — identifica elemento del concepto enseñado
+    ✓ "¿Cuáles son términos semejantes?" — reconoce el concepto enseñado
+    ✗ Solo texto de feedback (sin pregunta) — COMPLETAMENTE PROHIBIDO como slide completo
+    ✗ Cálculos de varios pasos — demasiado complejo para < 10 segundos
   - options: EXACTAMENTE 3 alternativas — ["A. ...", "B. ...", "C. ..."]
-    Cada alternativa: máximo 8 palabras. Sin puntuación final.
-    La respuesta correcta puede estar en cualquier posición (A, B o C).
-    Los otros dos son errores plausibles relacionados al mismo concepto.
+    Máximo 8 palabras por alternativa. Sin punto final.
+    La respuesta correcta puede estar en A, B o C (variar posición).
+    Los dos distractores son errores plausibles del mismo concepto.
   - correctAnswer: "A", "B" o "C"
-  - definition: feedback breve mostrado tras responder. Inicia con ⚡, ✅ o 🎯. Max 15 palabras.
-    Explica brevemente POR QUÉ esa opción es correcta.
+  - definition: explicación de POR QUÉ esa opción es correcta. Máximo 120 caracteres.
+    Texto plano, sin emojis, sin "Acertaste" ni "Exacto".
+    ✓ "El coeficiente es el número que multiplica a la parte literal del término."
+    ✗ "🎯 Acertaste — Solo términos con misma letra..." — formato PROHIBIDO
+    ✗ "🔥 Exacto — Agrupas coeficientes correctamente." — formato PROHIBIDO
   - example: null
   - connector: null
 
@@ -1913,20 +1934,21 @@ export async function generateSessionContent(
   } else {
     // CONCEPTUAL and MIXED → section-based pedagogical mission
     prompt = buildConceptualPrompt(transcription, curso);
-    systemMsg = `Eres un Arquitecto de Aprendizaje para estudiantes chilenos de enseñanza media. Tu filosofía: ANÁLISIS → OBJETIVO → CLASIFICACIÓN → DEPENDENCIAS → SECCIONES → APLICACIÓN → DESAFÍO → VICTORIA. Primero analizas el documento. Defines UN objetivo de aprendizaje principal. Clasificas los conceptos según cuánto contribuyen a ese objetivo. Validas el orden por dependencias conceptuales. Luego construyes una misión como secciones coherentes — cada sección enseña UN concepto nuclear: main_concept → comprehension → (key_relation opcional) → (common_error opcional). Después de todas las secciones: application → final_challenge → victory. JSON válido únicamente. Todo en español.`;
+    systemMsg = `Eres un Arquitecto de Aprendizaje para estudiantes chilenos de enseñanza media. Tu filosofía: ANÁLISIS → OBJETIVO → CLASIFICACIÓN → DEPENDENCIAS → SECCIONES → APLICACIÓN → DESAFÍO → VICTORIA. Primero analizas el documento. Defines UN objetivo de aprendizaje principal. Clasificas los conceptos según cuánto contribuyen a ese objetivo. Validas el orden por dependencias conceptuales. Luego construyes una misión como secciones coherentes — cada sección enseña UN concepto nuclear: main_concept → micro_challenge (checkpoint OBLIGATORIO con question+options+correctAnswer) → (comprehension opcional) → (key_relation opcional) → (common_error opcional). Después de todas las secciones: application → final_challenge → victory. JSON válido únicamente. Todo en español.`;
   }
 
   const base = await callOpenAIAndBuildResult(prompt, systemMsg, configValues);
 
   // ── Quality Gate ─────────────────────────────────────────────────────────────
-  const gGrounding    = validateGrounding(base as unknown as GenerationResult, transcription);
-  const gSemantic     = checkSemanticGrounding(transcription, (base.summary?.slides ?? []) as SummarySlide[]);
-  const gConsistency  = validateQuestionConsistency((base.summary?.slides ?? []) as SummarySlide[]);
+  const gGrounding      = validateGrounding(base as unknown as GenerationResult, transcription);
+  const gSemantic       = checkSemanticGrounding(transcription, (base.summary?.slides ?? []) as SummarySlide[]);
+  const gConsistency    = validateQuestionConsistency((base.summary?.slides ?? []) as SummarySlide[]);
   const consistencyScore = gConsistency.results.length === 0
     ? 1
     : 1 - gConsistency.inconsistentSlides.length / gConsistency.results.length;
-  const gUnknown      = detectUnknownConcepts(transcription, (base.summary?.slides ?? []) as SummarySlide[], tipoACandidates);
-  const qualityScore  = computeQualityScore(gGrounding.score, gSemantic.overallOverlap, consistencyScore, gUnknown.penalty);
+  const gUnknown        = detectUnknownConcepts(transcription, (base.summary?.slides ?? []) as SummarySlide[], tipoACandidates);
+  const qualityScore    = computeQualityScore(gGrounding.score, gSemantic.overallOverlap, consistencyScore, gUnknown.penalty);
+  const gMicroChallenge = validateMicroChallengeInteractivity((base.summary?.slides ?? []) as SummarySlide[]);
 
   console.log('\n[QUALITY REPORT]');
   console.log(`  groundingScore:   ${gGrounding.score.toFixed(2)}`);
@@ -1939,11 +1961,24 @@ export async function generateSessionContent(
     console.log('  unknownConcepts:  (ninguno)');
   }
   console.log(`  qualityScore:     ${qualityScore.toFixed(2)}`);
+  if (gMicroChallenge.hasPassive) {
+    console.log('  microChallenge:   PASIVOS DETECTADOS');
+    gMicroChallenge.passiveSlides.forEach(s => console.log(`    * [${s.index}] ${s.title}`));
+  } else {
+    console.log('  microChallenge:   ok');
+  }
 
+  const needsRegeneration = qualityScore < 0.65 || gMicroChallenge.hasPassive;
   let finalBase = base;
-  if (qualityScore < 0.65) {
-    console.log('  action:           REGENERATE');
-    const retryPrompt = `${prompt}\n\n${'━'.repeat(40)}\n${buildQualityFeedback(gUnknown.unknownConcepts, gSemantic.overallOverlap)}\n${'━'.repeat(40)}`;
+  if (needsRegeneration) {
+    const reasons: string[] = [];
+    if (qualityScore < 0.65)          reasons.push('quality');
+    if (gMicroChallenge.hasPassive)   reasons.push('micro_challenge pasivos');
+    console.log(`  action:           REGENERATE (${reasons.join(', ')})`);
+
+    const feedbackParts: string[] = [buildQualityFeedback(gUnknown.unknownConcepts, gSemantic.overallOverlap)];
+    if (gMicroChallenge.hasPassive) feedbackParts.push(buildMicroChallengeFeedback(gMicroChallenge.passiveSlides));
+    const retryPrompt = `${prompt}\n\n${'━'.repeat(40)}\n${feedbackParts.join('\n\n')}\n${'━'.repeat(40)}`;
     finalBase = await callOpenAIAndBuildResult(retryPrompt, systemMsg, configValues);
     console.log('[QUALITY REPORT] Regeneración completada.');
   } else {
@@ -2217,6 +2252,46 @@ function buildQualityFeedback(unknownConcepts: string[], semanticOverlap: number
     lines.push(`→ El solapamiento semántico con el documento fue solo ${(semanticOverlap * 100).toFixed(0)}%.`);
     lines.push('  Incrementa la densidad de vocabulario derivado del material.');
   }
+  return lines.join('\n');
+}
+
+// ── Micro-challenge interactivity validator ───────────────────────────────────
+
+export interface MicroChallengeValidation {
+  passiveSlides: Array<{ index: number; title: string }>;
+  hasPassive: boolean;
+}
+
+export function validateMicroChallengeInteractivity(slides: SummarySlide[]): MicroChallengeValidation {
+  const passiveSlides: Array<{ index: number; title: string }> = [];
+  slides.forEach((slide, i) => {
+    const s = slide as { type?: string; question?: string | null; options?: unknown[] | null; correctAnswer?: string | null; title?: string };
+    if (s.type === 'micro_challenge') {
+      const hasQuestion = typeof s.question === 'string' && s.question.trim().length > 0;
+      const hasOptions  = Array.isArray(s.options) && s.options.length >= 2;
+      const hasAnswer   = typeof s.correctAnswer === 'string' && s.correctAnswer.trim().length > 0;
+      if (!hasQuestion || !hasOptions || !hasAnswer) {
+        passiveSlides.push({ index: i, title: (s.title ?? '(sin título)').slice(0, 60) });
+      }
+    }
+  });
+  return { passiveSlides, hasPassive: passiveSlides.length > 0 };
+}
+
+function buildMicroChallengeFeedback(passiveSlides: Array<{ index: number; title: string }>): string {
+  const lines = [
+    'ERROR CRÍTICO — micro_challenge sin interactividad detectado.',
+    '',
+    'Las siguientes pantallas micro_challenge no tienen question + options + correctAnswer:',
+    ...passiveSlides.map(s => `  * [slide ${s.index}] "${s.title}"`),
+    '',
+    'CORRECCIÓN OBLIGATORIA:',
+    '→ Cada pantalla micro_challenge DEBE tener question (string), options (array de 3) y correctAnswer ("A","B" o "C").',
+    '→ NUNCA generar un micro_challenge con solo texto en definition y sin question/options.',
+    '→ Usar ejemplos del documento fuente para construir la pregunta.',
+    '→ La pregunta debe poder responderse en menos de 10 segundos.',
+    '→ Formatos válidos: selección múltiple, verdadero/falso, identificar elemento.',
+  ];
   return lines.join('\n');
 }
 
