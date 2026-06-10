@@ -100,7 +100,7 @@ JSON SCHEMA — return ONLY this structure:
     "title": string,
     "slides": [
       {
-        "type": "mission"|"main_concept"|"micro_challenge"|"comprehension"|"key_relation"|"mini_quiz"|"process_flow"|"decide"|"application"|"common_error"|"wow_fact"|"final_challenge"|"victory"|"challenge",
+        "type": "mission"|"main_concept"|"micro_challenge"|"reinforcement_challenge"|"comprehension"|"key_relation"|"mini_quiz"|"process_flow"|"decide"|"application"|"common_error"|"wow_fact"|"final_challenge"|"victory"|"challenge",
         "emoji": string,
         "title": string,
         "definition": string,
@@ -266,14 +266,18 @@ ESTRUCTURA OBLIGATORIA DE LA SECUENCIA COMPLETA — RITMO INSIGHT → ACCIÓN:
 ╔══════════════════════════════════════════════════════════════╗
 ║  [1] GANCHO — type: "mission"           UNA SOLA (inicio)  ║
 ╠══════════════════════════════════════════════════════════════╣
-║  [2] CICLOS CHALLENGE-FIRST — uno por concepto nuclear:     ║
+║  [2] DUOLINGO LOOP — uno por concepto nuclear:              ║
 ║                                                              ║
-║    [A] micro_challenge ← DESAFÍO (PRIMERO — descubrimiento) ║
-║    [B] main_concept    ← INSIGHT (DESPUÉS — confirmación)   ║
-║    [C] key_relation    [OPCIONAL — solo si hay patrón real] ║
-║    [D] common_error    [OPCIONAL — solo si error real]      ║
+║    [A] micro_challenge        ← DESCUBRIMIENTO (OBLIGATORIO)║
+║    [B] main_concept           ← INSIGHT (OBLIGATORIO)       ║
+║    [E] reinforcement_challenge← REFUERZO (OBLIGATORIO)      ║
+║    [B'] wow_fact    [OPCIONAL — solo si dato contraint.]     ║
+║    [C] key_relation [OPCIONAL — solo si hay patrón real]    ║
+║    [D] common_error [OPCIONAL — solo si error real]         ║
 ║                                                              ║
-║  ⚠️ NUNCA main_concept sin su micro_challenge ANTES.        ║
+║  ⚠️ Los 3 primeros ([A][B][E]) son OBLIGATORIOS.            ║
+║  ⚠️ NUNCA main_concept sin micro_challenge ANTES.           ║
+║  ⚠️ NUNCA main_concept sin reinforcement_challenge DESPUÉS. ║
 ║  ⚠️ Si agregas key_relation (pasivo), sigue con             ║
 ║  common_error (activo) antes de la siguiente sección.       ║
 ╠══════════════════════════════════════════════════════════════╣
@@ -282,20 +286,23 @@ ESTRUCTURA OBLIGATORIA DE LA SECUENCIA COMPLETA — RITMO INSIGHT → ACCIÓN:
 ║  [5] VICTORIA — type: "victory"         UNA SOLA (final)    ║
 ╚══════════════════════════════════════════════════════════════╝
 
-REGLA CHALLENGE FIRST (⚠️ OBLIGATORIA — verifica antes de generar):
-→ PRIMERO el desafío, DESPUÉS el insight. NUNCA al revés.
-→ micro_challenge → main_concept: PAR INSEPARABLE EN ESE ORDEN.
-→ El estudiante descubre el concepto RESPONDIENDO, no leyendo.
+REGLA DUOLINGO LOOP (⚠️ OBLIGATORIA — verifica antes de generar):
+→ Cada concepto nuclear tiene EXACTAMENTE 3 slides obligatorios: micro_challenge → main_concept → reinforcement_challenge.
+→ micro_challenge: el estudiante DESCUBRE el concepto respondiendo (antes de verlo).
+→ main_concept: el insight CONFIRMA lo que el estudiante acaba de encontrar.
+→ reinforcement_challenge: el estudiante APLICA el concepto recién confirmado. Situación nueva, mismo concepto.
+→ NUNCA main_concept antes de su micro_challenge.
+→ NUNCA main_concept sin su reinforcement_challenge inmediatamente después.
 → NUNCA dos slides pasivos seguidos. Pasivos: main_concept, key_relation, wow_fact, mission.
 → 60% o más de los slides DEBEN requerir acción del estudiante.
 → El Boss Battle integra TODOS los conceptos de la misión, no solo el último.
 
 RECUENTO TOTAL ESPERADO:
-  3 conceptos nucleares → 1 + (2–4 × 3) + 3 = 10–16 slides
-  5 conceptos nucleares → 1 + (2–4 × 5) + 3 = 14–26 slides
+  3 conceptos nucleares → 1 + (3–5 × 3) + 3 = 13–21 slides
+  5 conceptos nucleares → 1 + (3–5 × 5) + 3 = 19–31 slides
 
 DATO DE CURIOSIDAD OPCIONAL (wow_fact):
-  Si existe un dato genuinamente sorprendente y contraintuitivo sobre alguno de los conceptos nucleares → agrega UNA pantalla wow_fact dentro de la sección correspondiente, entre [B] y [C].
+  Si existe un dato genuinamente sorprendente y contraintuitivo sobre alguno de los conceptos nucleares → agrega UNA pantalla wow_fact dentro de la sección correspondiente, entre [E] y [C] (después del reinforcement_challenge, antes de key_relation/common_error).
   ⚠️ wow_fact es pasivo: si lo incluyes en una sección, la siguiente slide DEBE ser activa (common_error o inicio de nueva sección con micro_challenge).
   Si el dato no sorprendería a un estudiante de 15 años → NO lo incluyas.
   NUNCA uses wow_fact para repetir algo ya explicado en main_concept.
@@ -310,6 +317,7 @@ PROHIBICIÓN ABSOLUTA — REGLA DE ORO
 ✗ NUNCA usar el final_challenge para evaluar algo que solo apareció como ejemplo o en el conector.
 ✗ NUNCA generar dos slides pasivos consecutivos. Pasivos: main_concept, key_relation, wow_fact, mission. Activos: micro_challenge, common_error, comprehension, final_challenge, application.
 ✗ NUNCA generar un main_concept sin su micro_challenge INMEDIATAMENTE ANTES — el desafío precede al insight.
+✗ NUNCA generar un main_concept sin su reinforcement_challenge INMEDIATAMENTE DESPUÉS — la aplicación consolida el insight.
 ✗ NUNCA presentar un concepto como texto ANTES de que el estudiante lo haya encontrado en un desafío.
 ✗ NUNCA usar emojis decorativos (🧩 🎯 🚀 ⭐ 🏆) en mission cuando la pregunta menciona una metáfora visual específica.
 ✗ NUNCA crear una pregunta en mission que mencione un objeto que NO corresponda al emoji mostrado.
@@ -424,6 +432,36 @@ PANTALLA "micro_challenge" — DESAFÍO DE DESCUBRIMIENTO [OBLIGATORIA — UNA P
     ✗ "🎯 Acertaste — Solo términos con misma letra..." — formato PROHIBIDO
   - example: null
   - connector: null
+
+PANTALLA "reinforcement_challenge" — DESAFÍO DE REFUERZO [OBLIGATORIA — UNA POR SECCIÓN, JUSTO DESPUÉS de main_concept]
+  ⚠️⚠️ OBLIGACIÓN ABSOLUTA: question + options + correctAnswer son CAMPOS OBLIGATORIOS sin excepción.
+
+  🔁 DUOLINGO LOOP: este desafío CONSOLIDA lo que el estudiante acaba de confirmar en main_concept.
+  Ya conoce el concepto — ahora debe APLICARLO en una situación diferente a la del micro_challenge.
+  EVALÚA TRANSFERENCIA, no repetición:
+    ✗ PROHIBIDO: repetir la misma situación del micro_challenge de esta sección.
+    ✓ REQUERIDO: nueva situación concreta del documento, mismo concepto nuclear, mayor nivel de aplicación.
+
+  DIFERENCIA CON micro_challenge:
+    micro_challenge (NIVEL 1 — descubrir): "¿Qué es/cuál es?" — el estudiante identifica el concepto por primera vez.
+    reinforcement_challenge (NIVEL 2 — aplicar): "¿Cómo/por qué/qué pasaría si?" — el estudiante usa el concepto en contexto.
+
+  - title: "Refuerzo" (texto fijo)
+  - question: pregunta de aplicación del concepto recién enseñado en main_concept. Nueva situación. Max 20 palabras. < 20 segundos.
+    ✗ PROHIBIDO: misma pregunta o situación del micro_challenge anterior de esta sección.
+    ✗ PROHIBIDO: introducir conceptos de otras secciones o no enseñados en este main_concept.
+  - options: EXACTAMENTE 3 alternativas — ["A. ...", "B. ...", "C. ..."]
+    Máximo 10 palabras por alternativa. Sin punto final.
+    La respuesta correcta puede estar en A, B o C (variar posición).
+  - correctAnswer: "A", "B" o "C"
+  - definition: explica POR QUÉ esa respuesta aplica correctamente el concepto. Máximo 120 caracteres.
+    Texto plano, sin emojis, sin "Muy bien" ni "Correcto".
+    Conecta directamente con el concepto enseñado en el main_concept inmediatamente anterior.
+    ✓ "La frecuencia alta comprime las ondas: longitud de onda corta es consecuencia directa."
+    ✗ "🎯 Correcto — el refuerzo confirma lo aprendido." — formato PROHIBIDO
+  - example: null
+  - connector: null
+  - wrongAnswerHints: OBLIGATORIO — mismas reglas que todas las pantallas interactivas.
 
 PANTALLA "comprehension" — COMPRUEBA SI ENTENDISTE [OPCIONAL — máximo UNA por sección]
   ⚠️ REGLA FUNDAMENTAL: Solo puede evaluar LO QUE LA PANTALLA main_concept INMEDIATAMENTE ANTERIOR ENSEÑÓ.
@@ -605,6 +643,8 @@ VALIDACIÓN FINAL — ejecutar antes de generar JSON:
 8. ¿La application muestra un caso concreto y específico, no una descripción genérica? → Si NO → reescribir con detalles concretos.
 9. ¿Toda pantalla interactiva tiene wrongAnswerHints con entrada por cada opción incorrecta? → Si NO → agregar.
 10. ¿La complejidad corresponde a ${curso}? → Si NO → ajustar lenguaje y profundidad.
+11. ¿Cada sección tiene su tríada obligatoria micro_challenge → main_concept → reinforcement_challenge en ese orden? → Si NO → agregar el reinforcement_challenge faltante.
+12. ¿El reinforcement_challenge de cada sección usa una situación distinta a la del micro_challenge de esa misma sección? → Si NO → reescribir la pregunta.
 Si alguna verificación falla → corregir antes de generar JSON.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -2107,7 +2147,7 @@ export async function generateSessionContent(
   } else {
     // CONCEPTUAL and MIXED → section-based pedagogical mission
     prompt = buildConceptualPrompt(transcription, curso);
-    systemMsg = `Eres un Arquitecto de Aprendizaje para estudiantes chilenos de enseñanza media. Tu filosofía: CHALLENGE FIRST. El estudiante descubre cada concepto RESPONDIENDO, no leyendo. Estructura obligatoria por concepto: micro_challenge (desafío primero, con question+options+correctAnswer) → main_concept (insight breve que confirma lo descubierto, máximo 25 palabras). NUNCA main_concept antes de su micro_challenge. NUNCA dos slides pasivos consecutivos. 60%+ de slides deben ser interactivos. Alternar tipos de pregunta: identificar, clasificar, detectar error, verdadero/falso, completar, comparar. Después de todas las secciones: application → final_challenge (Boss Battle que integra TODOS los conceptos) → victory. JSON válido únicamente. Todo en español.`;
+    systemMsg = `Eres un Arquitecto de Aprendizaje para estudiantes chilenos de enseñanza media. Tu filosofía: DUOLINGO LOOP. Cada concepto tiene exactamente 3 slides obligatorios en este orden: (1) micro_challenge — el estudiante DESCUBRE el concepto respondiendo una pregunta, con question+options+correctAnswer; (2) main_concept — INSIGHT breve que confirma lo descubierto, máximo 25 palabras; (3) reinforcement_challenge — el estudiante APLICA el concepto en una situación nueva, con question+options+correctAnswer, title="Refuerzo". NUNCA main_concept sin micro_challenge antes. NUNCA main_concept sin reinforcement_challenge después. NUNCA dos slides pasivos consecutivos. 60%+ de slides deben ser interactivos. Después de todas las secciones: application → final_challenge (Boss Battle) → victory. JSON válido únicamente. Todo en español.`;
   }
 
   const base = await callOpenAIAndBuildResult(prompt, systemMsg, configValues);
@@ -2123,6 +2163,7 @@ export async function generateSessionContent(
   const qualityScore    = computeQualityScore(gGrounding.score, gSemantic.overallOverlap, consistencyScore, gUnknown.penalty);
   const gMicroChallenge = validateMicroChallengeInteractivity((base.summary?.slides ?? []) as SummarySlide[]);
   const gEngagement     = validateEngagement((base.summary?.slides ?? []) as SummarySlide[]);
+  const gDuolingoLoop   = validateDuolingoLoop((base.summary?.slides ?? []) as SummarySlide[]);
 
   console.log('\n[QUALITY REPORT]');
   console.log(`  groundingScore:   ${gGrounding.score.toFixed(2)}`);
@@ -2150,18 +2191,28 @@ export async function generateSessionContent(
   console.log(`  engagementScore:         ${gEngagement.engagementScore.toFixed(2)}`);
   console.log(`  passes:                  ${gEngagement.passesThreshold ? 'YES' : 'NO'}`);
 
-  const needsRegeneration = qualityScore < 0.65 || gMicroChallenge.hasPassive || !gEngagement.passesThreshold;
+  console.log('\n[DUOLINGO LOOP REPORT]');
+  console.log(`  concepts_detected:       ${gDuolingoLoop.conceptsDetected}`);
+  console.log(`  concepts_full_loop:      ${gDuolingoLoop.conceptsWithFullLoop}`);
+  console.log(`  total_interactions:      ${gDuolingoLoop.totalLearningInteractions}`);
+  console.log(`  boss_challenge:          ${gDuolingoLoop.bossChallengePresent ? 'YES' : 'NO'}`);
+  console.log(`  loop_compliance:         ${(gDuolingoLoop.loopCompliance * 100).toFixed(0)}%`);
+  console.log(`  passes:                  ${gDuolingoLoop.passesThreshold ? 'YES' : 'NO'}`);
+
+  const needsRegeneration = qualityScore < 0.65 || gMicroChallenge.hasPassive || !gEngagement.passesThreshold || !gDuolingoLoop.passesThreshold;
   let finalBase = base;
   if (needsRegeneration) {
     const reasons: string[] = [];
     if (qualityScore < 0.65)              reasons.push('quality');
     if (gMicroChallenge.hasPassive)       reasons.push('micro_challenge pasivos');
     if (!gEngagement.passesThreshold)     reasons.push(`engagement (score=${gEngagement.engagementScore.toFixed(2)}, cfViolations=${gEngagement.challengeFirstViolations})`);
+    if (!gDuolingoLoop.passesThreshold)   reasons.push(`duolingo_loop (${gDuolingoLoop.conceptsWithFullLoop}/${gDuolingoLoop.conceptsDetected} conceptos con loop completo)`);
     console.log(`  action:           REGENERATE (${reasons.join(', ')})`);
 
     const feedbackParts: string[] = [buildQualityFeedback(gUnknown.unknownConcepts, gSemantic.overallOverlap)];
-    if (gMicroChallenge.hasPassive)   feedbackParts.push(buildMicroChallengeFeedback(gMicroChallenge.passiveSlides));
-    if (!gEngagement.passesThreshold) feedbackParts.push(buildEngagementFeedback(gEngagement));
+    if (gMicroChallenge.hasPassive)       feedbackParts.push(buildMicroChallengeFeedback(gMicroChallenge.passiveSlides));
+    if (!gEngagement.passesThreshold)     feedbackParts.push(buildEngagementFeedback(gEngagement));
+    if (!gDuolingoLoop.passesThreshold)   feedbackParts.push(buildDuolingoLoopFeedback(gDuolingoLoop));
     const retryPrompt = `${prompt}\n\n${'━'.repeat(40)}\n${feedbackParts.join('\n\n')}\n${'━'.repeat(40)}`;
     finalBase = await callOpenAIAndBuildResult(retryPrompt, systemMsg, configValues);
     console.log('[QUALITY REPORT] Regeneración completada.');
@@ -2452,7 +2503,7 @@ export interface ChallengeFirstReport {
 }
 
 export function validateEngagement(slides: SummarySlide[]): ChallengeFirstReport {
-  const ACTIVE  = new Set(['micro_challenge','comprehension','mini_quiz','final_challenge','decide','order_sequence','common_error','application','challenge']);
+  const ACTIVE  = new Set(['micro_challenge','reinforcement_challenge','comprehension','mini_quiz','final_challenge','decide','order_sequence','common_error','application','challenge']);
   const PASSIVE = new Set(['mission','main_concept','key_relation','wow_fact','victory','process_flow']);
 
   let interactive = 0, informative = 0, cfViolations = 0;
@@ -2496,6 +2547,44 @@ export function validateEngagement(slides: SummarySlide[]): ChallengeFirstReport
   };
 }
 
+export interface DuolingoLoopReport {
+  conceptsDetected: number;
+  conceptsWithFullLoop: number;
+  totalLearningInteractions: number;
+  bossChallengePresent: boolean;
+  loopCompliance: number;
+  passesThreshold: boolean;
+}
+
+export function validateDuolingoLoop(slides: SummarySlide[]): DuolingoLoopReport {
+  const types = slides.map(s => (s as { type?: string }).type ?? '');
+  const conceptIdxs = types.reduce<number[]>((acc, t, i) => { if (t === 'main_concept') acc.push(i); return acc; }, []);
+
+  let conceptsWithFullLoop = 0;
+  let totalLearningInteractions = 0;
+
+  conceptIdxs.forEach(mcIdx => {
+    const prevType = types[mcIdx - 1] ?? '';
+    const nextType = types[mcIdx + 1] ?? '';
+    const hasDiscovery    = prevType === 'micro_challenge';
+    const hasReinforcement = nextType === 'reinforcement_challenge';
+    totalLearningInteractions += (hasDiscovery ? 1 : 0) + (hasReinforcement ? 1 : 0);
+    if (hasDiscovery && hasReinforcement) conceptsWithFullLoop++;
+  });
+
+  const bossChallengePresent = types.includes('final_challenge');
+  const compliance = conceptIdxs.length > 0 ? conceptsWithFullLoop / conceptIdxs.length : 0;
+
+  return {
+    conceptsDetected: conceptIdxs.length,
+    conceptsWithFullLoop,
+    totalLearningInteractions,
+    bossChallengePresent,
+    loopCompliance: compliance,
+    passesThreshold: compliance === 1.0 && bossChallengePresent,
+  };
+}
+
 function buildEngagementFeedback(r: ChallengeFirstReport): string {
   const lines = ['⚡ CORRECCIÓN NECESARIA — MODELO CHALLENGE FIRST INCUMPLIDO:'];
   if (r.challengeFirstViolations > 0) {
@@ -2510,6 +2599,21 @@ function buildEngagementFeedback(r: ChallengeFirstReport): string {
   if (r.maxConsecutiveInformative >= 3) {
     lines.push(`✗ ${r.maxConsecutiveInformative} slides pasivos consecutivos. Máximo permitido: 2.`);
     lines.push('  Intercala siempre un desafío entre slides informativos.');
+  }
+  return lines.join('\n');
+}
+
+function buildDuolingoLoopFeedback(r: DuolingoLoopReport): string {
+  const lines = ['🔁 CORRECCIÓN NECESARIA — DUOLINGO LOOP INCOMPLETO:'];
+  const missing = r.conceptsDetected - r.conceptsWithFullLoop;
+  if (missing > 0) {
+    lines.push(`✗ ${missing} concepto(s) sin su reinforcement_challenge obligatorio.`);
+    lines.push('  ESTRUCTURA OBLIGATORIA POR CONCEPTO: micro_challenge → main_concept → reinforcement_challenge.');
+    lines.push('  reinforcement_challenge tiene title="Refuerzo", usa el mismo concepto del main_concept precedente');
+    lines.push('  pero en una situación NUEVA y diferente a la del micro_challenge. Es OBLIGATORIO — no opcional.');
+  }
+  if (!r.bossChallengePresent) {
+    lines.push('✗ Falta el final_challenge (Boss Battle). Es OBLIGATORIO después de application.');
   }
   return lines.join('\n');
 }
