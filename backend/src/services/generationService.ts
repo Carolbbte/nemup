@@ -261,30 +261,40 @@ La misión se construye como SECCIONES, no como una lista fija de pantallas.
 Cada sección = un concepto nuclear (Tipo A).
 Cada sección responde progresivamente: ¿Qué es? → ¿Cómo funciona? → ¿Cómo reconocerlo? → ¿Cómo aplicarlo?
 
-ESTRUCTURA OBLIGATORIA DE LA SECUENCIA COMPLETA:
+ESTRUCTURA OBLIGATORIA DE LA SECUENCIA COMPLETA — RITMO INSIGHT → ACCIÓN:
 
-╔═══════════════════════════════════════╗
-║  [1] GANCHO — type: "mission"         ║  UNA SOLA (al inicio)
-╠═══════════════════════════════════════╣
-║  [2] SECCIONES — repetir por cada     ║
-║  concepto nuclear seleccionado:       ║
-║    [A] main_concept    [OBLIGATORIA]  ║
-║    [B] micro_challenge [OBLIGATORIA]  ║
-║    [C] comprehension   [OPCIONAL]     ║
-║    [D] key_relation    [OPCIONAL]     ║
-║    [E] common_error    [OPCIONAL]     ║
-╠═══════════════════════════════════════╣
-║  [3] APLICACIÓN — type: "application" ║  UNA SOLA (después de todas las secciones)
-║  [4] DESAFÍO — type: "final_challenge"║  UNO, OBLIGATORIO
-║  [5] VICTORIA — type: "victory"       ║  UNA SOLA (al final)
-╚═══════════════════════════════════════╝
+╔══════════════════════════════════════════════════════════════╗
+║  [1] GANCHO — type: "mission"           UNA SOLA (inicio)  ║
+╠══════════════════════════════════════════════════════════════╣
+║  [2] CICLOS INSIGHT-ACCIÓN — uno por concepto nuclear:      ║
+║                                                              ║
+║    [A] main_concept    ← INSIGHT (max 25 palabras, 1 idea)  ║
+║    [B] micro_challenge ← ACCIÓN INMEDIATA (obligatoria)     ║
+║    [C] key_relation    [OPCIONAL — solo si hay patrón real] ║
+║    [D] common_error    [OPCIONAL — solo si error real]      ║
+║                                                              ║
+║  ⚠️ NUNCA dos slides pasivos consecutivos.                  ║
+║  Si agregas key_relation (pasivo), sigue con common_error   ║
+║  (activo) antes de iniciar la siguiente sección.            ║
+╠══════════════════════════════════════════════════════════════╣
+║  [3] APLICACIÓN — type: "application"   UNA SOLA            ║
+║  [4] BOSS BATTLE — type: "final_challenge" UNO, OBLIGATORIO ║
+║  [5] VICTORIA — type: "victory"         UNA SOLA (final)    ║
+╚══════════════════════════════════════════════════════════════╝
+
+REGLA DE RITMO PEDAGÓGICO (⚠️ OBLIGATORIA — verifica antes de generar):
+→ Cada concepto = 1 INSIGHT (main_concept) + 1 ACCIÓN INMEDIATA (micro_challenge). Par inseparable.
+→ NUNCA dos slides pasivos seguidos. Pasivos: main_concept, key_relation, wow_fact, mission.
+→ 60% o más de los slides DEBEN requerir acción del estudiante.
+→ El Boss Battle integra TODOS los conceptos de la misión, no solo el último.
 
 RECUENTO TOTAL ESPERADO:
-  3 conceptos nucleares → 1 + (2–5 × 3) + 3 = 10–19 slides
-  5 conceptos nucleares → 1 + (2–5 × 5) + 3 = 14–33 slides
+  3 conceptos nucleares → 1 + (2–4 × 3) + 3 = 10–16 slides
+  5 conceptos nucleares → 1 + (2–4 × 5) + 3 = 14–26 slides
 
 DATO DE CURIOSIDAD OPCIONAL (wow_fact):
-  Si existe un dato genuinamente sorprendente y contraintuitivo sobre alguno de los conceptos nucleares → agrega UNA pantalla wow_fact dentro de la sección correspondiente, entre [C] y [D].
+  Si existe un dato genuinamente sorprendente y contraintuitivo sobre alguno de los conceptos nucleares → agrega UNA pantalla wow_fact dentro de la sección correspondiente, entre [B] y [C].
+  ⚠️ wow_fact es pasivo: si lo incluyes en una sección, la siguiente slide DEBE ser activa (common_error o inicio de nueva sección con micro_challenge).
   Si el dato no sorprendería a un estudiante de 15 años → NO lo incluyas.
   NUNCA uses wow_fact para repetir algo ya explicado en main_concept.
 
@@ -296,6 +306,8 @@ PROHIBICIÓN ABSOLUTA — REGLA DE ORO
 ✗ NUNCA evaluar en micro_challenge un concepto que aparece en una sección posterior — solo el concepto que acaba de ser enseñado.
 ✗ NUNCA evaluar conceptos Tipo B o Tipo C — solo Tipo A.
 ✗ NUNCA usar el final_challenge para evaluar algo que solo apareció como ejemplo o en el conector.
+✗ NUNCA generar dos slides pasivos consecutivos. Pasivos: main_concept, key_relation, wow_fact, mission. Activos: micro_challenge, common_error, comprehension, final_challenge, application.
+✗ NUNCA generar un main_concept sin su micro_challenge inmediatamente a continuación.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ADAPTACIÓN POR CURSO (OBLIGATORIA):
@@ -325,21 +337,19 @@ PANTALLA "mission" — EL GANCHO [UNA SOLA — POSICIÓN 1]
     ❌ "Aprenderás sobre este tema." — aburrido, informativo, sin anticipación.
   - example: área temática en 3-5 palabras. Ej: "Biología · 2° Medio"
 
-PANTALLA "main_concept" — CONCEPTO NUCLEAR [OBLIGATORIA — UNA POR SECCIÓN]
-  Enseña UN concepto nuclear con máxima claridad y mínima carga cognitiva.
-  El lector tiene 13-18 años. Prioriza frases cortas, directas y escaneables.
-  Los conceptos Tipo B de este nuclear se mencionan AQUÍ, brevemente, como apoyo.
+PANTALLA "main_concept" — INSIGHT NUCLEAR [OBLIGATORIA — UNA POR SECCIÓN]
+  ⚡ INSIGHT, no explicación. El estudiante capta UNA idea en < 5 segundos.
+  Mínima carga cognitiva. Lenguaje adolescente. Sin definiciones académicas.
   - title: nombre del concepto nuclear (max 5 palabras)
-  - definition: máximo 60 palabras. Exactamente 3 ideas cortas. Cada idea: máximo 20 palabras.
-    Formato OBLIGATORIO — 3 líneas separadas por \n, cada una iniciando con "* ":
-    "* [qué es o cómo funciona — 1 oración directa]\n* [analogía cotidiana — comparación con algo que un adolescente chileno conoce]\n* [ejemplo concreto con número o caso del documento]"
+  - definition: MÁXIMO 25 palabras. UNA sola idea. Lenguaje directo, no académico.
+    Formato OBLIGATORIO — 1 o 2 líneas separadas por \n, cada una iniciando con "* ":
+    "* [1 idea directa: qué es o qué hace, max 15 palabras]\n* [analogía cotidiana o ejemplo concreto del documento, max 10 palabras]"
     Analogías permitidas: ropa, música, deportes, comida, tecnología, redes sociales, videojuegos.
     SOLO FORMATO — escribe sobre ESTE documento:
-    ✅ "* Términos semejantes: misma letra, mismo exponente — del mismo 'equipo'.\n* Como naranjas con naranjas: no puedes sumar 3x con 2y porque son distintos.\n* Simplifica 4a + 2b − a: agrupa los 'a' → 3a + 2b." [Álgebra]
-    ❌ "Los términos semejantes son expresiones algebraicas con la misma parte literal y el mismo exponente numérico." — prosa continua, demasiado densa.
-    REGLA DE DIVISIÓN: si el concepto necesita más de 3 ideas para entenderse completamente →
-    clasifícalo como dos conceptos Tipo A distintos, cada uno con su propia sección.
-    NO acumules más de 3 ideas en un solo slide.
+    ✅ "* Términos semejantes: misma letra, mismo exponente.\n* Como naranjas y naranjas — no mezclas 3x con 7y." [Álgebra]
+    ❌ "* Los términos semejantes son expresiones algebraicas con la misma parte literal y el mismo exponente numérico.\n* Como piezas idénticas de un rompecabezas.\n* 4a + 2b − a → 3a + 2b." — 3 ideas, demasiado largo, demasiado académico.
+    REGLA DE DIVISIÓN: si necesitas más de 2 líneas para explicarlo → son DOS conceptos distintos con sus propias secciones.
+    UN solo insight por slide. Sin excepciones.
   - example: SITUACIÓN ESPECÍFICA que un estudiante chileno encontrará HOY. Nombre concreto o número.
     ✗ PROHIBIDO: "Esto es relevante para la vida cotidiana." — abstracto, no aporta valor.
   - connector: OPCIONAL. Usar null si no hay cadena causal real entre el concepto y su consecuencia.
@@ -464,20 +474,21 @@ PANTALLA "application" — APLICACIÓN REAL [UNA SOLA — después de TODAS las 
   - options: exactamente 3 opciones ("A. ...", "B. ...", "C. ..."). Una correcta. Dos distractores plausibles. Max 10 palabras cada una.
   - correctAnswer: "A", "B" o "C"
 
-PANTALLA "final_challenge" — DESAFÍO FINAL [OBLIGATORIA — UNA SOLA — después de application]
-  ⚠️ REGLA FUNDAMENTAL: Solo puede integrar conceptos que fueron ENSEÑADOS EXPLÍCITAMENTE en las pantallas main_concept anteriores.
+PANTALLA "final_challenge" — BOSS BATTLE [OBLIGATORIA — UNA SOLA — después de application]
+  ⚡ El jefe final. Solo puede derrotarse combinando TODOS los conceptos nucleares de la misión.
+  ⚠️ REGLA FUNDAMENTAL: Solo evalúa conceptos enseñados EXPLÍCITAMENTE en las pantallas main_concept.
   NUNCA evaluar conceptos nuevos. NUNCA evaluar Tipo B o Tipo C.
-  COBERTURA MÍNIMA: La pregunta debe involucrar directamente al menos el 70% de los conceptos nucleares enseñados.
-  NIVEL 4 (Analizar/Evaluar): requiere integración de múltiples conceptos, no solo recall.
-  - title: "Desafío final" o una pregunta corta que enmarca el reto (max 8 palabras)
-  - question: pregunta integradora que requiere razonar con múltiples conceptos nucleares (max 30 palabras).
-    Test: ¿Un estudiante que estudió solo uno de los conceptos puede responderla? → Si SÍ → reescribir.
+  DIFERENCIA CON micro_challenge: micro_challenge evalúa 1 concepto reciente. El Boss Battle evalúa TODOS. Más difícil.
+  COBERTURA MÍNIMA: La pregunta involucra directamente al menos el 70% de los conceptos nucleares enseñados.
+  NIVEL 4 (Analizar/Evaluar): requiere razonamiento cruzado entre múltiples conceptos, no solo recall.
+  - title: "Boss Battle" o una frase que evoca el reto final (max 8 palabras)
+  - question: pregunta integradora que SOLO puede responderse dominando múltiples conceptos de la misión (max 30 palabras).
+    Test: ¿Un estudiante que estudió solo UNO de los conceptos puede responderla? → Si SÍ → reescribir.
   - options: exactamente 4 opciones ("A. ...", "B. ...", "C. ...", "D. ..."). Max 15 palabras cada una.
     Todas las opciones deben ser plausibles para alguien que estudió el material.
     ✗ PROHIBIDO: "Todas las anteriores", "Ninguna de las anteriores", opciones fuera del dominio enseñado.
   - correctAnswer: "A", "B", "C" o "D"
-  - definition: feedback que menciona EXACTAMENTE cuáles conceptos nucleares explican la respuesta correcta.
-    Inicia con 🔥, 🚀, ⚡ o 🎯. Max 25 palabras.
+  - definition: explicación de por qué la respuesta correcta requiere integrar múltiples conceptos. Texto plano, sin emojis. Max 25 palabras.
   - example: null
 
 PANTALLA "victory" — MISIÓN COMPLETADA [UNA SOLA — al final]
@@ -494,7 +505,7 @@ PANTALLA "victory" — MISIÓN COMPLETADA [UNA SOLA — al final]
 LÍMITES DE TEXTO — aplican a CADA pantalla:
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 - definition: máximo 2 oraciones O 30 palabras — lo que sea más corto.
-  EXCEPCIÓN main_concept: máximo 60 palabras en formato lista de 3 bullets (ver especificación de esa pantalla).
+  EXCEPCIÓN main_concept: máximo 25 palabras en formato lista de 1-2 bullets (ver especificación de esa pantalla).
 - example: máximo 20 palabras.
 - title: máximo 8 palabras.
 Prefiere frases escaneables sobre prosa conectada.
@@ -1934,7 +1945,7 @@ export async function generateSessionContent(
   } else {
     // CONCEPTUAL and MIXED → section-based pedagogical mission
     prompt = buildConceptualPrompt(transcription, curso);
-    systemMsg = `Eres un Arquitecto de Aprendizaje para estudiantes chilenos de enseñanza media. Tu filosofía: ANÁLISIS → OBJETIVO → CLASIFICACIÓN → DEPENDENCIAS → SECCIONES → APLICACIÓN → DESAFÍO → VICTORIA. Primero analizas el documento. Defines UN objetivo de aprendizaje principal. Clasificas los conceptos según cuánto contribuyen a ese objetivo. Validas el orden por dependencias conceptuales. Luego construyes una misión como secciones coherentes — cada sección enseña UN concepto nuclear: main_concept → micro_challenge (checkpoint OBLIGATORIO con question+options+correctAnswer) → (comprehension opcional) → (key_relation opcional) → (common_error opcional). Después de todas las secciones: application → final_challenge → victory. JSON válido únicamente. Todo en español.`;
+    systemMsg = `Eres un Arquitecto de Aprendizaje para estudiantes chilenos de enseñanza media. Tu filosofía: INSIGHT → ACCIÓN → INSIGHT → ACCIÓN → ... → BOSS BATTLE. Primero analizas el documento. Defines UN objetivo. Clasificas conceptos por relevancia. Construyes una misión con ritmo Duolingo: cada concepto = 1 insight (main_concept, máximo 25 palabras, 1 idea) + 1 acción inmediata (micro_challenge con question+options+correctAnswer). NUNCA dos slides pasivos consecutivos. 60% de slides deben ser interactivos. Después de todas las secciones: application → final_challenge (Boss Battle que integra TODOS los conceptos) → victory. JSON válido únicamente. Todo en español.`;
   }
 
   const base = await callOpenAIAndBuildResult(prompt, systemMsg, configValues);
