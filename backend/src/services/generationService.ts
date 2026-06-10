@@ -266,24 +266,26 @@ ESTRUCTURA OBLIGATORIA DE LA SECUENCIA COMPLETA — RITMO INSIGHT → ACCIÓN:
 ╔══════════════════════════════════════════════════════════════╗
 ║  [1] GANCHO — type: "mission"           UNA SOLA (inicio)  ║
 ╠══════════════════════════════════════════════════════════════╣
-║  [2] CICLOS INSIGHT-ACCIÓN — uno por concepto nuclear:      ║
+║  [2] CICLOS CHALLENGE-FIRST — uno por concepto nuclear:     ║
 ║                                                              ║
-║    [A] main_concept    ← INSIGHT (max 25 palabras, 1 idea)  ║
-║    [B] micro_challenge ← ACCIÓN INMEDIATA (obligatoria)     ║
+║    [A] micro_challenge ← DESAFÍO (PRIMERO — descubrimiento) ║
+║    [B] main_concept    ← INSIGHT (DESPUÉS — confirmación)   ║
 ║    [C] key_relation    [OPCIONAL — solo si hay patrón real] ║
 ║    [D] common_error    [OPCIONAL — solo si error real]      ║
 ║                                                              ║
-║  ⚠️ NUNCA dos slides pasivos consecutivos.                  ║
-║  Si agregas key_relation (pasivo), sigue con common_error   ║
-║  (activo) antes de iniciar la siguiente sección.            ║
+║  ⚠️ NUNCA main_concept sin su micro_challenge ANTES.        ║
+║  ⚠️ Si agregas key_relation (pasivo), sigue con             ║
+║  common_error (activo) antes de la siguiente sección.       ║
 ╠══════════════════════════════════════════════════════════════╣
 ║  [3] APLICACIÓN — type: "application"   UNA SOLA            ║
 ║  [4] BOSS BATTLE — type: "final_challenge" UNO, OBLIGATORIO ║
 ║  [5] VICTORIA — type: "victory"         UNA SOLA (final)    ║
 ╚══════════════════════════════════════════════════════════════╝
 
-REGLA DE RITMO PEDAGÓGICO (⚠️ OBLIGATORIA — verifica antes de generar):
-→ Cada concepto = 1 INSIGHT (main_concept) + 1 ACCIÓN INMEDIATA (micro_challenge). Par inseparable.
+REGLA CHALLENGE FIRST (⚠️ OBLIGATORIA — verifica antes de generar):
+→ PRIMERO el desafío, DESPUÉS el insight. NUNCA al revés.
+→ micro_challenge → main_concept: PAR INSEPARABLE EN ESE ORDEN.
+→ El estudiante descubre el concepto RESPONDIENDO, no leyendo.
 → NUNCA dos slides pasivos seguidos. Pasivos: main_concept, key_relation, wow_fact, mission.
 → 60% o más de los slides DEBEN requerir acción del estudiante.
 → El Boss Battle integra TODOS los conceptos de la misión, no solo el último.
@@ -307,7 +309,8 @@ PROHIBICIÓN ABSOLUTA — REGLA DE ORO
 ✗ NUNCA evaluar conceptos Tipo B o Tipo C — solo Tipo A.
 ✗ NUNCA usar el final_challenge para evaluar algo que solo apareció como ejemplo o en el conector.
 ✗ NUNCA generar dos slides pasivos consecutivos. Pasivos: main_concept, key_relation, wow_fact, mission. Activos: micro_challenge, common_error, comprehension, final_challenge, application.
-✗ NUNCA generar un main_concept sin su micro_challenge inmediatamente a continuación.
+✗ NUNCA generar un main_concept sin su micro_challenge INMEDIATAMENTE ANTES — el desafío precede al insight.
+✗ NUNCA presentar un concepto como texto ANTES de que el estudiante lo haya encontrado en un desafío.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ADAPTACIÓN POR CURSO (OBLIGATORIA):
@@ -337,9 +340,9 @@ PANTALLA "mission" — EL GANCHO [UNA SOLA — POSICIÓN 1]
     ❌ "Aprenderás sobre este tema." — aburrido, informativo, sin anticipación.
   - example: área temática en 3-5 palabras. Ej: "Biología · 2° Medio"
 
-PANTALLA "main_concept" — INSIGHT NUCLEAR [OBLIGATORIA — UNA POR SECCIÓN]
-  ⚡ INSIGHT, no explicación. El estudiante capta UNA idea en < 5 segundos.
-  Mínima carga cognitiva. Lenguaje adolescente. Sin definiciones académicas.
+PANTALLA "main_concept" — INSIGHT DE CONFIRMACIÓN [OBLIGATORIA — UNA POR SECCIÓN, JUSTO DESPUÉS de micro_challenge]
+  ⚡ CONFIRMACIÓN, no introducción. El estudiante ya encontró el concepto en el desafío anterior.
+  Este insight confirma y nombra lo que acaba de descubrir. Mínima carga cognitiva. Sin definiciones académicas.
   - title: nombre del concepto nuclear (max 5 palabras)
   - definition: MÁXIMO 25 palabras. UNA sola idea. Lenguaje directo, no académico.
     Formato OBLIGATORIO — 1 o 2 líneas separadas por \n, cada una iniciando con "* ":
@@ -357,43 +360,45 @@ PANTALLA "main_concept" — INSIGHT NUCLEAR [OBLIGATORIA — UNA POR SECCIÓN]
     Los diagramas visuales complejos pertenecen a key_relation, no a main_concept.
     Si se incluye: "emoji1 Nodo1 ↓ verbo ↓ emoji2 Nodo2 ↓ verbo ↓ emoji3 Nodo3"
 
-PANTALLA "micro_challenge" — CHECKPOINT CHALLENGE [OBLIGATORIA — UNA POR SECCIÓN, JUSTO DESPUÉS DE main_concept]
+PANTALLA "micro_challenge" — DESAFÍO DE DESCUBRIMIENTO [OBLIGATORIA — UNA POR SECCIÓN, JUSTO ANTES de main_concept]
   ⚠️⚠️ OBLIGACIÓN ABSOLUTA: question + options + correctAnswer son CAMPOS OBLIGATORIOS sin excepción.
-  Un micro_challenge que solo contiene texto en definition y NO tiene question/options es un ERROR GRAVE.
-  NUNCA generar una pantalla micro_challenge con solo texto informativo o motivacional.
 
-  Recuperación activa inmediata: el estudiante toma una decisión antes de continuar.
-  Evalúa ÚNICAMENTE el concepto que el main_concept inmediatamente anterior acaba de enseñar.
-  NO usar conceptos que aparecerán en secciones futuras.
+  ⚡ CHALLENGE FIRST: el desafío PRECEDE al insight. El estudiante descubre el concepto MEDIANTE la pregunta.
+  La pregunta expone al concepto a través de un ejemplo concreto del documento.
+  El main_concept que sigue CONFIRMA lo que el estudiante acaba de encontrar.
+  El estudiante aprende respondiendo, no leyendo.
+
+  TIPOS DE PREGUNTA — ALTERNAR entre estos formatos (no repetir el mismo en secciones consecutivas):
+  1. IDENTIFICAR:    "En −6m⁴, ¿qué representa el número −6?"         → A) coeficiente B) exponente C) variable
+  2. CLASIFICAR:     "¿Cuál de estas es un binomio?"                  → A) 3m  B) 3m+1  C) 3m+n+2
+  3. DETECTAR ERROR: "¿Qué tiene de incorrecto: 3m + 7n = 10mn?"      → A) los coeficientes B) las letras C) el resultado
+  4. VERDADERO/FALSO:"¿Son semejantes 3x² y 3x?"                      → A) Sí, misma letra B) No, diferente exponente C) Depende
+  5. COMPLETAR:      "2m y 6m son términos ___"                        → A) semejantes B) opuestos C) independientes
+  6. COMPARAR:       "¿Cuál reducción es correcta: 3m+5m = ?"         → A) 8m B) 15m² C) 8m²
 
   PRIORIDAD DE EJEMPLOS (obligatoria — respetar este orden):
-  1. Usar ejemplos, cifras o expresiones que aparecen literalmente en el documento fuente
-  2. Variaciones mínimas de esos ejemplos (cambiar un número, una letra)
-  3. Ejemplos nuevos equivalentes — SOLO si no existen ejemplos en el documento
-  NUNCA al revés. Los ejemplos del documento son prioritarios.
+  1. Usar ejemplos, cifras o expresiones del documento fuente
+  2. Variaciones mínimas de esos ejemplos
+  3. Ejemplos nuevos — SOLO si no existen en el documento
 
-  SOLO FORMATO — nunca copiar estos temas, crear preguntas sobre ESTE documento:
-  Concepto "partes del término algebraico" → "¿Cuál es el coeficiente en −6m⁴?"  A) m  B) 4  C) −6
-  Concepto "clasificación de expresiones"  → "¿Qué tipo de expresión es 3m + 1?" A) Monomio B) Binomio C) Trinomio
-  Concepto "reducción de semejantes"       → "¿Cuáles son términos semejantes?"   A) 3m y 7m  B) 3m y 7n  C) 3m² y 3m
+  SOLO FORMATO — crear preguntas sobre ESTE documento (no copiar estos temas):
+  ✓ "En −6m⁴, ¿qué parte representa '-6'?" A) el coeficiente B) el exponente C) la variable [SOLO FORMATO]
+  ✓ "¿Cuál expresión es un binomio?"  A) 78a⁵b³c²  B) 3m+1  C) x/4 − z⁸ + 3/2 [SOLO FORMATO]
+  ✓ "¿Son semejantes −156a⁸ y −6m⁴?" A) Sí, mismo exponente B) No, diferente letra C) Sí, mismos signos [SOLO FORMATO]
 
   - title: "Checkpoint" (texto fijo)
-  - question: pregunta de reconocimiento o identificación. Max 20 palabras. Responder en < 10 segundos.
-    Formatos permitidos: selección múltiple, verdadero/falso, identificar el elemento correcto.
-    ✓ "¿Cuál es el coeficiente en −6m⁴?" — identifica elemento del concepto enseñado
-    ✓ "¿Cuáles son términos semejantes?" — reconoce el concepto enseñado
-    ✗ Solo texto de feedback (sin pregunta) — COMPLETAMENTE PROHIBIDO como slide completo
-    ✗ Cálculos de varios pasos — demasiado complejo para < 10 segundos
+  - question: pregunta de descubrimiento con ejemplo concreto del documento. Max 20 palabras. < 15 segundos.
+    ✗ Solo texto de feedback sin pregunta — COMPLETAMENTE PROHIBIDO
+    ✗ Preguntas que requieren cálculos de varios pasos
   - options: EXACTAMENTE 3 alternativas — ["A. ...", "B. ...", "C. ..."]
     Máximo 8 palabras por alternativa. Sin punto final.
-    La respuesta correcta puede estar en A, B o C (variar posición).
-    Los dos distractores son errores plausibles del mismo concepto.
+    La respuesta correcta puede estar en A, B o C (variar posición). Alternar tipo de pregunta entre secciones.
   - correctAnswer: "A", "B" o "C"
   - definition: explicación de POR QUÉ esa opción es correcta. Máximo 120 caracteres.
     Texto plano, sin emojis, sin "Acertaste" ni "Exacto".
-    ✓ "El coeficiente es el número que multiplica a la parte literal del término."
+    Este texto es el feedback post-respuesta Y anticipa el insight que confirma el main_concept siguiente.
+    ✓ "El coeficiente es el número que multiplica la parte literal: −6 en −6m⁴."
     ✗ "🎯 Acertaste — Solo términos con misma letra..." — formato PROHIBIDO
-    ✗ "🔥 Exacto — Agrupas coeficientes correctamente." — formato PROHIBIDO
   - example: null
   - connector: null
 
@@ -1945,7 +1950,7 @@ export async function generateSessionContent(
   } else {
     // CONCEPTUAL and MIXED → section-based pedagogical mission
     prompt = buildConceptualPrompt(transcription, curso);
-    systemMsg = `Eres un Arquitecto de Aprendizaje para estudiantes chilenos de enseñanza media. Tu filosofía: INSIGHT → ACCIÓN → INSIGHT → ACCIÓN → ... → BOSS BATTLE. Primero analizas el documento. Defines UN objetivo. Clasificas conceptos por relevancia. Construyes una misión con ritmo Duolingo: cada concepto = 1 insight (main_concept, máximo 25 palabras, 1 idea) + 1 acción inmediata (micro_challenge con question+options+correctAnswer). NUNCA dos slides pasivos consecutivos. 60% de slides deben ser interactivos. Después de todas las secciones: application → final_challenge (Boss Battle que integra TODOS los conceptos) → victory. JSON válido únicamente. Todo en español.`;
+    systemMsg = `Eres un Arquitecto de Aprendizaje para estudiantes chilenos de enseñanza media. Tu filosofía: CHALLENGE FIRST. El estudiante descubre cada concepto RESPONDIENDO, no leyendo. Estructura obligatoria por concepto: micro_challenge (desafío primero, con question+options+correctAnswer) → main_concept (insight breve que confirma lo descubierto, máximo 25 palabras). NUNCA main_concept antes de su micro_challenge. NUNCA dos slides pasivos consecutivos. 60%+ de slides deben ser interactivos. Alternar tipos de pregunta: identificar, clasificar, detectar error, verdadero/falso, completar, comparar. Después de todas las secciones: application → final_challenge (Boss Battle que integra TODOS los conceptos) → victory. JSON válido únicamente. Todo en español.`;
   }
 
   const base = await callOpenAIAndBuildResult(prompt, systemMsg, configValues);
@@ -1960,6 +1965,7 @@ export async function generateSessionContent(
   const gUnknown        = detectUnknownConcepts(transcription, (base.summary?.slides ?? []) as SummarySlide[], tipoACandidates);
   const qualityScore    = computeQualityScore(gGrounding.score, gSemantic.overallOverlap, consistencyScore, gUnknown.penalty);
   const gMicroChallenge = validateMicroChallengeInteractivity((base.summary?.slides ?? []) as SummarySlide[]);
+  const gEngagement     = validateEngagement((base.summary?.slides ?? []) as SummarySlide[]);
 
   console.log('\n[QUALITY REPORT]');
   console.log(`  groundingScore:   ${gGrounding.score.toFixed(2)}`);
@@ -1978,17 +1984,27 @@ export async function generateSessionContent(
   } else {
     console.log('  microChallenge:   ok');
   }
+  console.log('\n[ENGAGEMENT REPORT]');
+  console.log(`  interactiveSlides:       ${gEngagement.interactiveSlides}`);
+  console.log(`  informativeSlides:       ${gEngagement.informativeSlides}`);
+  console.log(`  interactionRatio:        ${(gEngagement.interactionRatio * 100).toFixed(0)}%`);
+  console.log(`  challengeFirstViolations:${gEngagement.challengeFirstViolations}`);
+  console.log(`  maxConsecutivePassive:   ${gEngagement.maxConsecutiveInformative}`);
+  console.log(`  engagementScore:         ${gEngagement.engagementScore.toFixed(2)}`);
+  console.log(`  passes:                  ${gEngagement.passesThreshold ? 'YES' : 'NO'}`);
 
-  const needsRegeneration = qualityScore < 0.65 || gMicroChallenge.hasPassive;
+  const needsRegeneration = qualityScore < 0.65 || gMicroChallenge.hasPassive || !gEngagement.passesThreshold;
   let finalBase = base;
   if (needsRegeneration) {
     const reasons: string[] = [];
-    if (qualityScore < 0.65)          reasons.push('quality');
-    if (gMicroChallenge.hasPassive)   reasons.push('micro_challenge pasivos');
+    if (qualityScore < 0.65)              reasons.push('quality');
+    if (gMicroChallenge.hasPassive)       reasons.push('micro_challenge pasivos');
+    if (!gEngagement.passesThreshold)     reasons.push(`engagement (score=${gEngagement.engagementScore.toFixed(2)}, cfViolations=${gEngagement.challengeFirstViolations})`);
     console.log(`  action:           REGENERATE (${reasons.join(', ')})`);
 
     const feedbackParts: string[] = [buildQualityFeedback(gUnknown.unknownConcepts, gSemantic.overallOverlap)];
-    if (gMicroChallenge.hasPassive) feedbackParts.push(buildMicroChallengeFeedback(gMicroChallenge.passiveSlides));
+    if (gMicroChallenge.hasPassive)   feedbackParts.push(buildMicroChallengeFeedback(gMicroChallenge.passiveSlides));
+    if (!gEngagement.passesThreshold) feedbackParts.push(buildEngagementFeedback(gEngagement));
     const retryPrompt = `${prompt}\n\n${'━'.repeat(40)}\n${feedbackParts.join('\n\n')}\n${'━'.repeat(40)}`;
     finalBase = await callOpenAIAndBuildResult(retryPrompt, systemMsg, configValues);
     console.log('[QUALITY REPORT] Regeneración completada.');
@@ -2262,6 +2278,81 @@ function buildQualityFeedback(unknownConcepts: string[], semanticOverlap: number
     lines.push('');
     lines.push(`→ El solapamiento semántico con el documento fue solo ${(semanticOverlap * 100).toFixed(0)}%.`);
     lines.push('  Incrementa la densidad de vocabulario derivado del material.');
+  }
+  return lines.join('\n');
+}
+
+// ── Engagement validator (Challenge First compliance) ─────────────────────────
+
+export interface ChallengeFirstReport {
+  interactiveSlides: number;
+  informativeSlides: number;
+  interactionRatio: number;
+  challengeFirstViolations: number;
+  maxConsecutiveInformative: number;
+  engagementScore: number;
+  passesThreshold: boolean;
+}
+
+export function validateEngagement(slides: SummarySlide[]): ChallengeFirstReport {
+  const ACTIVE  = new Set(['micro_challenge','comprehension','mini_quiz','final_challenge','decide','order_sequence','common_error','application','challenge']);
+  const PASSIVE = new Set(['mission','main_concept','key_relation','wow_fact','victory','process_flow']);
+
+  let interactive = 0, informative = 0, cfViolations = 0;
+  let maxConsecutive = 0, currentConsecutive = 0;
+
+  slides.forEach((slide, i) => {
+    const s = slide as { type?: string; question?: string | null; options?: unknown[] };
+    const t = s.type ?? '';
+    const hasInteraction = ACTIVE.has(t) && typeof s.question === 'string' && s.question.trim().length > 0;
+
+    if (hasInteraction) {
+      interactive++;
+      currentConsecutive = 0;
+    } else if (PASSIVE.has(t) || ACTIVE.has(t)) {
+      informative++;
+      currentConsecutive++;
+      maxConsecutive = Math.max(maxConsecutive, currentConsecutive);
+    }
+
+    // Challenge First: main_concept must be immediately preceded by an active slide
+    if (t === 'main_concept' && i > 0) {
+      const prevType = (slides[i - 1] as { type?: string }).type ?? '';
+      if (!ACTIVE.has(prevType)) cfViolations++;
+    }
+  });
+
+  const total = interactive + informative;
+  const ratio = total > 0 ? interactive / total : 0;
+  const totalConcepts = slides.filter(s => (s as { type?: string }).type === 'main_concept').length;
+  const cfCompliance = totalConcepts > 0 ? (totalConcepts - cfViolations) / totalConcepts : 1;
+  const score = ratio * 0.6 + cfCompliance * 0.4;
+
+  return {
+    interactiveSlides: interactive,
+    informativeSlides: informative,
+    interactionRatio: ratio,
+    challengeFirstViolations: cfViolations,
+    maxConsecutiveInformative: maxConsecutive,
+    engagementScore: score,
+    passesThreshold: score >= 0.65 && cfViolations === 0 && maxConsecutive <= 2,
+  };
+}
+
+function buildEngagementFeedback(r: ChallengeFirstReport): string {
+  const lines = ['⚡ CORRECCIÓN NECESARIA — MODELO CHALLENGE FIRST INCUMPLIDO:'];
+  if (r.challengeFirstViolations > 0) {
+    lines.push(`✗ ${r.challengeFirstViolations} concepto(s) presentados SIN su desafío previo.`);
+    lines.push('  REGLA OBLIGATORIA: micro_challenge → main_concept. NUNCA main_concept → micro_challenge.');
+    lines.push('  El estudiante debe RESPONDER antes de ver el insight, no después.');
+  }
+  if (r.interactionRatio < 0.50) {
+    lines.push(`✗ Solo ${Math.round(r.interactionRatio * 100)}% de slides son interactivos. Mínimo: 50%.`);
+    lines.push('  Solución: cada concepto debe tener exactamente 1 micro_challenge ANTES de su main_concept.');
+  }
+  if (r.maxConsecutiveInformative >= 3) {
+    lines.push(`✗ ${r.maxConsecutiveInformative} slides pasivos consecutivos. Máximo permitido: 2.`);
+    lines.push('  Intercala siempre un desafío entre slides informativos.');
   }
   return lines.join('\n');
 }
