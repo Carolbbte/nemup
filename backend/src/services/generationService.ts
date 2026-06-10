@@ -1935,6 +1935,130 @@ function auditDocumentStructure(transcription: string): string[] {
   return tipoACandidates;
 }
 
+// ── Cognitive stage mapper ────────────────────────────────────────────────────
+
+export type CognitiveStage = 'recognition' | 'understanding' | 'application' | 'integration' | 'mastery';
+
+export interface MissionStage {
+  stage: number;
+  objective: string;
+  cognitiveStage: CognitiveStage;
+  bloomLevel: number; // 1–5
+}
+
+export interface MissionStagesResult {
+  stages: MissionStage[];
+  progression: CognitiveStage[];
+  maxStage: CognitiveStage;
+  sourceUsed: 'explicit_objectives' | 'tipo_a_candidates';
+}
+
+const STAGE_KEYWORDS: Record<CognitiveStage, string[]> = {
+  recognition: [
+    'reconocer', 'reconocimiento', 'identificar', 'identificacion', 'distinguir',
+    'nombrar', 'listar', 'recordar', 'observar', 'señalar', 'indicar',
+    'enumerar', 'seleccionar', 'ubicar', 'localizar', 'partes', 'elementos',
+    'componentes', 'estructura', 'parte',
+  ],
+  understanding: [
+    'clasificar', 'clasificacion', 'describir', 'explicar', 'comparar', 'resumir',
+    'interpretar', 'comprender', 'definir', 'diferenciar', 'ordenar', 'categorizar',
+    'inferir', 'ejemplificar', 'tipos', 'diferencias', 'semejanzas', 'relacion',
+    'concepto', 'definicion',
+  ],
+  application: [
+    'aplicar', 'reducir', 'calcular', 'resolver', 'usar', 'demostrar',
+    'construir', 'ejecutar', 'implementar', 'practicar', 'utilizar',
+    'simplificar', 'operar', 'transformar', 'convertir', 'realizar',
+    'simplificacion', 'reduccion', 'calculo', 'operacion', 'procedimiento',
+  ],
+  integration: [
+    'analizar', 'integrar', 'relacionar', 'combinar', 'diferenciar',
+    'descomponer', 'organizar', 'estructurar', 'discriminar', 'contextualizar',
+    'conectar', 'sintetizar', 'vincular', 'analisis', 'relaciones', 'patron',
+  ],
+  mastery: [
+    'evaluar', 'crear', 'diseñar', 'criticar', 'justificar', 'valorar',
+    'argumentar', 'formular', 'proponer', 'generar', 'planificar',
+    'producir', 'elaborar', 'contrastar', 'fundamentar',
+  ],
+};
+
+const BLOOM_LEVEL: Record<CognitiveStage, number> = {
+  recognition: 1,
+  understanding: 2,
+  application: 3,
+  integration: 4,
+  mastery: 5,
+};
+
+function normEs(text: string): string {
+  return text.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z\s]/g, ' ');
+}
+
+function detectCognitiveStage(objective: string): CognitiveStage {
+  const norm = normEs(objective);
+  const scores: Record<CognitiveStage, number> = {
+    recognition: 0, understanding: 0, application: 0, integration: 0, mastery: 0,
+  };
+  for (const [stage, keywords] of Object.entries(STAGE_KEYWORDS) as [CognitiveStage, string[]][]) {
+    for (const kw of keywords) {
+      if (norm.includes(normEs(kw))) scores[stage]++;
+    }
+  }
+  let best: CognitiveStage = 'understanding';
+  let bestScore = 0;
+  for (const [stage, score] of Object.entries(scores) as [CognitiveStage, number][]) {
+    if (score > bestScore) { bestScore = score; best = stage as CognitiveStage; }
+  }
+  return best;
+}
+
+function extractObjectivesFromTranscription(transcription: string): string[] {
+  // Match "Objetivo(s):" block followed by numbered items
+  const blockMatch = transcription.match(/objetivo[s]?\s*[:\-]?\s*([\s\S]{10,500}?)(?:\n{2,}|\nInstrucciones|\nNombre|\nFecha)/i);
+  if (!blockMatch) return [];
+  const block = blockMatch[1];
+  // Extract "1. texto" or "1) texto" patterns
+  const numbered = [...block.matchAll(/\d+[\.\)]\s*([^\n\d]{10,150})/g)]
+    .map(m => m[1].trim().replace(/\.$/, ''))
+    .filter(Boolean);
+  if (numbered.length >= 2) return numbered;
+  // Fallback: non-empty lines
+  return block.split('\n').map(l => l.trim()).filter(l => l.length > 10 && l.length < 150).slice(0, 5);
+}
+
+export function mapToMissionStages(tipoACandidates: string[], transcription?: string): MissionStagesResult {
+  let objectives = tipoACandidates;
+  let sourceUsed: MissionStagesResult['sourceUsed'] = 'tipo_a_candidates';
+
+  if (transcription) {
+    const explicit = extractObjectivesFromTranscription(transcription);
+    if (explicit.length >= 2) {
+      objectives = explicit;
+      sourceUsed = 'explicit_objectives';
+    }
+  }
+
+  if (objectives.length === 0) objectives = tipoACandidates;
+
+  const stages: MissionStage[] = objectives.map((obj, i) => {
+    const cognitiveStage = detectCognitiveStage(obj);
+    return { stage: i + 1, objective: obj, cognitiveStage, bloomLevel: BLOOM_LEVEL[cognitiveStage] };
+  });
+
+  const progression: CognitiveStage[] = [...stages]
+    .sort((a, b) => a.bloomLevel - b.bloomLevel)
+    .map(s => s.cognitiveStage);
+
+  const maxStage = stages.reduce<CognitiveStage>(
+    (max, s) => BLOOM_LEVEL[s.cognitiveStage] > BLOOM_LEVEL[max] ? s.cognitiveStage : max,
+    'recognition'
+  );
+
+  return { stages, progression, maxStage, sourceUsed };
+}
+
 // ── Main generation function ──────────────────────────────────────────────────
 
 export async function generateSessionContent(
@@ -1945,6 +2069,16 @@ export async function generateSessionContent(
   console.log('[Generation] Curso utilizado para generar sesión:', curso);
 
   const tipoACandidates = auditDocumentStructure(transcription);
+
+  // ── Cognitive stage mapping ───────────────────────────────────────────────────
+  const missionStages = mapToMissionStages(tipoACandidates, transcription);
+  console.log('\n[MISSION STAGES]');
+  console.log(`  source: ${missionStages.sourceUsed}`);
+  missionStages.stages.forEach(s => {
+    console.log(`  stage ${s.stage} = ${s.cognitiveStage} (bloom L${s.bloomLevel}) — "${s.objective.slice(0, 70)}"`);
+  });
+  console.log(`  progression: ${missionStages.progression.join(' → ')}`);
+  console.log(`  maxStage: ${missionStages.maxStage}`);
 
   // Classify content type before selecting prompt
   const classification = classifyContent(transcription);
