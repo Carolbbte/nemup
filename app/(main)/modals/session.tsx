@@ -1757,7 +1757,7 @@ export default function SessionPlayerScreen() {
               return (
                 <View style={sum.mainCard}>
                   <View style={sum.mainCardHeader}>
-                    <Text style={sum.mainCardLabel}>📐 EJEMPLO GUIADO</Text>
+                    <Text style={sum.mainCardLabel}>{isProcedural ? '📐 PASO A PASO' : '⚡ INSIGHT'}</Text>
                   </View>
                   <View style={sum.mainCardBody}>
                     <Text style={sum.mainCardEmoji}>{slide.emoji}</Text>
@@ -1819,13 +1819,23 @@ export default function SessionPlayerScreen() {
                         )}
                       </>
                     ) : (
-                      // Default: definition is the primary element, example is support
+                      // Default: Duolingo-style insight — parse "* bullet" lines
                       <>
-                        {!!slide.definition && (
-                          <View style={sum.conceptCard}>
-                            <Text style={sum.conceptCardLabel}>💡 CONCEPTO</Text>
-                            <Text style={sum.conceptCardText}>{slide.definition}</Text>
+                        {defLines.length > 0 ? (
+                          <View style={sum.insightList}>
+                            {defLines.map((line, i) => {
+                              const isBullet = line.startsWith('*');
+                              const text = isBullet ? line.slice(1).trim() : line;
+                              return (
+                                <View key={i} style={[sum.insightRow, i === 0 && sum.insightRowMain]}>
+                                  {isBullet && <View style={[sum.insightDot, i === 0 && sum.insightDotMain]} />}
+                                  <Text style={[sum.insightLine, i === 0 && sum.insightLineMain]}>{text}</Text>
+                                </View>
+                              );
+                            })}
                           </View>
+                        ) : (
+                          !!slide.definition && <Text style={sum.insightFallback}>{slide.definition}</Text>
                         )}
                         {!!slide.example && (
                           <View style={sum.exampleBox}>
@@ -3745,6 +3755,14 @@ const sum = StyleSheet.create({
   conceptCard:      { marginTop: SM ? 14 : 16, backgroundColor: 'rgba(91,61,245,0.07)', borderRadius: 14, padding: SM ? 12 : 14, borderWidth: 1, borderColor: 'rgba(91,61,245,0.22)' },
   conceptCardLabel: { fontSize: 10, fontWeight: '800', color: BRAND, letterSpacing: 0.8, marginBottom: 6, textTransform: 'uppercase' },
   conceptCardText:  { fontSize: SM ? 16 : 18, fontWeight: '600', color: semantic.textPrimary, lineHeight: SM ? 24 : 28 },
+  insightList:      { gap: SM ? 10 : 12, marginTop: 4 },
+  insightRow:       { flexDirection: 'row' as const, alignItems: 'flex-start' as const, gap: 10 },
+  insightRowMain:   { marginBottom: 4 },
+  insightDot:       { width: 6, height: 6, borderRadius: 3, backgroundColor: 'rgba(108,77,255,0.35)', marginTop: 9 },
+  insightDotMain:   { width: 8, height: 8, borderRadius: 4, backgroundColor: BRAND, marginTop: 8 },
+  insightLine:      { flex: 1, fontSize: SM ? 15 : 17, fontWeight: '500' as const, color: semantic.textSecondary, lineHeight: SM ? 22 : 26 },
+  insightLineMain:  { fontSize: SM ? 20 : 23, fontWeight: '800' as const, color: semantic.textPrimary, lineHeight: SM ? 28 : 34, letterSpacing: -0.3 },
+  insightFallback:  { fontSize: SM ? 18 : 20, fontWeight: '700' as const, color: semantic.textPrimary, lineHeight: SM ? 26 : 32 },
   comprehensionCtx: { backgroundColor: 'rgba(91,61,245,0.05)', borderRadius: 12, padding: SM ? 10 : 12, marginBottom: 10, borderWidth: 1, borderColor: 'rgba(91,61,245,0.1)' },
   comprehensionCtxText: { fontSize: SM ? 16 : 18, fontWeight: '800', color: BRAND, textAlign: 'center', letterSpacing: -0.2 },
 
