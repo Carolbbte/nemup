@@ -19,7 +19,7 @@ import {
   X,
   Zap,
 } from 'lucide-react-native';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Component, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Dimensions,
   Pressable,
@@ -577,6 +577,35 @@ function buildSummarySlides(backendSlides: BackendSlide[], questions: Question[]
   out.push({ type: 'motivation', emoji: '🎉', message: '¡Resumen completado!', sub: `Aprendiste ${total} conceptos clave.` });
   return out;
 }
+
+// ── [TEMP] Mission ErrorBoundary ──────────────────────────────────
+class MissionErrorBoundary extends Component<{ children: any }, { hasError: boolean; error: any }> {
+  state = { hasError: false, error: null };
+  static getDerivedStateFromError(error: any) {
+    console.error('[MISSION CRASH - ErrorBoundary caught]');
+    console.error(error);
+    console.error(error?.stack);
+    return { hasError: true, error };
+  }
+  componentDidCatch(error: any, info: any) {
+    console.error('[MISSION CRASH - componentDidCatch]');
+    console.error(error);
+    console.error(error?.stack);
+    console.error('[MISSION CRASH - componentStack]', info?.componentStack);
+  }
+  render() {
+    if (this.state.hasError) {
+      return (
+        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: BG, padding: 20 }}>
+          <Text style={{ color: '#991B1B', fontWeight: '700', fontSize: 16, marginBottom: 8 }}>[MISSION CRASH]</Text>
+          <Text style={{ color: '#991B1B', fontSize: 12 }}>{String(this.state.error)}</Text>
+        </View>
+      );
+    }
+    return this.props.children;
+  }
+}
+// ── [/TEMP] ───────────────────────────────────────────────────────
 
 // ══════════════════════════════════════════════════════════════════
 // MAIN COMPONENT
@@ -1608,6 +1637,7 @@ export default function SessionPlayerScreen() {
     };
 
     return (
+      <MissionErrorBoundary>
       <View style={{ flex: 1, backgroundColor: BG }}>
         <StatusBar barStyle="dark-content" backgroundColor={BG} />
         <SafeAreaView style={{ flex: 1 }} edges={['top']}>
@@ -1930,9 +1960,31 @@ export default function SessionPlayerScreen() {
                             <Animated.View key={i} style={wrongShakeStyle}>
                               <Pressable
                                 onPress={() => {
-                                  if (!answered) {
-                                    missionStreakRef.current = isOpt ? missionStreakRef.current + 1 : 0;
-                                    setQuizAnswers(prev => ({ ...prev, [summaryIdx]: letter }));
+                                  console.log('[OPTION TAP]');
+                                  console.log('slide.type=', slide.type);
+                                  console.log('slide.title=', slide.title);
+                                  console.log('slide.question=', slide.question);
+                                  console.log('slide.correctAnswer=', slide.correctAnswer);
+                                  console.log('selected=', letter);
+                                  try {
+                                    console.log('[ANSWER HANDLER START]');
+                                    console.log('slide=', JSON.stringify(slide, null, 2));
+                                    const _type = slide.type;
+                                    console.log('slide.type (access)=', _type);
+                                    const _opts = slide.options;
+                                    console.log('slide.options (access)=', _opts);
+                                    const _q = slide.question;
+                                    console.log('slide.question (access)=', _q);
+                                    const _ca = slide.correctAnswer;
+                                    console.log('slide.correctAnswer (access)=', _ca);
+                                    if (!answered) {
+                                      missionStreakRef.current = isOpt ? missionStreakRef.current + 1 : 0;
+                                      setQuizAnswers(prev => ({ ...prev, [summaryIdx]: letter }));
+                                    }
+                                  } catch (e: any) {
+                                    console.error('[MISSION CRASH]');
+                                    console.error(e);
+                                    console.error(e?.stack);
                                   }
                                 }}
                                 style={[sum.quizOption, showGreen && sum.quizOptCorrect, showRed && sum.quizOptWrong, { opacity: dimmed ? 0.35 : 1 }]}
@@ -2944,6 +2996,7 @@ export default function SessionPlayerScreen() {
           })()}
         </SafeAreaView>
       </View>
+      </MissionErrorBoundary>
     );
   }
 
