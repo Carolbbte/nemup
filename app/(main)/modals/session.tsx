@@ -1885,7 +1885,7 @@ export default function SessionPlayerScreen() {
                           const showRed   = answered === letter && !isCorrect;
                           const dimmed    = !!answered && !isCorrect && answered !== letter;
                           return (
-                            <Animated.View key={i} style={showRed ? wrongShakeStyle : {}}>
+                            <Animated.View key={i} style={wrongShakeStyle}>
                               <Pressable
                                 onPress={() => { if (!answered) setQuizAnswers(prev => ({ ...prev, [summaryIdx]: letter })); }}
                                 style={[sum.quizOption, showGreen && sum.quizOptCorrect, showRed && sum.quizOptWrong, { opacity: dimmed ? 0.35 : 1 }]}
@@ -2031,7 +2031,7 @@ export default function SessionPlayerScreen() {
                     const showRed   = answered === letter && !isCorrect;
                     const dimmed    = !!answered && !isCorrect && answered !== letter;
                     return (
-                      <Animated.View key={i} style={showRed ? wrongShakeStyle : {}}>
+                      <Animated.View key={i} style={wrongShakeStyle}>
                         <Pressable
                           onPress={() => { if (!answered) setQuizAnswers(prev => ({ ...prev, [summaryIdx]: letter })); }}
                           style={[sum.quizOption, showGreen && sum.quizOptCorrect, showRed && sum.quizOptWrong, { opacity: dimmed ? 0.35 : 1 }]}
@@ -2223,7 +2223,7 @@ export default function SessionPlayerScreen() {
                       const showRed   = answered === letter && !isCorrect;
                       const dimmed    = !!answered && !isCorrect && answered !== letter;
                       return (
-                        <Animated.View key={i} style={showRed ? wrongShakeStyle : {}}>
+                        <Animated.View key={i} style={wrongShakeStyle}>
                           <Pressable
                             onPress={() => { if (!answered) setQuizAnswers(prev => ({ ...prev, [summaryIdx]: letter })); }}
                             style={[sum.quizOption, showGreen && sum.quizOptCorrect, showRed && sum.quizOptWrong, { opacity: dimmed ? 0.35 : 1 }]}
@@ -2254,7 +2254,7 @@ export default function SessionPlayerScreen() {
                     const showRed   = answered === letter && !isCorrect;
                     const dimmed    = !!answered && !isCorrect && answered !== letter;
                     return (
-                      <Animated.View key={i} style={showRed ? wrongShakeStyle : {}}>
+                      <Animated.View key={i} style={wrongShakeStyle}>
                         <Pressable
                           onPress={() => { if (!answered) setQuizAnswers(prev => ({ ...prev, [summaryIdx]: letter })); }}
                           style={[sum.quizOption, showGreen && sum.quizOptCorrect, showRed && sum.quizOptWrong, { opacity: dimmed ? 0.35 : 1 }]}
@@ -2826,6 +2826,13 @@ export default function SessionPlayerScreen() {
 
             {/* Summary micro-reward — integrated into feedback boxes (no floating overlay) */}
           </Animated.View>
+
+          {/* Pre-bind mFbStyle and mXpPopStyle worklets so the UI-thread descriptors are
+              registered before any answer animation fires. In Reanimated v4 + New Architecture
+              the SharedValue update from componentDidMount races the animation worklet from
+              useEffect; an always-mounted 0×0 view guarantees the binding is already there. */}
+          <Animated.View pointerEvents="none" style={[{ position: 'absolute', width: 0, height: 0 }, mFbStyle]} />
+          <Animated.View pointerEvents="none" style={[{ position: 'absolute', width: 0, height: 0 }, mXpPopStyle]} />
 
           {/* CTA — Duolingo feedback bar (when answered) OR navigation button */}
           {(() => {
