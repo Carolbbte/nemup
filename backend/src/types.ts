@@ -52,8 +52,8 @@ export type SummarySlideType =
   | 'did_you_know' | 'common_error' | 'mini_quiz' | 'true_false' | 'observe'
   | 'compare' | 'partial_summary' | 'final_challenge'
   // Structured mission screens
-  | 'mission' | 'main_concept' | 'comprehension' | 'key_relation'
-  | 'process_flow' | 'application' | 'victory' | 'challenge' | 'decide';
+  | 'mission' | 'main_concept' | 'micro_challenge' | 'reinforcement_challenge' | 'comprehension' | 'key_relation'
+  | 'process_flow' | 'application' | 'victory' | 'challenge' | 'decide' | 'order_sequence' | 'quiz_transition';
 
 export type IllustrationType = 'educational' | 'diagram' | 'concept' | 'timeline' | 'map' | 'process' | 'comparison';
 

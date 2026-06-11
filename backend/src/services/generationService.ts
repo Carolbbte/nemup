@@ -1658,7 +1658,7 @@ function stripTemplatePlaceholders(slide: any): any {
 // ── Shared slide-type validation constants ───────────────────────────────────
 
 const VALID_SLIDE_TYPES: SummarySlideType[] = [
-  'mission', 'main_concept', 'comprehension', 'key_relation',
+  'mission', 'main_concept', 'micro_challenge', 'reinforcement_challenge', 'comprehension', 'key_relation',
   'mini_quiz', 'process_flow', 'decide', 'application', 'common_error', 'wow_fact', 'victory',
   'challenge', 'final_challenge',
   'concept', 'key_fact', 'important', 'remember', 'example', 'curiosity',
