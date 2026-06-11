@@ -802,6 +802,10 @@ export default function SessionPlayerScreen() {
 
   // [TEMP] Debug crash capture
   const [crashBanner, setCrashBanner] = useState<string | null>(null);
+  const [lastTapRecord, setLastTapRecord] = useState<string | null>(null);
+  useEffect(() => {
+    AsyncStorage.getItem('nemup_debug_last_tap').then(v => setLastTapRecord(v)).catch(() => {});
+  }, []);
 
   // Summary slide animation (hooks must be unconditional)
   const touchStartX  = useRef(0);
@@ -1989,13 +1993,16 @@ export default function SessionPlayerScreen() {
                     <View style={{ backgroundColor: '#1E1B4B', padding: 8, margin: 6, borderRadius: 6 }}>
                       <Text style={{ color: '#A5F3FC', fontSize: 9, fontFamily: 'monospace', lineHeight: 14 }} selectable>
                         {`[DBG] idx=${summaryIdx} totalSlides=${missionSlides.length}\n` +
-                         `type=${slide.type}\n` +
-                         `correctAnswer=${JSON.stringify(slide.correctAnswer)}\n` +
+                         `type=${slide.type} correctAnswer=${JSON.stringify(slide.correctAnswer)}\n` +
                          `options(${slide.options?.length ?? 'null'})=${JSON.stringify(slide.options?.slice(0,3))}\n` +
                          `question="${String(slide.question ?? '').slice(0, 60)}"\n` +
-                         `answered=${JSON.stringify(answered ?? null)}\n` +
-                         `mFbY_init=220 wrongShakeSV_init=0`}
+                         `answered=${JSON.stringify(answered ?? null)}`}
                       </Text>
+                      {!!lastTapRecord && (
+                        <Text style={{ color: '#FDE68A', fontSize: 9, fontFamily: 'monospace', lineHeight: 14, marginTop: 6, borderTopWidth: 1, borderTopColor: '#374151', paddingTop: 6 }} selectable>
+                          {'[LAST TAP BEFORE CRASH]\n' + lastTapRecord}
+                        </Text>
+                      )}
                     </View>
                     {/* [/TEMP] */}
                     <View style={sum.microHeader}>
@@ -2015,23 +2022,20 @@ export default function SessionPlayerScreen() {
                             <Animated.View key={i} style={wrongShakeStyle}>
                               <Pressable
                                 onPress={() => {
-                                  console.log('[OPTION TAP]');
-                                  console.log('slide.type=', slide.type);
-                                  console.log('slide.title=', slide.title);
-                                  console.log('slide.question=', slide.question);
-                                  console.log('slide.correctAnswer=', slide.correctAnswer);
-                                  console.log('selected=', letter);
+                                  // [TEMP] Persist tap to AsyncStorage before any state change
+                                  const tapRecord = JSON.stringify({
+                                    letter,
+                                    isOpt,
+                                    summaryIdx,
+                                    slideType: slide.type,
+                                    correctAnswer: slide.correctAnswer,
+                                    optionsCount: slide.options?.length,
+                                    answeredBefore: answered ?? null,
+                                    ts: Date.now(),
+                                  });
+                                  AsyncStorage.setItem('nemup_debug_last_tap', tapRecord).catch(() => {});
+                                  console.log('[OPTION TAP] persisted to AsyncStorage:', tapRecord);
                                   try {
-                                    console.log('[ANSWER HANDLER START]');
-                                    console.log('slide=', JSON.stringify(slide, null, 2));
-                                    const _type = slide.type;
-                                    console.log('slide.type (access)=', _type);
-                                    const _opts = slide.options;
-                                    console.log('slide.options (access)=', _opts);
-                                    const _q = slide.question;
-                                    console.log('slide.question (access)=', _q);
-                                    const _ca = slide.correctAnswer;
-                                    console.log('slide.correctAnswer (access)=', _ca);
                                     if (!answered) {
                                       missionStreakRef.current = isOpt ? missionStreakRef.current + 1 : 0;
                                       setQuizAnswers(prev => ({ ...prev, [summaryIdx]: letter }));
@@ -2041,6 +2045,7 @@ export default function SessionPlayerScreen() {
                                     console.error(e);
                                     console.error(e?.stack);
                                   }
+                                  // [/TEMP]
                                 }}
                                 style={[sum.quizOption, showGreen && sum.quizOptCorrect, showRed && sum.quizOptWrong, { opacity: dimmed ? 0.35 : 1 }]}
                               >
