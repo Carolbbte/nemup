@@ -800,6 +800,9 @@ export default function SessionPlayerScreen() {
   const [cardsDubious, setCardsDubious] = useState(0);
   const [cardsUnknown, setCardsUnknown] = useState(0);
 
+  // [TEMP] Debug crash capture
+  const [crashBanner, setCrashBanner] = useState<string | null>(null);
+
   // Summary slide animation (hooks must be unconditional)
   const touchStartX  = useRef(0);
   const slideX       = useSharedValue(0);
@@ -890,6 +893,22 @@ export default function SessionPlayerScreen() {
     transform: [{ translateY: resultEntryY.value }],
   }));
   const progressFillStyle = useAnimatedStyle(() => ({ width: `${progressSV.value * 100}%` as any }));
+
+  // [TEMP] Global error handler — catches JS errors not caught by ErrorBoundary
+  useEffect(() => {
+    const EU = (global as any).ErrorUtils;
+    if (!EU) return;
+    const prev = EU.getGlobalHandler?.();
+    EU.setGlobalHandler((error: any, isFatal: boolean) => {
+      const banner = `[GLOBAL ERROR] fatal=${isFatal}\n${error?.message ?? String(error)}\n${error?.stack ?? ''}`;
+      console.error(banner);
+      setCrashBanner(banner.slice(0, 800));
+      if (prev) prev(error, isFatal);
+    });
+    return () => { if (prev && EU) EU.setGlobalHandler(prev); };
+  }, []);
+  // [/TEMP]
+
   useEffect(() => {
     if (phase !== 'summary') return;
     slideX.value = SCREEN_W * 0.12;
@@ -1672,6 +1691,14 @@ export default function SessionPlayerScreen() {
             </View>
           )}
 
+          {/* [TEMP] Crash banner */}
+          {!!crashBanner && (
+            <ScrollView style={{ backgroundColor: '#7F1D1D', maxHeight: 160 }} contentContainerStyle={{ padding: 8 }}>
+              <Text style={{ color: '#FEF2F2', fontSize: 10, fontFamily: 'monospace', lineHeight: 14 }}>{crashBanner}</Text>
+            </ScrollView>
+          )}
+          {/* [/TEMP] */}
+
           {/* Header */}
           <View style={g.topBar}>
             <Pressable
@@ -1958,6 +1985,19 @@ export default function SessionPlayerScreen() {
                 const answered = quizAnswers[summaryIdx];
                 return (
                   <View style={sum.microCard}>
+                    {/* [TEMP] Debug panel — visible before tap */}
+                    <View style={{ backgroundColor: '#1E1B4B', padding: 8, margin: 6, borderRadius: 6 }}>
+                      <Text style={{ color: '#A5F3FC', fontSize: 9, fontFamily: 'monospace', lineHeight: 14 }} selectable>
+                        {`[DBG] idx=${summaryIdx} totalSlides=${missionSlides.length}\n` +
+                         `type=${slide.type}\n` +
+                         `correctAnswer=${JSON.stringify(slide.correctAnswer)}\n` +
+                         `options(${slide.options?.length ?? 'null'})=${JSON.stringify(slide.options?.slice(0,3))}\n` +
+                         `question="${String(slide.question ?? '').slice(0, 60)}"\n` +
+                         `answered=${JSON.stringify(answered ?? null)}\n` +
+                         `mFbY_init=220 wrongShakeSV_init=0`}
+                      </Text>
+                    </View>
+                    {/* [/TEMP] */}
                     <View style={sum.microHeader}>
                       <Text style={sum.microLabel}>🏁 CHECKPOINT</Text>
                       <Text style={sum.microSubtitle}>Responde antes de continuar</Text>
