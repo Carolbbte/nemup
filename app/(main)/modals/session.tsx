@@ -595,11 +595,26 @@ class MissionErrorBoundary extends Component<{ children: any }, { hasError: bool
   }
   render() {
     if (this.state.hasError) {
+      const msg   = String(this.state.error);
+      const stack = this.state.error?.stack ? String(this.state.error.stack) : '(sin stack)';
       return (
-        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: BG, padding: 20 }}>
-          <Text style={{ color: '#991B1B', fontWeight: '700', fontSize: 16, marginBottom: 8 }}>[MISSION CRASH]</Text>
-          <Text style={{ color: '#991B1B', fontSize: 12 }}>{String(this.state.error)}</Text>
-        </View>
+        <ScrollView style={{ flex: 1, backgroundColor: '#FEF2F2' }} contentContainerStyle={{ padding: 16 }}>
+          <Text style={{ color: '#991B1B', fontWeight: '900', fontSize: 15, marginBottom: 10 }}>
+            💥 [MISSION CRASH — toma una captura]
+          </Text>
+          <Text style={{ color: '#991B1B', fontWeight: '700', fontSize: 13, marginBottom: 6 }}>
+            Mensaje:
+          </Text>
+          <Text style={{ color: '#7F1D1D', fontSize: 12, marginBottom: 14, fontFamily: 'monospace' }}>
+            {msg}
+          </Text>
+          <Text style={{ color: '#991B1B', fontWeight: '700', fontSize: 13, marginBottom: 6 }}>
+            Stack trace:
+          </Text>
+          <Text style={{ color: '#7F1D1D', fontSize: 11, fontFamily: 'monospace', lineHeight: 17 }}>
+            {stack}
+          </Text>
+        </ScrollView>
       );
     }
     return this.props.children;
