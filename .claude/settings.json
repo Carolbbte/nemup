@@ -1,0 +1,41 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(node -e \"const o = require\\('./node_modules/openai/index.js'\\); console.log\\('openai loaded'\\)\")",
+      "Bash(npx --yes node -e \"console.log\\('test'\\)\")",
+      "PowerShell(Get-ChildItem c:\\\\apps\\\\NemUp\\\\backend\\\\node_modules -Directory | Where-Object { $_.Name -match \"^\\(openai|pdfjs|vitest\\)\" } | Select-Object -ExpandProperty Name)",
+      "PowerShell(Get-Content c:\\\\apps\\\\NemUp\\\\backend\\\\node_modules\\\\openai\\\\resources\\\\chat\\\\completions\\\\completions.d.ts | Where-Object { $_ -match \"ContentPart|image_url|file_data|UserMessageParam\" } | Select-Object -First 30)",
+      "PowerShell($lines = Get-Content c:\\\\apps\\\\NemUp\\\\backend\\\\node_modules\\\\openai\\\\resources\\\\chat\\\\completions\\\\completions.d.ts; $start = \\($lines | Select-String \"namespace ChatCompletionContentPart\" | Select-Object -First 1\\).LineNumber; $lines | Select-Object -Skip \\($start-1\\) -First 25)",
+      "Bash(git commit -m ' *)",
+      "Bash(npx vitest *)",
+      "Bash(cd /mnt/c/apps/NemUp/backend && npx tsc --noEmit 2>&1 | head -40)",
+      "Read(//mnt/c/apps/NemUp/**)",
+      "Bash(git commit -m 'fix: show total slide count in no-interaction victory block *)",
+      "Bash(git commit -m 'feat: generate specific conceptual-confusion hints per wrong option *)",
+      "Bash(git commit -m 'fix: preserve wrongAnswerHints through slide processing pipeline *)",
+      "Bash(git commit -m 'fix: rewrite wrongAnswerHints rules to generate specific conceptual corrections *)",
+      "Bash(git commit -m 'fix: enforce two-part template for wrong-answer reflexion hints *)",
+      "Bash(git commit -m 'feat: disable reflexion slides after wrong answers *)",
+      "Bash(git commit -m 'feat: enforce high-quality quiz question generation rules *)",
+      "PowerShell($response = Invoke-WebRequest -Uri \"https://nemup-production.up.railway.app\" -Method GET -TimeoutSec 10 -ErrorAction SilentlyContinue; if \\($response\\) { \"Status: $\\($response.StatusCode\\)\"; $response.Content.Substring\\(0, [Math]::Min\\(200, $response.Content.Length\\)\\) } else { \"Backend unreachable\" })",
+      "PowerShell(cd c:\\\\apps\\\\NemUp\\\\backend; npx tsc --noEmit 2>&1 | Where-Object { $_ -notmatch \"^npm notice\" })",
+      "PowerShell(cd c:\\\\apps\\\\NemUp; npx tsc --noEmit 2>&1 | Where-Object { $_ -notmatch \"^npm notice\" })",
+      "Bash(git stash *)",
+      "PowerShell(cd c:\\\\apps\\\\NemUp; git stash; npx tsc --noEmit 2>&1 | Where-Object { $_ -match \"session.tsx\" } | Select-Object -First 5)",
+      "Bash(Get-ChildItem -Path \"c:\\\\apps\\\\NemUp\\\\app\" -Recurse -Filter \"*.tsx\")",
+      "Bash(Select-Object FullName)",
+      "Bash(python3 -c \"import sys,json; d=json.load\\(sys.stdin\\); deps={**d.get\\('dependencies',{}\\),**d.get\\('devDependencies',{}\\)}; print\\('react-native:', deps.get\\('react-native','?'\\)\\); print\\('expo:', deps.get\\('expo','?'\\)\\); print\\('react:', deps.get\\('react','?'\\)\\)\")",
+      "Bash(node -e \"const d=require\\('./package.json'\\); const deps={...d.dependencies,...d.devDependencies}; console.log\\('react-native:', deps['react-native']\\); console.log\\('expo:', deps['expo']\\); console.log\\('react:', deps['react']\\); console.log\\('typescript:', deps['typescript']\\);\")",
+      "Bash(grep -v \"//\\\\|Misión\\\\|Quiz\\\\|Tarjetas\\\\|Continúa\\\\|Sesión\\\\|Empez\\\\|Continúa\\\\|sesión\\\\|días\\\\|Hola\\\\|¡\\\\|¿\\\\|Camino\\\\|Aún\\\\|Responde\\\\|Sube\\\\|Aprende\\\\|Rep\")",
+      "Bash(echo \"exit: $?\")",
+      "Bash(python3 -c ' *)",
+      "Bash(node -e ' *)",
+      "Bash(Select-String \"upload.tsx\")",
+      "Bash(grep -v \"StyleSheet\\\\|//\")",
+      "Bash(grep -v \"//\\\\|filter\\\\|includes\\\\|type =\\\\|type:\\\\|INTER\\\\|CONTENT\\\\|V_\\\\|converted\\\\|noRedundant\\\\|enforced\\\\|popQuiz\\\\|pool\\\\|fallback\\\\|applyFallback\\\\|prev2\\\\|warn\\\\|Step\\\\|out\\\\.\\\\|DAILY\\\\|makeMotivation\\\\|makePrediction\")",
+      "Bash(ls -la .env*)",
+      "Bash(dir .env*)",
+      "PowerShell(git add \"app/\\(main\\)/modals/session.tsx\" \"backend/src/services/generationService.ts\")"
+    ]
+  }
+}

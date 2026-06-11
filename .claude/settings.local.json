@@ -1,0 +1,26 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npx tsc *)",
+      "Bash(git add *)",
+      "Bash(git commit -m ' *)",
+      "Bash(powershell -Command \"Get-Content 'C:\\\\Users\\\\carol\\\\.claude\\\\projects\\\\c--apps-NemUp\\\\83334a25-c5cf-4cb5-bd18-7d2f7c0fceaf.jsonl' -Tail 5\")",
+      "Bash(powershell -Command ' *)",
+      "Bash(node -e \"const p=require\\('./package.json'\\); const deps={...p.dependencies,...p.devDependencies}; ['react-native-reanimated','moti','react-native-safe-area-context','expo-linear-gradient','@expo/vector-icons'].forEach\\(d=>console.log\\(d+':'+\\(deps[d]||'NOT FOUND'\\)\\)\\)\")",
+      "Bash(node -e \"const p = require\\('./package.json'\\); console.log\\(p.dependencies['expo-haptics'] ?? 'NOT FOUND'\\)\")",
+      "Bash(python -c \"import json,sys; d=json.load\\(sys.stdin\\); deps={**d.get\\('dependencies',{}\\), **d.get\\('devDependencies',{}\\)}; print\\('\\\\n'.join\\(f'{k}: {v}' for k in sorted\\(deps\\) if any\\(x in k for x in ['lucide','expo','react-native','reanimated','linear']\\)\\)\\)\")",
+      "Bash(node -e \"const d=require\\('./package.json'\\); const all={...d.dependencies,...d.devDependencies}; Object.keys\\(all\\).filter\\(k=>/lucide|expo|reanimated|linear/.test\\(k\\)\\).sort\\(\\).forEach\\(k=>console.log\\(k+': '+all[k]\\)\\)\")",
+      "Bash(npm install *)",
+      "Bash(node -e \"require\\('lucide-react-native'\\); console.log\\('ok'\\)\")",
+      "Bash(npm run *)",
+      "Bash(where railway *)",
+      "Bash(git push *)",
+      "Bash(git commit -m 'feat: multi-file upload + make Subir archivo equally visible *)",
+      "Bash(git commit -m 'feat: 3-screen Duolingo-style session generation redesign *)",
+      "Bash(git commit -m 'feat: show tab bar on all screens including session generation modals *)",
+      "Bash(git commit -m 'fix: hide tab bar on generation screens; fix double-inset on screens 1 and 2 *)",
+      "Bash(git commit -m 'fix: remove double top inset on screen 2 header to match screens 0 and 1 *)",
+      "Bash(git commit -m 'fix: replace ScreenContainer with SafeAreaView on screen 2 to fix double top inset *)"
+    ]
+  }
+}
