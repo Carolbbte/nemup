@@ -1924,7 +1924,7 @@ export default function SessionPlayerScreen() {
                           const showRed   = answered === letter && !isOpt;
                           const dimmed    = !!answered && !isOpt && answered !== letter;
                           return (
-                            <Animated.View key={i} style={showRed ? wrongShakeStyle : {}}>
+                            <Animated.View key={i} style={wrongShakeStyle}>
                               <Pressable
                                 onPress={() => { if (!answered) setQuizAnswers(prev => ({ ...prev, [summaryIdx]: letter })); }}
                                 style={[sum.quizOption, showGreen && sum.quizOptCorrect, showRed && sum.quizOptWrong, { opacity: dimmed ? 0.35 : 1 }]}
@@ -1963,7 +1963,7 @@ export default function SessionPlayerScreen() {
                           const showRed   = answered === letter && !isOpt;
                           const dimmed    = !!answered && !isOpt && answered !== letter;
                           return (
-                            <Animated.View key={i} style={showRed ? wrongShakeStyle : {}}>
+                            <Animated.View key={i} style={wrongShakeStyle}>
                               <Pressable
                                 onPress={() => { if (!answered) setQuizAnswers(prev => ({ ...prev, [summaryIdx]: letter })); }}
                                 style={[sum.quizOption, showGreen && sum.quizOptCorrect, showRed && sum.quizOptWrong, { opacity: dimmed ? 0.35 : 1 }]}
@@ -2827,10 +2827,10 @@ export default function SessionPlayerScreen() {
             {/* Summary micro-reward — integrated into feedback boxes (no floating overlay) */}
           </Animated.View>
 
-          {/* CTA — feedback bar or navigation button */}
+          {/* CTA — feedback bar (always pre-rendered as absolute overlay) + navigation button */}
           {(() => {
             const bs = slide as BackendSlide | undefined;
-            const MISSION_QUIZ_TYPES = new Set(['micro_challenge', 'comprehension', 'mini_quiz', 'final_challenge', 'decide']);
+            const MISSION_QUIZ_TYPES = new Set(['micro_challenge', 'reinforcement_challenge', 'comprehension', 'mini_quiz', 'final_challenge', 'decide']);
             const isMissionInteractive = MISSION_QUIZ_TYPES.has(slide?.type ?? '') ||
               (['common_error', 'wow_fact', 'application', 'challenge'].includes(slide?.type ?? '') && !!bs?.question);
             const missionAnswered = isMissionInteractive ? quizAnswers[summaryIdx] : undefined;
@@ -2843,10 +2843,17 @@ export default function SessionPlayerScreen() {
                                 missionStreak === 3 ? '🔥 ¡3 seguidas!' :
                                 missionStreak === 2 ? '🔥 ¡Racha de 2!' : null;
             const xpLabel = slide?.type === 'final_challenge' ? '+10 XP' : '+5 XP';
+            const fbActive = isMissionInteractive && !!missionAnswered;
 
-            if (isMissionInteractive && !!missionAnswered) {
-              return (
-                <Animated.View style={[sum.mFeedbackBar, missionCorrect ? sum.mFeedbackBarOk : sum.mFeedbackBarErr, mFbStyle, { paddingBottom: insets.bottom + 12 }]}>
+            return (
+              <>
+                {/* Feedback bar — always rendered so mFbStyle is always bound to a native view.
+                    Starts at opacity=0, translateY=220 (off-screen) and animates in on answer. */}
+                <Animated.View
+                  pointerEvents={fbActive ? 'box-none' : 'none'}
+                  style={[sum.mFeedbackBar, missionCorrect ? sum.mFeedbackBarOk : sum.mFeedbackBarErr, mFbStyle,
+                    { paddingBottom: insets.bottom + 12, position: 'absolute', bottom: 0, left: 0, right: 0 }]}
+                >
                   <View style={sum.mFbContent}>
                     {missionCorrect ? (
                       <>
@@ -2876,38 +2883,37 @@ export default function SessionPlayerScreen() {
                     <Text style={sum.mContinueBtnText}>{isLast ? '¡Misión completada! →' : 'Continuar'}</Text>
                   </Pressable>
                 </Animated.View>
-              );
-            }
 
-            if ((slide?.type === 'quiz' && !slideQuizAnswered) || (isMissionInteractive && !missionAnswered)) {
-              return (
-                <View style={[g.bottom, { paddingBottom: insets.bottom + 12 }]}>
-                  <View style={g.ctaBtnOff}>
-                    <Text style={g.ctaTextOff}>Elige una opción</Text>
-                  </View>
-                </View>
-              );
-            }
-
-            return (
-              <View style={[g.bottom, { paddingBottom: insets.bottom + 12 }]}>
-                <Pressable onPress={() => isLast ? completeMode('summary') : goNext()} style={{ width: '100%' }}>
-                  <View style={[g.ctaBtn, { backgroundColor: BRAND }]}>
-                    <Text style={g.ctaText}>
-                      {isLast && slide?.type === 'victory' ? (
-                        NEUTRAL_MISSION_COMPLETION ? 'Continuar al Quiz →' :
-                        noInteractionsAttempted ? 'Cerrar misión' : '🏆 ¡Misión completada!'
-                      ) :
-                      isLast ? '✅ Completar resumen' :
-                      slide?.type === 'mission' ? '¡Comenzar! →' :
-                      (slide?.type === 'challenge' && !bs?.correctAnswer) ? '🤔 Lo pensé →' :
-                      slide?.type === 'motivation' ? '¡Seguimos! →' :
-                      slide?.type === 'prediction' ? '🧠 Entendido →' :
-                      'Siguiente →'}
-                    </Text>
-                  </View>
-                </Pressable>
-              </View>
+                {/* Navigation button — shown when feedback bar is not active */}
+                {!fbActive && (
+                  (slide?.type === 'quiz' && !slideQuizAnswered) || (isMissionInteractive && !missionAnswered) ? (
+                    <View style={[g.bottom, { paddingBottom: insets.bottom + 12 }]}>
+                      <View style={g.ctaBtnOff}>
+                        <Text style={g.ctaTextOff}>Elige una opción</Text>
+                      </View>
+                    </View>
+                  ) : (
+                    <View style={[g.bottom, { paddingBottom: insets.bottom + 12 }]}>
+                      <Pressable onPress={() => isLast ? completeMode('summary') : goNext()} style={{ width: '100%' }}>
+                        <View style={[g.ctaBtn, { backgroundColor: BRAND }]}>
+                          <Text style={g.ctaText}>
+                            {isLast && slide?.type === 'victory' ? (
+                              NEUTRAL_MISSION_COMPLETION ? 'Continuar al Quiz →' :
+                              noInteractionsAttempted ? 'Cerrar misión' : '🏆 ¡Misión completada!'
+                            ) :
+                            isLast ? '✅ Completar resumen' :
+                            slide?.type === 'mission' ? '¡Comenzar! →' :
+                            (slide?.type === 'challenge' && !bs?.correctAnswer) ? '🤔 Lo pensé →' :
+                            slide?.type === 'motivation' ? '¡Seguimos! →' :
+                            slide?.type === 'prediction' ? '🧠 Entendido →' :
+                            'Siguiente →'}
+                          </Text>
+                        </View>
+                      </Pressable>
+                    </View>
+                  )
+                )}
+              </>
             );
           })()}
         </SafeAreaView>
