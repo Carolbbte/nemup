@@ -822,6 +822,8 @@ export default function SessionPlayerScreen() {
 
   // [TEMP] Set true to skip wrongShakeSV entirely — isolates Reanimated as crash source
   const DISABLE_WRONG_SHAKE = true;
+  // [TEMP] When true, replaces ALL answered-conditional rendering with a plain ANSWERED: X label
+  const ISOLATE_ANSWERED_RENDER = true;
 
   // [TEMP] Debug crash capture
   const [crashBanner, setCrashBanner] = useState<string | null>(null);
@@ -1601,6 +1603,22 @@ export default function SessionPlayerScreen() {
     const answeredInteractive = slides.filter((s, i) => V_INTER.includes(s.type) && !!(s as BackendSlide).correctAnswer && !!quizAnswers[i]).length;
     const noInteractionsAttempted = vInterTotal > 0 && answeredInteractive === 0;
 
+    // [TEMP] Top-level answered — single source of truth for isolation + guard
+    const _bsTop = slide as BackendSlide | undefined;
+    const _isMIsoTypes = new Set(['micro_challenge', 'reinforcement_challenge', 'comprehension', 'mini_quiz', 'final_challenge', 'decide']);
+    const isMIsoActive = _isMIsoTypes.has(slide?.type ?? '') ||
+      (['common_error', 'wow_fact', 'application', 'challenge'].includes(slide?.type ?? '') && !!_bsTop?.question);
+    const topAnswered  = isMIsoActive ? (quizAnswers?.[summaryIdx] ?? null) : null;
+    if (topAnswered !== null) {
+      logWF('[POST ANSWER RENDER] summaryIdx=' + summaryIdx + ' ans=' + topAnswered +
+            ' type=' + String(slide?.type) + ' correct=' + String(_bsTop?.correctAnswer) +
+            ' opts=' + JSON.stringify(_bsTop?.options?.slice(0, 3)));
+    }
+    if (topAnswered !== null && !['A', 'B', 'C', 'D'].includes(topAnswered)) {
+      logWF('[INVALID_ANSWER_STATE] "' + topAnswered + '"');
+      throw new Error('[MISSION] INVALID_ANSWER_STATE: ' + topAnswered);
+    }
+
     const goNext = () => {
       logWF('[GO NEXT START] summaryIdx=' + summaryIdx + ' mFbForced=' + mFbForced);
       setMFbForced(true);
@@ -1755,7 +1773,12 @@ export default function SessionPlayerScreen() {
               if (dx > 40 && summaryIdx > 0) goPrev();
             }}
           >
-            {slide?.type === 'quiz' ? (
+            {ISOLATE_ANSWERED_RENDER && topAnswered !== null ? (
+              /* [TEMP] ISOLATION: strip ALL answered-conditional rendering to locate crash source */
+              <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', padding: 20 }}>
+                <Text style={{ color: '#A5F3FC', fontSize: 26, fontWeight: 'bold' }}>ANSWERED: {topAnswered}</Text>
+              </View>
+            ) : slide?.type === 'quiz' ? (
               <View style={sum.quizCard}>
                 <Text style={sum.quizLabel}>🧠 MINI QUIZ</Text>
                 <Text style={sum.quizQuestion}>{slide.question}</Text>
@@ -3030,6 +3053,8 @@ export default function SessionPlayerScreen() {
             const isMissionInteractive = MISSION_QUIZ_TYPES.has(slide?.type ?? '') ||
               (['common_error', 'wow_fact', 'application', 'challenge'].includes(slide?.type ?? '') && !!bs?.question);
             const missionAnswered = isMissionInteractive ? quizAnswers[summaryIdx] : undefined;
+            // [TEMP] Skip entire feedback bar when in isolation mode
+            if (ISOLATE_ANSWERED_RENDER && missionAnswered) return null;
             const missionCorrect  = !!missionAnswered && missionAnswered === bs?.correctAnswer;
             const _seed = (summaryIdx * 2654435761) >>> 0;
             const celebMsg = MISSION_FB_OK[_seed % MISSION_FB_OK.length];
