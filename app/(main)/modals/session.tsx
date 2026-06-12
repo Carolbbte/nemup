@@ -644,6 +644,20 @@ const SESSION_PROGRESS_KEY = 'nemup_session_progress';
 const _wfBuf: string[] = [];
 const WF_KEY = 'nemup_wrong_flow_log';
 
+// [TEMP] Module-level so React never changes the component reference between renders.
+// If defined inside SessionPlayerScreen it would remount on every render, polluting the log.
+const FbMountTracker = () => {
+  useEffect(() => {
+    _wfBuf.push('[FEEDBACK MOUNT]');
+    AsyncStorage.setItem(WF_KEY, _wfBuf.join('\n')).catch(() => {});
+    return () => {
+      _wfBuf.push('[FEEDBACK UNMOUNT]');
+      AsyncStorage.setItem(WF_KEY, _wfBuf.join('\n')).catch(() => {});
+    };
+  }, []);
+  return null;
+};
+
 export default function SessionPlayerScreen() {
   const router  = useRouter();
   const insets  = useSafeAreaInsets();
@@ -825,6 +839,8 @@ export default function SessionPlayerScreen() {
     _wfBuf.push(msg);
     AsyncStorage.setItem(WF_KEY, _wfBuf.join('\n')).catch(() => {});
   };
+  // [TEMP] Log every mFbForced state change for on-device sequencing validation
+  useEffect(() => { logWF('[MFB FORCED] ' + mFbForced); }, [mFbForced]);
 
   // Summary slide animation (hooks must be unconditional)
   const touchStartX  = useRef(0);
@@ -3038,6 +3054,7 @@ export default function SessionPlayerScreen() {
                   style={[sum.mFeedbackBar, missionCorrect ? sum.mFeedbackBarOk : sum.mFeedbackBarErr, mFbStyle,
                     { paddingBottom: insets.bottom + 12, position: 'absolute', bottom: 0, left: 0, right: 0 }]}
                   onLayout={() => {
+                    logWF('[FEEDBACK ONLAYOUT] alreadyFired=' + mFbAnimFiredRef.current);
                     if (mFbAnimFiredRef.current) return;
                     mFbAnimFiredRef.current = true;
                     mFbY.value  = withSpring(0, { damping: 22, stiffness: 240 });
@@ -3063,6 +3080,7 @@ export default function SessionPlayerScreen() {
                     }
                   }}
                 >
+                  <FbMountTracker />
                   <View style={sum.mFbContent}>
                     {missionCorrect ? (
                       <>
