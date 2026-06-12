@@ -639,6 +639,11 @@ const LOCAL_MODE_TO_PHASE: Record<LocalMode, Phase>     = { summary: 'summary', 
 
 const SESSION_PROGRESS_KEY = 'nemup_session_progress';
 
+// [TEMP] Module-level buffer — survives re-renders, written to AsyncStorage on every step
+// so the last-known state is recoverable after a hard crash on physical device.
+const _wfBuf: string[] = [];
+const WF_KEY = 'nemup_wrong_flow_log';
+
 export default function SessionPlayerScreen() {
   const router  = useRouter();
   const insets  = useSafeAreaInsets();
@@ -801,12 +806,23 @@ export default function SessionPlayerScreen() {
   const [cardsDubious, setCardsDubious] = useState(0);
   const [cardsUnknown, setCardsUnknown] = useState(0);
 
+  // [TEMP] Set true to skip wrongShakeSV entirely — isolates Reanimated as crash source
+  const DISABLE_WRONG_SHAKE = true;
+
   // [TEMP] Debug crash capture
   const [crashBanner, setCrashBanner] = useState<string | null>(null);
   const [lastTapRecord, setLastTapRecord] = useState<string | null>(null);
+  const [wrongFlowLog, setWrongFlowLog] = useState<string | null>(null);
   useEffect(() => {
     AsyncStorage.getItem('nemup_debug_last_tap').then(v => setLastTapRecord(v)).catch(() => {});
+    AsyncStorage.getItem(WF_KEY).then(v => v && setWrongFlowLog(v)).catch(() => {});
   }, []);
+
+  // [TEMP] Write msg to module buffer + AsyncStorage. Safe to call from event handlers + onLayout.
+  const logWF = (msg: string) => {
+    _wfBuf.push(msg);
+    AsyncStorage.setItem(WF_KEY, _wfBuf.join('\n')).catch(() => {});
+  };
 
   // Summary slide animation (hooks must be unconditional)
   const touchStartX  = useRef(0);
@@ -1984,6 +2000,11 @@ export default function SessionPlayerScreen() {
                           {'[LAST TAP BEFORE CRASH]\n' + lastTapRecord}
                         </Text>
                       )}
+                      {!!wrongFlowLog && (
+                        <Text style={{ color: '#86EFAC', fontSize: 9, fontFamily: 'monospace', lineHeight: 14, marginTop: 6, borderTopWidth: 1, borderTopColor: '#374151', paddingTop: 6 }} selectable>
+                          {'[WRONG FLOW LOG - prev session]\n' + wrongFlowLog}
+                        </Text>
+                      )}
                     </View>
                     {/* [/TEMP] */}
                     <View style={sum.microHeader}>
@@ -1999,16 +2020,32 @@ export default function SessionPlayerScreen() {
                           const showGreen = !!answered && isOpt;
                           const showRed   = answered === letter && !isOpt;
                           const dimmed    = !!answered && !isOpt && answered !== letter;
+
+                          // [TEMP] Option render forensics
+                          console.log(
+                            `[OPTION RENDER] type=${slide.type} idx=${i}` +
+                            ` rawOption=${JSON.stringify(opt)}` +
+                            ` parsedLetter=${letter}` +
+                            ` parsedLabel=${JSON.stringify(opt)}` +
+                            ` childrenRendered=${opt != null && String(opt).trim() !== ''}`
+                          );
+                          if (answered) {
+                            console.log(`[WRONG FLOW 4] showRed start idx=${i} answered=${answered} letter=${letter} isOpt=${isOpt}`);
+                            console.log(`[WRONG FLOW 5] showRed end   idx=${i} showRed=${showRed}`);
+                            console.log(`[WRONG FLOW 6] dimmed  start idx=${i}`);
+                            console.log(`[WRONG FLOW 7] dimmed  end   idx=${i} dimmed=${dimmed}`);
+                          }
+
                           return (
                             // OptionCard: static outer, receives all React state mutations
                             <Pressable
                               key={i}
                               onPress={() => {
-                                // [TEMP] Persist tap to AsyncStorage before any state change
+                                // [TEMP] Clear previous log and start fresh for this tap
+                                _wfBuf.length = 0;
+                                logWF(`[WRONG FLOW 1] onPress entered letter=${letter} isOpt=${isOpt} answered=${answered ?? 'null'}`);
                                 const tapRecord = JSON.stringify({
-                                  letter,
-                                  isOpt,
-                                  summaryIdx,
+                                  letter, isOpt, summaryIdx,
                                   slideType: slide.type,
                                   correctAnswer: slide.correctAnswer,
                                   optionsCount: slide.options?.length,
@@ -2016,22 +2053,22 @@ export default function SessionPlayerScreen() {
                                   ts: Date.now(),
                                 });
                                 AsyncStorage.setItem('nemup_debug_last_tap', tapRecord).catch(() => {});
-                                console.log('[OPTION TAP] persisted to AsyncStorage:', tapRecord);
                                 try {
                                   if (!answered) {
                                     missionStreakRef.current = isOpt ? missionStreakRef.current + 1 : 0;
+                                    logWF('[WRONG FLOW 2] setQuizAnswers start');
                                     setQuizAnswers(prev => ({ ...prev, [summaryIdx]: letter }));
+                                    logWF('[WRONG FLOW 3] setQuizAnswers end (called)');
                                   }
                                 } catch (e: any) {
-                                  console.error('[MISSION CRASH]');
-                                  console.error(e);
-                                  console.error(e?.stack);
+                                  logWF('[MISSION CRASH] ' + String(e) + ' ' + String(e?.stack ?? ''));
                                 }
                                 // [/TEMP]
                               }}
                               style={[sum.quizOption, showGreen && sum.quizOptCorrect, showRed && sum.quizOptWrong, { opacity: dimmed ? 0.35 : 1 }]}
                             >
                               {/* ShakeWrapper: inner Animated.View, ONLY wrongShakeStyle — no React state here */}
+                              {console.log(`[SHAKE OWNERSHIP] optionCard=Pressable shakeWrapper=Animated.View textNode=mounted idx=${i} answered=${answered ?? 'null'}`)}
                               <Animated.View style={wrongShakeStyle}>
                                 <View style={[sum.quizLetter, showGreen && sum.quizLetterGreen, showRed && sum.quizLetterRed]}>
                                   {showGreen ? <Check size={12} color={palette.blanco} strokeWidth={3} /> :
@@ -2974,6 +3011,10 @@ export default function SessionPlayerScreen() {
                                 missionStreakRef.current === 2 ? '🔥 ¡Racha de 2!' : null;
             const xpLabel = slide?.type === 'final_challenge' ? '+10 XP' : '+5 XP';
             const fbActive = isMissionInteractive && !!missionAnswered;
+            // FLOW 10/11: render-time only — plain array push, no I/O (safe in render)
+            if (_wfBuf.length > 0) {
+              _wfBuf.push(`[WRONG FLOW 10] fbActive=${fbActive} missionAnswered=${missionAnswered ?? 'null'} missionCorrect=${missionCorrect}`);
+            }
 
             if (fbActive) {
               // Feedback bar mounts here for the first time. onLayout fires after native layout
@@ -2991,14 +3032,21 @@ export default function SessionPlayerScreen() {
                     if (missionCorrect) {
                       mXpSV.value = withDelay(200, withSpring(1, { damping: 12, stiffness: 300 }));
                     } else {
-                      console.log('[SHAKE ROOT FIX] optionCard=static shakeWrapper=animated sharedValueTarget=shakeWrapper_only');
-                      wrongShakeSV.value = withSequence(
-                        withTiming(-10, { duration: 55 }),
-                        withTiming(10,  { duration: 55 }),
-                        withTiming(-7,  { duration: 45 }),
-                        withTiming(7,   { duration: 45 }),
-                        withTiming(0,   { duration: 40 }),
-                      );
+                      logWF(`[WRONG FLOW 8] wrongShakeSV start DISABLE_WRONG_SHAKE=${DISABLE_WRONG_SHAKE}`);
+                      try {
+                        if (!DISABLE_WRONG_SHAKE) {
+                          wrongShakeSV.value = withSequence(
+                            withTiming(-10, { duration: 55 }),
+                            withTiming(10,  { duration: 55 }),
+                            withTiming(-7,  { duration: 45 }),
+                            withTiming(7,   { duration: 45 }),
+                            withTiming(0,   { duration: 40 }),
+                          );
+                        }
+                        logWF(`[WRONG FLOW 9] wrongShakeSV end skipped=${DISABLE_WRONG_SHAKE}`);
+                      } catch (e: any) {
+                        logWF('[WRONG FLOW 9] wrongShakeSV CRASHED ' + String(e));
+                      }
                     }
                   }}
                 >
