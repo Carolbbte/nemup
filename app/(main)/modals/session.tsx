@@ -813,6 +813,8 @@ export default function SessionPlayerScreen() {
   const [crashBanner, setCrashBanner] = useState<string | null>(null);
   const [lastTapRecord, setLastTapRecord] = useState<string | null>(null);
   const [wrongFlowLog, setWrongFlowLog] = useState<string | null>(null);
+  // [TEMP] Force-hides feedback bar during goNext/goPrev transition to prevent double-mount crash
+  const [mFbForced, setMFbForced] = useState(false);
   useEffect(() => {
     AsyncStorage.getItem('nemup_debug_last_tap').then(v => setLastTapRecord(v)).catch(() => {});
     AsyncStorage.getItem(WF_KEY).then(v => v && setWrongFlowLog(v)).catch(() => {});
@@ -941,11 +943,14 @@ export default function SessionPlayerScreen() {
   // Reset mission feedback bar on slide change
   useEffect(() => {
     if (phase !== 'summary') return;
+    logWF('[RESET EFFECT START] summaryIdx=' + summaryIdx);
+    setMFbForced(false);
     mFbAnimFiredRef.current = false;
     mFbY.value  = 220;
     mFbOp.value = 0;
     mXpSV.value = 0;
     wrongShakeSV.value = 0;
+    logWF('[RESET EFFECT END]');
   }, [summaryIdx, phase]);
 
 
@@ -1581,13 +1586,21 @@ export default function SessionPlayerScreen() {
     const noInteractionsAttempted = vInterTotal > 0 && answeredInteractive === 0;
 
     const goNext = () => {
+      logWF('[GO NEXT START] summaryIdx=' + summaryIdx + ' mFbForced=' + mFbForced);
+      setMFbForced(true);
       Vibration.vibrate(18);
       slideX.value       = withTiming(-SCREEN_W * 0.15, { duration: 180 }, (done) => {
-        if (done) runOnJS(setSummaryIdx)(summaryIdx + 1);
+        if (done) {
+          runOnJS(logWF)('[GO NEXT SET IDX] ' + (summaryIdx + 1));
+          runOnJS(setSummaryIdx)(summaryIdx + 1);
+        }
       });
       slideOpacity.value = withTiming(0, { duration: 180 });
+      logWF('[GO NEXT END]');
     };
     const goPrev = () => {
+      logWF('[GO PREV START] summaryIdx=' + summaryIdx);
+      setMFbForced(true);
       Vibration.vibrate(10);
       slideX.value       = withTiming(SCREEN_W * 0.15, { duration: 180 }, (done) => {
         if (done) runOnJS(setSummaryIdx)(summaryIdx - 1);
@@ -3010,7 +3023,7 @@ export default function SessionPlayerScreen() {
                                 missionStreakRef.current === 3 ? '🔥 ¡3 seguidas!' :
                                 missionStreakRef.current === 2 ? '🔥 ¡Racha de 2!' : null;
             const xpLabel = slide?.type === 'final_challenge' ? '+10 XP' : '+5 XP';
-            const fbActive = isMissionInteractive && !!missionAnswered;
+            const fbActive = isMissionInteractive && !!missionAnswered && !mFbForced;
             // FLOW 10/11: render-time only — plain array push, no I/O (safe in render)
             if (_wfBuf.length > 0) {
               _wfBuf.push(`[WRONG FLOW 10] fbActive=${fbActive} missionAnswered=${missionAnswered ?? 'null'} missionCorrect=${missionCorrect}`);
