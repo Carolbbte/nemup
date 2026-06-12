@@ -775,7 +775,8 @@ export default function SessionPlayerScreen() {
   const [correctCount, setCorrectCount]   = useState(0);
   const [streak, setStreak]               = useState(0);
   const [maxStreak, setMaxStreak]         = useState(0);
-  const missionStreakRef = useRef(0);
+  const missionStreakRef  = useRef(0);
+  const mFbAnimFiredRef   = useRef(false);
   const [quizDone, setQuizDone]           = useState(false);
   const [comboCount, setComboCount]       = useState(0);
   const [streakMsg, setStreakMsg]         = useState('');
@@ -924,36 +925,13 @@ export default function SessionPlayerScreen() {
   // Reset mission feedback bar on slide change
   useEffect(() => {
     if (phase !== 'summary') return;
+    mFbAnimFiredRef.current = false;
     mFbY.value  = 220;
     mFbOp.value = 0;
     mXpSV.value = 0;
     wrongShakeSV.value = 0;
   }, [summaryIdx, phase]);
 
-  // Animate feedback bar and update streak when mission question answered
-  useEffect(() => {
-    if (phase !== 'summary') return;
-    const answered = quizAnswers[summaryIdx];
-    if (!answered) return;
-    const bs = missionSlides[summaryIdx] as { correctAnswer?: string | null } | undefined;
-    const correct = !!bs?.correctAnswer && answered === bs.correctAnswer;
-
-    mFbY.value  = withSpring(0, { damping: 22, stiffness: 240 });
-    mFbOp.value = withTiming(1, { duration: 160 });
-
-    if (correct) {
-      mXpSV.value = withDelay(200, withSpring(1, { damping: 12, stiffness: 300 }));
-    } else {
-      wrongShakeSV.value = withSequence(
-        withTiming(-10, { duration: 55 }),
-        withTiming(10,  { duration: 55 }),
-        withTiming(-7,  { duration: 45 }),
-        withTiming(7,   { duration: 45 }),
-        withTiming(0,   { duration: 40 }),
-      );
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [quizAnswers[summaryIdx], summaryIdx, phase]);
 
   // Capture mission start time on first entry to summary phase
   useEffect(() => {
@@ -1959,24 +1937,27 @@ export default function SessionPlayerScreen() {
                           const showRed   = answered === letter && !isCorrect;
                           const dimmed    = !!answered && !isCorrect && answered !== letter;
                           return (
-                            <Animated.View key={i} style={wrongShakeStyle}>
-                              <Pressable
-                                onPress={() => {
-                                  if (!answered) {
-                                    missionStreakRef.current = isCorrect ? missionStreakRef.current + 1 : 0;
-                                    setQuizAnswers(prev => ({ ...prev, [summaryIdx]: letter }));
-                                  }
-                                }}
-                                style={[sum.quizOption, showGreen && sum.quizOptCorrect, showRed && sum.quizOptWrong, { opacity: dimmed ? 0.35 : 1 }]}
-                              >
+                            // OptionCard: static outer, receives all React state mutations
+                            <Pressable
+                              key={i}
+                              onPress={() => {
+                                if (!answered) {
+                                  missionStreakRef.current = isCorrect ? missionStreakRef.current + 1 : 0;
+                                  setQuizAnswers(prev => ({ ...prev, [summaryIdx]: letter }));
+                                }
+                              }}
+                              style={[sum.quizOption, showGreen && sum.quizOptCorrect, showRed && sum.quizOptWrong, { opacity: dimmed ? 0.35 : 1 }]}
+                            >
+                              {/* ShakeWrapper: inner Animated.View, ONLY wrongShakeStyle — no React state here */}
+                              <Animated.View style={wrongShakeStyle}>
                                 <View style={[sum.quizLetter, showGreen && sum.quizLetterGreen, showRed && sum.quizLetterRed]}>
                                   {showGreen ? <Check size={12} color={palette.blanco} strokeWidth={3} /> :
                                    showRed   ? <X    size={12} color={palette.blanco} strokeWidth={3} /> :
                                    <Text style={sum.quizLetterText}>{letter}</Text>}
                                 </View>
                                 <Text style={[sum.quizOptText, showGreen && { color: BRAND, fontWeight: '700' }, showRed && { color: '#991B1B', fontWeight: '700' }]}>{opt}</Text>
-                              </Pressable>
-                            </Animated.View>
+                              </Animated.View>
+                            </Pressable>
                           );
                         })}
                       </View>
@@ -2019,44 +2000,47 @@ export default function SessionPlayerScreen() {
                           const showRed   = answered === letter && !isOpt;
                           const dimmed    = !!answered && !isOpt && answered !== letter;
                           return (
-                            <Animated.View key={i} style={wrongShakeStyle}>
-                              <Pressable
-                                onPress={() => {
-                                  // [TEMP] Persist tap to AsyncStorage before any state change
-                                  const tapRecord = JSON.stringify({
-                                    letter,
-                                    isOpt,
-                                    summaryIdx,
-                                    slideType: slide.type,
-                                    correctAnswer: slide.correctAnswer,
-                                    optionsCount: slide.options?.length,
-                                    answeredBefore: answered ?? null,
-                                    ts: Date.now(),
-                                  });
-                                  AsyncStorage.setItem('nemup_debug_last_tap', tapRecord).catch(() => {});
-                                  console.log('[OPTION TAP] persisted to AsyncStorage:', tapRecord);
-                                  try {
-                                    if (!answered) {
-                                      missionStreakRef.current = isOpt ? missionStreakRef.current + 1 : 0;
-                                      setQuizAnswers(prev => ({ ...prev, [summaryIdx]: letter }));
-                                    }
-                                  } catch (e: any) {
-                                    console.error('[MISSION CRASH]');
-                                    console.error(e);
-                                    console.error(e?.stack);
+                            // OptionCard: static outer, receives all React state mutations
+                            <Pressable
+                              key={i}
+                              onPress={() => {
+                                // [TEMP] Persist tap to AsyncStorage before any state change
+                                const tapRecord = JSON.stringify({
+                                  letter,
+                                  isOpt,
+                                  summaryIdx,
+                                  slideType: slide.type,
+                                  correctAnswer: slide.correctAnswer,
+                                  optionsCount: slide.options?.length,
+                                  answeredBefore: answered ?? null,
+                                  ts: Date.now(),
+                                });
+                                AsyncStorage.setItem('nemup_debug_last_tap', tapRecord).catch(() => {});
+                                console.log('[OPTION TAP] persisted to AsyncStorage:', tapRecord);
+                                try {
+                                  if (!answered) {
+                                    missionStreakRef.current = isOpt ? missionStreakRef.current + 1 : 0;
+                                    setQuizAnswers(prev => ({ ...prev, [summaryIdx]: letter }));
                                   }
-                                  // [/TEMP]
-                                }}
-                                style={[sum.quizOption, showGreen && sum.quizOptCorrect, showRed && sum.quizOptWrong, { opacity: dimmed ? 0.35 : 1 }]}
-                              >
+                                } catch (e: any) {
+                                  console.error('[MISSION CRASH]');
+                                  console.error(e);
+                                  console.error(e?.stack);
+                                }
+                                // [/TEMP]
+                              }}
+                              style={[sum.quizOption, showGreen && sum.quizOptCorrect, showRed && sum.quizOptWrong, { opacity: dimmed ? 0.35 : 1 }]}
+                            >
+                              {/* ShakeWrapper: inner Animated.View, ONLY wrongShakeStyle — no React state here */}
+                              <Animated.View style={wrongShakeStyle}>
                                 <View style={[sum.quizLetter, showGreen && sum.quizLetterGreen, showRed && sum.quizLetterRed]}>
                                   {showGreen ? <Check size={12} color={palette.blanco} strokeWidth={3} /> :
                                    showRed   ? <X    size={12} color={palette.blanco} strokeWidth={3} /> :
                                    <Text style={sum.quizLetterText}>{letter}</Text>}
                                 </View>
                                 <Text style={[sum.quizOptText, showGreen && { color: BRAND, fontWeight: '700' }, showRed && { color: '#991B1B', fontWeight: '700' }]}>{opt}</Text>
-                              </Pressable>
-                            </Animated.View>
+                              </Animated.View>
+                            </Pressable>
                           );
                         })}
                       </View>
@@ -2083,24 +2067,27 @@ export default function SessionPlayerScreen() {
                           const showRed   = answered === letter && !isOpt;
                           const dimmed    = !!answered && !isOpt && answered !== letter;
                           return (
-                            <Animated.View key={i} style={wrongShakeStyle}>
-                              <Pressable
-                                onPress={() => {
-                                  if (!answered) {
-                                    missionStreakRef.current = isOpt ? missionStreakRef.current + 1 : 0;
-                                    setQuizAnswers(prev => ({ ...prev, [summaryIdx]: letter }));
-                                  }
-                                }}
-                                style={[sum.quizOption, showGreen && sum.quizOptCorrect, showRed && sum.quizOptWrong, { opacity: dimmed ? 0.35 : 1 }]}
-                              >
+                            // OptionCard: static outer, receives all React state mutations
+                            <Pressable
+                              key={i}
+                              onPress={() => {
+                                if (!answered) {
+                                  missionStreakRef.current = isOpt ? missionStreakRef.current + 1 : 0;
+                                  setQuizAnswers(prev => ({ ...prev, [summaryIdx]: letter }));
+                                }
+                              }}
+                              style={[sum.quizOption, showGreen && sum.quizOptCorrect, showRed && sum.quizOptWrong, { opacity: dimmed ? 0.35 : 1 }]}
+                            >
+                              {/* ShakeWrapper: inner Animated.View, ONLY wrongShakeStyle — no React state here */}
+                              <Animated.View style={wrongShakeStyle}>
                                 <View style={[sum.quizLetter, showGreen && sum.quizLetterGreen, showRed && sum.quizLetterRed]}>
                                   {showGreen ? <Check size={12} color={palette.blanco} strokeWidth={3} /> :
                                    showRed   ? <X    size={12} color={palette.blanco} strokeWidth={3} /> :
                                    <Text style={sum.quizLetterText}>{letter}</Text>}
                                 </View>
                                 <Text style={[sum.quizOptText, showGreen && { color: BRAND, fontWeight: '700' }, showRed && { color: '#991B1B', fontWeight: '700' }]}>{opt}</Text>
-                              </Pressable>
-                            </Animated.View>
+                              </Animated.View>
+                            </Pressable>
                           );
                         })}
                       </View>
@@ -2156,24 +2143,25 @@ export default function SessionPlayerScreen() {
                     const showRed   = answered === letter && !isCorrect;
                     const dimmed    = !!answered && !isCorrect && answered !== letter;
                     return (
-                      <Animated.View key={i} style={wrongShakeStyle}>
-                        <Pressable
-                          onPress={() => {
-                            if (!answered) {
-                              missionStreakRef.current = isCorrect ? missionStreakRef.current + 1 : 0;
-                              setQuizAnswers(prev => ({ ...prev, [summaryIdx]: letter }));
-                            }
-                          }}
-                          style={[sum.quizOption, showGreen && sum.quizOptCorrect, showRed && sum.quizOptWrong, { opacity: dimmed ? 0.35 : 1 }]}
-                        >
+                      <Pressable
+                        key={i}
+                        onPress={() => {
+                          if (!answered) {
+                            missionStreakRef.current = isCorrect ? missionStreakRef.current + 1 : 0;
+                            setQuizAnswers(prev => ({ ...prev, [summaryIdx]: letter }));
+                          }
+                        }}
+                        style={[sum.quizOption, showGreen && sum.quizOptCorrect, showRed && sum.quizOptWrong, { opacity: dimmed ? 0.35 : 1 }]}
+                      >
+                        <Animated.View style={wrongShakeStyle}>
                           <View style={[sum.quizLetter, showGreen && sum.quizLetterGreen, showRed && sum.quizLetterRed]}>
                             {showGreen ? <Check size={12} color={palette.blanco} strokeWidth={3} /> :
                              showRed   ? <X    size={12} color={palette.blanco} strokeWidth={3} /> :
                              <Text style={sum.quizLetterText}>{letter}</Text>}
                           </View>
                           <Text style={[sum.quizOptText, showGreen && { color: BRAND, fontWeight: '700' }, showRed && { color: '#991B1B', fontWeight: '700' }]}>{opt}</Text>
-                        </Pressable>
-                      </Animated.View>
+                        </Animated.View>
+                      </Pressable>
                     );
                   })}
                 </View>
@@ -2353,24 +2341,25 @@ export default function SessionPlayerScreen() {
                       const showRed   = answered === letter && !isCorrect;
                       const dimmed    = !!answered && !isCorrect && answered !== letter;
                       return (
-                        <Animated.View key={i} style={wrongShakeStyle}>
-                          <Pressable
-                            onPress={() => {
-                              if (!answered) {
-                                missionStreakRef.current = isCorrect ? missionStreakRef.current + 1 : 0;
-                                setQuizAnswers(prev => ({ ...prev, [summaryIdx]: letter }));
-                              }
-                            }}
-                            style={[sum.quizOption, showGreen && sum.quizOptCorrect, showRed && sum.quizOptWrong, { opacity: dimmed ? 0.35 : 1 }]}
-                          >
+                        <Pressable
+                          key={i}
+                          onPress={() => {
+                            if (!answered) {
+                              missionStreakRef.current = isCorrect ? missionStreakRef.current + 1 : 0;
+                              setQuizAnswers(prev => ({ ...prev, [summaryIdx]: letter }));
+                            }
+                          }}
+                          style={[sum.quizOption, showGreen && sum.quizOptCorrect, showRed && sum.quizOptWrong, { opacity: dimmed ? 0.35 : 1 }]}
+                        >
+                          <Animated.View style={wrongShakeStyle}>
                             <View style={[sum.quizLetter, showGreen && sum.quizLetterGreen, showRed && sum.quizLetterRed]}>
                               {showGreen ? <Check size={12} color={palette.blanco} strokeWidth={3} /> :
                                showRed   ? <X    size={12} color={palette.blanco} strokeWidth={3} /> :
                                <Text style={sum.quizLetterText}>{letter}</Text>}
                             </View>
                             <Text style={[sum.quizOptText, showGreen && { color: BRAND, fontWeight: '700' }, showRed && { color: '#991B1B', fontWeight: '700' }]}>{opt}</Text>
-                          </Pressable>
-                        </Animated.View>
+                          </Animated.View>
+                        </Pressable>
                       );
                     })}
                   </View>
@@ -2389,24 +2378,25 @@ export default function SessionPlayerScreen() {
                     const showRed   = answered === letter && !isCorrect;
                     const dimmed    = !!answered && !isCorrect && answered !== letter;
                     return (
-                      <Animated.View key={i} style={wrongShakeStyle}>
-                        <Pressable
-                          onPress={() => {
-                            if (!answered) {
-                              missionStreakRef.current = isCorrect ? missionStreakRef.current + 1 : 0;
-                              setQuizAnswers(prev => ({ ...prev, [summaryIdx]: letter }));
-                            }
-                          }}
-                          style={[sum.quizOption, showGreen && sum.quizOptCorrect, showRed && sum.quizOptWrong, { opacity: dimmed ? 0.35 : 1 }]}
-                        >
+                      <Pressable
+                        key={i}
+                        onPress={() => {
+                          if (!answered) {
+                            missionStreakRef.current = isCorrect ? missionStreakRef.current + 1 : 0;
+                            setQuizAnswers(prev => ({ ...prev, [summaryIdx]: letter }));
+                          }
+                        }}
+                        style={[sum.quizOption, showGreen && sum.quizOptCorrect, showRed && sum.quizOptWrong, { opacity: dimmed ? 0.35 : 1 }]}
+                      >
+                        <Animated.View style={wrongShakeStyle}>
                           <View style={[sum.quizLetter, showGreen && sum.quizLetterGreen, showRed && sum.quizLetterRed]}>
                             {showGreen ? <Check size={12} color={palette.blanco} strokeWidth={3} /> :
                              showRed   ? <X    size={12} color={palette.blanco} strokeWidth={3} /> :
                              <Text style={sum.quizLetterText}>{letter}</Text>}
                           </View>
                           <Text style={[sum.quizOptText, showGreen && { color: BRAND, fontWeight: '700' }, showRed && { color: '#991B1B', fontWeight: '700' }]}>{opt}</Text>
-                        </Pressable>
-                      </Animated.View>
+                        </Animated.View>
+                      </Pressable>
                     );
                   })}
                 </View>
@@ -2986,10 +2976,31 @@ export default function SessionPlayerScreen() {
             const fbActive = isMissionInteractive && !!missionAnswered;
 
             if (fbActive) {
+              // Feedback bar mounts here for the first time. onLayout fires after native layout
+              // completes — by that point Reanimated has registered ALL views (feedback bar, XP
+              // chip, option views) on its worklet thread, so every SharedValue write is safe.
               return (
                 <Animated.View
                   style={[sum.mFeedbackBar, missionCorrect ? sum.mFeedbackBarOk : sum.mFeedbackBarErr, mFbStyle,
                     { paddingBottom: insets.bottom + 12, position: 'absolute', bottom: 0, left: 0, right: 0 }]}
+                  onLayout={() => {
+                    if (mFbAnimFiredRef.current) return;
+                    mFbAnimFiredRef.current = true;
+                    mFbY.value  = withSpring(0, { damping: 22, stiffness: 240 });
+                    mFbOp.value = withTiming(1, { duration: 160 });
+                    if (missionCorrect) {
+                      mXpSV.value = withDelay(200, withSpring(1, { damping: 12, stiffness: 300 }));
+                    } else {
+                      console.log('[SHAKE ROOT FIX] optionCard=static shakeWrapper=animated sharedValueTarget=shakeWrapper_only');
+                      wrongShakeSV.value = withSequence(
+                        withTiming(-10, { duration: 55 }),
+                        withTiming(10,  { duration: 55 }),
+                        withTiming(-7,  { duration: 45 }),
+                        withTiming(7,   { duration: 45 }),
+                        withTiming(0,   { duration: 40 }),
+                      );
+                    }
+                  }}
                 >
                   <View style={sum.mFbContent}>
                     {missionCorrect ? (
@@ -2999,9 +3010,6 @@ export default function SessionPlayerScreen() {
                           {!!streakLabel && <View style={sum.mStreakBadge}><Text style={sum.mStreakText}>{streakLabel}</Text></View>}
                         </View>
                         <Text style={sum.mFbTitle}>{celebMsg.text}</Text>
-                        <Animated.View style={[sum.mXpChip, mXpPopStyle]}>
-                          <Text style={sum.mXpText}>{xpLabel}</Text>
-                        </Animated.View>
                       </>
                     ) : (
                       <>
@@ -3011,6 +3019,11 @@ export default function SessionPlayerScreen() {
                           <Text style={sum.mFbCorrect}>Respuesta: {bs.correctAnswer}</Text>
                         )}
                       </>
+                    )}
+                    {missionCorrect && (
+                      <Animated.View style={[sum.mXpChip, mXpPopStyle]}>
+                        <Text style={sum.mXpText}>{xpLabel}</Text>
+                      </Animated.View>
                     )}
                   </View>
                   <Pressable
@@ -3022,7 +3035,6 @@ export default function SessionPlayerScreen() {
                 </Animated.View>
               );
             }
-
             if ((slide?.type === 'quiz' && !slideQuizAnswered) || (isMissionInteractive && !missionAnswered)) {
               return (
                 <View style={[g.bottom, { paddingBottom: insets.bottom + 12 }]}>
@@ -3032,7 +3044,6 @@ export default function SessionPlayerScreen() {
                 </View>
               );
             }
-
             return (
               <View style={[g.bottom, { paddingBottom: insets.bottom + 12 }]}>
                 <Pressable onPress={() => isLast ? completeMode('summary') : goNext()} style={{ width: '100%' }}>
