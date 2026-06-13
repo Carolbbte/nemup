@@ -3081,39 +3081,11 @@ export default function SessionPlayerScreen() {
             const isMissionInteractive = MISSION_QUIZ_TYPES.has(slide?.type ?? '') ||
               (['common_error', 'wow_fact', 'application', 'challenge'].includes(slide?.type ?? '') && !!bs?.question);
             const missionAnswered = isMissionInteractive ? quizAnswers[summaryIdx] : undefined;
-            // [TEMP] STEP 6: plain View feedback bar — no Animated.View, no Reanimated
+            // [TEMP] ROOT ISOLATION: absolute minimum mount — no derived state, no children
             if (ISOLATE_ANSWERED_RENDER && missionAnswered) {
-              const isCorrect6 = missionAnswered === bs?.correctAnswer;
-              const _seed6 = (summaryIdx * 2654435761) >>> 0;
-              const celebMsg6 = MISSION_FB_OK[_seed6 % MISSION_FB_OK.length];
-              const errMsg6   = MISSION_FB_ERR[(_seed6 ^ 0xDEAD) % MISSION_FB_ERR.length];
               return (
-                <View style={[sum.mFeedbackBar, isCorrect6 ? sum.mFeedbackBarOk : sum.mFeedbackBarErr,
-                  { paddingBottom: insets.bottom + 12, position: 'absolute', bottom: 0, left: 0, right: 0 }]}>
-                  <View style={sum.mFbContent}>
-                    {isCorrect6 ? (
-                      <>
-                        <View style={sum.mFbRow}>
-                          <Text style={sum.mFbEmoji}>{celebMsg6.emoji}</Text>
-                        </View>
-                        <Text style={sum.mFbTitle}>{celebMsg6.text}</Text>
-                      </>
-                    ) : (
-                      <>
-                        <Text style={sum.mFbTitle}>{errMsg6.emoji} {errMsg6.text}</Text>
-                        {!!bs?.definition && <Text style={sum.mFbExpl} numberOfLines={3}>{bs.definition}</Text>}
-                        {!!bs?.correctAnswer && (
-                          <Text style={sum.mFbCorrect}>Respuesta: {bs.correctAnswer}</Text>
-                        )}
-                      </>
-                    )}
-                  </View>
-                  <Pressable
-                    onPress={() => isLast ? completeMode('summary') : goNext()}
-                    style={[sum.mContinueBtn, !isCorrect6 && sum.mContinueBtnErr]}
-                  >
-                    <Text style={sum.mContinueBtnText}>{isLast ? '¡Misión completada! →' : 'Continuar'}</Text>
-                  </Pressable>
+                <View>
+                  <Text>FEEDBACK BAR SAFE</Text>
                 </View>
               );
             }
