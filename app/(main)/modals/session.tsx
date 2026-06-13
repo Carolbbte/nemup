@@ -1774,17 +1774,18 @@ export default function SessionPlayerScreen() {
             }}
           >
             {ISOLATE_ANSWERED_RENDER && topAnswered !== null ? (
-              /* [TEMP] STEP 2: add conditional green/red border+background styles.
-                 Still disabled: icons, Animated.View, feedback bar, opacity/dimmed, shake, XP. */
+              /* [TEMP] STEP 3: add opacity/dimmed logic.
+                 Still disabled: icons, Animated.View, feedback bar, shake, XP. */
               <View style={{ padding: 16 }}>
                 <Text style={{ color: '#A5F3FC', fontSize: 10, fontFamily: 'monospace', marginBottom: 10 }}>
-                  {`[STEP 2] ans=${topAnswered} correct=${String(_bsTop?.correctAnswer)} type=${String(slide?.type)}`}
+                  {`[STEP 3] ans=${topAnswered} correct=${String(_bsTop?.correctAnswer)} type=${String(slide?.type)}`}
                 </Text>
                 {(_bsTop?.options ?? []).slice(0, 3).map((opt, i) => {
                   const letter    = LETTERS[i];
                   const isOpt     = _bsTop?.correctAnswer === letter;
                   const showGreen = isOpt;
                   const showRed   = topAnswered === letter && !isOpt;
+                  const dimmed    = !!topAnswered && !isOpt && topAnswered !== letter;
                   return (
                     <Pressable
                       key={i}
@@ -1795,6 +1796,7 @@ export default function SessionPlayerScreen() {
                           : showRed
                           ? { backgroundColor: '#7F1D1D', borderColor: '#DC2626' }
                           : { backgroundColor: '#1E293B', borderColor: '#334155' },
+                        { opacity: dimmed ? 0.35 : 1 },
                       ]}
                     >
                       <Text style={{ color: '#F1F5F9', fontSize: 15 }}>{String(opt)}</Text>
