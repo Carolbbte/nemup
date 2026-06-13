@@ -1774,9 +1774,20 @@ export default function SessionPlayerScreen() {
             }}
           >
             {ISOLATE_ANSWERED_RENDER && topAnswered !== null ? (
-              /* [TEMP] ISOLATION: strip ALL answered-conditional rendering to locate crash source */
-              <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', padding: 20 }}>
-                <Text style={{ color: '#A5F3FC', fontSize: 26, fontWeight: 'bold' }}>ANSWERED: {topAnswered}</Text>
+              /* [TEMP] STEP 1: static Pressable wrappers only.
+                 No icons. No Animated.View. No conditional styles. No feedback bar. */
+              <View style={{ padding: 16 }}>
+                <Text style={{ color: '#A5F3FC', fontSize: 10, fontFamily: 'monospace', marginBottom: 10 }}>
+                  {`[STEP 1] ans=${topAnswered} type=${String(slide?.type)}`}
+                </Text>
+                {(_bsTop?.options ?? []).slice(0, 3).map((opt, i) => (
+                  <Pressable
+                    key={i}
+                    style={{ backgroundColor: '#1E293B', borderRadius: 10, padding: 14, marginBottom: 8 }}
+                  >
+                    <Text style={{ color: '#F1F5F9', fontSize: 15 }}>{String(opt)}</Text>
+                  </Pressable>
+                ))}
               </View>
             ) : slide?.type === 'quiz' ? (
               <View style={sum.quizCard}>
