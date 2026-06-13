@@ -1774,20 +1774,33 @@ export default function SessionPlayerScreen() {
             }}
           >
             {ISOLATE_ANSWERED_RENDER && topAnswered !== null ? (
-              /* [TEMP] STEP 1: static Pressable wrappers only.
-                 No icons. No Animated.View. No conditional styles. No feedback bar. */
+              /* [TEMP] STEP 2: add conditional green/red border+background styles.
+                 Still disabled: icons, Animated.View, feedback bar, opacity/dimmed, shake, XP. */
               <View style={{ padding: 16 }}>
                 <Text style={{ color: '#A5F3FC', fontSize: 10, fontFamily: 'monospace', marginBottom: 10 }}>
-                  {`[STEP 1] ans=${topAnswered} type=${String(slide?.type)}`}
+                  {`[STEP 2] ans=${topAnswered} correct=${String(_bsTop?.correctAnswer)} type=${String(slide?.type)}`}
                 </Text>
-                {(_bsTop?.options ?? []).slice(0, 3).map((opt, i) => (
-                  <Pressable
-                    key={i}
-                    style={{ backgroundColor: '#1E293B', borderRadius: 10, padding: 14, marginBottom: 8 }}
-                  >
-                    <Text style={{ color: '#F1F5F9', fontSize: 15 }}>{String(opt)}</Text>
-                  </Pressable>
-                ))}
+                {(_bsTop?.options ?? []).slice(0, 3).map((opt, i) => {
+                  const letter    = LETTERS[i];
+                  const isOpt     = _bsTop?.correctAnswer === letter;
+                  const showGreen = isOpt;
+                  const showRed   = topAnswered === letter && !isOpt;
+                  return (
+                    <Pressable
+                      key={i}
+                      style={[
+                        { borderRadius: 10, padding: 14, marginBottom: 8, borderWidth: 2 },
+                        showGreen
+                          ? { backgroundColor: '#14532D', borderColor: '#16A34A' }
+                          : showRed
+                          ? { backgroundColor: '#7F1D1D', borderColor: '#DC2626' }
+                          : { backgroundColor: '#1E293B', borderColor: '#334155' },
+                      ]}
+                    >
+                      <Text style={{ color: '#F1F5F9', fontSize: 15 }}>{String(opt)}</Text>
+                    </Pressable>
+                  );
+                })}
               </View>
             ) : slide?.type === 'quiz' ? (
               <View style={sum.quizCard}>
