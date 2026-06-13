@@ -1774,11 +1774,11 @@ export default function SessionPlayerScreen() {
             }}
           >
             {ISOLATE_ANSWERED_RENDER && topAnswered !== null ? (
-              /* [TEMP] STEP 3: add opacity/dimmed logic.
-                 Still disabled: icons, Animated.View, feedback bar, shake, XP. */
+              /* [TEMP] STEP 4: add plain Text ✓/✕ icons (no lucide).
+                 Still disabled: Animated.View, feedback bar, shake, XP. */
               <View style={{ padding: 16 }}>
                 <Text style={{ color: '#A5F3FC', fontSize: 10, fontFamily: 'monospace', marginBottom: 10 }}>
-                  {`[STEP 3] ans=${topAnswered} correct=${String(_bsTop?.correctAnswer)} type=${String(slide?.type)}`}
+                  {`[STEP 4] ans=${topAnswered} correct=${String(_bsTop?.correctAnswer)} type=${String(slide?.type)}`}
                 </Text>
                 {(_bsTop?.options ?? []).slice(0, 3).map((opt, i) => {
                   const letter    = LETTERS[i];
@@ -1786,11 +1786,12 @@ export default function SessionPlayerScreen() {
                   const showGreen = isOpt;
                   const showRed   = topAnswered === letter && !isOpt;
                   const dimmed    = !!topAnswered && !isOpt && topAnswered !== letter;
+                  const icon      = showGreen ? '✓' : showRed ? '✕' : null;
                   return (
                     <Pressable
                       key={i}
                       style={[
-                        { borderRadius: 10, padding: 14, marginBottom: 8, borderWidth: 2 },
+                        { borderRadius: 10, padding: 14, marginBottom: 8, borderWidth: 2, flexDirection: 'row', alignItems: 'center', gap: 10 },
                         showGreen
                           ? { backgroundColor: '#14532D', borderColor: '#16A34A' }
                           : showRed
@@ -1799,7 +1800,10 @@ export default function SessionPlayerScreen() {
                         { opacity: dimmed ? 0.35 : 1 },
                       ]}
                     >
-                      <Text style={{ color: '#F1F5F9', fontSize: 15 }}>{String(opt)}</Text>
+                      <Text style={{ color: '#F1F5F9', fontSize: 15, flex: 1 }}>{String(opt)}</Text>
+                      {icon !== null && (
+                        <Text style={{ color: showGreen ? '#4ADE80' : '#F87171', fontSize: 16, fontWeight: '700' }}>{icon}</Text>
+                      )}
                     </Pressable>
                   );
                 })}
