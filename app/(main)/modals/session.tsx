@@ -1774,11 +1774,11 @@ export default function SessionPlayerScreen() {
             }}
           >
             {ISOLATE_ANSWERED_RENDER && topAnswered !== null ? (
-              /* [TEMP] STEP 4: add plain Text ✓/✕ icons (no lucide).
+              /* [TEMP] STEP 5: replace plain Text ✓/✕ with lucide Check/X.
                  Still disabled: Animated.View, feedback bar, shake, XP. */
               <View style={{ padding: 16 }}>
                 <Text style={{ color: '#A5F3FC', fontSize: 10, fontFamily: 'monospace', marginBottom: 10 }}>
-                  {`[STEP 4] ans=${topAnswered} correct=${String(_bsTop?.correctAnswer)} type=${String(slide?.type)}`}
+                  {`[STEP 5] ans=${topAnswered} correct=${String(_bsTop?.correctAnswer)} type=${String(slide?.type)}`}
                 </Text>
                 {(_bsTop?.options ?? []).slice(0, 3).map((opt, i) => {
                   const letter    = LETTERS[i];
@@ -1786,7 +1786,6 @@ export default function SessionPlayerScreen() {
                   const showGreen = isOpt;
                   const showRed   = topAnswered === letter && !isOpt;
                   const dimmed    = !!topAnswered && !isOpt && topAnswered !== letter;
-                  const icon      = showGreen ? '✓' : showRed ? '✕' : null;
                   return (
                     <Pressable
                       key={i}
@@ -1801,9 +1800,8 @@ export default function SessionPlayerScreen() {
                       ]}
                     >
                       <Text style={{ color: '#F1F5F9', fontSize: 15, flex: 1 }}>{String(opt)}</Text>
-                      {icon !== null && (
-                        <Text style={{ color: showGreen ? '#4ADE80' : '#F87171', fontSize: 16, fontWeight: '700' }}>{icon}</Text>
-                      )}
+                      {showGreen && <Check size={18} color="#4ADE80" strokeWidth={2.5} />}
+                      {showRed   && <X     size={18} color="#F87171" strokeWidth={2.5} />}
                     </Pressable>
                   );
                 })}
