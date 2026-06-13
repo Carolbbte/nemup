@@ -110,9 +110,6 @@ export const OnboardingProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   const completeOnboarding = async () => {
     try {
       setState(prev => ({ ...prev, isLoading: true }));
-      if (!state.data.name || !state.data.curso) {
-        throw new Error('Please fill in all required fields');
-      }
 
       const completedData = { ...state.data, completed: true };
       

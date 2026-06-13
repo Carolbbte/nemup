@@ -492,7 +492,7 @@ export default function NameCursoScreen() {
       {/* Bottom bar */}
       <View style={s.bottomBar}>
         <ProgressDots current={3} />
-        <Pressable onPress={nextStep} style={s.arrowBtn}>
+        <Pressable onPress={() => { setCurso(LEVELS[selIdx].course); nextStep(); }} style={s.arrowBtn}>
           <ArrowRight size={22} color={palette.blanco} strokeWidth={2.5} />
         </Pressable>
       </View>
