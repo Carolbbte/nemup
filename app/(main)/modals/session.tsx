@@ -2815,23 +2815,23 @@ export default function SessionPlayerScreen() {
                   style={[sum.mFeedbackBar, missionCorrect ? sum.mFeedbackBarOk : sum.mFeedbackBarErr,
                     { paddingBottom: insets.bottom + 12, position: 'absolute', bottom: 0, left: 0, right: 0 }]}
                 >
-                  <View key={`explanation-${summaryIdx}-${missionCorrect ? 'ok' : 'err'}`} style={sum.mFbContent}>
-                    {missionCorrect ? (
-                      <>
-                        <View style={sum.mFbRow}>
-                          <Text style={sum.mFbEmoji}>{celebMsg.emoji}</Text>
-                          {!!streakLabel && <View style={sum.mStreakBadge}><Text style={sum.mStreakText}>{streakLabel}</Text></View>}
-                        </View>
-                        <Text style={sum.mFbTitle}>{celebMsg.text}</Text>
-                      </>
-                    ) : (
-                      <>
-                        <Text style={sum.mFbTitle}>{errMsg.emoji} {errMsg.text}</Text>
-                        {!!bs?.definition && <Text style={sum.mFbExpl} numberOfLines={3}>{bs.definition}</Text>}
-                        {!!bs?.correctAnswer && (
-                          <Text style={sum.mFbCorrect}>Respuesta: {bs.correctAnswer}</Text>
-                        )}
-                      </>
+                  <View style={sum.mFbContent}>
+                    {/* Isomorphic structure: child[0] is always View(mFbRow), child[1] is always
+                        Text(mFbTitle). Mixing View/Text at the same child position across
+                        correct vs incorrect triggers a Fabric type-mismatch crash on RN 0.81
+                        New Architecture even when the outer key forces a remount. */}
+                    <View style={sum.mFbRow}>
+                      <Text style={sum.mFbEmoji}>{missionCorrect ? celebMsg.emoji : errMsg.emoji}</Text>
+                      {missionCorrect && !!streakLabel && (
+                        <View style={sum.mStreakBadge}><Text style={sum.mStreakText}>{streakLabel}</Text></View>
+                      )}
+                    </View>
+                    <Text style={sum.mFbTitle}>{missionCorrect ? celebMsg.text : errMsg.text}</Text>
+                    {!missionCorrect && !!bs?.definition && (
+                      <Text style={sum.mFbExpl} numberOfLines={3}>{bs.definition}</Text>
+                    )}
+                    {!missionCorrect && !!bs?.correctAnswer && (
+                      <Text style={sum.mFbCorrect}>Respuesta: {bs.correctAnswer}</Text>
                     )}
                     {missionCorrect && (
                       <View style={sum.mXpChip}>
