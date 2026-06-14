@@ -3081,15 +3081,15 @@ export default function SessionPlayerScreen() {
             const isMissionInteractive = MISSION_QUIZ_TYPES.has(slide?.type ?? '') ||
               (['common_error', 'wow_fact', 'application', 'challenge'].includes(slide?.type ?? '') && !!bs?.question);
             const missionAnswered = isMissionInteractive ? quizAnswers[summaryIdx] : undefined;
-            // [TEMP] ROOT ISOLATION: absolute minimum mount — no derived state, no children
+            // [TEMP] STEP 7A: add missionCorrect title only
+            const missionCorrect  = !!missionAnswered && missionAnswered === bs?.correctAnswer;
             if (ISOLATE_ANSWERED_RENDER && missionAnswered) {
               return (
                 <View>
-                  <Text>FEEDBACK BAR SAFE</Text>
+                  <Text>{missionCorrect ? 'Correcto' : 'Incorrecto'}</Text>
                 </View>
               );
             }
-            const missionCorrect  = !!missionAnswered && missionAnswered === bs?.correctAnswer;
             const _seed = (summaryIdx * 2654435761) >>> 0;
             const celebMsg = MISSION_FB_OK[_seed % MISSION_FB_OK.length];
             const errMsg   = MISSION_FB_ERR[(_seed ^ 0xDEAD) % MISSION_FB_ERR.length];
