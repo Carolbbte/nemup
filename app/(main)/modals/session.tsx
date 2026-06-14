@@ -1846,7 +1846,7 @@ export default function SessionPlayerScreen() {
                     </View>
                     <View style={{ paddingHorizontal: SM ? 14 : 18, paddingBottom: SM ? 14 : 18 }}>
                       <Text style={[sum.quizQuestion, { marginTop: 12 }]}>{slide.question ?? slide.title}</Text>
-                      <View key={`options-${summaryIdx}-${answered ?? 'none'}`} style={{ gap: 8, marginTop: 14 }}>
+                      <View style={{ gap: 8, marginTop: 14 }}>
                         {slide.options?.slice(0, 3).map((opt, i) => {
                           const letter    = LETTERS[i];
                           const isOpt     = slide.correctAnswer === letter;
@@ -1889,7 +1889,7 @@ export default function SessionPlayerScreen() {
                     </View>
                     <View style={{ paddingHorizontal: SM ? 14 : 18, paddingBottom: SM ? 14 : 18 }}>
                       <Text style={[sum.quizQuestion, { marginTop: 12 }]}>{slide.question ?? slide.title}</Text>
-                      <View key={`options-${summaryIdx}-${answered ?? 'none'}`} style={{ gap: 8, marginTop: 14 }}>
+                      <View style={{ gap: 8, marginTop: 14 }}>
                         {slide.options?.slice(0, 3).map((opt, i) => {
                           const letter    = LETTERS[i];
                           const isOpt     = slide.correctAnswer === letter;
@@ -1963,7 +1963,7 @@ export default function SessionPlayerScreen() {
               <View style={sum.quizCard}>
                 <Text style={sum.quizLabel}>⚡ MINI QUIZ</Text>
                 <Text style={sum.quizQuestion}>{slide.question ?? slide.title}</Text>
-                <View key={`options-${summaryIdx}-${quizAnswers[summaryIdx] ?? 'none'}`} style={{ gap: 8, marginTop: 14 }}>
+                <View style={{ gap: 8, marginTop: 14 }}>
                   {slide.options?.map((opt, i) => {
                     const letter    = LETTERS[i];
                     const answered  = quizAnswers[summaryIdx];
@@ -2161,7 +2161,7 @@ export default function SessionPlayerScreen() {
                 </View>
                 <View style={sum.retoBody}>
                   <Text style={sum.challengeQuestion}>{slide.question ?? slide.title}</Text>
-                  <View key={`options-${summaryIdx}-${quizAnswers[summaryIdx] ?? 'none'}`} style={{ gap: 8 }}>
+                  <View style={{ gap: 8 }}>
                     {slide.options?.map((opt, i) => {
                       const letter    = LETTERS[i];
                       const answered  = quizAnswers[summaryIdx];
@@ -2198,7 +2198,7 @@ export default function SessionPlayerScreen() {
               <View style={sum.quizCard}>
                 <Text style={[sum.quizLabel, { color: '#FF7A2B' }]}>🤔 DECIDE</Text>
                 <Text style={sum.quizQuestion}>{slide.question ?? slide.title}</Text>
-                <View key={`options-${summaryIdx}-${quizAnswers[summaryIdx] ?? 'none'}`} style={{ gap: 8, marginTop: 14 }}>
+                <View style={{ gap: 8, marginTop: 14 }}>
                   {slide.options?.map((opt, i) => {
                     const letter    = LETTERS[i];
                     const answered  = quizAnswers[summaryIdx];
