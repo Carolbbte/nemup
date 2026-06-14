@@ -2806,8 +2806,12 @@ export default function SessionPlayerScreen() {
 
             if (fbActive) {
               // Static feedback bar — no mount animation, no SharedValue writes.
+              // key encodes correctness so React remounts (never reconciles the
+              // correct-shape subtree against the wrong-shape subtree, which
+              // crashes Fabric when alternating correct/wrong across slides).
               return (
                 <View
+                  key={`mFb-${summaryIdx}-${missionCorrect ? 'ok' : 'err'}`}
                   style={[sum.mFeedbackBar, missionCorrect ? sum.mFeedbackBarOk : sum.mFeedbackBarErr,
                     { paddingBottom: insets.bottom + 12, position: 'absolute', bottom: 0, left: 0, right: 0 }]}
                 >
@@ -2846,7 +2850,7 @@ export default function SessionPlayerScreen() {
             }
             if ((slide?.type === 'quiz' && !slideQuizAnswered) || (isMissionInteractive && !missionAnswered)) {
               return (
-                <View style={[g.bottom, { paddingBottom: insets.bottom + 12 }]}>
+                <View key="cta-choose" style={[g.bottom, { paddingBottom: insets.bottom + 12 }]}>
                   <View style={g.ctaBtnOff}>
                     <Text style={g.ctaTextOff}>Elige una opción</Text>
                   </View>
@@ -2854,7 +2858,7 @@ export default function SessionPlayerScreen() {
               );
             }
             return (
-              <View style={[g.bottom, { paddingBottom: insets.bottom + 12 }]}>
+              <View key="cta-nav" style={[g.bottom, { paddingBottom: insets.bottom + 12 }]}>
                 <Pressable onPress={() => isLast ? completeMode('summary') : goNext()} style={{ width: '100%' }}>
                   <View style={[g.ctaBtn, { backgroundColor: BRAND }]}>
                     <Text style={g.ctaText}>
