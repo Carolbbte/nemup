@@ -3081,12 +3081,13 @@ export default function SessionPlayerScreen() {
             const isMissionInteractive = MISSION_QUIZ_TYPES.has(slide?.type ?? '') ||
               (['common_error', 'wow_fact', 'application', 'challenge'].includes(slide?.type ?? '') && !!bs?.question);
             const missionAnswered = isMissionInteractive ? quizAnswers[summaryIdx] : undefined;
-            // [TEMP] STEP 7A: add missionCorrect title only
+            // [TEMP] STEP 7B: add bs?.definition (explanation text)
             const missionCorrect  = !!missionAnswered && missionAnswered === bs?.correctAnswer;
             if (ISOLATE_ANSWERED_RENDER && missionAnswered) {
               return (
                 <View>
                   <Text>{missionCorrect ? 'Correcto' : 'Incorrecto'}</Text>
+                  <Text>{bs?.definition ?? 'NO_EXPLANATION'}</Text>
                 </View>
               );
             }
