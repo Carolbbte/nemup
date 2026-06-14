@@ -2786,9 +2786,11 @@ export default function SessionPlayerScreen() {
             {/* Summary micro-reward — integrated into feedback boxes (no floating overlay) */}
           </Animated.View>
 
-          {/* CTA — three always-present nodes; display prop toggles which is visible.
-              Never unmounts/remounts anything → eliminates all Fabric shadow-tree
-              reconciliation crashes on RN 0.81 New Architecture. */}
+          {/* CTA — Animated.View for feedback, View for nav/choose.
+              The type difference (Animated.View vs View) forces a full React
+              remount when fbActive changes, so Fabric never reconciles feedback
+              content against CTA content in-place. No keys anywhere — prevents
+              the DELETE+INSERT crash on SafeAreaView direct children. */}
           {(() => {
             const bs = slide as BackendSlide | undefined;
             const MISSION_QUIZ_TYPES = new Set(['micro_challenge', 'reinforcement_challenge', 'comprehension', 'mini_quiz', 'final_challenge', 'decide']);
@@ -2803,40 +2805,32 @@ export default function SessionPlayerScreen() {
                                 missionStreakRef.current === 4 ? '⚡ ¡Racha de 4!' :
                                 missionStreakRef.current === 3 ? '🔥 ¡3 seguidas!' :
                                 missionStreakRef.current === 2 ? '🔥 ¡Racha de 2!' : null;
-            const xpLabel     = slide?.type === 'final_challenge' ? '+10 XP' : '+5 XP';
-            const fbActive    = isMissionInteractive && !!missionAnswered;
-            const needsChoose = !fbActive && ((slide?.type === 'quiz' && !slideQuizAnswered) || (isMissionInteractive && !missionAnswered));
-            const showNav     = !fbActive && !needsChoose;
-            const navLabel    = isLast && slide?.type === 'victory'
-              ? (NEUTRAL_MISSION_COMPLETION ? 'Continuar al Quiz →' : noInteractionsAttempted ? 'Cerrar misión' : '🏆 ¡Misión completada!')
-              : isLast                                   ? '✅ Completar resumen'
-              : slide?.type === 'mission'                ? '¡Comenzar! →'
-              : (slide?.type === 'challenge' && !bs?.correctAnswer) ? '🤔 Lo pensé →'
-              : slide?.type === 'motivation'             ? '¡Seguimos! →'
-              : slide?.type === 'prediction'             ? '🧠 Entendido →'
-              : 'Siguiente →';
+            const xpLabel = slide?.type === 'final_challenge' ? '+10 XP' : '+5 XP';
+            const fbActive = isMissionInteractive && !!missionAnswered;
 
-            return (
-              <>
-                {/* 1 — Feedback bar: absolute, always in the tree */}
-                <View style={[sum.mFeedbackBar, missionCorrect ? sum.mFeedbackBarOk : sum.mFeedbackBarErr,
-                  { paddingBottom: insets.bottom + 12, position: 'absolute', bottom: 0, left: 0, right: 0,
-                    display: fbActive ? 'flex' : 'none' }]}>
+            if (fbActive) {
+              return (
+                <Animated.View
+                  style={[sum.mFeedbackBar, missionCorrect ? sum.mFeedbackBarOk : sum.mFeedbackBarErr,
+                    { paddingBottom: insets.bottom + 12, position: 'absolute', bottom: 0, left: 0, right: 0 }]}
+                >
                   <View style={sum.mFbContent}>
                     <Text style={sum.mFbEmoji}>{missionCorrect ? celebMsg.emoji : errMsg.emoji}</Text>
                     <Text style={sum.mFbTitle}>{missionCorrect ? celebMsg.text : errMsg.text}</Text>
-                    <Text style={[sum.mFbExpl, { display: (!missionCorrect && !!bs?.definition) ? 'flex' : 'none' }]} numberOfLines={3}>
-                      {bs?.definition ?? ''}
-                    </Text>
-                    <Text style={[sum.mFbCorrect, { display: (!missionCorrect && !!bs?.correctAnswer) ? 'flex' : 'none' }]}>
-                      {bs?.correctAnswer ? `Respuesta: ${bs.correctAnswer}` : ''}
-                    </Text>
-                    <View style={[sum.mStreakBadge, { display: (missionCorrect && !!streakLabel) ? 'flex' : 'none' }]}>
-                      <Text style={sum.mStreakText}>{streakLabel ?? ''}</Text>
-                    </View>
-                    <View style={[sum.mXpChip, { display: missionCorrect ? 'flex' : 'none' }]}>
-                      <Text style={sum.mXpText}>{xpLabel}</Text>
-                    </View>
+                    {!missionCorrect && !!bs?.definition && (
+                      <Text style={sum.mFbExpl} numberOfLines={3}>{bs.definition}</Text>
+                    )}
+                    {!missionCorrect && !!bs?.correctAnswer && (
+                      <Text style={sum.mFbCorrect}>Respuesta: {bs.correctAnswer}</Text>
+                    )}
+                    {missionCorrect && !!streakLabel && (
+                      <View style={sum.mStreakBadge}><Text style={sum.mStreakText}>{streakLabel}</Text></View>
+                    )}
+                    {missionCorrect && (
+                      <View style={sum.mXpChip}>
+                        <Text style={sum.mXpText}>{xpLabel}</Text>
+                      </View>
+                    )}
                   </View>
                   <Pressable
                     onPress={() => isLast ? completeMode('summary') : goNext()}
@@ -2844,24 +2838,39 @@ export default function SessionPlayerScreen() {
                   >
                     <Text style={sum.mContinueBtnText}>{isLast ? '¡Misión completada! →' : 'Continuar'}</Text>
                   </Pressable>
-                </View>
+                </Animated.View>
+              );
+            }
 
-                {/* 2 — Choose CTA: in-flow, always in the tree */}
-                <View style={[g.bottom, { paddingBottom: insets.bottom + 12, display: needsChoose ? 'flex' : 'none' }]}>
+            if ((slide?.type === 'quiz' && !slideQuizAnswered) || (isMissionInteractive && !missionAnswered)) {
+              return (
+                <View style={[g.bottom, { paddingBottom: insets.bottom + 12 }]}>
                   <View style={g.ctaBtnOff}>
                     <Text style={g.ctaTextOff}>Elige una opción</Text>
                   </View>
                 </View>
+              );
+            }
 
-                {/* 3 — Nav CTA: in-flow, always in the tree */}
-                <View style={[g.bottom, { paddingBottom: insets.bottom + 12, display: showNav ? 'flex' : 'none' }]}>
-                  <Pressable onPress={() => isLast ? completeMode('summary') : goNext()} style={{ width: '100%' }}>
-                    <View style={[g.ctaBtn, { backgroundColor: BRAND }]}>
-                      <Text style={g.ctaText}>{navLabel}</Text>
-                    </View>
-                  </Pressable>
-                </View>
-              </>
+            return (
+              <View style={[g.bottom, { paddingBottom: insets.bottom + 12 }]}>
+                <Pressable onPress={() => isLast ? completeMode('summary') : goNext()} style={{ width: '100%' }}>
+                  <View style={[g.ctaBtn, { backgroundColor: BRAND }]}>
+                    <Text style={g.ctaText}>
+                      {isLast && slide?.type === 'victory' ? (
+                        NEUTRAL_MISSION_COMPLETION ? 'Continuar al Quiz →' :
+                        noInteractionsAttempted ? 'Cerrar misión' : '🏆 ¡Misión completada!'
+                      ) :
+                      isLast ? '✅ Completar resumen' :
+                      slide?.type === 'mission' ? '¡Comenzar! →' :
+                      (slide?.type === 'challenge' && !bs?.correctAnswer) ? '🤔 Lo pensé →' :
+                      slide?.type === 'motivation' ? '¡Seguimos! →' :
+                      slide?.type === 'prediction' ? '🧠 Entendido →' :
+                      'Siguiente →'}
+                    </Text>
+                  </View>
+                </Pressable>
+              </View>
             );
           })()}
         </SafeAreaView>
