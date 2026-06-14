@@ -19,7 +19,7 @@ import {
   X,
   Zap,
 } from 'lucide-react-native';
-import { Component, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Dimensions,
   Pressable,
@@ -578,50 +578,6 @@ function buildSummarySlides(backendSlides: BackendSlide[], questions: Question[]
   return out;
 }
 
-// ── [TEMP] Mission ErrorBoundary ──────────────────────────────────
-class MissionErrorBoundary extends Component<{ children: any }, { hasError: boolean; error: any }> {
-  state = { hasError: false, error: null };
-  static getDerivedStateFromError(error: any) {
-    console.error('[MISSION CRASH - ErrorBoundary caught]');
-    console.error(error);
-    console.error(error?.stack);
-    return { hasError: true, error };
-  }
-  componentDidCatch(error: any, info: any) {
-    console.error('[MISSION CRASH - componentDidCatch]');
-    console.error(error);
-    console.error(error?.stack);
-    console.error('[MISSION CRASH - componentStack]', info?.componentStack);
-  }
-  render() {
-    if (this.state.hasError) {
-      const msg   = String(this.state.error);
-      const stack = this.state.error?.stack ? String(this.state.error.stack) : '(sin stack)';
-      return (
-        <ScrollView style={{ flex: 1, backgroundColor: '#FEF2F2' }} contentContainerStyle={{ padding: 16 }}>
-          <Text style={{ color: '#991B1B', fontWeight: '900', fontSize: 15, marginBottom: 10 }}>
-            💥 [MISSION CRASH — toma una captura]
-          </Text>
-          <Text style={{ color: '#991B1B', fontWeight: '700', fontSize: 13, marginBottom: 6 }}>
-            Mensaje:
-          </Text>
-          <Text style={{ color: '#7F1D1D', fontSize: 12, marginBottom: 14, fontFamily: 'monospace' }}>
-            {msg}
-          </Text>
-          <Text style={{ color: '#991B1B', fontWeight: '700', fontSize: 13, marginBottom: 6 }}>
-            Stack trace:
-          </Text>
-          <Text style={{ color: '#7F1D1D', fontSize: 11, fontFamily: 'monospace', lineHeight: 17 }}>
-            {stack}
-          </Text>
-        </ScrollView>
-      );
-    }
-    return this.props.children;
-  }
-}
-// ── [/TEMP] ───────────────────────────────────────────────────────
-
 // ══════════════════════════════════════════════════════════════════
 // MAIN COMPONENT
 // ══════════════════════════════════════════════════════════════════
@@ -638,25 +594,6 @@ const LOCAL_MODE_TO_DAILY: Record<LocalMode, DailyMode> = { summary: 'mision', q
 const LOCAL_MODE_TO_PHASE: Record<LocalMode, Phase>     = { summary: 'summary', quiz: 'quiz', flashcards: 'flashcards' };
 
 const SESSION_PROGRESS_KEY = 'nemup_session_progress';
-
-// [TEMP] Module-level buffer — survives re-renders, written to AsyncStorage on every step
-// so the last-known state is recoverable after a hard crash on physical device.
-const _wfBuf: string[] = [];
-const WF_KEY = 'nemup_wrong_flow_log';
-
-// [TEMP] Module-level so React never changes the component reference between renders.
-// If defined inside SessionPlayerScreen it would remount on every render, polluting the log.
-const FbMountTracker = () => {
-  useEffect(() => {
-    _wfBuf.push('[FEEDBACK MOUNT]');
-    AsyncStorage.setItem(WF_KEY, _wfBuf.join('\n')).catch(() => {});
-    return () => {
-      _wfBuf.push('[FEEDBACK UNMOUNT]');
-      AsyncStorage.setItem(WF_KEY, _wfBuf.join('\n')).catch(() => {});
-    };
-  }, []);
-  return null;
-};
 
 export default function SessionPlayerScreen() {
   const router  = useRouter();
@@ -795,7 +732,6 @@ export default function SessionPlayerScreen() {
   const [streak, setStreak]               = useState(0);
   const [maxStreak, setMaxStreak]         = useState(0);
   const missionStreakRef  = useRef(0);
-  const mFbAnimFiredRef   = useRef(false);
   const [quizDone, setQuizDone]           = useState(false);
   const [comboCount, setComboCount]       = useState(0);
   const [streakMsg, setStreakMsg]         = useState('');
@@ -819,30 +755,6 @@ export default function SessionPlayerScreen() {
   const [cardsKnew, setCardsKnew]       = useState(0);
   const [cardsDubious, setCardsDubious] = useState(0);
   const [cardsUnknown, setCardsUnknown] = useState(0);
-
-  // [TEMP] Set true to skip wrongShakeSV entirely — isolates Reanimated as crash source
-  const DISABLE_WRONG_SHAKE = true;
-  // [TEMP] When true, replaces ALL answered-conditional rendering with a plain ANSWERED: X label
-  const ISOLATE_ANSWERED_RENDER = true;
-
-  // [TEMP] Debug crash capture
-  const [crashBanner, setCrashBanner] = useState<string | null>(null);
-  const [lastTapRecord, setLastTapRecord] = useState<string | null>(null);
-  const [wrongFlowLog, setWrongFlowLog] = useState<string | null>(null);
-  // [TEMP] Force-hides feedback bar during goNext/goPrev transition to prevent double-mount crash
-  const [mFbForced, setMFbForced] = useState(false);
-  useEffect(() => {
-    AsyncStorage.getItem('nemup_debug_last_tap').then(v => setLastTapRecord(v)).catch(() => {});
-    AsyncStorage.getItem(WF_KEY).then(v => v && setWrongFlowLog(v)).catch(() => {});
-  }, []);
-
-  // [TEMP] Write msg to module buffer + AsyncStorage. Safe to call from event handlers + onLayout.
-  const logWF = (msg: string) => {
-    _wfBuf.push(msg);
-    AsyncStorage.setItem(WF_KEY, _wfBuf.join('\n')).catch(() => {});
-  };
-  // [TEMP] Log every mFbForced state change for on-device sequencing validation
-  useEffect(() => { logWF('[MFB FORCED] ' + mFbForced); }, [mFbForced]);
 
   // Summary slide animation (hooks must be unconditional)
   const touchStartX  = useRef(0);
@@ -880,28 +792,12 @@ export default function SessionPlayerScreen() {
   const optAnimStyles    = [optAnimStyle0, optAnimStyle1, optAnimStyle2, optAnimStyle3, optAnimStyle4];
   const optScaleArr      = [optScale0, optScale1, optScale2, optScale3, optScale4];
 
-  const wrongShakeSV     = useSharedValue(0);
-  const wrongShakeStyle  = useAnimatedStyle(() => ({ transform: [{ translateX: wrongShakeSV.value }] }));
-
   // Summary mode micro-reward animation
   const summaryRewardOpSV = useSharedValue(0);
   const summaryRewardYSV  = useSharedValue(8);
   const summaryRewardStyle2 = useAnimatedStyle(() => ({
     opacity: summaryRewardOpSV.value,
     transform: [{ translateY: summaryRewardYSV.value }],
-  }));
-
-  // Mission feedback bar (Duolingo-style bottom panel)
-  const mFbY  = useSharedValue(220);
-  const mFbOp = useSharedValue(0);
-  const mXpSV = useSharedValue(0);
-  const mFbStyle    = useAnimatedStyle(() => ({
-    opacity:   mFbOp.value,
-    transform: [{ translateY: mFbY.value }],
-  }));
-  const mXpPopStyle = useAnimatedStyle(() => ({
-    opacity:   mXpSV.value,
-    transform: [{ scale: 0.7 + mXpSV.value * 0.3 }],
   }));
 
   // New: TikTok question transition
@@ -935,40 +831,12 @@ export default function SessionPlayerScreen() {
   }));
   const progressFillStyle = useAnimatedStyle(() => ({ width: `${progressSV.value * 100}%` as any }));
 
-  // [TEMP] Global error handler — catches JS errors not caught by ErrorBoundary
-  useEffect(() => {
-    const EU = (global as any).ErrorUtils;
-    if (!EU) return;
-    const prev = EU.getGlobalHandler?.();
-    EU.setGlobalHandler((error: any, isFatal: boolean) => {
-      const banner = `[GLOBAL ERROR] fatal=${isFatal}\n${error?.message ?? String(error)}\n${error?.stack ?? ''}`;
-      console.error(banner);
-      setCrashBanner(banner.slice(0, 800));
-      if (prev) prev(error, isFatal);
-    });
-    return () => { if (prev && EU) EU.setGlobalHandler(prev); };
-  }, []);
-  // [/TEMP]
-
   useEffect(() => {
     if (phase !== 'summary') return;
     slideX.value = SCREEN_W * 0.12;
     slideOpacity.value = 0;
     slideX.value = withSpring(0, { damping: 22, stiffness: 220 });
     slideOpacity.value = withTiming(1, { duration: 240 });
-  }, [summaryIdx, phase]);
-
-  // Reset mission feedback bar on slide change
-  useEffect(() => {
-    if (phase !== 'summary') return;
-    logWF('[RESET EFFECT START] summaryIdx=' + summaryIdx);
-    setMFbForced(false);
-    mFbAnimFiredRef.current = false;
-    mFbY.value  = 220;
-    mFbOp.value = 0;
-    mXpSV.value = 0;
-    wrongShakeSV.value = 0;
-    logWF('[RESET EFFECT END]');
   }, [summaryIdx, phase]);
 
 
@@ -1077,11 +945,6 @@ export default function SessionPlayerScreen() {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
     } else {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error).catch(() => {});
-      wrongShakeSV.value = withSequence(
-        withTiming(-7, { duration: 55 }), withTiming(7, { duration: 55 }),
-        withTiming(-4, { duration: 55 }), withTiming(4, { duration: 55 }),
-        withTiming(0,  { duration: 55 }),
-      );
       setTimeout(() => setOrderTaps([]), 370);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -1233,14 +1096,6 @@ export default function SessionPlayerScreen() {
         withTiming(-5, { duration: 55 }),
         withTiming(5,  { duration: 55 }),
         withTiming(0,  { duration: 55 }),
-      );
-      // Wrong option shake (250ms)
-      wrongShakeSV.value = withSequence(
-        withTiming(-6, { duration: 50 }),
-        withTiming(6,  { duration: 50 }),
-        withTiming(-4, { duration: 50 }),
-        withTiming(4,  { duration: 50 }),
-        withTiming(0,  { duration: 50 }),
       );
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error).catch(() => {});
       setQuizStep('wrong');
@@ -1578,20 +1433,6 @@ export default function SessionPlayerScreen() {
   if (phase === 'summary') {
     const slides            = missionSlides;
     const slide             = slides[summaryIdx];
-    // [TEMP] Mission renderer audit
-    if (slide) {
-      const bs = slide as BackendSlide;
-      console.log(
-        `\n[SLIDE RENDER] idx=${summaryIdx}/${slides.length - 1}` +
-        `\n  type=${slide.type}` +
-        `\n  title="${String(bs.title ?? '').slice(0, 60)}"` +
-        (bs.question ? `\n  question="${String(bs.question).slice(0, 80)}"` : '\n  question=null') +
-        `\n  options=${Array.isArray(bs.options) ? bs.options.length : 'null'}` +
-        `\n  correctAnswer=${bs.correctAnswer ?? 'null'}` +
-        `\n  content="${String(bs.definition ?? '').slice(0, 100)}"`
-      );
-    }
-    // [/TEMP]
     const isLast            = summaryIdx >= slides.length - 1;
     const slideQuizAnswered = slide?.type === 'quiz' ? quizAnswers[summaryIdx] : undefined;
     // Stats for victory screen — computed once, used in victory card renderer and CTA button
@@ -1603,38 +1444,14 @@ export default function SessionPlayerScreen() {
     const answeredInteractive = slides.filter((s, i) => V_INTER.includes(s.type) && !!(s as BackendSlide).correctAnswer && !!quizAnswers[i]).length;
     const noInteractionsAttempted = vInterTotal > 0 && answeredInteractive === 0;
 
-    // [TEMP] Top-level answered — single source of truth for isolation + guard
-    const _bsTop = slide as BackendSlide | undefined;
-    const _isMIsoTypes = new Set(['micro_challenge', 'reinforcement_challenge', 'comprehension', 'mini_quiz', 'final_challenge', 'decide']);
-    const isMIsoActive = _isMIsoTypes.has(slide?.type ?? '') ||
-      (['common_error', 'wow_fact', 'application', 'challenge'].includes(slide?.type ?? '') && !!_bsTop?.question);
-    const topAnswered  = isMIsoActive ? (quizAnswers?.[summaryIdx] ?? null) : null;
-    if (topAnswered !== null) {
-      logWF('[POST ANSWER RENDER] summaryIdx=' + summaryIdx + ' ans=' + topAnswered +
-            ' type=' + String(slide?.type) + ' correct=' + String(_bsTop?.correctAnswer) +
-            ' opts=' + JSON.stringify(_bsTop?.options?.slice(0, 3)));
-    }
-    if (topAnswered !== null && !['A', 'B', 'C', 'D'].includes(topAnswered)) {
-      logWF('[INVALID_ANSWER_STATE] "' + topAnswered + '"');
-      throw new Error('[MISSION] INVALID_ANSWER_STATE: ' + topAnswered);
-    }
-
     const goNext = () => {
-      logWF('[GO NEXT START] summaryIdx=' + summaryIdx + ' mFbForced=' + mFbForced);
-      setMFbForced(true);
       Vibration.vibrate(18);
       slideX.value       = withTiming(-SCREEN_W * 0.15, { duration: 180 }, (done) => {
-        if (done) {
-          runOnJS(logWF)('[GO NEXT SET IDX] ' + (summaryIdx + 1));
-          runOnJS(setSummaryIdx)(summaryIdx + 1);
-        }
+        if (done) runOnJS(setSummaryIdx)(summaryIdx + 1);
       });
       slideOpacity.value = withTiming(0, { duration: 180 });
-      logWF('[GO NEXT END]');
     };
     const goPrev = () => {
-      logWF('[GO PREV START] summaryIdx=' + summaryIdx);
-      setMFbForced(true);
       Vibration.vibrate(10);
       slideX.value       = withTiming(SCREEN_W * 0.15, { duration: 180 }, (done) => {
         if (done) runOnJS(setSummaryIdx)(summaryIdx - 1);
@@ -1716,7 +1533,6 @@ export default function SessionPlayerScreen() {
     };
 
     return (
-      <MissionErrorBoundary>
       <View style={{ flex: 1, backgroundColor: BG }}>
         <StatusBar barStyle="dark-content" backgroundColor={BG} />
         <SafeAreaView style={{ flex: 1 }} edges={['top']}>
@@ -1735,14 +1551,6 @@ export default function SessionPlayerScreen() {
               <Text style={sum.slideCounter}>{summaryIdx + 1}/{slides.length}</Text>
             </View>
           )}
-
-          {/* [TEMP] Crash banner */}
-          {!!crashBanner && (
-            <ScrollView style={{ backgroundColor: '#7F1D1D', maxHeight: 160 }} contentContainerStyle={{ padding: 8 }}>
-              <Text style={{ color: '#FEF2F2', fontSize: 10, fontFamily: 'monospace', lineHeight: 14 }}>{crashBanner}</Text>
-            </ScrollView>
-          )}
-          {/* [/TEMP] */}
 
           {/* Header */}
           <View style={g.topBar}>
@@ -1773,40 +1581,7 @@ export default function SessionPlayerScreen() {
               if (dx > 40 && summaryIdx > 0) goPrev();
             }}
           >
-            {ISOLATE_ANSWERED_RENDER && topAnswered !== null ? (
-              /* [TEMP] STEP 5: replace plain Text ✓/✕ with lucide Check/X.
-                 Still disabled: Animated.View, feedback bar, shake, XP. */
-              <View style={{ padding: 16 }}>
-                <Text style={{ color: '#A5F3FC', fontSize: 10, fontFamily: 'monospace', marginBottom: 10 }}>
-                  {`[STEP 5] ans=${topAnswered} correct=${String(_bsTop?.correctAnswer)} type=${String(slide?.type)}`}
-                </Text>
-                {(_bsTop?.options ?? []).slice(0, 3).map((opt, i) => {
-                  const letter    = LETTERS[i];
-                  const isOpt     = _bsTop?.correctAnswer === letter;
-                  const showGreen = isOpt;
-                  const showRed   = topAnswered === letter && !isOpt;
-                  const dimmed    = !!topAnswered && !isOpt && topAnswered !== letter;
-                  return (
-                    <Pressable
-                      key={i}
-                      style={[
-                        { borderRadius: 10, padding: 14, marginBottom: 8, borderWidth: 2, flexDirection: 'row', alignItems: 'center', gap: 10 },
-                        showGreen
-                          ? { backgroundColor: '#14532D', borderColor: '#16A34A' }
-                          : showRed
-                          ? { backgroundColor: '#7F1D1D', borderColor: '#DC2626' }
-                          : { backgroundColor: '#1E293B', borderColor: '#334155' },
-                        { opacity: dimmed ? 0.35 : 1 },
-                      ]}
-                    >
-                      <Text style={{ color: '#F1F5F9', fontSize: 15, flex: 1 }}>{String(opt)}</Text>
-                      {showGreen && <Check size={18} color="#4ADE80" strokeWidth={2.5} />}
-                      {showRed   && <X     size={18} color="#F87171" strokeWidth={2.5} />}
-                    </Pressable>
-                  );
-                })}
-              </View>
-            ) : slide?.type === 'quiz' ? (
+            {slide?.type === 'quiz' ? (
               <View style={sum.quizCard}>
                 <Text style={sum.quizLabel}>🧠 MINI QUIZ</Text>
                 <Text style={sum.quizQuestion}>{slide.question}</Text>
@@ -2044,15 +1819,14 @@ export default function SessionPlayerScreen() {
                               }}
                               style={[sum.quizOption, showGreen && sum.quizOptCorrect, showRed && sum.quizOptWrong, { opacity: dimmed ? 0.35 : 1 }]}
                             >
-                              {/* ShakeWrapper: inner Animated.View, ONLY wrongShakeStyle — no React state here */}
-                              <Animated.View style={wrongShakeStyle}>
+                              <View>
                                 <View style={[sum.quizLetter, showGreen && sum.quizLetterGreen, showRed && sum.quizLetterRed]}>
                                   {showGreen ? <Check size={12} color={palette.blanco} strokeWidth={3} /> :
                                    showRed   ? <X    size={12} color={palette.blanco} strokeWidth={3} /> :
                                    <Text style={sum.quizLetterText}>{letter}</Text>}
                                 </View>
                                 <Text style={[sum.quizOptText, showGreen && { color: BRAND, fontWeight: '700' }, showRed && { color: '#991B1B', fontWeight: '700' }]}>{opt}</Text>
-                              </Animated.View>
+                              </View>
                             </Pressable>
                           );
                         })}
@@ -2066,27 +1840,6 @@ export default function SessionPlayerScreen() {
                 const answered = quizAnswers[summaryIdx];
                 return (
                   <View style={sum.microCard}>
-                    {/* [TEMP] Debug panel — visible before tap */}
-                    <View style={{ backgroundColor: '#1E1B4B', padding: 8, margin: 6, borderRadius: 6 }}>
-                      <Text style={{ color: '#A5F3FC', fontSize: 9, fontFamily: 'monospace', lineHeight: 14 }} selectable>
-                        {`[DBG] idx=${summaryIdx} totalSlides=${missionSlides.length}\n` +
-                         `type=${slide.type} correctAnswer=${JSON.stringify(slide.correctAnswer)}\n` +
-                         `options(${slide.options?.length ?? 'null'})=${JSON.stringify(slide.options?.slice(0,3))}\n` +
-                         `question="${String(slide.question ?? '').slice(0, 60)}"\n` +
-                         `answered=${JSON.stringify(answered ?? null)}`}
-                      </Text>
-                      {!!lastTapRecord && (
-                        <Text style={{ color: '#FDE68A', fontSize: 9, fontFamily: 'monospace', lineHeight: 14, marginTop: 6, borderTopWidth: 1, borderTopColor: '#374151', paddingTop: 6 }} selectable>
-                          {'[LAST TAP BEFORE CRASH]\n' + lastTapRecord}
-                        </Text>
-                      )}
-                      {!!wrongFlowLog && (
-                        <Text style={{ color: '#86EFAC', fontSize: 9, fontFamily: 'monospace', lineHeight: 14, marginTop: 6, borderTopWidth: 1, borderTopColor: '#374151', paddingTop: 6 }} selectable>
-                          {'[WRONG FLOW LOG - prev session]\n' + wrongFlowLog}
-                        </Text>
-                      )}
-                    </View>
-                    {/* [/TEMP] */}
                     <View style={sum.microHeader}>
                       <Text style={sum.microLabel}>🏁 CHECKPOINT</Text>
                       <Text style={sum.microSubtitle}>Responde antes de continuar</Text>
@@ -2100,63 +1853,23 @@ export default function SessionPlayerScreen() {
                           const showGreen = !!answered && isOpt;
                           const showRed   = answered === letter && !isOpt;
                           const dimmed    = !!answered && !isOpt && answered !== letter;
-
-                          // [TEMP] Option render forensics
-                          console.log(
-                            `[OPTION RENDER] type=${slide.type} idx=${i}` +
-                            ` rawOption=${JSON.stringify(opt)}` +
-                            ` parsedLetter=${letter}` +
-                            ` parsedLabel=${JSON.stringify(opt)}` +
-                            ` childrenRendered=${opt != null && String(opt).trim() !== ''}`
-                          );
-                          if (answered) {
-                            console.log(`[WRONG FLOW 4] showRed start idx=${i} answered=${answered} letter=${letter} isOpt=${isOpt}`);
-                            console.log(`[WRONG FLOW 5] showRed end   idx=${i} showRed=${showRed}`);
-                            console.log(`[WRONG FLOW 6] dimmed  start idx=${i}`);
-                            console.log(`[WRONG FLOW 7] dimmed  end   idx=${i} dimmed=${dimmed}`);
-                          }
-
                           return (
-                            // OptionCard: static outer, receives all React state mutations
                             <Pressable
                               key={i}
                               onPress={() => {
-                                // [TEMP] Clear previous log and start fresh for this tap
-                                _wfBuf.length = 0;
-                                logWF(`[WRONG FLOW 1] onPress entered letter=${letter} isOpt=${isOpt} answered=${answered ?? 'null'}`);
-                                const tapRecord = JSON.stringify({
-                                  letter, isOpt, summaryIdx,
-                                  slideType: slide.type,
-                                  correctAnswer: slide.correctAnswer,
-                                  optionsCount: slide.options?.length,
-                                  answeredBefore: answered ?? null,
-                                  ts: Date.now(),
-                                });
-                                AsyncStorage.setItem('nemup_debug_last_tap', tapRecord).catch(() => {});
-                                try {
-                                  if (!answered) {
-                                    missionStreakRef.current = isOpt ? missionStreakRef.current + 1 : 0;
-                                    logWF('[WRONG FLOW 2] setQuizAnswers start');
-                                    setQuizAnswers(prev => ({ ...prev, [summaryIdx]: letter }));
-                                    logWF('[WRONG FLOW 3] setQuizAnswers end (called)');
-                                  }
-                                } catch (e: any) {
-                                  logWF('[MISSION CRASH] ' + String(e) + ' ' + String(e?.stack ?? ''));
+                                if (!answered) {
+                                  missionStreakRef.current = isOpt ? missionStreakRef.current + 1 : 0;
+                                  setQuizAnswers(prev => ({ ...prev, [summaryIdx]: letter }));
                                 }
-                                // [/TEMP]
                               }}
                               style={[sum.quizOption, showGreen && sum.quizOptCorrect, showRed && sum.quizOptWrong, { opacity: dimmed ? 0.35 : 1 }]}
                             >
-                              {/* ShakeWrapper: inner Animated.View, ONLY wrongShakeStyle — no React state here */}
-                              {console.log(`[SHAKE OWNERSHIP] optionCard=Pressable shakeWrapper=Animated.View textNode=mounted idx=${i} answered=${answered ?? 'null'}`)}
-                              <Animated.View style={wrongShakeStyle}>
-                                <View style={[sum.quizLetter, showGreen && sum.quizLetterGreen, showRed && sum.quizLetterRed]}>
-                                  {showGreen ? <Check size={12} color={palette.blanco} strokeWidth={3} /> :
-                                   showRed   ? <X    size={12} color={palette.blanco} strokeWidth={3} /> :
-                                   <Text style={sum.quizLetterText}>{letter}</Text>}
-                                </View>
-                                <Text style={[sum.quizOptText, showGreen && { color: BRAND, fontWeight: '700' }, showRed && { color: '#991B1B', fontWeight: '700' }]}>{opt}</Text>
-                              </Animated.View>
+                              <View style={[sum.quizLetter, showGreen && sum.quizLetterGreen, showRed && sum.quizLetterRed]}>
+                                {showGreen ? <Check size={12} color={palette.blanco} strokeWidth={3} /> :
+                                 showRed   ? <X    size={12} color={palette.blanco} strokeWidth={3} /> :
+                                 <Text style={sum.quizLetterText}>{letter}</Text>}
+                              </View>
+                              <Text style={[sum.quizOptText, showGreen && { color: BRAND, fontWeight: '700' }, showRed && { color: '#991B1B', fontWeight: '700' }]}>{opt}</Text>
                             </Pressable>
                           );
                         })}
@@ -2195,15 +1908,14 @@ export default function SessionPlayerScreen() {
                               }}
                               style={[sum.quizOption, showGreen && sum.quizOptCorrect, showRed && sum.quizOptWrong, { opacity: dimmed ? 0.35 : 1 }]}
                             >
-                              {/* ShakeWrapper: inner Animated.View, ONLY wrongShakeStyle — no React state here */}
-                              <Animated.View style={wrongShakeStyle}>
+                              <View>
                                 <View style={[sum.quizLetter, showGreen && sum.quizLetterGreen, showRed && sum.quizLetterRed]}>
                                   {showGreen ? <Check size={12} color={palette.blanco} strokeWidth={3} /> :
                                    showRed   ? <X    size={12} color={palette.blanco} strokeWidth={3} /> :
                                    <Text style={sum.quizLetterText}>{letter}</Text>}
                                 </View>
                                 <Text style={[sum.quizOptText, showGreen && { color: BRAND, fontWeight: '700' }, showRed && { color: '#991B1B', fontWeight: '700' }]}>{opt}</Text>
-                              </Animated.View>
+                              </View>
                             </Pressable>
                           );
                         })}
@@ -2270,14 +1982,14 @@ export default function SessionPlayerScreen() {
                         }}
                         style={[sum.quizOption, showGreen && sum.quizOptCorrect, showRed && sum.quizOptWrong, { opacity: dimmed ? 0.35 : 1 }]}
                       >
-                        <Animated.View style={wrongShakeStyle}>
+                        <View>
                           <View style={[sum.quizLetter, showGreen && sum.quizLetterGreen, showRed && sum.quizLetterRed]}>
                             {showGreen ? <Check size={12} color={palette.blanco} strokeWidth={3} /> :
                              showRed   ? <X    size={12} color={palette.blanco} strokeWidth={3} /> :
                              <Text style={sum.quizLetterText}>{letter}</Text>}
                           </View>
                           <Text style={[sum.quizOptText, showGreen && { color: BRAND, fontWeight: '700' }, showRed && { color: '#991B1B', fontWeight: '700' }]}>{opt}</Text>
-                        </Animated.View>
+                        </View>
                       </Pressable>
                     );
                   })}
@@ -2468,14 +2180,14 @@ export default function SessionPlayerScreen() {
                           }}
                           style={[sum.quizOption, showGreen && sum.quizOptCorrect, showRed && sum.quizOptWrong, { opacity: dimmed ? 0.35 : 1 }]}
                         >
-                          <Animated.View style={wrongShakeStyle}>
+                          <View>
                             <View style={[sum.quizLetter, showGreen && sum.quizLetterGreen, showRed && sum.quizLetterRed]}>
                               {showGreen ? <Check size={12} color={palette.blanco} strokeWidth={3} /> :
                                showRed   ? <X    size={12} color={palette.blanco} strokeWidth={3} /> :
                                <Text style={sum.quizLetterText}>{letter}</Text>}
                             </View>
                             <Text style={[sum.quizOptText, showGreen && { color: BRAND, fontWeight: '700' }, showRed && { color: '#991B1B', fontWeight: '700' }]}>{opt}</Text>
-                          </Animated.View>
+                          </View>
                         </Pressable>
                       );
                     })}
@@ -2505,14 +2217,14 @@ export default function SessionPlayerScreen() {
                         }}
                         style={[sum.quizOption, showGreen && sum.quizOptCorrect, showRed && sum.quizOptWrong, { opacity: dimmed ? 0.35 : 1 }]}
                       >
-                        <Animated.View style={wrongShakeStyle}>
+                        <View>
                           <View style={[sum.quizLetter, showGreen && sum.quizLetterGreen, showRed && sum.quizLetterRed]}>
                             {showGreen ? <Check size={12} color={palette.blanco} strokeWidth={3} /> :
                              showRed   ? <X    size={12} color={palette.blanco} strokeWidth={3} /> :
                              <Text style={sum.quizLetterText}>{letter}</Text>}
                           </View>
                           <Text style={[sum.quizOptText, showGreen && { color: BRAND, fontWeight: '700' }, showRed && { color: '#991B1B', fontWeight: '700' }]}>{opt}</Text>
-                        </Animated.View>
+                        </View>
                       </Pressable>
                     );
                   })}
@@ -2532,7 +2244,7 @@ export default function SessionPlayerScreen() {
                 }
                 const answered = quizAnswers[summaryIdx];
                 return (
-                  <Animated.View style={[sum.orderCard, wrongShakeStyle]}>
+                  <View style={sum.orderCard}>
                     <Text style={sum.orderLabel}>🔀 ORDENA LA SECUENCIA</Text>
                     <Text style={sum.orderTitle}>{(slide as BackendSlide).title}</Text>
                     <Text style={sum.orderHint}>
@@ -2581,7 +2293,7 @@ export default function SessionPlayerScreen() {
                         <Text style={sum.orderSuccessTxt}>¡Aprendiste el orden! 🎉</Text>
                       </View>
                     )}
-                  </Animated.View>
+                  </View>
                 );
               })()
             ) : slide?.type === 'challenge' ? (
@@ -3081,24 +2793,7 @@ export default function SessionPlayerScreen() {
             const isMissionInteractive = MISSION_QUIZ_TYPES.has(slide?.type ?? '') ||
               (['common_error', 'wow_fact', 'application', 'challenge'].includes(slide?.type ?? '') && !!bs?.question);
             const missionAnswered = isMissionInteractive ? quizAnswers[summaryIdx] : undefined;
-            // [TEMP] STEP 8: add plain Continuar CTA calling goNext() only
             const missionCorrect  = !!missionAnswered && missionAnswered === bs?.correctAnswer;
-            if (ISOLATE_ANSWERED_RENDER && missionAnswered) {
-              const safeCorrectOption =
-                bs?.options?.find(
-                  (o) => typeof o === 'string' && o.startsWith(bs?.correctAnswer ?? '')
-                ) ?? 'NO_CORRECT_OPTION';
-              return (
-                <View>
-                  <Text>{missionCorrect ? 'Correcto' : 'Incorrecto'}</Text>
-                  <Text>{bs?.definition ?? 'NO_EXPLANATION'}</Text>
-                  <Text>{safeCorrectOption}</Text>
-                  <Pressable onPress={() => goNext()}>
-                    <Text>Continuar</Text>
-                  </Pressable>
-                </View>
-              );
-            }
             const _seed = (summaryIdx * 2654435761) >>> 0;
             const celebMsg = MISSION_FB_OK[_seed % MISSION_FB_OK.length];
             const errMsg   = MISSION_FB_ERR[(_seed ^ 0xDEAD) % MISSION_FB_ERR.length];
@@ -3107,48 +2802,15 @@ export default function SessionPlayerScreen() {
                                 missionStreakRef.current === 3 ? '🔥 ¡3 seguidas!' :
                                 missionStreakRef.current === 2 ? '🔥 ¡Racha de 2!' : null;
             const xpLabel = slide?.type === 'final_challenge' ? '+10 XP' : '+5 XP';
-            const fbActive = isMissionInteractive && !!missionAnswered && !mFbForced;
-            // FLOW 10/11: render-time only — plain array push, no I/O (safe in render)
-            if (_wfBuf.length > 0) {
-              _wfBuf.push(`[WRONG FLOW 10] fbActive=${fbActive} missionAnswered=${missionAnswered ?? 'null'} missionCorrect=${missionCorrect}`);
-            }
+            const fbActive = isMissionInteractive && !!missionAnswered;
 
             if (fbActive) {
-              // Feedback bar mounts here for the first time. onLayout fires after native layout
-              // completes — by that point Reanimated has registered ALL views (feedback bar, XP
-              // chip, option views) on its worklet thread, so every SharedValue write is safe.
+              // Static feedback bar — no mount animation, no SharedValue writes.
               return (
-                <Animated.View
-                  style={[sum.mFeedbackBar, missionCorrect ? sum.mFeedbackBarOk : sum.mFeedbackBarErr, mFbStyle,
+                <View
+                  style={[sum.mFeedbackBar, missionCorrect ? sum.mFeedbackBarOk : sum.mFeedbackBarErr,
                     { paddingBottom: insets.bottom + 12, position: 'absolute', bottom: 0, left: 0, right: 0 }]}
-                  onLayout={() => {
-                    logWF('[FEEDBACK ONLAYOUT] alreadyFired=' + mFbAnimFiredRef.current);
-                    if (mFbAnimFiredRef.current) return;
-                    mFbAnimFiredRef.current = true;
-                    mFbY.value  = withSpring(0, { damping: 22, stiffness: 240 });
-                    mFbOp.value = withTiming(1, { duration: 160 });
-                    if (missionCorrect) {
-                      mXpSV.value = withDelay(200, withSpring(1, { damping: 12, stiffness: 300 }));
-                    } else {
-                      logWF(`[WRONG FLOW 8] wrongShakeSV start DISABLE_WRONG_SHAKE=${DISABLE_WRONG_SHAKE}`);
-                      try {
-                        if (!DISABLE_WRONG_SHAKE) {
-                          wrongShakeSV.value = withSequence(
-                            withTiming(-10, { duration: 55 }),
-                            withTiming(10,  { duration: 55 }),
-                            withTiming(-7,  { duration: 45 }),
-                            withTiming(7,   { duration: 45 }),
-                            withTiming(0,   { duration: 40 }),
-                          );
-                        }
-                        logWF(`[WRONG FLOW 9] wrongShakeSV end skipped=${DISABLE_WRONG_SHAKE}`);
-                      } catch (e: any) {
-                        logWF('[WRONG FLOW 9] wrongShakeSV CRASHED ' + String(e));
-                      }
-                    }
-                  }}
                 >
-                  <FbMountTracker />
                   <View style={sum.mFbContent}>
                     {missionCorrect ? (
                       <>
@@ -3168,9 +2830,9 @@ export default function SessionPlayerScreen() {
                       </>
                     )}
                     {missionCorrect && (
-                      <Animated.View style={[sum.mXpChip, mXpPopStyle]}>
+                      <View style={sum.mXpChip}>
                         <Text style={sum.mXpText}>{xpLabel}</Text>
-                      </Animated.View>
+                      </View>
                     )}
                   </View>
                   <Pressable
@@ -3179,7 +2841,7 @@ export default function SessionPlayerScreen() {
                   >
                     <Text style={sum.mContinueBtnText}>{isLast ? '¡Misión completada! →' : 'Continuar'}</Text>
                   </Pressable>
-                </Animated.View>
+                </View>
               );
             }
             if ((slide?.type === 'quiz' && !slideQuizAnswered) || (isMissionInteractive && !missionAnswered)) {
@@ -3214,7 +2876,6 @@ export default function SessionPlayerScreen() {
           })()}
         </SafeAreaView>
       </View>
-      </MissionErrorBoundary>
     );
   }
 
@@ -3474,7 +3135,6 @@ export default function SessionPlayerScreen() {
                     <Animated.View
                       key={opt.id}
                       style={
-                        isWrong   ? [baseAnim, wrongShakeStyle] :
                         showBrand ? [baseAnim, correctGlowStyle] :
                         baseAnim
                       }
