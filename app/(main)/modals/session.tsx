@@ -2804,44 +2804,52 @@ export default function SessionPlayerScreen() {
             const xpLabel = slide?.type === 'final_challenge' ? '+10 XP' : '+5 XP';
             const fbActive = isMissionInteractive && !!missionAnswered;
 
-            if (fbActive) {
-              // Static feedback bar — no mount animation, no SharedValue writes.
-              // key encodes correctness so React remounts (never reconciles the
-              // correct-shape subtree against the wrong-shape subtree, which
-              // crashes Fabric when alternating correct/wrong across slides).
+            // Incorrect — emoji+title as Text nodes at mFbContent[0,1] so Fabric
+            // never hits a View/Text type-mismatch when reconciling against the
+            // Text-first structure inside cta-choose's ctaBtnOff.
+            if (fbActive && !missionCorrect) {
               return (
                 <View
-                  key={`fb-${summaryIdx}-${missionCorrect ? 'correct' : 'incorrect'}`}
-                  style={[sum.mFeedbackBar, missionCorrect ? sum.mFeedbackBarOk : sum.mFeedbackBarErr,
+                  key={`fb-${summaryIdx}-incorrect`}
+                  style={[sum.mFeedbackBar, sum.mFeedbackBarErr,
                     { paddingBottom: insets.bottom + 12, position: 'absolute', bottom: 0, left: 0, right: 0 }]}
                 >
                   <View style={sum.mFbContent}>
-                    {/* Isomorphic structure: child[0] is always View(mFbRow), child[1] is always
-                        Text(mFbTitle). Mixing View/Text at the same child position across
-                        correct vs incorrect triggers a Fabric type-mismatch crash on RN 0.81
-                        New Architecture even when the outer key forces a remount. */}
-                    <View style={sum.mFbRow}>
-                      <Text style={sum.mFbEmoji}>{missionCorrect ? celebMsg.emoji : errMsg.emoji}</Text>
-                      {missionCorrect && !!streakLabel && (
-                        <View style={sum.mStreakBadge}><Text style={sum.mStreakText}>{streakLabel}</Text></View>
-                      )}
-                    </View>
-                    <Text style={sum.mFbTitle}>{missionCorrect ? celebMsg.text : errMsg.text}</Text>
-                    {!missionCorrect && !!bs?.definition && (
-                      <Text style={sum.mFbExpl} numberOfLines={3}>{bs.definition}</Text>
-                    )}
-                    {!missionCorrect && !!bs?.correctAnswer && (
-                      <Text style={sum.mFbCorrect}>Respuesta: {bs.correctAnswer}</Text>
-                    )}
-                    {missionCorrect && (
-                      <View style={sum.mXpChip}>
-                        <Text style={sum.mXpText}>{xpLabel}</Text>
-                      </View>
-                    )}
+                    <Text style={sum.mFbEmoji}>{errMsg.emoji}</Text>
+                    <Text style={sum.mFbTitle}>{errMsg.text}</Text>
+                    {bs?.definition ? <Text style={sum.mFbExpl} numberOfLines={3}>{bs.definition}</Text> : null}
+                    {bs?.correctAnswer ? <Text style={sum.mFbCorrect}>Respuesta: {bs.correctAnswer}</Text> : null}
                   </View>
                   <Pressable
                     onPress={() => isLast ? completeMode('summary') : goNext()}
-                    style={[sum.mContinueBtn, !missionCorrect && sum.mContinueBtnErr]}
+                    style={[sum.mContinueBtn, sum.mContinueBtnErr]}
+                  >
+                    <Text style={sum.mContinueBtnText}>{isLast ? '¡Misión completada! →' : 'Continuar'}</Text>
+                  </Pressable>
+                </View>
+              );
+            }
+            // Correct — same Text-first rule: emoji at [0], title at [1].
+            if (fbActive && missionCorrect) {
+              return (
+                <View
+                  key={`fb-${summaryIdx}-correct`}
+                  style={[sum.mFeedbackBar, sum.mFeedbackBarOk,
+                    { paddingBottom: insets.bottom + 12, position: 'absolute', bottom: 0, left: 0, right: 0 }]}
+                >
+                  <View style={sum.mFbContent}>
+                    <Text style={sum.mFbEmoji}>{celebMsg.emoji}</Text>
+                    <Text style={sum.mFbTitle}>{celebMsg.text}</Text>
+                    {streakLabel ? (
+                      <View style={sum.mStreakBadge}><Text style={sum.mStreakText}>{streakLabel}</Text></View>
+                    ) : null}
+                    <View style={sum.mXpChip}>
+                      <Text style={sum.mXpText}>{xpLabel}</Text>
+                    </View>
+                  </View>
+                  <Pressable
+                    onPress={() => isLast ? completeMode('summary') : goNext()}
+                    style={sum.mContinueBtn}
                   >
                     <Text style={sum.mContinueBtnText}>{isLast ? '¡Misión completada! →' : 'Continuar'}</Text>
                   </Pressable>
