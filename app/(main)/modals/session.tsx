@@ -1846,7 +1846,7 @@ export default function SessionPlayerScreen() {
                     </View>
                     <View style={{ paddingHorizontal: SM ? 14 : 18, paddingBottom: SM ? 14 : 18 }}>
                       <Text style={[sum.quizQuestion, { marginTop: 12 }]}>{slide.question ?? slide.title}</Text>
-                      <View style={{ gap: 8, marginTop: 14 }}>
+                      <View key={`options-${summaryIdx}-${answered ?? 'none'}`} style={{ gap: 8, marginTop: 14 }}>
                         {slide.options?.slice(0, 3).map((opt, i) => {
                           const letter    = LETTERS[i];
                           const isOpt     = slide.correctAnswer === letter;
@@ -1889,7 +1889,7 @@ export default function SessionPlayerScreen() {
                     </View>
                     <View style={{ paddingHorizontal: SM ? 14 : 18, paddingBottom: SM ? 14 : 18 }}>
                       <Text style={[sum.quizQuestion, { marginTop: 12 }]}>{slide.question ?? slide.title}</Text>
-                      <View style={{ gap: 8, marginTop: 14 }}>
+                      <View key={`options-${summaryIdx}-${answered ?? 'none'}`} style={{ gap: 8, marginTop: 14 }}>
                         {slide.options?.slice(0, 3).map((opt, i) => {
                           const letter    = LETTERS[i];
                           const isOpt     = slide.correctAnswer === letter;
@@ -1963,7 +1963,7 @@ export default function SessionPlayerScreen() {
               <View style={sum.quizCard}>
                 <Text style={sum.quizLabel}>⚡ MINI QUIZ</Text>
                 <Text style={sum.quizQuestion}>{slide.question ?? slide.title}</Text>
-                <View style={{ gap: 8, marginTop: 14 }}>
+                <View key={`options-${summaryIdx}-${quizAnswers[summaryIdx] ?? 'none'}`} style={{ gap: 8, marginTop: 14 }}>
                   {slide.options?.map((opt, i) => {
                     const letter    = LETTERS[i];
                     const answered  = quizAnswers[summaryIdx];
@@ -2161,7 +2161,7 @@ export default function SessionPlayerScreen() {
                 </View>
                 <View style={sum.retoBody}>
                   <Text style={sum.challengeQuestion}>{slide.question ?? slide.title}</Text>
-                  <View style={{ gap: 8 }}>
+                  <View key={`options-${summaryIdx}-${quizAnswers[summaryIdx] ?? 'none'}`} style={{ gap: 8 }}>
                     {slide.options?.map((opt, i) => {
                       const letter    = LETTERS[i];
                       const answered  = quizAnswers[summaryIdx];
@@ -2198,7 +2198,7 @@ export default function SessionPlayerScreen() {
               <View style={sum.quizCard}>
                 <Text style={[sum.quizLabel, { color: '#FF7A2B' }]}>🤔 DECIDE</Text>
                 <Text style={sum.quizQuestion}>{slide.question ?? slide.title}</Text>
-                <View style={{ gap: 8, marginTop: 14 }}>
+                <View key={`options-${summaryIdx}-${quizAnswers[summaryIdx] ?? 'none'}`} style={{ gap: 8, marginTop: 14 }}>
                   {slide.options?.map((opt, i) => {
                     const letter    = LETTERS[i];
                     const answered  = quizAnswers[summaryIdx];
@@ -2811,11 +2811,11 @@ export default function SessionPlayerScreen() {
               // crashes Fabric when alternating correct/wrong across slides).
               return (
                 <View
-                  key={`mFb-${summaryIdx}-${missionCorrect ? 'ok' : 'err'}`}
+                  key={`fb-${summaryIdx}-${missionCorrect ? 'correct' : 'incorrect'}`}
                   style={[sum.mFeedbackBar, missionCorrect ? sum.mFeedbackBarOk : sum.mFeedbackBarErr,
                     { paddingBottom: insets.bottom + 12, position: 'absolute', bottom: 0, left: 0, right: 0 }]}
                 >
-                  <View style={sum.mFbContent}>
+                  <View key={`explanation-${summaryIdx}-${missionCorrect ? 'ok' : 'err'}`} style={sum.mFbContent}>
                     {missionCorrect ? (
                       <>
                         <View style={sum.mFbRow}>
@@ -2850,7 +2850,7 @@ export default function SessionPlayerScreen() {
             }
             if ((slide?.type === 'quiz' && !slideQuizAnswered) || (isMissionInteractive && !missionAnswered)) {
               return (
-                <View key="cta-choose" style={[g.bottom, { paddingBottom: insets.bottom + 12 }]}>
+                <View key={`cta-choose-${summaryIdx}`} style={[g.bottom, { paddingBottom: insets.bottom + 12 }]}>
                   <View style={g.ctaBtnOff}>
                     <Text style={g.ctaTextOff}>Elige una opción</Text>
                   </View>
