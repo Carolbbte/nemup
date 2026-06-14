@@ -2786,7 +2786,9 @@ export default function SessionPlayerScreen() {
             {/* Summary micro-reward — integrated into feedback boxes (no floating overlay) */}
           </Animated.View>
 
-          {/* CTA — Duolingo feedback bar (when answered) OR navigation button */}
+          {/* CTA — three always-present nodes; display prop toggles which is visible.
+              Never unmounts/remounts anything → eliminates all Fabric shadow-tree
+              reconciliation crashes on RN 0.81 New Architecture. */}
           {(() => {
             const bs = slide as BackendSlide | undefined;
             const MISSION_QUIZ_TYPES = new Set(['micro_challenge', 'reinforcement_challenge', 'comprehension', 'mini_quiz', 'final_challenge', 'decide']);
@@ -2801,89 +2803,65 @@ export default function SessionPlayerScreen() {
                                 missionStreakRef.current === 4 ? '⚡ ¡Racha de 4!' :
                                 missionStreakRef.current === 3 ? '🔥 ¡3 seguidas!' :
                                 missionStreakRef.current === 2 ? '🔥 ¡Racha de 2!' : null;
-            const xpLabel = slide?.type === 'final_challenge' ? '+10 XP' : '+5 XP';
-            const fbActive = isMissionInteractive && !!missionAnswered;
+            const xpLabel     = slide?.type === 'final_challenge' ? '+10 XP' : '+5 XP';
+            const fbActive    = isMissionInteractive && !!missionAnswered;
+            const needsChoose = !fbActive && ((slide?.type === 'quiz' && !slideQuizAnswered) || (isMissionInteractive && !missionAnswered));
+            const showNav     = !fbActive && !needsChoose;
+            const navLabel    = isLast && slide?.type === 'victory'
+              ? (NEUTRAL_MISSION_COMPLETION ? 'Continuar al Quiz →' : noInteractionsAttempted ? 'Cerrar misión' : '🏆 ¡Misión completada!')
+              : isLast                                   ? '✅ Completar resumen'
+              : slide?.type === 'mission'                ? '¡Comenzar! →'
+              : (slide?.type === 'challenge' && !bs?.correctAnswer) ? '🤔 Lo pensé →'
+              : slide?.type === 'motivation'             ? '¡Seguimos! →'
+              : slide?.type === 'prediction'             ? '🧠 Entendido →'
+              : 'Siguiente →';
 
-            // Incorrect — emoji+title as Text nodes at mFbContent[0,1] so Fabric
-            // never hits a View/Text type-mismatch when reconciling against the
-            // Text-first structure inside cta-choose's ctaBtnOff.
-            if (fbActive && !missionCorrect) {
-              return (
-                <View
-                  key={`fb-${summaryIdx}-incorrect`}
-                  style={[sum.mFeedbackBar, sum.mFeedbackBarErr,
-                    { paddingBottom: insets.bottom + 12, position: 'absolute', bottom: 0, left: 0, right: 0 }]}
-                >
+            return (
+              <>
+                {/* 1 — Feedback bar: absolute, always in the tree */}
+                <View style={[sum.mFeedbackBar, missionCorrect ? sum.mFeedbackBarOk : sum.mFeedbackBarErr,
+                  { paddingBottom: insets.bottom + 12, position: 'absolute', bottom: 0, left: 0, right: 0,
+                    display: fbActive ? 'flex' : 'none' }]}>
                   <View style={sum.mFbContent}>
-                    <Text style={sum.mFbEmoji}>{errMsg.emoji}</Text>
-                    <Text style={sum.mFbTitle}>{errMsg.text}</Text>
-                    {bs?.definition ? <Text style={sum.mFbExpl} numberOfLines={3}>{bs.definition}</Text> : null}
-                    {bs?.correctAnswer ? <Text style={sum.mFbCorrect}>Respuesta: {bs.correctAnswer}</Text> : null}
-                  </View>
-                  <Pressable
-                    onPress={() => isLast ? completeMode('summary') : goNext()}
-                    style={[sum.mContinueBtn, sum.mContinueBtnErr]}
-                  >
-                    <Text style={sum.mContinueBtnText}>{isLast ? '¡Misión completada! →' : 'Continuar'}</Text>
-                  </Pressable>
-                </View>
-              );
-            }
-            // Correct — same Text-first rule: emoji at [0], title at [1].
-            if (fbActive && missionCorrect) {
-              return (
-                <View
-                  key={`fb-${summaryIdx}-correct`}
-                  style={[sum.mFeedbackBar, sum.mFeedbackBarOk,
-                    { paddingBottom: insets.bottom + 12, position: 'absolute', bottom: 0, left: 0, right: 0 }]}
-                >
-                  <View style={sum.mFbContent}>
-                    <Text style={sum.mFbEmoji}>{celebMsg.emoji}</Text>
-                    <Text style={sum.mFbTitle}>{celebMsg.text}</Text>
-                    {streakLabel ? (
-                      <View style={sum.mStreakBadge}><Text style={sum.mStreakText}>{streakLabel}</Text></View>
-                    ) : null}
-                    <View style={sum.mXpChip}>
+                    <Text style={sum.mFbEmoji}>{missionCorrect ? celebMsg.emoji : errMsg.emoji}</Text>
+                    <Text style={sum.mFbTitle}>{missionCorrect ? celebMsg.text : errMsg.text}</Text>
+                    <Text style={[sum.mFbExpl, { display: (!missionCorrect && !!bs?.definition) ? 'flex' : 'none' }]} numberOfLines={3}>
+                      {bs?.definition ?? ''}
+                    </Text>
+                    <Text style={[sum.mFbCorrect, { display: (!missionCorrect && !!bs?.correctAnswer) ? 'flex' : 'none' }]}>
+                      {bs?.correctAnswer ? `Respuesta: ${bs.correctAnswer}` : ''}
+                    </Text>
+                    <View style={[sum.mStreakBadge, { display: (missionCorrect && !!streakLabel) ? 'flex' : 'none' }]}>
+                      <Text style={sum.mStreakText}>{streakLabel ?? ''}</Text>
+                    </View>
+                    <View style={[sum.mXpChip, { display: missionCorrect ? 'flex' : 'none' }]}>
                       <Text style={sum.mXpText}>{xpLabel}</Text>
                     </View>
                   </View>
                   <Pressable
                     onPress={() => isLast ? completeMode('summary') : goNext()}
-                    style={sum.mContinueBtn}
+                    style={[sum.mContinueBtn, !missionCorrect ? sum.mContinueBtnErr : null]}
                   >
                     <Text style={sum.mContinueBtnText}>{isLast ? '¡Misión completada! →' : 'Continuar'}</Text>
                   </Pressable>
                 </View>
-              );
-            }
-            if ((slide?.type === 'quiz' && !slideQuizAnswered) || (isMissionInteractive && !missionAnswered)) {
-              return (
-                <View key={`cta-choose-${summaryIdx}`} style={[g.bottom, { paddingBottom: insets.bottom + 12 }]}>
+
+                {/* 2 — Choose CTA: in-flow, always in the tree */}
+                <View style={[g.bottom, { paddingBottom: insets.bottom + 12, display: needsChoose ? 'flex' : 'none' }]}>
                   <View style={g.ctaBtnOff}>
                     <Text style={g.ctaTextOff}>Elige una opción</Text>
                   </View>
                 </View>
-              );
-            }
-            return (
-              <View key="cta-nav" style={[g.bottom, { paddingBottom: insets.bottom + 12 }]}>
-                <Pressable onPress={() => isLast ? completeMode('summary') : goNext()} style={{ width: '100%' }}>
-                  <View style={[g.ctaBtn, { backgroundColor: BRAND }]}>
-                    <Text style={g.ctaText}>
-                      {isLast && slide?.type === 'victory' ? (
-                        NEUTRAL_MISSION_COMPLETION ? 'Continuar al Quiz →' :
-                        noInteractionsAttempted ? 'Cerrar misión' : '🏆 ¡Misión completada!'
-                      ) :
-                      isLast ? '✅ Completar resumen' :
-                      slide?.type === 'mission' ? '¡Comenzar! →' :
-                      (slide?.type === 'challenge' && !bs?.correctAnswer) ? '🤔 Lo pensé →' :
-                      slide?.type === 'motivation' ? '¡Seguimos! →' :
-                      slide?.type === 'prediction' ? '🧠 Entendido →' :
-                      'Siguiente →'}
-                    </Text>
-                  </View>
-                </Pressable>
-              </View>
+
+                {/* 3 — Nav CTA: in-flow, always in the tree */}
+                <View style={[g.bottom, { paddingBottom: insets.bottom + 12, display: showNav ? 'flex' : 'none' }]}>
+                  <Pressable onPress={() => isLast ? completeMode('summary') : goNext()} style={{ width: '100%' }}>
+                    <View style={[g.ctaBtn, { backgroundColor: BRAND }]}>
+                      <Text style={g.ctaText}>{navLabel}</Text>
+                    </View>
+                  </Pressable>
+                </View>
+              </>
             );
           })()}
         </SafeAreaView>
