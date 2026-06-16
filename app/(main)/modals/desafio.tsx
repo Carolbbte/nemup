@@ -25,10 +25,11 @@ import {
   Text,
   View,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from 'expo-router';
-import { palette } from '@/theme/colors';
+import { ChevronLeft, X } from 'lucide-react-native';
+import { palette, semantic } from '@/theme/colors';
 import type {
   DesafioSession,
   DesafioSlide,
@@ -75,32 +76,6 @@ interface SlideAnswer {
   value: string | number[] | Record<string, string>;
   correct: boolean;
 }
-
-// ── Progress header ───────────────────────────────────────────────────────────
-
-function ProgressHeader({
-  current, total, onClose,
-}: { current: number; total: number; onClose: () => void }) {
-  const pct = total > 0 ? Math.round((current / total) * 100) : 0;
-  return (
-    <View style={h.row}>
-      <View style={h.barTrack}>
-        <View style={[h.barFill, { width: `${pct}%` as any }]} />
-      </View>
-      <Pressable style={h.closeBtn} onPress={onClose} hitSlop={12}>
-        <Text style={h.closeText}>✕</Text>
-      </Pressable>
-    </View>
-  );
-}
-
-const h = StyleSheet.create({
-  row:      { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, paddingVertical: 14, gap: 12 },
-  barTrack: { flex: 1, height: 6, backgroundColor: palette.bordeClaro, borderRadius: 3, overflow: 'hidden' },
-  barFill:  { height: '100%', backgroundColor: palette.morado, borderRadius: 3 },
-  closeBtn: { padding: 4 },
-  closeText:{ fontSize: 16, color: palette.grisMedio, fontWeight: '600' },
-});
 
 // ── Option row (multiple_choice + fill_blank) ─────────────────────────────────
 
@@ -718,7 +693,8 @@ const c = StyleSheet.create({
 // ══════════════════════════════════════════════════════════════════════════════
 
 export default function DesafioScreen() {
-  const router = useRouter();
+  const router  = useRouter();
+  const insets  = useSafeAreaInsets();
 
   const [session,       setSession]       = useState<DesafioSession | null>(null);
   const [dynamicSlides, setDynamicSlides] = useState<DesafioSlide[]>([]);
@@ -887,15 +863,19 @@ export default function DesafioScreen() {
 
   // ── Main render — 3 stable SafeAreaView direct children ───────────────────
   return (
-    <SafeAreaView style={g.screen} edges={['top', 'bottom']}>
+    <SafeAreaView style={g.screen} edges={['top']}>
       <StatusBar barStyle="dark-content" backgroundColor={palette.crema} />
 
-      {/* Stable child 1 — progress header */}
-      <ProgressHeader
-        current={currentIdx}
-        total={dynamicSlides.length}
-        onClose={() => router.back()}
-      />
+      {/* Stable child 1 — top bar (matches Misión / Quiz / Tarjetas pattern) */}
+      <View style={g.topBar}>
+        <Pressable onPress={() => router.back()} style={g.iconBtn} hitSlop={10}>
+          <ChevronLeft size={18} color={semantic.textPrimary} strokeWidth={2.5} />
+        </Pressable>
+        <Text style={g.screenTitle}>⚔️ Desafío</Text>
+        <Pressable onPress={() => router.back()} style={g.iconBtn} hitSlop={10}>
+          <X size={16} color={semantic.textPrimary} strokeWidth={2.5} />
+        </Pressable>
+      </View>
 
       {/* Stable child 2 — slide content; key forces remount on advance */}
       <ScrollView
@@ -921,16 +901,20 @@ export default function DesafioScreen() {
         />
       </ScrollView>
 
-      {/* Stable child 3 — CTA footer */}
-      <Pressable
-        style={[g.cta, ctaDisabled && g.ctaDisabled]}
-        onPress={handleCta}
-        disabled={ctaDisabled}
-      >
-        <Text style={[g.ctaText, ctaDisabled && g.ctaTextDisabled]}>
-          {ctaLabel}
-        </Text>
-      </Pressable>
+      {/* Stable child 3 — CTA footer (matches Misión / Quiz / Tarjetas pattern) */}
+      <View style={[g.bottom, { paddingBottom: insets.bottom + 12 }]}>
+        {ctaDisabled ? (
+          <View style={g.ctaBtnOff}>
+            <Text style={g.ctaTextOff}>{ctaLabel}</Text>
+          </View>
+        ) : (
+          <Pressable onPress={handleCta} style={{ width: '100%' }}>
+            <View style={g.ctaBtn}>
+              <Text style={g.ctaText}>{ctaLabel}</Text>
+            </View>
+          </Pressable>
+        )}
+      </View>
     </SafeAreaView>
   );
 }
@@ -942,15 +926,19 @@ const g = StyleSheet.create({
   scrollArea:   { flex: 1 },
   scrollContent:{ flexGrow: 1 },
 
-  cta: {
-    marginHorizontal: 20, marginBottom: 12, marginTop: 8,
-    backgroundColor: palette.morado, borderRadius: 16,
-    paddingVertical: 16, alignItems: 'center',
-  },
-  ctaDisabled:     { backgroundColor: palette.bordeClaro },
-  ctaText:         { fontSize: 17, fontWeight: '700', color: palette.blanco },
-  ctaTextDisabled: { color: palette.grisMedio },
+  // ── Header — matches session.tsx g.topBar / g.iconBtn / g.screenTitle ────
+  topBar:      { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 10, gap: 10 },
+  iconBtn:     { width: 36, height: 36, borderRadius: 11, backgroundColor: palette.blanco, borderWidth: 1, borderColor: palette.bordeClaro, alignItems: 'center', justifyContent: 'center' },
+  screenTitle: { flex: 1, textAlign: 'center', fontSize: 15, fontWeight: '800', color: semantic.textPrimary, letterSpacing: -0.2 },
 
+  // ── Bottom — matches session.tsx g.bottom / g.ctaBtn / g.ctaText ─────────
+  bottom:      { paddingHorizontal: 20, paddingTop: 12, borderTopWidth: 1, borderTopColor: palette.bordeClaro, backgroundColor: palette.crema },
+  ctaBtn:      { paddingVertical: 20, borderRadius: 28, alignItems: 'center', justifyContent: 'center', backgroundColor: palette.morado },
+  ctaText:     { fontSize: 16, fontWeight: '800', color: palette.blanco },
+  ctaBtnOff:   { paddingVertical: 17, borderRadius: 18, alignItems: 'center', backgroundColor: palette.crema },
+  ctaTextOff:  { fontSize: 16, fontWeight: '700', color: palette.grisMedio },
+
+  // ── Loading / error ───────────────────────────────────────────────────────
   centered:    { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 32 },
   loadingText: { fontSize: 16, color: palette.grisMedio },
   errorText:   { fontSize: 16, color: palette.charcoal, textAlign: 'center', marginBottom: 24 },
