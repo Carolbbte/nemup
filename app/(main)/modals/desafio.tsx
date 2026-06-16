@@ -30,6 +30,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from 'expo-router';
 import { ChevronLeft, X } from 'lucide-react-native';
 import { palette, semantic } from '@/theme/colors';
+import UnifiedProgressBar from '@/components/UnifiedProgressBar';
 import type {
   DesafioSession,
   DesafioSlide,
@@ -861,20 +862,27 @@ export default function DesafioScreen() {
     );
   }
 
+  const desafioProgress = dynamicSlides.length > 0
+    ? (currentIdx + 1) / dynamicSlides.length
+    : 0;
+
   // ── Main render — 3 stable SafeAreaView direct children ───────────────────
   return (
     <SafeAreaView style={g.screen} edges={['top']}>
       <StatusBar barStyle="dark-content" backgroundColor={palette.crema} />
 
-      {/* Stable child 1 — top bar (matches Misión / Quiz / Tarjetas pattern) */}
-      <View style={g.topBar}>
-        <Pressable onPress={() => router.back()} style={g.iconBtn} hitSlop={10}>
-          <ChevronLeft size={18} color={semantic.textPrimary} strokeWidth={2.5} />
-        </Pressable>
-        <Text style={g.screenTitle}>⚔️ Desafío</Text>
-        <Pressable onPress={() => router.back()} style={g.iconBtn} hitSlop={10}>
-          <X size={16} color={semantic.textPrimary} strokeWidth={2.5} />
-        </Pressable>
+      {/* Stable child 1 — top bar + progress bar (wrapped so child count stays stable) */}
+      <View>
+        <View style={g.topBar}>
+          <Pressable onPress={() => router.back()} style={g.iconBtn} hitSlop={10}>
+            <ChevronLeft size={18} color={semantic.textPrimary} strokeWidth={2.5} />
+          </Pressable>
+          <Text style={g.screenTitle}>⚔️ Desafío</Text>
+          <Pressable onPress={() => router.back()} style={g.iconBtn} hitSlop={10}>
+            <X size={16} color={semantic.textPrimary} strokeWidth={2.5} />
+          </Pressable>
+        </View>
+        <UnifiedProgressBar progress={desafioProgress} showCurrentMode={false} />
       </View>
 
       {/* Stable child 2 — slide content; key forces remount on advance */}
