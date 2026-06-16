@@ -648,11 +648,14 @@ export default function UploadFlowScreen() {
         missions: payload.missions,
       })]);
     }
-    // Store desafio session independently for the Desafío mode
+    // Store desafio session independently for the Desafío mode (clear if not present)
     if (completedSession?.desafio) {
       writes.push(['nemup_desafio_session', JSON.stringify(completedSession.desafio)]);
+      await AsyncStorage.multiSet(writes);
+    } else {
+      await AsyncStorage.multiSet(writes);
+      await AsyncStorage.removeItem('nemup_desafio_session');
     }
-    await AsyncStorage.multiSet(writes);
     router.push('/modals/session' as any);
   };
 

@@ -471,8 +471,28 @@ function validateSlide(slide: unknown): DesafioSlide | null {
   };
 }
 
+function stripJsonComments(str: string): string {
+  let result = '';
+  let inString = false;
+  let escape = false;
+  for (let i = 0; i < str.length; i++) {
+    const ch = str[i];
+    if (escape) { result += ch; escape = false; continue; }
+    if (ch === '\\' && inString) { result += ch; escape = true; continue; }
+    if (ch === '"') { inString = !inString; result += ch; continue; }
+    if (!inString && ch === '/' && str[i + 1] === '/') {
+      while (i < str.length && str[i] !== '\n') i++;
+      result += '\n';
+      continue;
+    }
+    result += ch;
+  }
+  return result;
+}
+
 function parseDesafioJson(raw: string): { topic: string; slides: DesafioSlide[]; retrySlides: Record<string, DesafioSlide[]> } {
-  const cleaned = raw
+  const stripped = stripJsonComments(raw);
+  const cleaned = stripped
     .replace(/^```json\s*/i, '')
     .replace(/^```\s*/i, '')
     .replace(/```\s*$/,    '')
@@ -485,7 +505,11 @@ function parseDesafioJson(raw: string): { topic: string; slides: DesafioSlide[];
     const startBrace = cleaned.indexOf('{');
     const endBrace   = cleaned.lastIndexOf('}');
     if (startBrace >= 0 && endBrace > startBrace) {
-      parsed = JSON.parse(cleaned.slice(startBrace, endBrace + 1));
+      try {
+        parsed = JSON.parse(cleaned.slice(startBrace, endBrace + 1));
+      } catch {
+        throw new Error('No valid JSON found in response');
+      }
     } else {
       throw new Error('No valid JSON found in response');
     }
@@ -527,6 +551,64 @@ function parseDesafioJson(raw: string): { topic: string; slides: DesafioSlide[];
   return { topic: obj.topic as string, slides, retrySlides };
 }
 
+// ── Simple fallback prompt (multiple_choice only, 3 slides per concept) ──────
+
+function buildSimpleDesafioPrompt(transcription: string, curso: string): string {
+  return `Eres un diseñador de sesiones de aprendizaje para estudiantes chilenos de ${curso}.
+REGLA CRÍTICA: Devuelve SOLO JSON VÁLIDO, sin comentarios, sin texto adicional. En español.
+
+Del documento identifica 2-3 conceptos clave. Para cada concepto genera en orden:
+1. discovery_challenge (multiple_choice): pregunta de descubrimiento
+2. insight: definición clara con analogía
+3. reinforcement_challenge (multiple_choice): pregunta de refuerzo diferente al discovery
+
+Al final agrega 1 boss_loop (multiple_choice integrador de todos los conceptos) y 1 mastery_screen.
+
+Reglas para multiple_choice: exactamente 3 opciones (A, B, C), incluye correctAnswer y wrongHints.
+
+JSON de respuesta:
+{
+  "topic": "Nombre del tema",
+  "slides": [
+    {
+      "type": "discovery_challenge",
+      "interactionType": "multiple_choice",
+      "conceptIndex": 0,
+      "conceptName": "Nombre concepto",
+      "emoji": "📐",
+      "question": "Pregunta (max 20 palabras)?",
+      "choices": [{"letter":"A","text":"..."},{"letter":"B","text":"..."},{"letter":"C","text":"..."}],
+      "correctAnswer": "A",
+      "explanation": "Por qué es correcto (max 80 chars).",
+      "wrongHints": {"B": "Por qué B es incorrecto.", "C": "Por qué C es incorrecto."}
+    },
+    {
+      "type": "insight",
+      "conceptIndex": 0,
+      "conceptName": "Nombre concepto",
+      "emoji": "💡",
+      "title": "Nombre corto del concepto",
+      "body": "Definición + analogía cotidiana. Max 35 palabras."
+    },
+    {
+      "type": "reinforcement_challenge",
+      "interactionType": "multiple_choice",
+      "conceptIndex": 0,
+      "conceptName": "Nombre concepto",
+      "question": "Pregunta diferente al discovery (max 20 palabras)?",
+      "choices": [{"letter":"A","text":"..."},{"letter":"B","text":"..."},{"letter":"C","text":"..."}],
+      "correctAnswer": "B",
+      "explanation": "Por qué es correcto (max 80 chars).",
+      "wrongHints": {"A": "Por qué A es incorrecto.", "C": "Por qué C es incorrecto."}
+    }
+  ],
+  "retrySlides": {}
+}
+
+Transcripción:
+${normalizeText(transcription)}`;
+}
+
 // ── Public API ────────────────────────────────────────────────────────────────
 
 export interface DesafioGenerationResult {
@@ -539,29 +621,54 @@ export async function generateDesafioContent(
   curso: string,
 ): Promise<DesafioGenerationResult> {
   const classification = classifyContent(transcription);
-  const prompt = buildDesafioPrompt(transcription, curso);
 
+  // Attempt 1 — full adaptive prompt
+  try {
+    const prompt = buildDesafioPrompt(transcription, curso);
+    const completion = await openai.chat.completions.create({
+      model: 'gpt-4o',
+      messages: [{ role: 'user', content: prompt }],
+      temperature: 0.7,
+      max_tokens: 12000,
+    });
+    const raw = completion.choices[0]?.message?.content ?? '';
+    const { topic, slides, retrySlides } = parseDesafioJson(raw);
+    const conceptCount = slides.filter(s => s.type === 'insight').length;
+    return {
+      session: {
+        id: randomUUID(),
+        topic,
+        conceptCount,
+        slides,
+        retrySlides: Object.keys(retrySlides).length > 0 ? retrySlides : undefined,
+      },
+      pedagogicalType: classification.type,
+    };
+  } catch (err: any) {
+    console.warn('[Desafío] Full prompt failed, retrying with simple prompt:', err?.message);
+  }
+
+  // Attempt 2 — simplified prompt (MC only, 3 slides per concept)
+  const simplePrompt = buildSimpleDesafioPrompt(transcription, curso);
   const completion = await openai.chat.completions.create({
     model: 'gpt-4o',
-    messages: [{ role: 'user', content: prompt }],
-    temperature: 0.7,
-    max_tokens: 8192,
+    messages: [{ role: 'user', content: simplePrompt }],
+    temperature: 0.4,
+    max_tokens: 6000,
   });
-
   const raw = completion.choices[0]?.message?.content ?? '';
   const { topic, slides, retrySlides } = parseDesafioJson(raw);
-
   const conceptCount = slides.filter(s => s.type === 'insight').length;
-
-  const session: DesafioSession = {
-    id: randomUUID(),
-    topic,
-    conceptCount,
-    slides,
-    retrySlides: Object.keys(retrySlides).length > 0 ? retrySlides : undefined,
+  return {
+    session: {
+      id: randomUUID(),
+      topic,
+      conceptCount,
+      slides,
+      retrySlides: Object.keys(retrySlides).length > 0 ? retrySlides : undefined,
+    },
+    pedagogicalType: classification.type,
   };
-
-  return { session, pedagogicalType: classification.type };
 }
 
 export function buildDesafioSession(session: DesafioSession): DesafioSession {

@@ -618,11 +618,12 @@ export default function SessionPlayerScreen() {
     useCallback(() => {
       let active = true;
       async function loadIfNew() {
-        const [[, rawKey], [, rawSession], [, rawSessionId], [, rawPath]] = await AsyncStorage.multiGet([
+        const [[, rawKey], [, rawSession], [, rawSessionId], [, rawPath], [, rawDesafio]] = await AsyncStorage.multiGet([
           'nemup_session_key',
           'nemup_last_session',
           'nemup_last_session_id',
           'nemup_skill_path',
+          'nemup_desafio_session',
         ]);
         if (!active) return;
         const isNewSession = rawKey !== loadedSessionKeyRef.current;
@@ -631,6 +632,9 @@ export default function SessionPlayerScreen() {
         if (!rawSession) return;
         try {
           const parsed: Session = JSON.parse(rawSession);
+          if (!parsed.desafio && rawDesafio) {
+            try { parsed.desafio = JSON.parse(rawDesafio); } catch {}
+          }
           setSession(parsed);
           setCurrentSessionId(rawSessionId ?? null);
           setMasteryLevel(null);

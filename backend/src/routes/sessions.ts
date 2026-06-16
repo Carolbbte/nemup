@@ -194,6 +194,8 @@ router.post('/generate', upload.array('documents', 10), async (req, res) => {
       .catch(err => console.warn('[Sessions] Rewards error:', err?.message));
 
     // ── Desafío generation for PROCEDURAL path ───────────────────────────────
+    sendSse(res, 'progress', createProgressPayload('generating_desafio', 95, 'Generando modo Desafío...'));
+    const desafioHeartbeatP = setInterval(() => { try { res.write(': keepalive\n\n'); } catch {} }, 15000);
     try {
       const desafioResult = await generateDesafioContent(transcription, curso);
       (allMissions[0].session as any).desafio = desafioResult.session;
@@ -201,6 +203,7 @@ router.post('/generate', upload.array('documents', 10), async (req, res) => {
     } catch (err: any) {
       console.warn('[Sessions] Desafío generation failed (non-fatal):', err?.message);
     }
+    clearInterval(desafioHeartbeatP);
 
     sendSse(res, 'progress', createProgressPayload('done', 100, `${allMissions.length} misiones listas.`));
     sendSse(res, 'complete', {
@@ -276,6 +279,8 @@ router.post('/generate', upload.array('documents', 10), async (req, res) => {
   }
 
   // ── Desafío generation (runs after main session, non-blocking on error) ──────
+  sendSse(res, 'progress', createProgressPayload('generating_desafio', 90, 'Generando modo Desafío...'));
+  const desafioHeartbeat = setInterval(() => { try { res.write(': keepalive\n\n'); } catch {} }, 15000);
   try {
     const desafioResult = await generateDesafioContent(transcription, curso);
     (session as any).desafio = desafioResult.session;
@@ -283,6 +288,7 @@ router.post('/generate', upload.array('documents', 10), async (req, res) => {
   } catch (err: any) {
     console.warn('[Sessions] Desafío generation failed (non-fatal):', err?.message);
   }
+  clearInterval(desafioHeartbeat);
 
   Promise.all([
     saveGeneratedSession(userId, sessionId, session),
