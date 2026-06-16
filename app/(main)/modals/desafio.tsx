@@ -1,17 +1,22 @@
 /**
- * Desafío mode renderer.
+ * Desafío mode renderer — Phase 2 (adaptive, multi-interaction-type).
  *
- * Architecture rules (Fabric-safe):
- *  - SafeAreaView has exactly 3 stable direct children:
- *      1. <View>        — progress header   (always View)
- *      2. <ScrollView>  — slide content     (keyed by currentIdx → remounts on advance)
- *      3. <Pressable>   — CTA footer        (always Pressable, style/text change in-place)
- *  - Option bubbles: always <Pressable>, style-only changes on selection.
- *  - Letter bubble:  always <View><Text>, content changes only.
- *  - No component type switches. No animations.
+ * Fabric-safe architecture:
+ *  SafeAreaView → exactly 3 stable direct children:
+ *    1. <View>       — progress header (always View)
+ *    2. <ScrollView> — slide content  (keyed by currentIdx → full remount on advance)
+ *    3. <Pressable>  — CTA footer     (always Pressable, text/style change in-place)
+ *
+ * Interaction types rendered inside ScrollView (safe grandchild depth):
+ *   multiple_choice, fill_blank, match_pairs, classify, order_steps
+ *
+ * Adaptive injection: on wrong answer, inserts pre-generated retry slide
+ * immediately after current position (max 2 retries per concept).
+ *
+ * No type switches at SafeAreaView direct-child level. No animations.
  */
 
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Pressable,
   ScrollView,
@@ -24,40 +29,58 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from 'expo-router';
 import { palette } from '@/theme/colors';
-import type { DesafioSession, DesafioSlide } from '@/shared/desafio';
+import type {
+  DesafioSession,
+  DesafioSlide,
+  DesafioInteractionType,
+  DesafioPair,
+} from '@/shared/desafio';
 
-const DESAFIO_KEY = 'nemup_desafio_session';
-const LETTERS = ['A', 'B', 'C'] as const;
+const DESAFIO_KEY  = 'nemup_desafio_session';
+const PAIR_COLORS  = ['#5B3DF5', '#1D9E75', '#0891b2'] as const;
+const CAT_COLORS   = ['#5B3DF5', '#1D9E75', '#FF7A2B', '#0891b2'] as const;
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
+// ── Type helpers ──────────────────────────────────────────────────────────────
 
-function isInteractive(slide: DesafioSlide): boolean {
+function isInteractiveByType(slide: DesafioSlide): boolean {
   return (
     slide.type === 'discovery_challenge' ||
     slide.type === 'reinforcement_challenge' ||
-    slide.type === 'boss_loop'
+    slide.type === 'boss_loop' ||
+    slide.type === 'spaced_repetition'
   );
 }
 
-function isInformational(slide: DesafioSlide): boolean {
-  return (
-    slide.type === 'instant_feedback' ||
-    slide.type === 'insight' ||
-    slide.type === 'mastery_screen'
-  );
+function effectiveInteractionType(slide: DesafioSlide): DesafioInteractionType {
+  return slide.interactionType ?? 'multiple_choice';
 }
 
-// ── Progress dots ─────────────────────────────────────────────────────────────
+function slideTypeLabel(type: DesafioSlide['type'], isRetry?: boolean, isSpaced?: boolean): string {
+  if (isRetry)  return 'REPASO EXTRA';
+  if (isSpaced) return 'REPASO';
+  switch (type) {
+    case 'discovery_challenge':     return 'DESCUBRIR';
+    case 'instant_feedback':        return 'CONEXIÓN';
+    case 'insight':                 return 'CONCEPTO';
+    case 'reinforcement_challenge': return 'REFUERZO';
+    case 'spaced_repetition':       return 'REPASO';
+    case 'boss_loop':               return '⚔️ DESAFÍO FINAL';
+    case 'mastery_screen':          return 'COMPLETADO';
+  }
+}
+
+// ── Answer state ──────────────────────────────────────────────────────────────
+
+interface SlideAnswer {
+  value: string | number[] | Record<string, string>;
+  correct: boolean;
+}
+
+// ── Progress header ───────────────────────────────────────────────────────────
 
 function ProgressHeader({
-  current,
-  total,
-  onClose,
-}: {
-  current: number;
-  total: number;
-  onClose: () => void;
-}) {
+  current, total, onClose,
+}: { current: number; total: number; onClose: () => void }) {
   const pct = total > 0 ? Math.round((current / total) * 100) : 0;
   return (
     <View style={h.row}>
@@ -72,254 +95,623 @@ function ProgressHeader({
 }
 
 const h = StyleSheet.create({
-  row:       { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, paddingVertical: 14, gap: 12 },
-  barTrack:  { flex: 1, height: 6, backgroundColor: palette.bordeClaro, borderRadius: 3, overflow: 'hidden' },
-  barFill:   { height: '100%', backgroundColor: palette.morado, borderRadius: 3 },
-  closeBtn:  { padding: 4 },
-  closeText: { fontSize: 16, color: palette.grisMedio, fontWeight: '600' },
+  row:      { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, paddingVertical: 14, gap: 12 },
+  barTrack: { flex: 1, height: 6, backgroundColor: palette.bordeClaro, borderRadius: 3, overflow: 'hidden' },
+  barFill:  { height: '100%', backgroundColor: palette.morado, borderRadius: 3 },
+  closeBtn: { padding: 4 },
+  closeText:{ fontSize: 16, color: palette.grisMedio, fontWeight: '600' },
 });
 
-// ── Option row ────────────────────────────────────────────────────────────────
+// ── Option row (multiple_choice + fill_blank) ─────────────────────────────────
 
 function OptionRow({
-  letter,
-  text,
-  selected,
-  revealed,
-  correct,
-  onPress,
+  letter, text, selected, revealed, correct, onPress,
 }: {
-  letter: string;
-  text: string;
-  selected: boolean;
-  revealed: boolean;
-  correct: boolean;
-  onPress: () => void;
+  letter: string; text: string; selected: boolean;
+  revealed: boolean; correct: boolean; onPress: () => void;
 }) {
-  const isCorrectAndRevealed  = revealed && correct;
-  const isWrongAndSelected    = revealed && selected && !correct;
-
-  const containerStyle = [
-    o.option,
-    selected && !revealed && o.optionSelected,
-    isCorrectAndRevealed     && o.optionCorrect,
-    isWrongAndSelected       && o.optionWrong,
-  ];
-
-  const letterBg = [
-    o.letterBubble,
-    selected && !revealed && o.letterSelected,
-    isCorrectAndRevealed  && o.letterCorrect,
-    isWrongAndSelected    && o.letterWrong,
-  ];
-
-  const letterTextStyle = [
-    o.letterText,
-    (selected && !revealed) || isCorrectAndRevealed || isWrongAndSelected
-      ? o.letterTextLight
-      : null,
-  ];
-
-  const optionTextStyle = [
-    o.optionText,
-    isCorrectAndRevealed && o.optionTextCorrect,
-    isWrongAndSelected   && o.optionTextWrong,
-  ];
-
+  const isCorrectRevealed = revealed && correct;
+  const isWrongSelected   = revealed && selected && !correct;
   return (
-    <Pressable style={containerStyle} onPress={onPress} disabled={revealed}>
-      <View style={letterBg}>
-        <Text style={letterTextStyle}>{letter}</Text>
+    <Pressable
+      style={[
+        o.option,
+        selected && !revealed && o.optionSelected,
+        isCorrectRevealed && o.optionCorrect,
+        isWrongSelected   && o.optionWrong,
+      ]}
+      onPress={onPress}
+      disabled={revealed}
+    >
+      <View style={[
+        o.letterBubble,
+        selected && !revealed && o.letterSelected,
+        isCorrectRevealed && o.letterCorrect,
+        isWrongSelected   && o.letterWrong,
+      ]}>
+        <Text style={[
+          o.letterText,
+          (selected && !revealed) || isCorrectRevealed || isWrongSelected ? o.letterTextLight : null,
+        ]}>
+          {letter}
+        </Text>
       </View>
-      <Text style={optionTextStyle}>{text}</Text>
+      <Text style={[
+        o.optionText,
+        isCorrectRevealed && o.optionTextCorrect,
+        isWrongSelected   && o.optionTextWrong,
+      ]}>
+        {text}
+      </Text>
     </Pressable>
   );
 }
 
 const o = StyleSheet.create({
   option: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    backgroundColor: palette.blanco,
-    borderRadius: 14,
-    borderWidth: 1.5,
-    borderColor: palette.bordeClaro,
-    paddingHorizontal: 14,
-    paddingVertical: 14,
-    marginBottom: 10,
+    flexDirection: 'row', alignItems: 'center', gap: 12,
+    backgroundColor: palette.blanco, borderRadius: 14,
+    borderWidth: 1.5, borderColor: palette.bordeClaro,
+    paddingHorizontal: 14, paddingVertical: 14, marginBottom: 10,
   },
   optionSelected: { borderColor: palette.morado },
-  optionCorrect:  { borderColor: palette.verde,     backgroundColor: '#F0FDF7' },
-  optionWrong:    { borderColor: palette.rojoError,  backgroundColor: palette.rojoErrorBg },
-
+  optionCorrect:  { borderColor: palette.verde, backgroundColor: '#F0FDF7' },
+  optionWrong:    { borderColor: palette.rojoError, backgroundColor: palette.rojoErrorBg },
   letterBubble: {
     width: 32, height: 32, borderRadius: 16,
-    backgroundColor: palette.moradoBg,
-    justifyContent: 'center', alignItems: 'center',
+    backgroundColor: palette.moradoBg, justifyContent: 'center', alignItems: 'center',
   },
   letterSelected: { backgroundColor: palette.morado },
   letterCorrect:  { backgroundColor: palette.verde },
   letterWrong:    { backgroundColor: palette.rojoError },
-
   letterText:      { fontSize: 13, fontWeight: '700', color: palette.morado },
   letterTextLight: { color: palette.blanco },
-
   optionText:        { flex: 1, fontSize: 15, color: palette.charcoal, lineHeight: 20 },
   optionTextCorrect: { color: palette.verde },
   optionTextWrong:   { color: palette.rojoError },
 });
 
-// ── Slide content ─────────────────────────────────────────────────────────────
+// ── Multiple choice content ───────────────────────────────────────────────────
+
+function MultipleChoiceContent({
+  slide, selection, onSelect, answer,
+}: {
+  slide: DesafioSlide; selection: string | null;
+  onSelect: (letter: string) => void; answer: SlideAnswer | undefined;
+}) {
+  const revealed  = !!answer;
+  const wrongHint = revealed && answer.value !== slide.correctAnswer
+    ? slide.wrongHints?.[answer.value as string]
+    : undefined;
+
+  return (
+    <View style={c.root}>
+      <Text style={c.typeLabel}>{slideTypeLabel(slide.type, slide.isRetry, slide.isSpacedRepetition)}</Text>
+      {slide.emoji != null && <Text style={c.emoji}>{slide.emoji}</Text>}
+      <Text style={c.question}>{slide.question}</Text>
+      <View>
+        {(slide.choices ?? []).map(ch => (
+          <OptionRow
+            key={ch.letter} letter={ch.letter} text={ch.text}
+            selected={revealed ? answer.value === ch.letter : selection === ch.letter}
+            revealed={revealed} correct={ch.letter === slide.correctAnswer}
+            onPress={() => onSelect(ch.letter)}
+          />
+        ))}
+      </View>
+      {revealed && wrongHint && (
+        <View style={c.hintBox}><Text style={c.hintText}>{wrongHint}</Text></View>
+      )}
+      {revealed && !wrongHint && slide.explanation && (
+        <View style={c.explanationBox}><Text style={c.explanationText}>{slide.explanation}</Text></View>
+      )}
+    </View>
+  );
+}
+
+// ── Fill blank content ────────────────────────────────────────────────────────
+
+function FillBlankContent({
+  slide, selection, onSelect, answer,
+}: {
+  slide: DesafioSlide; selection: string | null;
+  onSelect: (letter: string) => void; answer: SlideAnswer | undefined;
+}) {
+  const revealed  = !!answer;
+  const wrongHint = revealed && answer.value !== slide.blankAnswer
+    ? slide.wrongHints?.[answer.value as string]
+    : undefined;
+
+  return (
+    <View style={c.root}>
+      <Text style={c.typeLabel}>{slideTypeLabel(slide.type, slide.isRetry, slide.isSpacedRepetition)}</Text>
+      {slide.emoji != null && <Text style={c.emoji}>{slide.emoji}</Text>}
+      <View style={fb.sentenceBox}>
+        <Text style={fb.sentenceText}>{slide.blankSentence}</Text>
+      </View>
+      <Text style={c.subLabel}>Elige la respuesta correcta:</Text>
+      <View>
+        {(slide.blankChoices ?? []).map(ch => (
+          <OptionRow
+            key={ch.letter} letter={ch.letter} text={ch.text}
+            selected={revealed ? answer.value === ch.letter : selection === ch.letter}
+            revealed={revealed} correct={ch.letter === slide.blankAnswer}
+            onPress={() => onSelect(ch.letter)}
+          />
+        ))}
+      </View>
+      {revealed && wrongHint && (
+        <View style={c.hintBox}><Text style={c.hintText}>{wrongHint}</Text></View>
+      )}
+      {revealed && !wrongHint && slide.blankExplanation && (
+        <View style={c.explanationBox}><Text style={c.explanationText}>{slide.blankExplanation}</Text></View>
+      )}
+    </View>
+  );
+}
+
+const fb = StyleSheet.create({
+  sentenceBox: {
+    backgroundColor: palette.moradoBg, borderRadius: 12,
+    paddingHorizontal: 16, paddingVertical: 14, marginBottom: 20,
+    borderWidth: 1, borderColor: palette.morado + '33',
+  },
+  sentenceText: { fontSize: 18, fontWeight: '700', color: palette.charcoal, lineHeight: 26 },
+});
+
+// ── Match pairs content ───────────────────────────────────────────────────────
+
+function MatchPairsContent({
+  slide, selectedLeft, onSelectLeft, matched, onMatch, answer,
+}: {
+  slide: DesafioSlide;
+  selectedLeft: string | null;
+  onSelectLeft: (id: string | null) => void;
+  matched: Record<string, string>;
+  onMatch: (updated: Record<string, string>) => void;
+  answer: SlideAnswer | undefined;
+}) {
+  const revealed = !!answer;
+  const pairs    = slide.pairs ?? [];
+
+  const shuffledRight: DesafioPair[] = useMemo(() => {
+    if (pairs.length <= 1) return pairs;
+    const shift = ((slide.conceptIndex + 1) % pairs.length + pairs.length) % pairs.length;
+    return [...pairs.slice(shift), ...pairs.slice(0, shift)];
+  }, [pairs, slide.conceptIndex]);
+
+  const matchedMap = revealed ? answer.value as Record<string, string> : matched;
+
+  const getLeftColor = (pairId: string): string | null => {
+    if (!matchedMap[pairId]) return null;
+    const idx = pairs.findIndex(p => p.id === pairId);
+    return idx >= 0 ? PAIR_COLORS[idx % PAIR_COLORS.length] : null;
+  };
+
+  const getRightColor = (pairId: string): string | null => {
+    const rightId = pairId + '_r';
+    const leftId  = Object.keys(matchedMap).find(k => matchedMap[k] === rightId);
+    if (!leftId) return null;
+    const idx = pairs.findIndex(p => p.id === leftId);
+    return idx >= 0 ? PAIR_COLORS[idx % PAIR_COLORS.length] : null;
+  };
+
+  const isPairCorrect = (pairId: string): boolean => matchedMap[pairId] === pairId + '_r';
+
+  const handleLeftPress = (pairId: string) => {
+    if (revealed) return;
+    onSelectLeft(selectedLeft === pairId ? null : pairId);
+  };
+
+  const handleRightPress = (pair: DesafioPair) => {
+    if (revealed || !selectedLeft) return;
+    const rightId = pair.id + '_r';
+    const next    = { ...matched };
+    const prevLeftForRight = Object.keys(next).find(k => next[k] === rightId);
+    if (prevLeftForRight) delete next[prevLeftForRight];
+    if (next[selectedLeft]) delete next[selectedLeft];
+    next[selectedLeft] = rightId;
+    onMatch(next);
+    onSelectLeft(null);
+  };
+
+  return (
+    <View style={c.root}>
+      <Text style={c.typeLabel}>{slideTypeLabel(slide.type, slide.isRetry, slide.isSpacedRepetition)}</Text>
+      <Text style={mp.prompt}>{slide.pairsPrompt ?? 'Une cada elemento con su descripción'}</Text>
+      <View style={mp.cols}>
+        <View style={mp.col}>
+          {pairs.map((pair) => {
+            const color  = getLeftColor(pair.id);
+            const isSel  = selectedLeft === pair.id;
+            const isCorr = revealed && isPairCorrect(pair.id);
+            const isWrg  = revealed && !!matchedMap[pair.id] && !isPairCorrect(pair.id);
+            return (
+              <Pressable
+                key={pair.id}
+                style={[
+                  mp.item,
+                  isSel && mp.itemSelected,
+                  !revealed && color ? { borderColor: color, borderWidth: 2 } : null,
+                  revealed && isCorr && mp.itemCorrect,
+                  revealed && isWrg  && mp.itemWrong,
+                ]}
+                onPress={() => handleLeftPress(pair.id)}
+                disabled={revealed}
+              >
+                {!revealed && color && <View style={[mp.dot, { backgroundColor: color }]} />}
+                {revealed && (
+                  <Text style={[mp.revealIcon, isCorr ? mp.iconCorrect : mp.iconWrong]}>
+                    {isCorr ? '✓' : '✗'}
+                  </Text>
+                )}
+                <Text style={mp.itemText} numberOfLines={2}>{pair.left}</Text>
+              </Pressable>
+            );
+          })}
+        </View>
+        <View style={mp.col}>
+          {shuffledRight.map((pair) => {
+            const color      = getRightColor(pair.id);
+            const hasSelected = !!selectedLeft && !revealed;
+            return (
+              <Pressable
+                key={pair.id + '_r'}
+                style={[
+                  mp.item,
+                  hasSelected && mp.itemTargetable,
+                  !revealed && color ? { borderColor: color, borderWidth: 2 } : null,
+                ]}
+                onPress={() => handleRightPress(pair)}
+                disabled={revealed || !selectedLeft}
+              >
+                {!revealed && color && <View style={[mp.dot, { backgroundColor: color }]} />}
+                <Text style={mp.itemText} numberOfLines={2}>{pair.right}</Text>
+              </Pressable>
+            );
+          })}
+        </View>
+      </View>
+      {revealed && slide.pairsExplanation && (
+        <View style={[c.explanationBox, { marginTop: 16 }]}>
+          <Text style={c.explanationText}>{slide.pairsExplanation}</Text>
+        </View>
+      )}
+    </View>
+  );
+}
+
+const mp = StyleSheet.create({
+  prompt: { fontSize: 16, fontWeight: '700', color: palette.charcoal, marginBottom: 16, lineHeight: 22 },
+  cols:   { flexDirection: 'row', gap: 8 },
+  col:    { flex: 1, gap: 8 },
+  item: {
+    flexDirection: 'row', alignItems: 'center', gap: 6,
+    backgroundColor: palette.blanco, borderRadius: 12,
+    borderWidth: 1.5, borderColor: palette.bordeClaro,
+    paddingHorizontal: 10, paddingVertical: 12, minHeight: 52,
+  },
+  itemSelected:  { borderColor: palette.morado, borderWidth: 2 },
+  itemTargetable:{ borderColor: palette.morado + '66' },
+  itemCorrect:   { borderColor: palette.verde, backgroundColor: '#F0FDF7' },
+  itemWrong:     { borderColor: palette.rojoError, backgroundColor: palette.rojoErrorBg },
+  dot:        { width: 8, height: 8, borderRadius: 4, flexShrink: 0 },
+  revealIcon: { fontSize: 14, fontWeight: '700', flexShrink: 0 },
+  iconCorrect:{ color: palette.verde },
+  iconWrong:  { color: palette.rojoError },
+  itemText:   { flex: 1, fontSize: 13, color: palette.charcoal, lineHeight: 18 },
+});
+
+// ── Classify content ──────────────────────────────────────────────────────────
+
+function ClassifyContent({
+  slide, assigned, onAssign, answer,
+}: {
+  slide: DesafioSlide;
+  assigned: Record<string, string>;
+  onAssign: (updated: Record<string, string>) => void;
+  answer: SlideAnswer | undefined;
+}) {
+  const revealed   = !!answer;
+  const items      = slide.classifyItems ?? [];
+  const categories = slide.classifyCategories ?? [];
+  const revMap     = revealed ? answer.value as Record<string, string> : assigned;
+
+  return (
+    <View style={c.root}>
+      <Text style={c.typeLabel}>{slideTypeLabel(slide.type, slide.isRetry, slide.isSpacedRepetition)}</Text>
+      <Text style={cl.prompt}>{slide.classifyPrompt ?? 'Clasifica cada expresión'}</Text>
+      {items.map((item) => {
+        const chosen = revMap[item.id];
+        const isCorr = revealed && chosen === item.category;
+        const isWrg  = revealed && !!chosen && chosen !== item.category;
+        return (
+          <View
+            key={item.id}
+            style={[
+              cl.itemCard,
+              revealed && isCorr && cl.itemCorrect,
+              revealed && isWrg  && cl.itemWrong,
+            ]}
+          >
+            <Text style={cl.itemText}>{item.text}</Text>
+            {!revealed && (
+              <View style={cl.catRow}>
+                {categories.map((cat, ci) => (
+                  <Pressable
+                    key={cat}
+                    style={[
+                      cl.catBtn,
+                      assigned[item.id] === cat && {
+                        backgroundColor: CAT_COLORS[ci % CAT_COLORS.length],
+                        borderColor:     CAT_COLORS[ci % CAT_COLORS.length],
+                      },
+                    ]}
+                    onPress={() => onAssign({ ...assigned, [item.id]: cat })}
+                  >
+                    <Text style={[cl.catBtnText, assigned[item.id] === cat && cl.catBtnTextSel]}>
+                      {cat}
+                    </Text>
+                  </Pressable>
+                ))}
+              </View>
+            )}
+            {revealed && (
+              <Text style={[cl.revealText, isCorr ? cl.textCorrect : cl.textWrong]}>
+                {isCorr ? `✓ ${chosen}` : `✗ ${chosen ?? '—'}  →  ${item.category}`}
+              </Text>
+            )}
+          </View>
+        );
+      })}
+      {revealed && slide.classifyExplanation && (
+        <View style={c.explanationBox}>
+          <Text style={c.explanationText}>{slide.classifyExplanation}</Text>
+        </View>
+      )}
+    </View>
+  );
+}
+
+const cl = StyleSheet.create({
+  prompt: { fontSize: 16, fontWeight: '700', color: palette.charcoal, marginBottom: 16, lineHeight: 22 },
+  itemCard: {
+    backgroundColor: palette.blanco, borderRadius: 14,
+    borderWidth: 1.5, borderColor: palette.bordeClaro,
+    paddingHorizontal: 14, paddingVertical: 12, marginBottom: 10,
+  },
+  itemCorrect: { borderColor: palette.verde, backgroundColor: '#F0FDF7' },
+  itemWrong:   { borderColor: palette.rojoError, backgroundColor: palette.rojoErrorBg },
+  itemText:    { fontSize: 15, fontWeight: '600', color: palette.charcoal, marginBottom: 10 },
+  catRow:      { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
+  catBtn: {
+    paddingHorizontal: 10, paddingVertical: 6, borderRadius: 20,
+    borderWidth: 1.5, borderColor: palette.bordeClaro, backgroundColor: palette.blanco,
+  },
+  catBtnText:    { fontSize: 12, fontWeight: '600', color: palette.charcoal },
+  catBtnTextSel: { color: palette.blanco },
+  revealText:    { fontSize: 13, fontWeight: '600', marginTop: 4 },
+  textCorrect:   { color: palette.verde },
+  textWrong:     { color: palette.rojoError },
+});
+
+// ── Order steps content ───────────────────────────────────────────────────────
+
+function OrderStepsContent({
+  slide, stepsOrder, onReorder, answer,
+}: {
+  slide: DesafioSlide;
+  stepsOrder: number[];
+  onReorder: (updated: number[]) => void;
+  answer: SlideAnswer | undefined;
+}) {
+  const revealed     = !!answer;
+  const steps        = slide.steps ?? [];
+  const correctOrder = slide.correctOrder ?? [];
+  const displayOrder = revealed ? answer.value as number[] : stepsOrder;
+
+  const correctSequence = correctOrder.map(i => steps[i]).filter(Boolean);
+
+  const moveUp = (pos: number) => {
+    if (pos === 0 || revealed) return;
+    const next = [...stepsOrder];
+    [next[pos - 1], next[pos]] = [next[pos], next[pos - 1]];
+    onReorder(next);
+  };
+
+  const isStepCorrect = (pos: number): boolean => displayOrder[pos] === correctOrder[pos];
+
+  return (
+    <View style={c.root}>
+      <Text style={c.typeLabel}>{slideTypeLabel(slide.type, slide.isRetry, slide.isSpacedRepetition)}</Text>
+      <Text style={os.prompt}>{slide.orderPrompt ?? 'Ordena los pasos en el orden correcto'}</Text>
+      {displayOrder.map((stepIdx, pos) => {
+        const stepText = steps[stepIdx] ?? '';
+        const posCorr  = revealed && isStepCorrect(pos);
+        const posWrg   = revealed && !isStepCorrect(pos);
+        return (
+          <View
+            key={stepIdx}
+            style={[os.stepRow, posCorr && os.stepCorrect, posWrg && os.stepWrong]}
+          >
+            <View style={os.stepNum}>
+              {revealed
+                ? <Text style={[os.stepNumText, posCorr ? os.iconCorrect : os.iconWrong]}>
+                    {posCorr ? '✓' : '✗'}
+                  </Text>
+                : <Text style={os.stepNumText}>{pos + 1}</Text>}
+            </View>
+            <Text style={os.stepText} numberOfLines={3}>{stepText}</Text>
+            {!revealed && pos > 0 && (
+              <Pressable style={os.upBtn} onPress={() => moveUp(pos)} hitSlop={8}>
+                <Text style={os.upBtnText}>↑</Text>
+              </Pressable>
+            )}
+          </View>
+        );
+      })}
+      {revealed && !answer.correct && correctSequence.length > 0 && (
+        <View style={os.correctOrderBox}>
+          <Text style={os.correctOrderTitle}>ORDEN CORRECTO</Text>
+          {correctSequence.map((text, i) => (
+            <Text key={i} style={os.correctOrderItem}>{i + 1}. {text}</Text>
+          ))}
+        </View>
+      )}
+      {revealed && slide.orderExplanation && (
+        <View style={c.explanationBox}>
+          <Text style={c.explanationText}>{slide.orderExplanation}</Text>
+        </View>
+      )}
+    </View>
+  );
+}
+
+const os = StyleSheet.create({
+  prompt: { fontSize: 16, fontWeight: '700', color: palette.charcoal, marginBottom: 16, lineHeight: 22 },
+  stepRow: {
+    flexDirection: 'row', alignItems: 'center', gap: 10,
+    backgroundColor: palette.blanco, borderRadius: 12,
+    borderWidth: 1.5, borderColor: palette.bordeClaro,
+    paddingHorizontal: 12, paddingVertical: 12, marginBottom: 8,
+  },
+  stepCorrect: { borderColor: palette.verde, backgroundColor: '#F0FDF7' },
+  stepWrong:   { borderColor: palette.rojoError, backgroundColor: palette.rojoErrorBg },
+  stepNum: {
+    width: 28, height: 28, borderRadius: 14,
+    backgroundColor: palette.moradoBg, justifyContent: 'center', alignItems: 'center', flexShrink: 0,
+  },
+  stepNumText: { fontSize: 13, fontWeight: '700', color: palette.morado },
+  iconCorrect: { color: palette.verde },
+  iconWrong:   { color: palette.rojoError },
+  stepText: { flex: 1, fontSize: 14, color: palette.charcoal, lineHeight: 20 },
+  upBtn:    { padding: 4 },
+  upBtnText:{ fontSize: 18, fontWeight: '700', color: palette.morado },
+  correctOrderBox: {
+    marginTop: 12, padding: 14, borderRadius: 12,
+    backgroundColor: '#F0FDF7', borderWidth: 1, borderColor: palette.verde + '44',
+  },
+  correctOrderTitle: { fontSize: 11, fontWeight: '700', color: palette.verde, marginBottom: 6, letterSpacing: 1 },
+  correctOrderItem:  { fontSize: 13, color: '#166534', lineHeight: 20 },
+});
+
+// ── Informational content (insight, instant_feedback, mastery_screen) ─────────
+
+function InformationalContent({ slide }: { slide: DesafioSlide }) {
+  const isMastery = slide.type === 'mastery_screen';
+  return (
+    <View style={c.root}>
+      <Text style={c.typeLabel}>{slideTypeLabel(slide.type)}</Text>
+      {slide.emoji != null && <Text style={c.emoji}>{slide.emoji}</Text>}
+      <Text style={isMastery ? c.masteryTitle : c.insightTitle}>{slide.title}</Text>
+      <Text style={c.body}>{slide.body}</Text>
+      {isMastery && Array.isArray(slide.conceptsCovered) && slide.conceptsCovered.length > 0 && (
+        <View style={c.conceptsWrap}>
+          {slide.conceptsCovered.map((name, i) => (
+            <View key={i} style={c.conceptChip}>
+              <Text style={c.conceptChipText}>{name}</Text>
+            </View>
+          ))}
+        </View>
+      )}
+    </View>
+  );
+}
+
+// ── Slide content dispatcher (inside keyed ScrollView — safe at grandchild depth) ──
 
 function SlideContent({
   slide,
+  mcSelection, onMcSelect,
+  pairsSelectedLeft, onPairsSelectLeft, pairsMatched, onPairsMatch,
+  classifyAssigned, onClassifyAssign,
+  stepsOrder, onStepsReorder,
   answer,
-  onAnswer,
 }: {
   slide: DesafioSlide;
-  answer: string | undefined;
-  onAnswer: (letter: string) => void;
+  mcSelection: string | null;
+  onMcSelect: (letter: string) => void;
+  pairsSelectedLeft: string | null;
+  onPairsSelectLeft: (id: string | null) => void;
+  pairsMatched: Record<string, string>;
+  onPairsMatch: (updated: Record<string, string>) => void;
+  classifyAssigned: Record<string, string>;
+  onClassifyAssign: (updated: Record<string, string>) => void;
+  stepsOrder: number[];
+  onStepsReorder: (updated: number[]) => void;
+  answer: SlideAnswer | undefined;
 }) {
-  const revealed = !!answer;
-
-  // Interactive slides: discovery_challenge, reinforcement_challenge, boss_loop
-  if (isInteractive(slide)) {
-    const wrongHint = answer && answer !== slide.correctAnswer
-      ? slide.wrongHints?.[answer]
-      : undefined;
-
-    return (
-      <View style={c.root}>
-        <Text style={c.typeLabel}>{typeLabel(slide.type)}</Text>
-        {slide.emoji != null && (
-          <Text style={c.emoji}>{slide.emoji}</Text>
-        )}
-        <Text style={c.question}>{slide.question}</Text>
-
-        <View style={c.options}>
-          {(slide.choices ?? []).map(choice => (
-            <OptionRow
-              key={choice.letter}
-              letter={choice.letter}
-              text={choice.text}
-              selected={answer === choice.letter}
-              revealed={revealed}
-              correct={choice.letter === slide.correctAnswer}
-              onPress={() => onAnswer(choice.letter)}
-            />
-          ))}
-        </View>
-
-        {revealed && wrongHint && (
-          <View style={c.hintBox}>
-            <Text style={c.hintText}>{wrongHint}</Text>
-          </View>
-        )}
-
-        {revealed && !wrongHint && slide.explanation && (
-          <View style={c.explanationBox}>
-            <Text style={c.explanationText}>{slide.explanation}</Text>
-          </View>
-        )}
-      </View>
-    );
+  if (!isInteractiveByType(slide)) {
+    return <InformationalContent slide={slide} />;
   }
 
-  // Non-interactive: instant_feedback, insight, mastery_screen
-  if (isInformational(slide)) {
-    const isMastery = slide.type === 'mastery_screen';
-    return (
-      <View style={c.root}>
-        <Text style={c.typeLabel}>{typeLabel(slide.type)}</Text>
-        {slide.emoji != null && (
-          <Text style={c.emoji}>{slide.emoji}</Text>
-        )}
-        <Text style={isMastery ? c.masteryTitle : c.insightTitle}>
-          {isMastery ? slide.title : slide.title}
-        </Text>
-        <Text style={c.body}>{slide.body}</Text>
-        {isMastery && Array.isArray(slide.conceptsCovered) && slide.conceptsCovered.length > 0 && (
-          <View style={c.conceptsWrap}>
-            {slide.conceptsCovered.map((name, i) => (
-              <View key={i} style={c.conceptChip}>
-                <Text style={c.conceptChipText}>{name}</Text>
-              </View>
-            ))}
-          </View>
-        )}
-      </View>
-    );
-  }
-
-  return null;
-}
-
-function typeLabel(type: DesafioSlide['type']): string {
-  switch (type) {
-    case 'discovery_challenge':     return 'DESCUBRIR';
-    case 'instant_feedback':        return 'CONEXIÓN';
-    case 'insight':                 return 'CONCEPTO';
-    case 'reinforcement_challenge': return 'REFUERZO';
-    case 'boss_loop':               return 'DESAFÍO FINAL';
-    case 'mastery_screen':          return 'COMPLETADO';
+  switch (effectiveInteractionType(slide)) {
+    case 'multiple_choice':
+      return <MultipleChoiceContent slide={slide} selection={mcSelection} onSelect={onMcSelect} answer={answer} />;
+    case 'fill_blank':
+      return <FillBlankContent slide={slide} selection={mcSelection} onSelect={onMcSelect} answer={answer} />;
+    case 'match_pairs':
+      return (
+        <MatchPairsContent
+          slide={slide} selectedLeft={pairsSelectedLeft}
+          onSelectLeft={onPairsSelectLeft} matched={pairsMatched}
+          onMatch={onPairsMatch} answer={answer}
+        />
+      );
+    case 'classify':
+      return (
+        <ClassifyContent
+          slide={slide} assigned={classifyAssigned}
+          onAssign={onClassifyAssign} answer={answer}
+        />
+      );
+    case 'order_steps':
+      return (
+        <OrderStepsContent
+          slide={slide} stepsOrder={stepsOrder}
+          onReorder={onStepsReorder} answer={answer}
+        />
+      );
+    default:
+      return <InformationalContent slide={slide} />;
   }
 }
+
+// ── Shared slide styles ───────────────────────────────────────────────────────
 
 const c = StyleSheet.create({
-  root:    { paddingHorizontal: 20, paddingTop: 8, paddingBottom: 24 },
+  root:      { paddingHorizontal: 20, paddingTop: 8, paddingBottom: 24 },
   typeLabel: {
     fontSize: 11, fontWeight: '700', letterSpacing: 1.2,
     color: palette.morado, marginBottom: 16,
   },
-  emoji:   { fontSize: 48, textAlign: 'center', marginBottom: 16 },
-  question: {
-    fontSize: 20, fontWeight: '700', color: palette.charcoal,
-    lineHeight: 28, marginBottom: 24,
-  },
-  options: { gap: 0 },
+  emoji:    { fontSize: 48, textAlign: 'center', marginBottom: 16 },
+  question: { fontSize: 20, fontWeight: '700', color: palette.charcoal, lineHeight: 28, marginBottom: 24 },
+  subLabel: { fontSize: 13, fontWeight: '600', color: palette.grisMedio, marginBottom: 12 },
 
   hintBox: {
     marginTop: 16, padding: 14, borderRadius: 12,
-    backgroundColor: palette.rojoErrorBg,
-    borderWidth: 1, borderColor: palette.rojoError + '33',
+    backgroundColor: palette.rojoErrorBg, borderWidth: 1, borderColor: palette.rojoError + '33',
   },
   hintText: { fontSize: 14, color: palette.rojoErrorDark, lineHeight: 20 },
 
   explanationBox: {
     marginTop: 16, padding: 14, borderRadius: 12,
-    backgroundColor: '#F0FDF7',
-    borderWidth: 1, borderColor: palette.verde + '44',
+    backgroundColor: '#F0FDF7', borderWidth: 1, borderColor: palette.verde + '44',
   },
   explanationText: { fontSize: 14, color: '#166534', lineHeight: 20 },
 
-  insightTitle: {
-    fontSize: 22, fontWeight: '800', color: palette.charcoal,
-    lineHeight: 30, marginBottom: 16,
-  },
+  insightTitle: { fontSize: 22, fontWeight: '800', color: palette.charcoal, lineHeight: 30, marginBottom: 16 },
   masteryTitle: {
     fontSize: 26, fontWeight: '800', color: palette.charcoal,
     textAlign: 'center', lineHeight: 34, marginBottom: 16,
   },
   body: { fontSize: 16, color: palette.grisMedio, lineHeight: 24 },
 
-  conceptsWrap: {
-    flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 24,
-  },
-  conceptChip: {
-    paddingHorizontal: 12, paddingVertical: 6,
-    backgroundColor: palette.moradoBg, borderRadius: 20,
-  },
+  conceptsWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 24 },
+  conceptChip:  { paddingHorizontal: 12, paddingVertical: 6, backgroundColor: palette.moradoBg, borderRadius: 20 },
   conceptChipText: { fontSize: 13, fontWeight: '600', color: palette.morado },
 });
-
-// ── CTA label helpers ─────────────────────────────────────────────────────────
-
-function ctaLabel(slide: DesafioSlide, answered: boolean, isLast: boolean): string {
-  if (isLast) return '¡Terminar!';
-  if (isInteractive(slide) && !answered) return 'Selecciona una opción';
-  return 'Continuar';
-}
 
 // ══════════════════════════════════════════════════════════════════════════════
 // MAIN SCREEN
@@ -328,42 +720,146 @@ function ctaLabel(slide: DesafioSlide, answered: boolean, isLast: boolean): stri
 export default function DesafioScreen() {
   const router = useRouter();
 
-  const [session, setSession]     = useState<DesafioSession | null>(null);
-  const [currentIdx, setCurrentIdx] = useState(0);
-  const [answers, setAnswers]     = useState<Record<number, string>>({});
-  const [loading, setLoading]     = useState(true);
+  const [session,       setSession]       = useState<DesafioSession | null>(null);
+  const [dynamicSlides, setDynamicSlides] = useState<DesafioSlide[]>([]);
+  const [currentIdx,    setCurrentIdx]    = useState(0);
+  const [loading,       setLoading]       = useState(true);
 
+  // Submitted answers per slide index
+  const [answers,     setAnswers]     = useState<Record<number, SlideAnswer>>({});
+  // Available retries per concept index
+  const [retriesLeft, setRetriesLeft] = useState<Record<number, number>>({});
+
+  // Per-interaction-type UI state (all reset on slide change)
+  const [mcSelection,       setMcSelection]       = useState<string | null>(null);
+  const [pairsSelectedLeft, setPairsSelectedLeft] = useState<string | null>(null);
+  const [pairsMatched,      setPairsMatched]      = useState<Record<string, string>>({});
+  const [classifyAssigned,  setClassifyAssigned]  = useState<Record<string, string>>({});
+  const [stepsOrder,        setStepsOrder]        = useState<number[]>([]);
+
+  // ── Load session from AsyncStorage ────────────────────────────────────────
   useEffect(() => {
     AsyncStorage.getItem(DESAFIO_KEY).then(raw => {
       if (raw) {
-        try { setSession(JSON.parse(raw)); } catch {}
+        try {
+          const s: DesafioSession = JSON.parse(raw);
+          setSession(s);
+          setDynamicSlides([...s.slides]);
+          if (s.retrySlides) {
+            const init: Record<number, number> = {};
+            Object.keys(s.retrySlides).forEach(k => {
+              const n = parseInt(k, 10);
+              if (!isNaN(n)) init[n] = Math.min(2, s.retrySlides![k].length);
+            });
+            setRetriesLeft(init);
+          }
+        } catch {}
       }
       setLoading(false);
     });
   }, []);
 
-  const handleAnswer = useCallback((letter: string) => {
-    setAnswers(prev => {
-      if (prev[currentIdx] !== undefined) return prev;
-      return { ...prev, [currentIdx]: letter };
-    });
-  }, [currentIdx]);
+  // ── Reset interaction state on slide advance ───────────────────────────────
+  useEffect(() => {
+    setMcSelection(null);
+    setPairsSelectedLeft(null);
+    setPairsMatched({});
+    setClassifyAssigned({});
+    const slide = dynamicSlides[currentIdx];
+    setStepsOrder(slide?.steps ? slide.steps.map((_, i) => i) : []);
+  }, [currentIdx]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const handleCta = useCallback(() => {
-    if (!session) return;
-    const slide    = session.slides[currentIdx];
-    const answered = answers[currentIdx] !== undefined;
+  // ── Derived values ─────────────────────────────────────────────────────────
+  const slide    = dynamicSlides[currentIdx];
+  const revealed = !!answers[currentIdx];
+  const isLast   = currentIdx >= dynamicSlides.length - 1;
+  const itype    = slide ? effectiveInteractionType(slide) : 'multiple_choice';
 
-    // On interactive slides, CTA is disabled until answered — but guard anyway
-    if (isInteractive(slide) && !answered) return;
-
-    const isLast = currentIdx >= session.slides.length - 1;
-    if (isLast) {
-      router.back();
-      return;
+  const ctaDisabled = useMemo(() => {
+    if (!slide || !isInteractiveByType(slide)) return false;
+    if (revealed) return false;
+    switch (itype) {
+      case 'multiple_choice': return mcSelection === null;
+      case 'fill_blank':      return mcSelection === null;
+      case 'match_pairs':     return Object.keys(pairsMatched).length < (slide.pairs?.length ?? 1);
+      case 'classify':        return Object.keys(classifyAssigned).length < (slide.classifyItems?.length ?? 1);
+      case 'order_steps':     return false;
+      default:                return false;
     }
+  }, [slide, revealed, itype, mcSelection, pairsMatched, classifyAssigned]);
+
+  const ctaLabel = useMemo(() => {
+    if (!slide) return 'Continuar';
+    if (!isInteractiveByType(slide)) return isLast ? '¡Terminar!' : 'Continuar';
+    if (!revealed) return 'Verificar';
+    return isLast ? '¡Terminar!' : 'Continuar';
+  }, [slide, revealed, isLast]);
+
+  // ── Advance to next slide ──────────────────────────────────────────────────
+  const advance = useCallback(() => {
+    if (currentIdx >= dynamicSlides.length - 1) { router.back(); return; }
     setCurrentIdx(idx => idx + 1);
-  }, [session, currentIdx, answers, router]);
+  }, [currentIdx, dynamicSlides.length, router]);
+
+  // ── CTA press handler ──────────────────────────────────────────────────────
+  const handleCta = useCallback(() => {
+    if (!slide) return;
+    if (!isInteractiveByType(slide)) { advance(); return; }
+    if (revealed) { advance(); return; }
+
+    // Evaluate submitted answer
+    let value: SlideAnswer['value'] = '';
+    let correct = false;
+
+    switch (itype) {
+      case 'multiple_choice':
+        value   = mcSelection ?? '';
+        correct = mcSelection === slide.correctAnswer;
+        break;
+      case 'fill_blank':
+        value   = mcSelection ?? '';
+        correct = mcSelection === slide.blankAnswer;
+        break;
+      case 'match_pairs':
+        value   = { ...pairsMatched };
+        correct = (slide.pairs ?? []).every(p => pairsMatched[p.id] === p.id + '_r');
+        break;
+      case 'classify':
+        value   = { ...classifyAssigned };
+        correct = (slide.classifyItems ?? []).every(item => classifyAssigned[item.id] === item.category);
+        break;
+      case 'order_steps':
+        value   = [...stepsOrder];
+        correct = stepsOrder.length === (slide.correctOrder ?? []).length &&
+                  stepsOrder.every((v, i) => v === slide.correctOrder![i]);
+        break;
+    }
+
+    setAnswers(prev => ({ ...prev, [currentIdx]: { value, correct } }));
+
+    // Adaptive injection: insert retry slide on wrong answer
+    if (!correct && slide.conceptIndex >= 0 && session) {
+      const remaining = retriesLeft[slide.conceptIndex] ?? 0;
+      const retryArr  = session.retrySlides?.[String(slide.conceptIndex)];
+      if (remaining > 0 && retryArr && retryArr.length > 0) {
+        const pickIdx   = retryArr.length - remaining;
+        const retrySlide: DesafioSlide = {
+          ...retryArr[Math.min(pickIdx, retryArr.length - 1)],
+          isRetry: true,
+        };
+        setDynamicSlides(prev => [
+          ...prev.slice(0, currentIdx + 1),
+          retrySlide,
+          ...prev.slice(currentIdx + 1),
+        ]);
+        setRetriesLeft(prev => ({ ...prev, [slide.conceptIndex]: remaining - 1 }));
+      }
+    }
+  }, [
+    slide, revealed, itype, advance,
+    mcSelection, pairsMatched, classifyAssigned, stepsOrder,
+    currentIdx, session, retriesLeft,
+  ]);
 
   // ── Loading / error states ─────────────────────────────────────────────────
   if (loading) {
@@ -376,7 +872,7 @@ export default function DesafioScreen() {
     );
   }
 
-  if (!session || session.slides.length === 0) {
+  if (!session || dynamicSlides.length === 0) {
     return (
       <SafeAreaView style={g.screen} edges={['top', 'bottom']}>
         <View style={g.centered}>
@@ -389,11 +885,7 @@ export default function DesafioScreen() {
     );
   }
 
-  const slide    = session.slides[currentIdx];
-  const answered = answers[currentIdx] !== undefined;
-  const isLast   = currentIdx >= session.slides.length - 1;
-  const ctaDisabled = isInteractive(slide) && !answered;
-
+  // ── Main render — 3 stable SafeAreaView direct children ───────────────────
   return (
     <SafeAreaView style={g.screen} edges={['top', 'bottom']}>
       <StatusBar barStyle="dark-content" backgroundColor={palette.crema} />
@@ -401,11 +893,11 @@ export default function DesafioScreen() {
       {/* Stable child 1 — progress header */}
       <ProgressHeader
         current={currentIdx}
-        total={session.slides.length}
+        total={dynamicSlides.length}
         onClose={() => router.back()}
       />
 
-      {/* Stable child 2 — slide content; key forces remount on slide change */}
+      {/* Stable child 2 — slide content; key forces remount on advance */}
       <ScrollView
         key={currentIdx}
         style={g.scrollArea}
@@ -415,8 +907,17 @@ export default function DesafioScreen() {
       >
         <SlideContent
           slide={slide}
+          mcSelection={mcSelection}
+          onMcSelect={setMcSelection}
+          pairsSelectedLeft={pairsSelectedLeft}
+          onPairsSelectLeft={setPairsSelectedLeft}
+          pairsMatched={pairsMatched}
+          onPairsMatch={setPairsMatched}
+          classifyAssigned={classifyAssigned}
+          onClassifyAssign={setClassifyAssigned}
+          stepsOrder={stepsOrder}
+          onStepsReorder={setStepsOrder}
           answer={answers[currentIdx]}
-          onAnswer={handleAnswer}
         />
       </ScrollView>
 
@@ -427,7 +928,7 @@ export default function DesafioScreen() {
         disabled={ctaDisabled}
       >
         <Text style={[g.ctaText, ctaDisabled && g.ctaTextDisabled]}>
-          {ctaLabel(slide, answered, isLast)}
+          {ctaLabel}
         </Text>
       </Pressable>
     </SafeAreaView>
@@ -437,21 +938,17 @@ export default function DesafioScreen() {
 // ── Global styles ─────────────────────────────────────────────────────────────
 
 const g = StyleSheet.create({
-  screen:      { flex: 1, backgroundColor: palette.crema },
-  scrollArea:  { flex: 1 },
-  scrollContent: { flexGrow: 1 },
+  screen:       { flex: 1, backgroundColor: palette.crema },
+  scrollArea:   { flex: 1 },
+  scrollContent:{ flexGrow: 1 },
 
   cta: {
-    marginHorizontal: 20,
-    marginBottom: 12,
-    marginTop: 8,
-    backgroundColor: palette.morado,
-    borderRadius: 16,
-    paddingVertical: 16,
-    alignItems: 'center',
+    marginHorizontal: 20, marginBottom: 12, marginTop: 8,
+    backgroundColor: palette.morado, borderRadius: 16,
+    paddingVertical: 16, alignItems: 'center',
   },
-  ctaDisabled: { backgroundColor: palette.bordeClaro },
-  ctaText:     { fontSize: 17, fontWeight: '700', color: palette.blanco },
+  ctaDisabled:     { backgroundColor: palette.bordeClaro },
+  ctaText:         { fontSize: 17, fontWeight: '700', color: palette.blanco },
   ctaTextDisabled: { color: palette.grisMedio },
 
   centered:    { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 32 },

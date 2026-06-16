@@ -1,17 +1,9 @@
 /**
- * Desafío generation service.
+ * Desafío generation service — Phase 2 (adaptive, multi-interaction-type).
  *
- * Pipeline:
- *   1. classifyContent()       — determina tipo pedagógico y detecta habilidades
- *   2. buildDesafioPrompt()    — construye el prompt para la IA
- *   3. generateDesafioContent()— llama a OpenAI y valida el JSON
- *   4. buildDesafioSession()   — ensambla el DesafioSession final
- *
- * Reutiliza:
- *   - transcriptionService.ts (upstream — la transcripción llega ya procesada)
- *   - classifyContent() de pedagogicalClassifier.ts
- *   - Tipo A concept extraction (implementada en el prompt conceptual — la IA
- *     hace el mismo análisis de Fase 1–4 que en buildConceptualPrompt)
+ * Generates a Duolingo-style adaptive challenge session from a document transcription.
+ * Interaction types: multiple_choice, match_pairs, fill_blank, classify, order_steps
+ * Adaptive features: spaced repetition, pre-generated retry slides, boss challenge
  */
 
 import OpenAI from 'openai';
@@ -19,27 +11,56 @@ import { randomUUID } from 'crypto';
 import { classifyContent } from './pedagogicalClassifier.js';
 import { config } from '../config.js';
 
-// Local copies of shared types — kept in sync with shared/desafio.ts
+// ── Local type definitions (mirrors shared/desafio.ts — no cross-root import) ─
+
+type DesafioInteractionType =
+  | 'multiple_choice'
+  | 'match_pairs'
+  | 'fill_blank'
+  | 'classify'
+  | 'order_steps';
+
 type DesafioSlideType =
   | 'discovery_challenge'
   | 'instant_feedback'
   | 'insight'
   | 'reinforcement_challenge'
+  | 'spaced_repetition'
   | 'boss_loop'
   | 'mastery_screen';
 
 interface DesafioChoice { letter: 'A' | 'B' | 'C'; text: string; }
+interface DesafioPair   { id: string; left: string; right: string; }
+interface DesafioClassifyItem { id: string; text: string; category: string; }
 
 interface DesafioSlide {
   type: DesafioSlideType;
+  interactionType?: DesafioInteractionType;
   conceptIndex: number;
   conceptName: string;
+  isSpacedRepetition?: boolean;
+  isRetry?: boolean;
   emoji?: string;
   question?: string;
   choices?: DesafioChoice[];
   correctAnswer?: 'A' | 'B' | 'C';
   explanation?: string;
   wrongHints?: Record<string, string>;
+  pairsPrompt?: string;
+  pairs?: DesafioPair[];
+  pairsExplanation?: string;
+  blankSentence?: string;
+  blankChoices?: DesafioChoice[];
+  blankAnswer?: 'A' | 'B' | 'C';
+  blankExplanation?: string;
+  classifyPrompt?: string;
+  classifyItems?: DesafioClassifyItem[];
+  classifyCategories?: string[];
+  classifyExplanation?: string;
+  orderPrompt?: string;
+  steps?: string[];
+  correctOrder?: number[];
+  orderExplanation?: string;
   title?: string;
   body?: string;
   conceptsCovered?: string[];
@@ -50,6 +71,7 @@ interface DesafioSession {
   topic: string;
   conceptCount: number;
   slides: DesafioSlide[];
+  retrySlides?: Record<string, DesafioSlide[]>;
 }
 
 const openai = new OpenAI({ apiKey: config.openai_api_key });
@@ -58,174 +80,310 @@ function normalizeText(text: string): string {
   return text.replace(/[\r\n]+/g, ' ').replace(/\s+/g, ' ').trim();
 }
 
-// ── JSON schema emitido al modelo ────────────────────────────────────────────
+// ── JSON schema template ──────────────────────────────────────────────────────
 
 const DESAFIO_SCHEMA = `
-SCHEMA JSON — devuelve EXACTAMENTE esta estructura, sin texto adicional:
+DEVUELVE EXACTAMENTE este JSON (sin texto adicional, sin markdown):
 {
-  "topic": string,
+  "topic": "Nombre del tema principal",
   "slides": [
-    // Para cada concepto Tipo A (repetir el bloque de 4 slides):
+
+    // ── BLOQUE POR CONCEPTO (repetir para cada concepto Tipo A) ──
+
+    // [1] discovery_challenge — siempre multiple_choice
     {
       "type": "discovery_challenge",
-      "conceptIndex": number (0-based),
-      "conceptName": string,
-      "emoji": string,
-      "question": string,
+      "interactionType": "multiple_choice",
+      "conceptIndex": 0,
+      "conceptName": "Nombre del concepto",
+      "emoji": "📐",
+      "question": "Pregunta de descubrimiento con ejemplo concreto del documento (max 20 palabras)?",
       "choices": [
-        { "letter": "A", "text": string },
-        { "letter": "B", "text": string },
-        { "letter": "C", "text": string }
+        {"letter": "A", "text": "Opción A (max 10 palabras)"},
+        {"letter": "B", "text": "Opción B"},
+        {"letter": "C", "text": "Opción C"}
       ],
-      "correctAnswer": "A" | "B" | "C",
-      "explanation": string,
-      "wrongHints": { "A": string, "B": string } // solo letras incorrectas
+      "correctAnswer": "A",
+      "explanation": "Por qué A es correcto (max 100 chars, sin 'Correcto' ni emojis).",
+      "wrongHints": {
+        "B": "Elegiste B porque [razón]. La pregunta buscaba [criterio exacto].",
+        "C": "Elegiste C porque [razón]. La pregunta buscaba [criterio exacto]."
+      }
     },
-    {
-      "type": "instant_feedback",
-      "conceptIndex": number,
-      "conceptName": string,
-      "title": string,
-      "body": string
-    },
-    {
-      "type": "insight",
-      "conceptIndex": number,
-      "conceptName": string,
-      "emoji": string,
-      "title": string,
-      "body": string
-    },
+
+    // [2] interactive_challenge — tipo varía por concepto (ver reglas)
+    // EJEMPLO match_pairs (concepto 0):
     {
       "type": "reinforcement_challenge",
-      "conceptIndex": number,
-      "conceptName": string,
-      "question": string,
-      "choices": [ { "letter": "A", ... }, { "letter": "B", ... }, { "letter": "C", ... } ],
-      "correctAnswer": "A" | "B" | "C",
-      "explanation": string,
-      "wrongHints": { ... }
+      "interactionType": "match_pairs",
+      "conceptIndex": 0,
+      "conceptName": "Nombre del concepto",
+      "pairsPrompt": "Une cada elemento con su descripción (max 12 palabras)",
+      "pairs": [
+        {"id": "p1", "left": "Texto izquierda 1 (max 8 palabras)", "right": "Texto derecha 1 (max 8 palabras)"},
+        {"id": "p2", "left": "Texto izquierda 2", "right": "Texto derecha 2"},
+        {"id": "p3", "left": "Texto izquierda 3", "right": "Texto derecha 3"}
+      ],
+      "pairsExplanation": "Explicación del patrón (max 80 chars)"
     },
-    // Al terminar todos los conceptos:
+
+    // EJEMPLO fill_blank (concepto 1):
+    // {
+    //   "type": "reinforcement_challenge",
+    //   "interactionType": "fill_blank",
+    //   "conceptIndex": 1, "conceptName": "...",
+    //   "blankSentence": "Expresión con ___ para completar (max 12 palabras)",
+    //   "blankChoices": [{"letter":"A","text":"..."},{"letter":"B","text":"..."},{"letter":"C","text":"..."}],
+    //   "blankAnswer": "A",
+    //   "blankExplanation": "Por qué A completa correctamente (max 80 chars)"
+    // },
+
+    // EJEMPLO classify (concepto 2):
+    // {
+    //   "type": "reinforcement_challenge",
+    //   "interactionType": "classify",
+    //   "conceptIndex": 2, "conceptName": "...",
+    //   "classifyPrompt": "Clasifica cada expresión (max 12 palabras)",
+    //   "classifyCategories": ["Cat1", "Cat2", "Cat3"],
+    //   "classifyItems": [
+    //     {"id": "c1", "text": "Expresión 1", "category": "Cat1"},
+    //     {"id": "c2", "text": "Expresión 2", "category": "Cat2"},
+    //     {"id": "c3", "text": "Expresión 3", "category": "Cat3"}
+    //   ],
+    //   "classifyExplanation": "Explicación (max 80 chars)"
+    // },
+
+    // EJEMPLO order_steps (concepto 3):
+    // {
+    //   "type": "reinforcement_challenge",
+    //   "interactionType": "order_steps",
+    //   "conceptIndex": 3, "conceptName": "...",
+    //   "orderPrompt": "Ordena los pasos para resolver (max 10 palabras)",
+    //   "steps": ["Paso C mezclado", "Paso A mezclado", "Paso B mezclado"],
+    //   "correctOrder": [1, 2, 0],
+    //   "orderExplanation": "Por qué este orden (max 80 chars)"
+    // },
+
+    // [3] instant_feedback — NO interactivo
+    {
+      "type": "instant_feedback",
+      "conceptIndex": 0,
+      "conceptName": "Nombre del concepto",
+      "title": "¿Por qué? (max 5 palabras)",
+      "body": "Conecta discovery con insight, max 35 palabras."
+    },
+
+    // [4] insight — NO interactivo
+    {
+      "type": "insight",
+      "conceptIndex": 0,
+      "conceptName": "Nombre del concepto",
+      "emoji": "💡",
+      "title": "Nombre del Concepto",
+      "body": "Definición concisa. Analogía cotidiana. Max 35 palabras."
+    },
+
+    // [5] reinforcement_challenge — multiple_choice O mismo tipo que [2]
+    {
+      "type": "reinforcement_challenge",
+      "interactionType": "multiple_choice",
+      "conceptIndex": 0,
+      "conceptName": "Nombre del concepto",
+      "question": "Nueva situación, mismo concepto, contexto diferente (max 20 palabras)?",
+      "choices": [
+        {"letter": "A", "text": "..."},
+        {"letter": "B", "text": "..."},
+        {"letter": "C", "text": "..."}
+      ],
+      "correctAnswer": "B",
+      "explanation": "...",
+      "wrongHints": {"A": "...", "C": "..."}
+    },
+
+    // ── SPACED REPETITION (después de bloque concepto N, si N ≥ 1) ──
+    {
+      "type": "spaced_repetition",
+      "interactionType": "multiple_choice",
+      "conceptIndex": 0,
+      "conceptName": "Nombre del concepto revisado",
+      "isSpacedRepetition": true,
+      "question": "Pregunta DIFERENTE a discovery/reinforcement de ese concepto.",
+      "choices": [{"letter":"A","text":"..."},{"letter":"B","text":"..."},{"letter":"C","text":"..."}],
+      "correctAnswer": "C",
+      "explanation": "..."
+    },
+
+    // ── BOSS CHALLENGE (al final de todos los conceptos) ──
+    // Boss 1: tipo no-MC
     {
       "type": "boss_loop",
+      "interactionType": "classify",
+      "conceptIndex": -1,
+      "conceptName": "Boss Battle",
+      "classifyPrompt": "Desafío integrador: clasifica usando todo lo aprendido",
+      "classifyCategories": ["Cat1", "Cat2"],
+      "classifyItems": [
+        {"id": "c1", "text": "...", "category": "Cat1"},
+        {"id": "c2", "text": "...", "category": "Cat2"},
+        {"id": "c3", "text": "...", "category": "Cat1"}
+      ],
+      "classifyExplanation": "..."
+    },
+    // Boss 2: multiple_choice integrador
+    {
+      "type": "boss_loop",
+      "interactionType": "multiple_choice",
       "conceptIndex": -1,
       "conceptName": "Boss Battle",
       "emoji": "🏆",
-      "question": string,
-      "choices": [ { "letter": "A", ... }, { "letter": "B", ... }, { "letter": "C", ... } ],
-      "correctAnswer": "A" | "B" | "C",
-      "explanation": string,
-      "wrongHints": { ... }
+      "question": "Pregunta que solo puede responder quien dominó TODOS los conceptos (max 30 palabras)?",
+      "choices": [{"letter":"A","text":"..."},{"letter":"B","text":"..."},{"letter":"C","text":"..."}],
+      "correctAnswer": "A",
+      "explanation": "...",
+      "wrongHints": {"B": "...", "C": "..."}
     },
+
+    // ── MASTERY SCREEN ──
     {
       "type": "mastery_screen",
       "conceptIndex": -1,
       "conceptName": "Completado",
-      "title": string,
-      "body": string,
-      "conceptsCovered": [string, ...]
+      "title": "¡Desafío superado!",
+      "body": "Celebración de lo aprendido, max 25 palabras.",
+      "conceptsCovered": ["Concepto 0", "Concepto 1"]
     }
-  ]
+  ],
+
+  "retrySlides": {
+    "0": [{
+      "type": "reinforcement_challenge",
+      "interactionType": "fill_blank",
+      "isRetry": true,
+      "conceptIndex": 0,
+      "conceptName": "Nombre del concepto",
+      "blankSentence": "Expresión con ___ diferente al reinforcement original",
+      "blankChoices": [{"letter":"A","text":"..."},{"letter":"B","text":"..."},{"letter":"C","text":"..."}],
+      "blankAnswer": "B",
+      "blankExplanation": "..."
+    }],
+    "1": [{
+      "type": "reinforcement_challenge",
+      "interactionType": "multiple_choice",
+      "isRetry": true,
+      "conceptIndex": 1,
+      "conceptName": "Nombre del concepto",
+      "question": "Nuevo ángulo del mismo concepto, diferente al original.",
+      "choices": [{"letter":"A","text":"..."},{"letter":"B","text":"..."},{"letter":"C","text":"..."}],
+      "correctAnswer": "C",
+      "explanation": "...",
+      "wrongHints": {"A": "...", "B": "..."}
+    }]
+  }
 }`;
 
 // ── Prompt builder ────────────────────────────────────────────────────────────
 
 function buildDesafioPrompt(transcription: string, curso: string): string {
-  return `Eres un diseñador de sesiones de aprendizaje para estudiantes chilenos de enseñanza media (${curso}).
-Tu tarea es generar un modo "Desafío" a partir de una transcripción de apuntes.
+  return `Eres un diseñador de sesiones de aprendizaje estilo Duolingo para estudiantes chilenos de enseñanza media (${curso}).
 
-⚠️ REGLA CRÍTICA DE CONTENIDO:
-TODO el contenido DEBE derivarse EXCLUSIVAMENTE de la transcripción.
-NO introduzcas conceptos, términos ni ejemplos ajenos a la transcripción.
-DEVUELVE SOLO JSON VÁLIDO. Sin texto adicional. Todo en español.
+⚠️ REGLA CRÍTICA: TODO contenido DEBE derivarse EXCLUSIVAMENTE de la transcripción.
+No introduzcas conceptos, términos ni ejemplos ajenos. DEVUELVE SOLO JSON VÁLIDO. En español.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-FASE 1 — EXTRACCIÓN DE CONCEPTOS TIPO A [MENTAL]
+FASE 1 — EXTRACCIÓN MENTAL DE CONCEPTOS TIPO A
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-Analiza la transcripción e identifica los CONCEPTOS TIPO A:
+Identifica CONCEPTOS TIPO A (máx. 4; máx. 2 si doc < 400 palabras):
   → Su ausencia impide alcanzar el objetivo de aprendizaje del documento
   → Tiene significado propio y puede evaluarse de forma independiente
   → Requiere comprensión profunda, no solo memorización
 
-LÍMITE: máximo 4 conceptos Tipo A.
-Documento corto (< 400 palabras) → máximo 2 conceptos.
-Si hay más candidatos → selecciona los más esenciales para el objetivo de aprendizaje.
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+FASE 2 — DISEÑO DEL DESAFÍO: 5 SLIDES POR CONCEPTO
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Para CADA concepto Tipo A, genera EXACTAMENTE en este orden:
+
+[1] discovery_challenge — interactionType: "multiple_choice" SIEMPRE
+    Pregunta de descubrimiento. El estudiante DESCUBRE el concepto antes del insight.
+    - question: max 20 palabras, con ejemplo concreto del documento
+    - choices: EXACTAMENTE 3 (A, B, C). Una correcta. Dos distractores plausibles.
+    - correctAnswer: "A"|"B"|"C" — VARIAR posición entre conceptos, no siempre A
+    - explanation: por qué es correcto (max 100 chars, sin "Correcto" ni emojis)
+    - wrongHints: {"B": "Elegiste B porque [razón]. La pregunta buscaba [criterio].", "C": "..."}
+    - emoji: emoji del concepto
+
+[2] interactive_challenge — interactionType ROTA entre conceptos:
+    C0 → "match_pairs", C1 → "fill_blank", C2 → "classify", C3 → "order_steps"
+    (Con 2 conceptos: C0 → "match_pairs", C1 → "fill_blank")
+    (Con 3 conceptos: C0 → "match_pairs", C1 → "fill_blank", C2 → "classify")
+
+    REGLAS POR TIPO:
+    • match_pairs: pairsPrompt (max 12 palabras), pairs con 3-4 objetos {id:"p1",left,right}
+      ids DEBEN ser "p1","p2","p3","p4" — left y right max 8 palabras cada uno
+    • fill_blank: blankSentence con "___" (max 12 palabras), blankChoices (3 opciones), blankAnswer, blankExplanation
+    • classify: classifyPrompt, classifyCategories (2-3 strings), classifyItems con 3-4 objetos
+      {id:"c1",text,category} — ids "c1","c2","c3","c4", category DEBE existir en classifyCategories
+    • order_steps: orderPrompt, steps (3-4 pasos en ORDEN MEZCLADO), correctOrder (array de índices)
+      EJEMPLO correctOrder: si steps=["C","A","B"] y orden correcto es A→B→C, entonces correctOrder=[1,2,0]
+      (steps[1]="A" va primero, steps[2]="B" segundo, steps[0]="C" tercero)
+
+[3] instant_feedback — SIN interactionType
+    No interactivo. Conecta la pregunta anterior con el insight que viene.
+    - title: max 5 palabras
+    - body: 1-2 oraciones, max 35 palabras
+
+[4] insight — SIN interactionType
+    No interactivo. Define el concepto de forma clara y memorable.
+    - emoji, title (max 5 palabras), body (definición + analogía, max 35 palabras)
+
+[5] reinforcement_challenge — interactionType según concepto:
+    C0/C2 → "multiple_choice". C1/C3 → mismo tipo que [2] de ese concepto.
+    DIFERENTE contexto al discovery_challenge del mismo concepto.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-FASE 2 — DISEÑO DEL DESAFÍO
+FASE 3 — SPACED REPETITION (insertar ENTRE bloques de conceptos)
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-Para CADA concepto Tipo A, genera exactamente 4 slides en este orden:
-
-[1] discovery_challenge — PREGUNTA ANTES DEL INSIGHT
-  El estudiante DESCUBRE el concepto respondiendo una pregunta concreta.
-  - question: pregunta de descubrimiento con ejemplo del documento. Max 20 palabras.
-  - choices: EXACTAMENTE 3 opciones (A, B, C). Una correcta. Dos distractores plausibles.
-    Max 10 palabras por opción. Variar posición de la respuesta correcta.
-  - correctAnswer: "A", "B" o "C"
-  - explanation: por qué esa respuesta es correcta. Texto plano, max 100 caracteres.
-    NO usar "Correcto" ni emojis de resultado.
-  - wrongHints: para cada letra incorrecta: "Elegiste X porque... La pregunta buscaba..."
-    Exactamente 2 oraciones, 20-40 palabras total por hint.
-  - emoji: emoji representativo del concepto
-
-[2] instant_feedback — PUENTE ENTRE PREGUNTA E INSIGHT
-  Slide no interactiva. Aparece DESPUÉS de que el estudiante responde el discovery_challenge.
-  Conecta la pregunta recién respondida con el concepto que viene.
-  - title: "¿Por qué?" o nombre corto del concepto (max 5 palabras)
-  - body: explica en 1-2 oraciones qué estaba probando el discovery_challenge y
-    anticipa el concepto del insight. Max 35 palabras.
-    Ejemplo: "El desafío probaba si reconocías cuándo un número es periódico.
-    La respuesta correcta era B porque el residuo se repite → hay período."
-
-[3] insight — EL CONCEPTO COMPLETO
-  Slide no interactiva. Explica el concepto de forma directa y memorable.
-  - title: nombre del concepto (max 5 palabras)
-  - body: definición concisa + analogía cotidiana. Formato: "Idea principal. Analogía."
-    Max 35 palabras total. Sin lenguaje académico.
-  - emoji: emoji que representa el concepto
-
-[4] reinforcement_challenge — APLICA EL CONCEPTO
-  Igual que discovery_challenge pero en una SITUACIÓN DIFERENTE. Mismo concepto, nuevo contexto.
-  PROHIBIDO: repetir la misma pregunta o contexto del discovery_challenge.
-  - question: nueva situación, mismo concepto. Max 20 palabras.
-  - choices, correctAnswer, explanation, wrongHints: mismas reglas que discovery_challenge.
-  ⚠️ SIN emoji (omitir el campo)
+Después de los 5 slides de cada concepto (empezando por el segundo concepto):
+Insertar 1 slide type "spaced_repetition" que repasa el CONCEPTO ANTERIOR:
+  - interactionType: "multiple_choice" O "fill_blank"
+  - isSpacedRepetition: true
+  - conceptIndex: índice del concepto que se repasa
+  - Pregunta DIFERENTE a las ya generadas para ese concepto
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-FASE 3 — BOSS LOOP Y MASTERY SCREEN
+FASE 4 — BOSS CHALLENGE (al finalizar todos los conceptos y spaced repetitions)
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-Después de todos los conceptos, genera:
-
-[boss_loop] — DESAFÍO INTEGRADOR
-  Una sola pregunta que solo puede responderse dominando TODOS los conceptos enseñados.
-  - question: pregunta integradora. Max 30 palabras.
-    Debe involucrar al menos el 70% de los conceptos Tipo A.
-  - choices: 3 opciones (A, B, C). Todas plausibles para alguien que estudió el material.
-  - correctAnswer, explanation, wrongHints: mismas reglas que arriba.
-
-[mastery_screen] — PANTALLA FINAL
-  - title: "¡Desafío superado!" o frase de celebración (max 6 palabras)
-  - body: 1-2 oraciones celebrando lo aprendido. Max 25 palabras.
-  - conceptsCovered: lista de nombres exactos de los conceptos enseñados
-    (mismos nombres que en los campos conceptName de los insights).
+Generar 2 slides boss_loop:
+  - PRIMER boss: interactionType ≠ "multiple_choice" (usar "classify" o "match_pairs")
+    conceptIndex: -1, conceptName: "Boss Battle"
+    Debe integrar ≥ 2 de los conceptos aprendidos
+  - SEGUNDO boss: interactionType "multiple_choice"
+    conceptIndex: -1, conceptName: "Boss Battle", emoji: "🏆"
+    Pregunta que solo puede responder quien dominó TODOS los conceptos (max 30 palabras)
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-REGLAS DE CALIDAD (aplican a TODAS las preguntas interactivas):
+FASE 5 — MASTERY SCREEN
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-• Distractores plausibles: un estudiante que no estudió el tema no puede eliminarlos por descarte.
-• Sin "Todas las anteriores" ni "Ninguna de las anteriores".
-• La respuesta correcta NO puede ser siempre la más larga.
-• Distribuir posición de correctAnswer: no siempre A, no siempre B.
-• wrongHints OBLIGATORIOS para cada letra incorrecta. Formato:
-  Oración 1: "Elegiste [descripción de la opción incorrecta]."
-  Oración 2: "La pregunta buscaba [criterio exacto de la pregunta]."
+Slide final no interactiva. type: "mastery_screen"
+  - conceptIndex: -1, title (max 6 palabras), body (max 25 palabras)
+  - conceptsCovered: nombres exactos de todos los conceptos (igual que en conceptName de insights)
 
-ADAPTACIÓN POR CURSO:
-  1° Medio: vocabulario simple, situaciones cotidianas, sin razonamiento multivariable.
-  2° Medio: lenguaje claro, aplicación directa, contextos familiares.
-  3° Medio: razonamiento relacional, vocabulario técnico moderado.
-  4° Medio: pensamiento crítico, profundidad preuniversitaria.
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+FASE 6 — RETRY SLIDES (campo "retrySlides" en JSON)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Para CADA concepto Tipo A, generar 1 retry slide en retrySlides[String(conceptIndex)]:
+  - type: "reinforcement_challenge", isRetry: true
+  - interactionType: DIFERENTE al usado en [2] para ese concepto
+    (Si [2] fue "match_pairs" → usar "fill_blank" o "multiple_choice")
+  - Mismo concepto, NUEVO ángulo, diferente a discovery y reinforcement ya generados
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+REGLAS TRANSVERSALES:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+• Distractores plausibles — no eliminables por descarte directo
+• Sin "Todas/Ninguna de las anteriores"
+• La opción correcta NO es siempre la más larga
+• wrongHints OBLIGATORIOS para todas las opciones incorrectas en multiple_choice
+• Para ${curso}: vocabulario y contextos apropiados al nivel
 
 Transcripción:
 ${normalizeText(transcription)}
@@ -235,50 +393,89 @@ ${DESAFIO_SCHEMA}`;
 
 // ── Validation ────────────────────────────────────────────────────────────────
 
-const INTERACTIVE_TYPES = new Set<DesafioSlideType>([
-  'discovery_challenge',
-  'reinforcement_challenge',
-  'boss_loop',
-]);
+const VALID_SLIDE_TYPES: DesafioSlideType[] = [
+  'discovery_challenge', 'instant_feedback', 'insight',
+  'reinforcement_challenge', 'spaced_repetition', 'boss_loop', 'mastery_screen',
+];
 
-function validateSlide(slide: unknown, idx: number): DesafioSlide {
-  const s = slide as Partial<DesafioSlide>;
-  if (!s.type) throw new Error(`Slide ${idx}: missing type`);
+const VALID_INTERACTION_TYPES: DesafioInteractionType[] = [
+  'multiple_choice', 'match_pairs', 'fill_blank', 'classify', 'order_steps',
+];
 
-  const VALID_TYPES: DesafioSlideType[] = [
-    'discovery_challenge', 'instant_feedback', 'insight',
-    'reinforcement_challenge', 'boss_loop', 'mastery_screen',
-  ];
-  if (!VALID_TYPES.includes(s.type)) throw new Error(`Slide ${idx}: invalid type "${s.type}"`);
+function validateSlide(slide: unknown): DesafioSlide | null {
+  const s = slide as Record<string, unknown>;
+  if (!s || typeof s !== 'object') return null;
+  if (!VALID_SLIDE_TYPES.includes(s.type as DesafioSlideType)) return null;
 
-  if (INTERACTIVE_TYPES.has(s.type)) {
-    if (!s.question) throw new Error(`Slide ${idx} (${s.type}): missing question`);
-    if (!Array.isArray(s.choices) || s.choices.length < 3) {
-      throw new Error(`Slide ${idx} (${s.type}): choices must have 3 items`);
+  const type = s.type as DesafioSlideType;
+  const itype = VALID_INTERACTION_TYPES.includes(s.interactionType as DesafioInteractionType)
+    ? (s.interactionType as DesafioInteractionType)
+    : undefined;
+
+  // Interactive slides need at least some content
+  const isInteractive = type !== 'instant_feedback' && type !== 'insight' && type !== 'mastery_screen';
+  if (isInteractive && itype) {
+    switch (itype) {
+      case 'multiple_choice':
+        if (!s.question || !Array.isArray(s.choices) || s.choices.length < 3 || !s.correctAnswer) return null;
+        break;
+      case 'match_pairs':
+        if (!Array.isArray(s.pairs) || s.pairs.length < 2) return null;
+        break;
+      case 'fill_blank':
+        if (!s.blankSentence || !Array.isArray(s.blankChoices) || s.blankChoices.length < 3 || !s.blankAnswer) return null;
+        break;
+      case 'classify':
+        if (!Array.isArray(s.classifyItems) || s.classifyItems.length < 2 || !Array.isArray(s.classifyCategories)) return null;
+        break;
+      case 'order_steps':
+        if (!Array.isArray(s.steps) || s.steps.length < 2 || !Array.isArray(s.correctOrder)) return null;
+        break;
     }
-    if (!s.correctAnswer) throw new Error(`Slide ${idx} (${s.type}): missing correctAnswer`);
+  } else if (isInteractive && !itype) {
+    // Legacy: old-style slides without interactionType — require question+choices
+    if (!s.question || !Array.isArray(s.choices)) return null;
   }
 
   return {
-    type:         s.type,
+    type,
+    interactionType: itype,
     conceptIndex: typeof s.conceptIndex === 'number' ? s.conceptIndex : -1,
-    conceptName:  s.conceptName ?? '',
-    emoji:        s.emoji,
-    question:     s.question,
-    choices:      s.choices,
-    correctAnswer:s.correctAnswer,
-    explanation:  s.explanation,
-    wrongHints:   s.wrongHints,
-    title:        s.title,
-    body:         s.body,
-    conceptsCovered: s.conceptsCovered,
+    conceptName:  typeof s.conceptName  === 'string' ? s.conceptName  : '',
+    isSpacedRepetition: s.isSpacedRepetition === true,
+    isRetry:       s.isRetry === true,
+    emoji:         typeof s.emoji === 'string' ? s.emoji : undefined,
+    question:      typeof s.question === 'string' ? s.question : undefined,
+    choices:       Array.isArray(s.choices) ? s.choices as DesafioChoice[] : undefined,
+    correctAnswer: (s.correctAnswer === 'A' || s.correctAnswer === 'B' || s.correctAnswer === 'C') ? s.correctAnswer : undefined,
+    explanation:   typeof s.explanation === 'string' ? s.explanation : undefined,
+    wrongHints:    s.wrongHints && typeof s.wrongHints === 'object' ? s.wrongHints as Record<string, string> : undefined,
+    pairsPrompt:   typeof s.pairsPrompt === 'string' ? s.pairsPrompt : undefined,
+    pairs:         Array.isArray(s.pairs) ? s.pairs as DesafioPair[] : undefined,
+    pairsExplanation: typeof s.pairsExplanation === 'string' ? s.pairsExplanation : undefined,
+    blankSentence: typeof s.blankSentence === 'string' ? s.blankSentence : undefined,
+    blankChoices:  Array.isArray(s.blankChoices) ? s.blankChoices as DesafioChoice[] : undefined,
+    blankAnswer:   (s.blankAnswer === 'A' || s.blankAnswer === 'B' || s.blankAnswer === 'C') ? s.blankAnswer : undefined,
+    blankExplanation: typeof s.blankExplanation === 'string' ? s.blankExplanation : undefined,
+    classifyPrompt:    typeof s.classifyPrompt === 'string' ? s.classifyPrompt : undefined,
+    classifyItems:     Array.isArray(s.classifyItems) ? s.classifyItems as DesafioClassifyItem[] : undefined,
+    classifyCategories: Array.isArray(s.classifyCategories) ? s.classifyCategories as string[] : undefined,
+    classifyExplanation: typeof s.classifyExplanation === 'string' ? s.classifyExplanation : undefined,
+    orderPrompt:   typeof s.orderPrompt === 'string' ? s.orderPrompt : undefined,
+    steps:         Array.isArray(s.steps) ? s.steps as string[] : undefined,
+    correctOrder:  Array.isArray(s.correctOrder) ? s.correctOrder as number[] : undefined,
+    orderExplanation: typeof s.orderExplanation === 'string' ? s.orderExplanation : undefined,
+    title:         typeof s.title === 'string' ? s.title : undefined,
+    body:          typeof s.body  === 'string' ? s.body  : undefined,
+    conceptsCovered: Array.isArray(s.conceptsCovered) ? s.conceptsCovered as string[] : undefined,
   };
 }
 
-function parseDesafioJson(raw: string): { topic: string; slides: DesafioSlide[] } {
+function parseDesafioJson(raw: string): { topic: string; slides: DesafioSlide[]; retrySlides: Record<string, DesafioSlide[]> } {
   const cleaned = raw
-    .replace(/```json\s*/i, '')
-    .replace(/```\s*$/, '')
+    .replace(/^```json\s*/i, '')
+    .replace(/^```\s*/i, '')
+    .replace(/```\s*$/,    '')
     .trim();
 
   let parsed: unknown;
@@ -298,14 +495,36 @@ function parseDesafioJson(raw: string): { topic: string; slides: DesafioSlide[] 
   if (!Array.isArray(obj.slides)) throw new Error('Missing slides array');
   if (typeof obj.topic !== 'string') throw new Error('Missing topic string');
 
-  const slides = (obj.slides as unknown[]).map((s, i) => validateSlide(s, i));
+  const slides = (obj.slides as unknown[])
+    .map(s => validateSlide(s))
+    .filter((s): s is DesafioSlide => s !== null);
 
-  // Ensure sequence ends with mastery_screen
-  if (slides.length === 0 || slides[slides.length - 1].type !== 'mastery_screen') {
-    throw new Error('Last slide must be mastery_screen');
+  if (slides.length === 0) throw new Error('No valid slides parsed');
+  if (slides[slides.length - 1].type !== 'mastery_screen') {
+    // Append a minimal mastery screen if missing
+    slides.push({
+      type: 'mastery_screen',
+      conceptIndex: -1,
+      conceptName: 'Completado',
+      title: '¡Desafío superado!',
+      body: 'Completaste todos los conceptos del Desafío.',
+      conceptsCovered: [],
+    });
   }
 
-  return { topic: obj.topic as string, slides };
+  // Parse retrySlides
+  const retrySlides: Record<string, DesafioSlide[]> = {};
+  if (obj.retrySlides && typeof obj.retrySlides === 'object' && !Array.isArray(obj.retrySlides)) {
+    for (const [key, rawSlideArr] of Object.entries(obj.retrySlides as Record<string, unknown>)) {
+      if (!Array.isArray(rawSlideArr)) continue;
+      const parsed = rawSlideArr
+        .map(s => validateSlide(s))
+        .filter((s): s is DesafioSlide => s !== null);
+      if (parsed.length > 0) retrySlides[key] = parsed;
+    }
+  }
+
+  return { topic: obj.topic as string, slides, retrySlides };
 }
 
 // ── Public API ────────────────────────────────────────────────────────────────
@@ -319,35 +538,32 @@ export async function generateDesafioContent(
   transcription: string,
   curso: string,
 ): Promise<DesafioGenerationResult> {
-  // Audit the document structure to inform generation
   const classification = classifyContent(transcription);
-
   const prompt = buildDesafioPrompt(transcription, curso);
 
   const completion = await openai.chat.completions.create({
     model: 'gpt-4o',
     messages: [{ role: 'user', content: prompt }],
     temperature: 0.7,
-    max_tokens: 4096,
+    max_tokens: 8192,
   });
 
   const raw = completion.choices[0]?.message?.content ?? '';
-  const { topic, slides } = parseDesafioJson(raw);
+  const { topic, slides, retrySlides } = parseDesafioJson(raw);
 
   const conceptCount = slides.filter(s => s.type === 'insight').length;
 
   const session: DesafioSession = {
-    id:           randomUUID(),
+    id: randomUUID(),
     topic,
     conceptCount,
     slides,
+    retrySlides: Object.keys(retrySlides).length > 0 ? retrySlides : undefined,
   };
 
   return { session, pedagogicalType: classification.type };
 }
 
-export function buildDesafioSession(
-  session: DesafioSession,
-): DesafioSession {
+export function buildDesafioSession(session: DesafioSession): DesafioSession {
   return session;
 }
