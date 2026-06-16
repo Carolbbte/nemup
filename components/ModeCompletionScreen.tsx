@@ -80,7 +80,7 @@ export default function ModeCompletionScreen({
         </Pressable>
       </View>
       {UNIFIED_PROGRESS_BAR && (
-        <UnifiedProgressBar progress={progress} currentMode={mode} />
+        <UnifiedProgressBar progress={progress} currentMode={ALL_MODES.includes(mode as any) ? mode as any : null} />
       )}
       <Animated.View style={[{ flex: 1 }, entryStyle]}>
         <ScrollView contentContainerStyle={s.scroll}>

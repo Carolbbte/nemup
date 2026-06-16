@@ -4,14 +4,16 @@ import { DAILY_SESSION_LOGIC } from '@/config/features';
 
 const STORAGE_KEY = 'nemup_daily_session_v2';
 
-export type DailyMode = 'mision' | 'quiz' | 'tarjetas';
+export type DailyMode = 'mision' | 'quiz' | 'tarjetas' | 'desafio';
 
+// CANON_ORDER drives streak logic — desafio is a bonus mode, not required for streak
 const CANON_ORDER: DailyMode[] = ['mision', 'quiz', 'tarjetas'];
 
 const MODE_LABELS: Record<DailyMode, string> = {
   mision:   'Misión',
   quiz:     'Quiz',
   tarjetas: 'Tarjetas',
+  desafio:  'Desafío',
 };
 
 interface DailySessionData {
@@ -23,7 +25,7 @@ interface DailySessionData {
 
 const DEFAULT_DATA: DailySessionData = {
   date: '',
-  completedModes: { mision: false, quiz: false, tarjetas: false },
+  completedModes: { mision: false, quiz: false, tarjetas: false, desafio: false },
   streak: 0,
   lastCompleteDate: '',
 };
@@ -72,7 +74,7 @@ export const DailySessionProvider: React.FC<{ children: React.ReactNode }> = ({ 
         const updated: DailySessionData = {
           ...stored,
           date: today,
-          completedModes: { mision: false, quiz: false, tarjetas: false },
+          completedModes: { mision: false, quiz: false, tarjetas: false, desafio: false },
           streak: stored.lastCompleteDate === yesterday ? stored.streak : 0,
         };
         setSession(updated);

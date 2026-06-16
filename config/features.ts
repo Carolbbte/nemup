@@ -17,3 +17,4 @@ export const UNIFIED_QUIZ_COMPLETION       = true;
 export const MODE_COMPLETION_REDESIGN      = true;
 export const DAILY_SESSION_LOGIC           = true;
 export const DASHBOARD_REDESIGN            = true;
+export const DESAFIO_MODE                  = true;

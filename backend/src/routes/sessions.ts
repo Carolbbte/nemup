@@ -23,6 +23,7 @@ import {
 } from '../repository/sessionRepository.js';
 import { classifyContent } from '../services/pedagogicalClassifier.js';
 import { generateSkillMission } from '../services/generationService.js';
+import { generateDesafioContent } from '../services/desafioService.js';
 import type { SessionConfig } from '../types.js';
 
 const router = express.Router();
@@ -192,6 +193,15 @@ router.post('/generate', upload.array('documents', 10), async (req, res) => {
     applyUserRewards(userId, allMissions[0].session.baseXpReward, 0)
       .catch(err => console.warn('[Sessions] Rewards error:', err?.message));
 
+    // ── Desafío generation for PROCEDURAL path ───────────────────────────────
+    try {
+      const desafioResult = await generateDesafioContent(transcription, curso);
+      (allMissions[0].session as any).desafio = desafioResult.session;
+      console.log(`[Sessions] Desafío generado (PROCEDURAL): ${desafioResult.session.conceptCount} conceptos`);
+    } catch (err: any) {
+      console.warn('[Sessions] Desafío generation failed (non-fatal):', err?.message);
+    }
+
     sendSse(res, 'progress', createProgressPayload('done', 100, `${allMissions.length} misiones listas.`));
     sendSse(res, 'complete', {
       pathId,
@@ -263,6 +273,15 @@ router.post('/generate', upload.array('documents', 10), async (req, res) => {
     console.warn('[Sessions] Engagement issues:', engagementReport.issues);
   } else {
     console.log('[Sessions] Engagement OK — interactions:', engagementReport.interactionCount);
+  }
+
+  // ── Desafío generation (runs after main session, non-blocking on error) ──────
+  try {
+    const desafioResult = await generateDesafioContent(transcription, curso);
+    (session as any).desafio = desafioResult.session;
+    console.log(`[Sessions] Desafío generado: ${desafioResult.session.conceptCount} conceptos`);
+  } catch (err: any) {
+    console.warn('[Sessions] Desafío generation failed (non-fatal):', err?.message);
   }
 
   Promise.all([

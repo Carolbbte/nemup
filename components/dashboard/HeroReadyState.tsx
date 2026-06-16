@@ -9,7 +9,7 @@ const LABEL = '#9A95A6';
 const TRACK = '#F0EDE5';
 
 const MODES: DailyMode[]                  = ['mision', 'quiz', 'tarjetas'];
-const MODE_LABELS: Record<DailyMode, string> = { mision: 'Misión', quiz: 'Quiz', tarjetas: 'Tarjetas' };
+const MODE_LABELS: Record<DailyMode, string> = { mision: 'Misión', quiz: 'Quiz', tarjetas: 'Tarjetas', desafio: 'Desafío' };
 
 type Props = {
   onStart: () => void;

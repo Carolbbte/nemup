@@ -20,6 +20,7 @@ const MODE_CONFIG: Record<DailyMode, {
   mision:   { label: 'Misión',   desc: 'Aprende los conceptos clave',    iconBg: '#ECE9FF', iconColor: BRAND,     Icon: Target },
   quiz:     { label: 'Quiz',     desc: 'Responde preguntas de práctica', iconBg: '#FFEBF2', iconColor: '#D4537E', Icon: Brain  },
   tarjetas: { label: 'Tarjetas', desc: 'Repasa con flashcards',          iconBg: '#DCF5F1', iconColor: '#0F6E56', Icon: Layers },
+  desafio:  { label: 'Desafío',  desc: 'Pon a prueba lo aprendido',      iconBg: '#ECE9FF', iconColor: BRAND,     Icon: Target },
 };
 
 export type ModeStatus = 'pending' | 'next' | 'done';

@@ -1,4 +1,4 @@
-import { DASHBOARD_REDESIGN, SHOW_GEMS } from '@/config/features';
+import { DASHBOARD_REDESIGN, DESAFIO_MODE, SHOW_GEMS } from '@/config/features';
 import DashboardHeader from '@/components/dashboard/DashboardHeader';
 import NEMGoalCard from '@/components/dashboard/NEMGoalCard';
 import SessionHeroCard from '@/components/dashboard/SessionHeroCard';
@@ -6,7 +6,7 @@ import StatsStrip from '@/components/dashboard/StatsStrip';
 import UploadApuntesButton from '@/components/dashboard/UploadApuntesButton';
 import { useDailySession } from '@/contexts/DailySessionContext';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Dimensions,
   Pressable,
@@ -28,7 +28,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import { palette, semantic } from '@/theme/colors';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
 import { useOnboarding } from '@/contexts/OnboardingContext';
 import {
   ChevronRight,
@@ -150,14 +150,16 @@ export default function HomeScreen() {
     missionCompleted: boolean; quizCompleted: boolean; flashcardsCompleted: boolean; sessionCompleted: boolean;
   } | null>(null);
 
+  const [hasDesafio, setHasDesafio] = useState(false);
+
   // Identity message rotation
   const [identityIdx, setIdentityIdx] = useState(0);
   const identityIdxRef = useRef(0);
   const identityOp     = useSharedValue(1);
   const identityStyle  = useAnimatedStyle(() => ({ opacity: identityOp.value }));
 
-  useEffect(() => {
-    AsyncStorage.multiGet(['nemup_last_session', 'nemup_session_progress']).then(([[, rawSession], [, rawProgress]]) => {
+  useFocusEffect(useCallback(() => {
+    AsyncStorage.multiGet(['nemup_last_session', 'nemup_session_progress', 'nemup_desafio_session']).then(([[, rawSession], [, rawProgress], [, rawDesafio]]) => {
       if (rawSession) {
         try {
           const p = JSON.parse(rawSession);
@@ -170,8 +172,9 @@ export default function HomeScreen() {
           setSessionProgress({ missionCompleted: !!p.missionCompleted, quizCompleted: !!p.quizCompleted, flashcardsCompleted: !!p.flashcardsCompleted, sessionCompleted: !!p.sessionCompleted });
         } catch {}
       }
+      setHasDesafio(!!rawDesafio);
     });
-  }, []);
+  }, []));
 
   useEffect(() => {
     const t = setInterval(() => {
@@ -249,6 +252,21 @@ export default function HomeScreen() {
           />
           {lastSession !== null && (
             <UploadApuntesButton onPress={() => router.push('/modals/upload' as any)} />
+          )}
+          {DESAFIO_MODE && hasDesafio && (
+            <Pressable
+              style={nd.desafioCard}
+              onPress={() => router.push('/modals/desafio' as any)}
+            >
+              <View style={nd.desafioIconWrap}>
+                <Text style={nd.desafioEmoji}>⚔️</Text>
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={nd.desafioTitle}>Desafío disponible</Text>
+                <Text style={nd.desafioSub}>Pon a prueba lo que aprendiste</Text>
+              </View>
+              <ChevronRight size={18} color={palette.morado} strokeWidth={2.2} />
+            </Pressable>
           )}
         </ScrollView>
       </SafeAreaView>
@@ -592,4 +610,27 @@ const s = StyleSheet.create({
 const nd = StyleSheet.create({
   page:    { flex: 1, backgroundColor: '#FAFAF7' },
   content: { paddingHorizontal: 20, paddingTop: 14 },
+  desafioCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    backgroundColor: palette.blanco,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: palette.bordeClaro,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    marginTop: 12,
+  },
+  desafioIconWrap: {
+    width: 44,
+    height: 44,
+    borderRadius: 12,
+    backgroundColor: palette.moradoBg,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  desafioEmoji:  { fontSize: 22 },
+  desafioTitle:  { fontSize: 15, fontWeight: '700', color: palette.charcoal },
+  desafioSub:    { fontSize: 13, color: '#6B7280', marginTop: 2 },
 });

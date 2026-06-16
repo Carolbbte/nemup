@@ -3,6 +3,8 @@
  * Estructura de sesiones, contenido generado, progreso y errores
  */
 
+import type { DesafioSession } from './desafio.js';
+
 // ============================================================================
 // 1. CONTENIDO GENERADO
 // ============================================================================
@@ -74,6 +76,7 @@ export interface GeneratedSession {
   };
   xpReward: number;
   gemReward: number;
+  desafio?: DesafioSession;
 }
 
 export type SessionFormat = 'quizzes' | 'flashcards' | 'summary' | 'mindmap';
