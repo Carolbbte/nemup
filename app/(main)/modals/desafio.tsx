@@ -27,7 +27,7 @@ import {
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useRouter } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
 import { ChevronLeft, X } from 'lucide-react-native';
 import { palette, semantic } from '@/theme/colors';
 import UnifiedProgressBar from '@/components/UnifiedProgressBar';
@@ -961,26 +961,43 @@ export default function DesafioScreen() {
   const [stepsOrder,        setStepsOrder]        = useState<number[]>([]);
 
   // ── Load session from AsyncStorage ────────────────────────────────────────
-  useEffect(() => {
-    AsyncStorage.getItem(DESAFIO_KEY).then(raw => {
-      if (raw) {
-        try {
-          const s: DesafioSession = JSON.parse(raw);
-          setSession(s);
-          setDynamicSlides([...s.slides]);
-          if (s.retrySlides) {
-            const init: Record<number, number> = {};
-            Object.keys(s.retrySlides).forEach(k => {
-              const n = parseInt(k, 10);
-              if (!isNaN(n)) init[n] = Math.min(2, s.retrySlides![k].length);
-            });
-            setRetriesLeft(init);
-          }
-        } catch {}
-      }
-      setLoading(false);
-    });
-  }, []);
+  // useFocusEffect instead of useEffect([]) so that re-entering this screen
+  // after a new PDF upload always starts fresh (screen may stay mounted in the
+  // navigation stack across sessions).
+  useFocusEffect(
+    useCallback(() => {
+      // Full reset before reading new data
+      setCurrentIdx(0);
+      setAnswers({});
+      setRetriesLeft({});
+      setSession(null);
+      setDynamicSlides([]);
+      setTotalXP(0);
+      setStreak(0);
+      setBestStreak(0);
+      setEnergy(3);
+      setLoading(true);
+
+      AsyncStorage.getItem(DESAFIO_KEY).then(raw => {
+        if (raw) {
+          try {
+            const s: DesafioSession = JSON.parse(raw);
+            setSession(s);
+            setDynamicSlides([...s.slides]);
+            if (s.retrySlides) {
+              const init: Record<number, number> = {};
+              Object.keys(s.retrySlides).forEach(k => {
+                const n = parseInt(k, 10);
+                if (!isNaN(n)) init[n] = Math.min(2, s.retrySlides![k].length);
+              });
+              setRetriesLeft(init);
+            }
+          } catch {}
+        }
+        setLoading(false);
+      });
+    }, [])
+  );
 
   // ── Reset interaction state on slide advance ───────────────────────────────
   useEffect(() => {
