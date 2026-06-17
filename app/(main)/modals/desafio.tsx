@@ -759,6 +759,35 @@ export default function DesafioScreen() {
     );
   }, [xpOpacity, xpTranslateY, xpScale]);
 
+  // ── Streak state ──────────────────────────────────────────────────────────
+  const [streak,           setStreak]           = useState(0);
+  const [comboLostVisible, setComboLostVisible] = useState(false);
+
+  const comboShakeX  = useSharedValue(0);
+  const comboOpacity = useSharedValue(1);
+
+  const comboLostStyle = useAnimatedStyle(() => ({
+    opacity:   comboOpacity.value,
+    transform: [{ translateX: comboShakeX.value }],
+  }));
+
+  const triggerComboLost = useCallback(() => {
+    setComboLostVisible(true);
+    comboOpacity.value = 1;
+    comboShakeX.value  = withSequence(
+      withTiming(-5, { duration: 55 }),
+      withTiming( 5, { duration: 55 }),
+      withTiming(-4, { duration: 55 }),
+      withTiming( 4, { duration: 55 }),
+      withTiming( 0, { duration: 55 }),
+    );
+    comboOpacity.value = withSequence(
+      withTiming(1, { duration: 250 }),
+      withTiming(0, { duration: 450, easing: Easing.in(Easing.quad) }),
+    );
+    setTimeout(() => setComboLostVisible(false), 720);
+  }, [comboShakeX, comboOpacity]);
+
   // Per-interaction-type UI state (all reset on slide change)
   const [mcSelection,       setMcSelection]       = useState<string | null>(null);
   const [pairsSelectedLeft, setPairsSelectedLeft] = useState<string | null>(null);
@@ -866,7 +895,15 @@ export default function DesafioScreen() {
 
     setAnswers(prev => ({ ...prev, [currentIdx]: { value, correct } }));
 
-    if (correct && slide) triggerXpFloat(xpForSlide(slide));
+    if (correct && slide) {
+      const newStreak = streak + 1;
+      setStreak(newStreak);
+      const bonus = newStreak >= 3 ? 5 : 0;
+      triggerXpFloat(xpForSlide(slide) + bonus);
+    } else if (!correct) {
+      if (streak >= 2) triggerComboLost();
+      setStreak(0);
+    }
 
     // Adaptive injection: insert retry slide on wrong answer
     if (!correct && slide.conceptIndex >= 0 && session) {
@@ -890,7 +927,7 @@ export default function DesafioScreen() {
     slide, revealed, itype, advance,
     mcSelection, pairsMatched, classifyAssigned, stepsOrder,
     currentIdx, session, retriesLeft,
-    triggerXpFloat,
+    streak, triggerXpFloat, triggerComboLost,
   ]);
 
   // ── Loading / error states ─────────────────────────────────────────────────
@@ -938,6 +975,39 @@ export default function DesafioScreen() {
           </Pressable>
         </View>
         <UnifiedProgressBar progress={desafioProgress} showCurrentMode={false} />
+
+        {/* Stats bar — 🧠 Energy · 🔥 Streak · ⚡ XP */}
+        <View style={g.statsBar}>
+          <View style={g.statItem}>
+            <Text style={g.statEmoji}>🧠</Text>
+            <Text style={g.statValue}>{dynamicSlides.length - currentIdx}</Text>
+          </View>
+          <View style={g.statDivider} />
+          <View style={g.statItem}>
+            {comboLostVisible ? (
+              <Animated.View style={comboLostStyle}>
+                <Text style={g.comboLostText}>Combo perdido</Text>
+              </Animated.View>
+            ) : streak >= 2 ? (
+              <View style={g.streakRow}>
+                <Text style={g.statEmoji}>🔥</Text>
+                <Text style={g.streakText}>
+                  x{streak}{streak >= 4 ? ' Imparable' : ''}
+                </Text>
+              </View>
+            ) : (
+              <View style={g.streakRow}>
+                <Text style={g.statEmoji}>🔥</Text>
+                <Text style={g.statValueDim}>—</Text>
+              </View>
+            )}
+          </View>
+          <View style={g.statDivider} />
+          <View style={g.statItem}>
+            <Text style={g.statEmoji}>⚡</Text>
+            <Text style={g.statValue}>{totalXP} XP</Text>
+          </View>
+        </View>
       </View>
 
       {/* Stable child 2 — slide content; key forces remount on advance */}
@@ -1016,6 +1086,17 @@ const g = StyleSheet.create({
     shadowOffset: { width: 0, height: 4 }, shadowRadius: 8, elevation: 8,
   },
   xpBadgeText: { fontSize: 15, fontWeight: '900', color: palette.blanco, letterSpacing: 0.3 },
+
+  // ── Stats bar ─────────────────────────────────────────────────────────────
+  statsBar:     { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 8, backgroundColor: palette.crema },
+  statItem:     { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 4 },
+  statDivider:  { width: 1, height: 16, backgroundColor: palette.bordeClaro },
+  statEmoji:    { fontSize: 14 },
+  statValue:    { fontSize: 13, fontWeight: '700', color: semantic.textPrimary },
+  statValueDim: { fontSize: 13, fontWeight: '600', color: palette.grisMedio },
+  streakRow:    { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  streakText:   { fontSize: 13, fontWeight: '800', color: '#F97316' },
+  comboLostText:{ fontSize: 11, fontWeight: '700', color: palette.rojoError },
 
   // ── Loading / error ───────────────────────────────────────────────────────
   centered:    { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 32 },
