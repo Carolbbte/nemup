@@ -601,6 +601,80 @@ function InformationalContent({ slide }: { slide: DesafioSlide }) {
   );
 }
 
+// ── Mastery / completion reward summary ──────────────────────────────────────
+
+function MasteryContent({
+  slide, totalXP, answers, dynamicSlides, bestStreak,
+}: {
+  slide: DesafioSlide;
+  totalXP: number;
+  answers: Record<number, SlideAnswer>;
+  dynamicSlides: DesafioSlide[];
+  bestStreak: number;
+}) {
+  const interactiveIndices = Object.keys(answers)
+    .map(k => parseInt(k, 10))
+    .filter(i => i < dynamicSlides.length && isInteractiveByType(dynamicSlides[i]));
+  const answeredCount = interactiveIndices.length;
+  const correctCount  = interactiveIndices.filter(i => answers[i].correct).length;
+  const accuracy      = answeredCount > 0 ? Math.round((correctCount / answeredCount) * 100) : 0;
+  const concepts      = slide.conceptsCovered ?? [];
+  const nemLabel      = accuracy >= 80 ? '¡Preparación excelente!' : accuracy >= 60 ? 'Buen avance' : 'Sigue practicando';
+
+  return (
+    <View style={ms.root}>
+      <Text style={ms.emoji}>{slide.emoji ?? '🏆'}</Text>
+      <Text style={ms.heading}>{slide.title ?? '¡Desafío completado!'}</Text>
+
+      {/* XP hero */}
+      <View style={ms.xpHero}>
+        <Text style={ms.xpHeroText}>+{totalXP} XP</Text>
+      </View>
+
+      {/* 2-col stats */}
+      <View style={ms.statsRow}>
+        <View style={ms.statCard}>
+          <Text style={ms.statVal}>{accuracy}%</Text>
+          <Text style={ms.statLbl}>Precisión</Text>
+        </View>
+        <View style={ms.statSep} />
+        <View style={ms.statCard}>
+          <Text style={ms.statVal}>{bestStreak >= 2 ? `🔥 x${bestStreak}` : '—'}</Text>
+          <Text style={ms.statLbl}>Mejor combo</Text>
+        </View>
+      </View>
+
+      {/* Concepts mastered */}
+      {concepts.length > 0 && (
+        <View style={ms.section}>
+          <Text style={ms.sectionTitle}>
+            {concepts.length} concepto{concepts.length !== 1 ? 's' : ''} dominado{concepts.length !== 1 ? 's' : ''}
+          </Text>
+          <View style={ms.chips}>
+            {concepts.map((name, i) => (
+              <View key={i} style={ms.chip}>
+                <Text style={ms.chipText}>{name}</Text>
+              </View>
+            ))}
+          </View>
+        </View>
+      )}
+
+      {/* NEM progress */}
+      <View style={ms.section}>
+        <View style={ms.nemHeader}>
+          <Text style={ms.sectionTitle}>Preparación NEM</Text>
+          <Text style={ms.nemPct}>{accuracy}%</Text>
+        </View>
+        <View style={ms.nemTrack}>
+          <View style={[ms.nemFill, { width: `${accuracy}%` }]} />
+        </View>
+        <Text style={ms.nemSub}>{nemLabel}</Text>
+      </View>
+    </View>
+  );
+}
+
 // ── Slide content dispatcher (inside keyed ScrollView — safe at grandchild depth) ──
 
 function SlideContent({
@@ -779,6 +853,7 @@ export default function DesafioScreen() {
 
   // ── Streak state ──────────────────────────────────────────────────────────
   const [streak,           setStreak]           = useState(0);
+  const [bestStreak,       setBestStreak]        = useState(0);
   const [comboLostVisible, setComboLostVisible] = useState(false);
 
   const comboShakeX  = useSharedValue(0);
@@ -994,6 +1069,7 @@ export default function DesafioScreen() {
       const speedBonus  = elapsed < 6000 ? 5 : 0;
       const newStreak   = streak + 1;
       setStreak(newStreak);
+      setBestStreak(prev => Math.max(prev, newStreak));
       const streakBonus = newStreak >= 3 ? 5 : 0;
       triggerXpFloat(xpForSlide(slide) + streakBonus + speedBonus);
       if (speedBonus > 0) triggerSpeedBonus();
@@ -1149,20 +1225,30 @@ export default function DesafioScreen() {
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
       >
-        <SlideContent
-          slide={slide}
-          mcSelection={mcSelection}
-          onMcSelect={setMcSelection}
-          pairsSelectedLeft={pairsSelectedLeft}
-          onPairsSelectLeft={setPairsSelectedLeft}
-          pairsMatched={pairsMatched}
-          onPairsMatch={setPairsMatched}
-          classifyAssigned={classifyAssigned}
-          onClassifyAssign={setClassifyAssigned}
-          stepsOrder={stepsOrder}
-          onStepsReorder={setStepsOrder}
-          answer={answers[currentIdx]}
-        />
+        {slide.type === 'mastery_screen' ? (
+          <MasteryContent
+            slide={slide}
+            totalXP={totalXP}
+            answers={answers}
+            dynamicSlides={dynamicSlides}
+            bestStreak={bestStreak}
+          />
+        ) : (
+          <SlideContent
+            slide={slide}
+            mcSelection={mcSelection}
+            onMcSelect={setMcSelection}
+            pairsSelectedLeft={pairsSelectedLeft}
+            onPairsSelectLeft={setPairsSelectedLeft}
+            pairsMatched={pairsMatched}
+            onPairsMatch={setPairsMatched}
+            classifyAssigned={classifyAssigned}
+            onClassifyAssign={setClassifyAssigned}
+            stepsOrder={stepsOrder}
+            onStepsReorder={setStepsOrder}
+            answer={answers[currentIdx]}
+          />
+        )}
       </ScrollView>
 
       {/* Stable child 3 — CTA footer (matches Misión / Quiz / Tarjetas pattern) */}
@@ -1291,4 +1377,47 @@ const g = StyleSheet.create({
   errorText:   { fontSize: 16, color: palette.charcoal, textAlign: 'center', marginBottom: 24 },
   backBtn:     { backgroundColor: palette.morado, borderRadius: 12, paddingHorizontal: 24, paddingVertical: 12 },
   backBtnText: { fontSize: 15, fontWeight: '700', color: palette.blanco },
+});
+
+// ── Mastery screen styles ─────────────────────────────────────────────────────
+
+const ms = StyleSheet.create({
+  root: { paddingHorizontal: 20, paddingTop: 28, paddingBottom: 32, alignItems: 'center' },
+
+  emoji:   { fontSize: 52, marginBottom: 10 },
+  heading: { fontSize: 22, fontWeight: '800', color: palette.charcoal, textAlign: 'center', lineHeight: 30, marginBottom: 24 },
+
+  xpHero: {
+    backgroundColor: palette.morado, borderRadius: 24,
+    paddingHorizontal: 32, paddingVertical: 14, marginBottom: 24,
+    shadowColor: palette.morado, shadowOpacity: 0.35,
+    shadowOffset: { width: 0, height: 4 }, shadowRadius: 12, elevation: 8,
+  },
+  xpHeroText: { fontSize: 34, fontWeight: '900', color: palette.blanco, letterSpacing: -0.5 },
+
+  statsRow: {
+    flexDirection: 'row', width: '100%',
+    backgroundColor: palette.blanco, borderRadius: 16,
+    borderWidth: 1, borderColor: palette.bordeClaro, marginBottom: 20, overflow: 'hidden',
+  },
+  statCard: { flex: 1, alignItems: 'center', paddingVertical: 18 },
+  statSep:  { width: 1, backgroundColor: palette.bordeClaro },
+  statVal:  { fontSize: 22, fontWeight: '800', color: palette.charcoal, marginBottom: 4 },
+  statLbl:  { fontSize: 12, fontWeight: '600', color: palette.grisMedio, letterSpacing: 0.3 },
+
+  section:      { width: '100%', marginBottom: 20 },
+  sectionTitle: { fontSize: 13, fontWeight: '700', color: palette.charcoal, marginBottom: 10 },
+
+  chips:    { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  chip:     { backgroundColor: palette.moradoBg, borderRadius: 20, paddingHorizontal: 12, paddingVertical: 6 },
+  chipText: { fontSize: 13, fontWeight: '600', color: palette.morado },
+
+  nemHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 },
+  nemPct:    { fontSize: 13, fontWeight: '700', color: palette.morado },
+  nemTrack: {
+    width: '100%', height: 8, borderRadius: 4,
+    backgroundColor: palette.moradoBg, marginBottom: 8, overflow: 'hidden',
+  },
+  nemFill: { height: '100%', borderRadius: 4, backgroundColor: palette.morado },
+  nemSub:  { fontSize: 12, fontWeight: '600', color: palette.grisMedio },
 });
