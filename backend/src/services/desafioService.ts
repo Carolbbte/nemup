@@ -64,6 +64,7 @@ interface DesafioSlide {
   title?: string;
   body?: string;
   conceptsCovered?: string[];
+  examples?: { expression: string; label: string }[];
 }
 
 interface DesafioSession {
@@ -180,7 +181,12 @@ DEVUELVE EXACTAMENTE este JSON (sin texto adicional, sin markdown):
       "conceptName": "Nombre del concepto",
       "emoji": "💡",
       "title": "Nombre del Concepto",
-      "body": "Definición concisa. Analogía cotidiana. Max 35 palabras."
+      "body": "Definición concisa. Analogía cotidiana. Max 35 palabras.",
+      "examples": [
+        {"expression": "5x", "label": "monomio"},
+        {"expression": "x+2", "label": "binomio"},
+        {"expression": "a+b+c", "label": "trinomio"}
+      ]
     },
 
     // [5] reinforcement_challenge — multiple_choice O mismo tipo que [2]
@@ -402,6 +408,10 @@ Para CADA concepto Tipo A, genera EXACTAMENTE en este orden:
 [4] insight — SIN interactionType
     No interactivo. Define el concepto de forma clara y memorable.
     - emoji, title (max 5 palabras), body (definición + analogía, max 35 palabras)
+    - examples: 2-3 ejemplos concretos del documento como mini tarjetas
+      { "expression": "término o expresión (max 12 chars)", "label": "nombre/categoría (max 12 chars)" }
+      Si el concepto es algebraico: usa expresiones reales del documento (ej. 5x → monomio)
+      Si el concepto es procedimental: usa pasos cortos como expression y el orden como label
 
 [5] reinforcement_challenge — interactionType según concepto:
     C0/C2 → "multiple_choice". C1/C3 → mismo tipo que [2] de ese concepto.
@@ -538,6 +548,11 @@ function validateSlide(slide: unknown): DesafioSlide | null {
     title:         typeof s.title === 'string' ? s.title : undefined,
     body:          typeof s.body  === 'string' ? s.body  : undefined,
     conceptsCovered: Array.isArray(s.conceptsCovered) ? s.conceptsCovered as string[] : undefined,
+    examples: Array.isArray(s.examples)
+      ? (s.examples as any[])
+          .filter(e => typeof e?.expression === 'string' && typeof e?.label === 'string')
+          .map(e => ({ expression: e.expression as string, label: e.label as string }))
+      : undefined,
   };
 }
 

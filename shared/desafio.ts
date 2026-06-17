@@ -74,6 +74,9 @@ export interface DesafioSlide {
   title?: string;
   body?: string;
   conceptsCovered?: string[];
+
+  // insight only — concrete examples to show as mini cards
+  examples?: { expression: string; label: string }[];
 }
 
 export interface DesafioSession {

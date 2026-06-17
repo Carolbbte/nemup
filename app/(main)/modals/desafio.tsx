@@ -548,12 +548,23 @@ const os = StyleSheet.create({
 
 function InformationalContent({ slide }: { slide: DesafioSlide }) {
   const isMastery = slide.type === 'mastery_screen';
+  const hasExamples = slide.type === 'insight' && Array.isArray(slide.examples) && slide.examples.length > 0;
   return (
     <View style={c.root}>
       <Text style={c.typeLabel}>{slideTypeLabel(slide.type)}</Text>
       {slide.emoji != null && <Text style={c.emoji}>{displayEmoji(slide.emoji)}</Text>}
       <Text style={isMastery ? c.masteryTitle : c.insightTitle}>{slide.title}</Text>
       <Text style={c.body}>{slide.body}</Text>
+      {hasExamples && (
+        <View style={c.examplesRow}>
+          {slide.examples!.map((ex, i) => (
+            <View key={i} style={c.exampleCard}>
+              <Text style={c.exampleExpr}>{ex.expression}</Text>
+              <Text style={c.exampleLabel}>{ex.label}</Text>
+            </View>
+          ))}
+        </View>
+      )}
       {isMastery && Array.isArray(slide.conceptsCovered) && slide.conceptsCovered.length > 0 && (
         <View style={c.conceptsWrap}>
           {slide.conceptsCovered.map((name, i) => (
@@ -731,6 +742,41 @@ const c = StyleSheet.create({
   conceptsWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 24 },
   conceptChip:  { paddingHorizontal: 12, paddingVertical: 6, backgroundColor: palette.moradoBg, borderRadius: 20 },
   conceptChipText: { fontSize: 13, fontWeight: '600', color: palette.morado },
+
+  examplesRow: {
+    flexDirection: 'row' as const,
+    flexWrap: 'wrap' as const,
+    gap: 10,
+    marginTop: 24,
+  },
+  exampleCard: {
+    flex: 1,
+    minWidth: 80,
+    alignItems: 'center' as const,
+    backgroundColor: palette.blanco,
+    borderRadius: 14,
+    borderWidth: 1.5,
+    borderColor: palette.bordeClaro,
+    paddingHorizontal: 10,
+    paddingVertical: 14,
+  },
+  exampleExpr: {
+    fontFamily: 'Nunito',
+    fontWeight: '800' as const,
+    fontSize: 17,
+    color: palette.morado,
+    marginBottom: 6,
+    textAlign: 'center' as const,
+  },
+  exampleLabel: {
+    fontFamily: 'Nunito',
+    fontWeight: '600' as const,
+    fontSize: 11,
+    color: palette.grisMedio,
+    textTransform: 'uppercase' as const,
+    letterSpacing: 0.5,
+    textAlign: 'center' as const,
+  },
 });
 
 // ── XP per slide type ────────────────────────────────────────────────────────
