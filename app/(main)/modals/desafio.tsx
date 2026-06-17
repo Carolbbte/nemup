@@ -30,6 +30,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { ChevronLeft, X } from 'lucide-react-native';
 import { palette, semantic } from '@/theme/colors';
+import { Typography } from '@/theme/typography';
 import UnifiedProgressBar from '@/components/UnifiedProgressBar';
 import Animated, {
   Easing,
@@ -147,9 +148,9 @@ const o = StyleSheet.create({
   letterSelected: { backgroundColor: palette.morado },
   letterCorrect:  { backgroundColor: palette.verde },
   letterWrong:    { backgroundColor: palette.rojoError },
-  letterText:      { fontSize: 13, fontWeight: '700', color: palette.morado },
+  letterText:      { ...Typography.challengeOptionLetter, color: palette.morado },
   letterTextLight: { color: palette.blanco },
-  optionText:        { flex: 1, fontSize: 15, color: palette.charcoal, lineHeight: 20 },
+  optionText:        { flex: 1, ...Typography.challengeOption, color: palette.charcoal },
   optionTextCorrect: { color: palette.verde },
   optionTextWrong:   { color: palette.rojoError },
 });
@@ -703,25 +704,22 @@ function SlideContent({
 
 const c = StyleSheet.create({
   root:      { paddingHorizontal: 20, paddingTop: 8, paddingBottom: 24 },
-  typeLabel: {
-    fontSize: 11, fontWeight: '700', letterSpacing: 1.2,
-    color: palette.morado, marginBottom: 16,
-  },
+  typeLabel: { ...Typography.challengeSectionLabel, color: palette.morado, marginBottom: 16 },
   emoji:    { fontSize: 48, textAlign: 'center', marginBottom: 16 },
-  question: { fontSize: 20, fontWeight: '700', color: palette.charcoal, lineHeight: 28, marginBottom: 24 },
+  question: { ...Typography.challengeQuestion, color: palette.charcoal, marginBottom: 24 },
   subLabel: { fontSize: 13, fontWeight: '600', color: palette.grisMedio, marginBottom: 12 },
 
   hintBox: {
     marginTop: 16, padding: 14, borderRadius: 12,
     backgroundColor: palette.rojoErrorBg, borderWidth: 1, borderColor: palette.rojoError + '33',
   },
-  hintText: { fontSize: 14, color: palette.rojoErrorDark, lineHeight: 20 },
+  hintText: { ...Typography.challengeExplanation, color: palette.rojoErrorDark },
 
   explanationBox: {
     marginTop: 16, padding: 14, borderRadius: 12,
     backgroundColor: '#F0FDF7', borderWidth: 1, borderColor: palette.verde + '44',
   },
-  explanationText: { fontSize: 14, color: '#166534', lineHeight: 20 },
+  explanationText: { ...Typography.challengeExplanation, color: '#166534' },
 
   insightTitle: { fontSize: 22, fontWeight: '800', color: palette.charcoal, lineHeight: 30, marginBottom: 16 },
   masteryTitle: {
@@ -1352,9 +1350,9 @@ const g = StyleSheet.create({
   // ── Bottom — matches session.tsx g.bottom / g.ctaBtn / g.ctaText ─────────
   bottom:      { paddingHorizontal: 20, paddingTop: 12, borderTopWidth: 1, borderTopColor: palette.bordeClaro, backgroundColor: palette.crema },
   ctaBtn:      { paddingVertical: 20, borderRadius: 28, alignItems: 'center', justifyContent: 'center', backgroundColor: palette.morado },
-  ctaText:     { fontSize: 16, fontWeight: '800', color: palette.blanco },
+  ctaText:     { ...Typography.challengeCTA, color: palette.blanco },
   ctaBtnOff:   { paddingVertical: 17, borderRadius: 18, alignItems: 'center', backgroundColor: palette.crema },
-  ctaTextOff:  { fontSize: 16, fontWeight: '700', color: palette.grisMedio },
+  ctaTextOff:  { ...Typography.challengeCTA, color: palette.grisMedio },
 
   // ── XP float badge ───────────────────────────────────────────────────────
   xpBadge: {
@@ -1364,17 +1362,17 @@ const g = StyleSheet.create({
     shadowColor: palette.morado, shadowOpacity: 0.35,
     shadowOffset: { width: 0, height: 4 }, shadowRadius: 8, elevation: 8,
   },
-  xpBadgeText: { fontSize: 15, fontWeight: '900', color: palette.blanco, letterSpacing: 0.3 },
+  xpBadgeText: { ...Typography.challengeFloatingXP, color: palette.blanco },
 
   // ── Stats bar ─────────────────────────────────────────────────────────────
   statsBar:     { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 8, backgroundColor: palette.crema },
   statItem:     { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 4 },
   statDivider:  { width: 1, height: 16, backgroundColor: palette.bordeClaro },
   statEmoji:    { fontSize: 14 },
-  statValue:    { fontSize: 13, fontWeight: '700', color: semantic.textPrimary },
-  statValueDim: { fontSize: 13, fontWeight: '600', color: palette.grisMedio },
+  statValue:    { ...Typography.challengeXP, color: semantic.textPrimary },
+  statValueDim: { ...Typography.challengeStreak, color: palette.grisMedio },
   streakRow:    { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  streakText:   { fontSize: 13, fontWeight: '800', color: '#F97316' },
+  streakText:   { ...Typography.challengeStreak, color: '#F97316' },
   comboLostText:{ fontSize: 11, fontWeight: '700', color: palette.rojoError },
 
   // ── Energy ────────────────────────────────────────────────────────────────
@@ -1389,7 +1387,7 @@ const g = StyleSheet.create({
     shadowOffset: { width: 0, height: 3 }, shadowRadius: 8, elevation: 7,
     zIndex: 10,
   },
-  successMsgText: { fontSize: 15, fontWeight: '800', color: palette.blanco, letterSpacing: 0.2 },
+  successMsgText: { ...Typography.challengeMicroCelebration, color: palette.blanco },
 
   speedBadge: {
     position: 'absolute', top: -80, alignSelf: 'center',
@@ -1399,7 +1397,7 @@ const g = StyleSheet.create({
     shadowColor: '#F59E0B', shadowOpacity: 0.25,
     shadowOffset: { width: 0, height: 2 }, shadowRadius: 6, elevation: 6,
   },
-  speedBadgeText: { fontSize: 14, fontWeight: '800', color: '#92400E' },
+  speedBadgeText: { ...Typography.challengeMicroCelebration, color: '#92400E' },
 
   energyMsgBadge: {
     position: 'absolute', top: -116, alignSelf: 'center',
@@ -1416,10 +1414,10 @@ const g = StyleSheet.create({
   feedbackPanel:          { borderRadius: 14, paddingHorizontal: 16, paddingVertical: 14, marginBottom: 12, borderWidth: 1 },
   feedbackPanelOk:        { backgroundColor: '#F0FDF7', borderColor: palette.verde + '44' },
   feedbackPanelWrong:     { backgroundColor: palette.rojoErrorBg, borderColor: palette.rojoError + '44' },
-  feedbackLabel:          { fontSize: 15, fontWeight: '800', marginBottom: 4 },
+  feedbackLabel:          { ...Typography.challengeSectionLabel, marginBottom: 4 },
   feedbackLabelOk:        { color: palette.verde },
   feedbackLabelWrong:     { color: palette.rojoError },
-  feedbackText:           { fontSize: 13, lineHeight: 18 },
+  feedbackText:           { ...Typography.challengeExplanation },
   feedbackTextOk:         { color: '#166534' },
   feedbackTextWrong:      { color: palette.rojoErrorDark },
   feedbackOrderTitle:     { fontSize: 11, fontWeight: '700', marginTop: 8, marginBottom: 4, letterSpacing: 1 },
@@ -1449,7 +1447,7 @@ const ms = StyleSheet.create({
     shadowColor: palette.morado, shadowOpacity: 0.35,
     shadowOffset: { width: 0, height: 4 }, shadowRadius: 12, elevation: 8,
   },
-  xpHeroText: { fontSize: 34, fontWeight: '900', color: palette.blanco, letterSpacing: -0.5 },
+  xpHeroText: { ...Typography.challengeRewardXP, color: palette.blanco },
 
   statsRow: {
     flexDirection: 'row', width: '100%',
@@ -1458,7 +1456,7 @@ const ms = StyleSheet.create({
   },
   statCard: { flex: 1, alignItems: 'center', paddingVertical: 18 },
   statSep:  { width: 1, backgroundColor: palette.bordeClaro },
-  statVal:  { fontSize: 22, fontWeight: '800', color: palette.charcoal, marginBottom: 4 },
+  statVal:  { ...Typography.challengeRewardStats, color: palette.charcoal, marginBottom: 4 },
   statLbl:  { fontSize: 12, fontWeight: '600', color: palette.grisMedio, letterSpacing: 0.3 },
 
   section:      { width: '100%', marginBottom: 20 },
@@ -1466,7 +1464,7 @@ const ms = StyleSheet.create({
 
   chips:    { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   chip:     { backgroundColor: palette.moradoBg, borderRadius: 20, paddingHorizontal: 12, paddingVertical: 6 },
-  chipText: { fontSize: 13, fontWeight: '600', color: palette.morado },
+  chipText: { ...Typography.challengeConceptChip, color: palette.morado },
 
   nemHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 },
   nemPct:    { fontSize: 13, fontWeight: '700', color: palette.morado },
