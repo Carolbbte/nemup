@@ -1674,6 +1674,7 @@ async function callOpenAIAndBuildResult(
   configValues: SessionConfig,
   maxTokens = 7000,
 ): Promise<Omit<GenerationResult, 'pedagogicalType' | 'primarySkill' | 'learningPath'>> {
+  console.log('[Generation] Prompt enviado a la IA:\n' + prompt);
   const response = await openai.chat.completions.create({
     model: config.openai_model,
     messages: [
