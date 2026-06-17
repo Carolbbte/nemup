@@ -292,7 +292,19 @@ No introduzcas conceptos, términos ni ejemplos ajenos. DEVUELVE SOLO JSON VÁLI
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 FASE 1 — EXTRACCIÓN MENTAL DE CONCEPTOS TIPO A
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-Identifica CONCEPTOS TIPO A (máx. 4; máx. 2 si doc < 400 palabras):
+LÍMITE DE CONCEPTOS:
+  • Documento corto (< 400 palabras): máx. 3 conceptos Tipo A
+  • Documento largo (≥ 400 palabras): máx. 4 conceptos Tipo A
+
+REGLA DE CONSERVACIÓN DE OBJETIVOS (prioridad absoluta):
+Si el documento contiene objetivos de aprendizaje explícitos (enumerados con números o letras,
+declarados con verbos de acción como "reconocer", "identificar", "clasificar", "reducir",
+"simplificar", "aplicar", "resolver", "agrupar", "operar"):
+  → CADA objetivo explícito es Tipo A por defecto. No requiere verificación adicional.
+  → NUNCA eliminar un objetivo explícito para hacer espacio a un concepto inferido.
+  → Si los objetivos explícitos ya ocupan el límite: los conceptos inferidos quedan fuera.
+
+Un concepto inferido es Tipo A SOLO si:
   → Su ausencia impide alcanzar el objetivo de aprendizaje del documento
   → Tiene significado propio y puede evaluarse de forma independiente
   → Requiere comprensión profunda, no solo memorización
@@ -557,7 +569,7 @@ function buildSimpleDesafioPrompt(transcription: string, curso: string): string 
   return `Eres un diseñador de sesiones de aprendizaje para estudiantes chilenos de ${curso}.
 REGLA CRÍTICA: Devuelve SOLO JSON VÁLIDO, sin comentarios, sin texto adicional. En español.
 
-Del documento identifica 2-3 conceptos clave. Para cada concepto genera en orden:
+Del documento identifica los conceptos clave (máx. 3). Si el documento tiene objetivos de aprendizaje explícitos (numerados con verbos como "reconocer", "clasificar", "reducir", "resolver"), CADA objetivo explícito es un concepto obligatorio — no los omitas. Para cada concepto genera en orden:
 1. discovery_challenge (multiple_choice): pregunta de descubrimiento
 2. insight: definición clara con analogía
 3. reinforcement_challenge (multiple_choice): pregunta de refuerzo diferente al discovery
