@@ -788,6 +788,27 @@ export default function DesafioScreen() {
     setTimeout(() => setComboLostVisible(false), 720);
   }, [comboShakeX, comboOpacity]);
 
+  // ── Energy state ──────────────────────────────────────────────────────────
+  const [energy,    setEnergy]    = useState(3);
+  const [energyMsg, setEnergyMsg] = useState<{ text: string; recovery: boolean } | null>(null);
+
+  const energyMsgOpacity = useSharedValue(0);
+
+  const energyMsgStyle = useAnimatedStyle(() => ({
+    opacity: energyMsgOpacity.value,
+  }));
+
+  const showEnergyMsg = useCallback((text: string, recovery: boolean) => {
+    setEnergyMsg({ text, recovery });
+    energyMsgOpacity.value = 0;
+    energyMsgOpacity.value = withSequence(
+      withTiming(1, { duration: 200 }),
+      withTiming(1, { duration: 1600 }),
+      withTiming(0, { duration: 300, easing: Easing.in(Easing.quad) }),
+    );
+    setTimeout(() => setEnergyMsg(null), 2200);
+  }, [energyMsgOpacity]);
+
   // Per-interaction-type UI state (all reset on slide change)
   const [mcSelection,       setMcSelection]       = useState<string | null>(null);
   const [pairsSelectedLeft, setPairsSelectedLeft] = useState<string | null>(null);
@@ -895,39 +916,65 @@ export default function DesafioScreen() {
 
     setAnswers(prev => ({ ...prev, [currentIdx]: { value, correct } }));
 
+    const isRecovery = (slide as any).isEnergyRecovery === true;
+    let newEnergy = energy;
+
     if (correct && slide) {
       const newStreak = streak + 1;
       setStreak(newStreak);
       const bonus = newStreak >= 3 ? 5 : 0;
       triggerXpFloat(xpForSlide(slide) + bonus);
+      if (isRecovery && energy < 3) {
+        newEnergy = energy + 1;
+        setEnergy(newEnergy);
+        showEnergyMsg('Energía recuperada.', true);
+      }
     } else if (!correct) {
       if (streak >= 2) triggerComboLost();
       setStreak(0);
+      newEnergy = Math.max(0, energy - 1);
+      setEnergy(newEnergy);
+      showEnergyMsg('Casi. Vamos a reforzarlo.', false);
     }
 
-    // Adaptive injection: insert retry slide on wrong answer
+    // Adaptive injection: insert retry slide on wrong answer.
+    // When energy hits 0, mark the injected slide as recovery so a correct
+    // answer on it restores one energy point.
     if (!correct && slide.conceptIndex >= 0 && session) {
-      const remaining = retriesLeft[slide.conceptIndex] ?? 0;
-      const retryArr  = session.retrySlides?.[String(slide.conceptIndex)];
+      const remaining    = retriesLeft[slide.conceptIndex] ?? 0;
+      const retryArr     = session.retrySlides?.[String(slide.conceptIndex)];
+      const markRecovery = newEnergy === 0;
       if (remaining > 0 && retryArr && retryArr.length > 0) {
-        const pickIdx   = retryArr.length - remaining;
-        const retrySlide: DesafioSlide = {
+        const pickIdx  = retryArr.length - remaining;
+        const retrySlide = {
           ...retryArr[Math.min(pickIdx, retryArr.length - 1)],
           isRetry: true,
-        };
+          ...(markRecovery ? { isEnergyRecovery: true } : {}),
+        } as DesafioSlide;
         setDynamicSlides(prev => [
           ...prev.slice(0, currentIdx + 1),
           retrySlide,
           ...prev.slice(currentIdx + 1),
         ]);
         setRetriesLeft(prev => ({ ...prev, [slide.conceptIndex]: remaining - 1 }));
+      } else if (markRecovery) {
+        // No retry slides left — inject easiest available slide as recovery
+        const source = session.slides.find(s => s.type === 'discovery_challenge');
+        if (source) {
+          const recoverySlide = { ...source, isRetry: true, isEnergyRecovery: true } as DesafioSlide;
+          setDynamicSlides(prev => [
+            ...prev.slice(0, currentIdx + 1),
+            recoverySlide,
+            ...prev.slice(currentIdx + 1),
+          ]);
+        }
       }
     }
   }, [
     slide, revealed, itype, advance,
     mcSelection, pairsMatched, classifyAssigned, stepsOrder,
     currentIdx, session, retriesLeft,
-    streak, triggerXpFloat, triggerComboLost,
+    energy, streak, triggerXpFloat, triggerComboLost, showEnergyMsg,
   ]);
 
   // ── Loading / error states ─────────────────────────────────────────────────
@@ -979,8 +1026,11 @@ export default function DesafioScreen() {
         {/* Stats bar — 🧠 Energy · 🔥 Streak · ⚡ XP */}
         <View style={g.statsBar}>
           <View style={g.statItem}>
-            <Text style={g.statEmoji}>🧠</Text>
-            <Text style={g.statValue}>{dynamicSlides.length - currentIdx}</Text>
+            <View style={g.energyRow}>
+              {[0, 1, 2].map(i => (
+                <Text key={i} style={[g.energyBrain, i >= energy && g.energyBrainLost]}>🧠</Text>
+              ))}
+            </View>
           </View>
           <View style={g.statDivider} />
           <View style={g.statItem}>
@@ -1036,6 +1086,21 @@ export default function DesafioScreen() {
 
       {/* Stable child 3 — CTA footer (matches Misión / Quiz / Tarjetas pattern) */}
       <View style={[g.bottom, { paddingBottom: insets.bottom + 12 }]}>
+        {/* Energy message — absolutely positioned above XP badge */}
+        {energyMsg !== null && (
+          <Animated.View
+            style={[
+              g.energyMsgBadge,
+              energyMsg.recovery ? g.energyMsgBadgeOk : g.energyMsgBadgeWarn,
+              energyMsgStyle,
+            ]}
+            pointerEvents="none"
+          >
+            <Text style={[g.energyMsgText, energyMsg.recovery ? g.energyMsgTextOk : g.energyMsgTextWarn]}>
+              {energyMsg.text}
+            </Text>
+          </Animated.View>
+        )}
         {/* XP float — absolutely positioned above the button, pointerEvents ignored */}
         {xpDisplay !== null && (
           <Animated.View style={[g.xpBadge, xpFloatStyle]} pointerEvents="none">
@@ -1097,6 +1162,21 @@ const g = StyleSheet.create({
   streakRow:    { flexDirection: 'row', alignItems: 'center', gap: 4 },
   streakText:   { fontSize: 13, fontWeight: '800', color: '#F97316' },
   comboLostText:{ fontSize: 11, fontWeight: '700', color: palette.rojoError },
+
+  // ── Energy ────────────────────────────────────────────────────────────────
+  energyRow:         { flexDirection: 'row', gap: 2, alignItems: 'center' },
+  energyBrain:       { fontSize: 16 },
+  energyBrainLost:   { opacity: 0.2 },
+  energyMsgBadge: {
+    position: 'absolute', top: -80, alignSelf: 'center',
+    borderRadius: 20, paddingHorizontal: 16, paddingVertical: 7,
+    shadowOpacity: 0.15, shadowOffset: { width: 0, height: 3 }, shadowRadius: 6, elevation: 6,
+  },
+  energyMsgBadgeWarn:{ backgroundColor: '#FFF7ED', borderWidth: 1, borderColor: '#FB923C', shadowColor: '#F97316' },
+  energyMsgBadgeOk:  { backgroundColor: '#F0FDF4', borderWidth: 1, borderColor: palette.verde, shadowColor: palette.verde },
+  energyMsgText:     { fontSize: 13, fontWeight: '700', textAlign: 'center' as const },
+  energyMsgTextWarn: { color: '#9A3412' },
+  energyMsgTextOk:   { color: '#166534' },
 
   // ── Loading / error ───────────────────────────────────────────────────────
   centered:    { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 32 },
