@@ -171,7 +171,7 @@ function MultipleChoiceContent({
   return (
     <View style={c.root}>
       <Text style={c.typeLabel}>{slideTypeLabel(slide.type, slide.isRetry, slide.isSpacedRepetition)}</Text>
-      {slide.emoji != null && <Text style={c.emoji}>{slide.emoji}</Text>}
+      {slide.emoji != null && <Text style={c.emoji}>{displayEmoji(slide.emoji)}</Text>}
       <Text style={c.question}>{slide.question}</Text>
       <View>
         {(slide.choices ?? []).map(ch => (
@@ -203,7 +203,7 @@ function FillBlankContent({
   return (
     <View style={c.root}>
       <Text style={c.typeLabel}>{slideTypeLabel(slide.type, slide.isRetry, slide.isSpacedRepetition)}</Text>
-      {slide.emoji != null && <Text style={c.emoji}>{slide.emoji}</Text>}
+      {slide.emoji != null && <Text style={c.emoji}>{displayEmoji(slide.emoji)}</Text>}
       <View style={fb.sentenceBox}>
         <Text style={fb.sentenceText}>{slide.blankSentence}</Text>
       </View>
@@ -551,7 +551,7 @@ function InformationalContent({ slide }: { slide: DesafioSlide }) {
   return (
     <View style={c.root}>
       <Text style={c.typeLabel}>{slideTypeLabel(slide.type)}</Text>
-      {slide.emoji != null && <Text style={c.emoji}>{slide.emoji}</Text>}
+      {slide.emoji != null && <Text style={c.emoji}>{displayEmoji(slide.emoji)}</Text>}
       <Text style={isMastery ? c.masteryTitle : c.insightTitle}>{slide.title}</Text>
       <Text style={c.body}>{slide.body}</Text>
       {isMastery && Array.isArray(slide.conceptsCovered) && slide.conceptsCovered.length > 0 && (
@@ -754,6 +754,13 @@ function pickRandom(pool: readonly string[], lastIdx: { current: number }): stri
   if (len > 1 && idx === lastIdx.current) idx = (idx + 1) % len;
   lastIdx.current = idx;
   return pool[idx];
+}
+
+// Geometry emojis are semantically wrong for algebra/math content — replace them.
+const GEOMETRY_EMOJIS = new Set(['📐', '📏', '🔺', '🔷', '🔶', '🔵', '⬛', '🔲']);
+function displayEmoji(emoji: string | undefined): string | undefined {
+  if (!emoji) return undefined;
+  return GEOMETRY_EMOJIS.has(emoji) ? '🔢' : emoji;
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
@@ -1252,7 +1259,19 @@ export default function DesafioScreen() {
 
       {/* Stable child 3 — CTA footer (matches Misión / Quiz / Tarjetas pattern) */}
       <View style={[g.bottom, { paddingBottom: insets.bottom + 12 }]}>
-        {/* Energy message — top: -116, above speed badge */}
+        {/* Speed bonus badge — top: -80, quick flash on correct < 6s */}
+        {speedBonusVisible && (
+          <Animated.View style={[g.speedBadge, speedBonusStyle]} pointerEvents="none">
+            <Text style={g.speedBadgeText}>⚡ Rápido!</Text>
+          </Animated.View>
+        )}
+        {/* XP float — absolutely positioned above the button, pointerEvents ignored */}
+        {xpDisplay !== null && (
+          <Animated.View style={[g.xpBadge, xpFloatStyle]} pointerEvents="none">
+            <Text style={g.xpBadgeText}>+{xpDisplay} XP</Text>
+          </Animated.View>
+        )}
+        {/* Energy message — inline, just above the feedback panel */}
         {energyMsg !== null && (
           <Animated.View
             style={[
@@ -1265,18 +1284,6 @@ export default function DesafioScreen() {
             <Text style={[g.energyMsgText, energyMsg.recovery ? g.energyMsgTextOk : g.energyMsgTextWarn]}>
               {energyMsg.text}
             </Text>
-          </Animated.View>
-        )}
-        {/* Speed bonus badge — top: -80, quick flash on correct < 6s */}
-        {speedBonusVisible && (
-          <Animated.View style={[g.speedBadge, speedBonusStyle]} pointerEvents="none">
-            <Text style={g.speedBadgeText}>⚡ Rápido!</Text>
-          </Animated.View>
-        )}
-        {/* XP float — absolutely positioned above the button, pointerEvents ignored */}
-        {xpDisplay !== null && (
-          <Animated.View style={[g.xpBadge, xpFloatStyle]} pointerEvents="none">
-            <Text style={g.xpBadgeText}>+{xpDisplay} XP</Text>
           </Animated.View>
         )}
         {/* Feedback panel — appears just above the CTA after answering */}
@@ -1381,8 +1388,9 @@ const g = StyleSheet.create({
   speedBadgeText: { ...Typography.challengeMicroCelebration, color: '#92400E' },
 
   energyMsgBadge: {
-    position: 'absolute', top: -116, alignSelf: 'center',
+    alignSelf: 'center',
     borderRadius: 20, paddingHorizontal: 16, paddingVertical: 7,
+    marginBottom: 8,
     shadowOpacity: 0.15, shadowOffset: { width: 0, height: 3 }, shadowRadius: 6, elevation: 6,
   },
   energyMsgBadgeWarn:{ backgroundColor: '#FFF7ED', borderWidth: 1, borderColor: '#FB923C', shadowColor: '#F97316' },

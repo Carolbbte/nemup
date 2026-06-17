@@ -96,7 +96,7 @@ DEVUELVE EXACTAMENTE este JSON (sin texto adicional, sin markdown):
       "interactionType": "multiple_choice",
       "conceptIndex": 0,
       "conceptName": "Nombre del concepto",
-      "emoji": "📐",
+      "emoji": "🔢",
       "question": "Pregunta de descubrimiento con ejemplo concreto del documento (max 20 palabras)?",
       "choices": [
         {"letter": "A", "text": "Opción A (max 10 palabras)"},
@@ -377,7 +377,7 @@ Para CADA concepto Tipo A, genera EXACTAMENTE en este orden:
     - correctAnswer: "A"|"B"|"C" — VARIAR posición entre conceptos, no siempre A
     - explanation: por qué es correcto (max 100 chars, sin "Correcto" ni emojis)
     - wrongHints: {"B": "Elegiste B porque [razón]. La pregunta buscaba [criterio].", "C": "..."}
-    - emoji: emoji del concepto
+    - emoji: emoji del concepto — NUNCA geometría (📐📏🔺🔷); usar 🔢🧮➗✖️➕➖ para matemáticas
 
 [2] interactive_challenge — interactionType ROTA entre conceptos:
     C0 → "match_pairs", C1 → "fill_blank", C2 → "classify", C3 → "order_steps"
