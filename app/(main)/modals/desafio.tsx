@@ -31,6 +31,13 @@ import { useRouter } from 'expo-router';
 import { ChevronLeft, X } from 'lucide-react-native';
 import { palette, semantic } from '@/theme/colors';
 import UnifiedProgressBar from '@/components/UnifiedProgressBar';
+import Animated, {
+  Easing,
+  useAnimatedStyle,
+  useSharedValue,
+  withSequence,
+  withTiming,
+} from 'react-native-reanimated';
 import type {
   DesafioSession,
   DesafioSlide,
@@ -689,6 +696,17 @@ const c = StyleSheet.create({
   conceptChipText: { fontSize: 13, fontWeight: '600', color: palette.morado },
 });
 
+// ── XP per slide type ────────────────────────────────────────────────────────
+function xpForSlide(slide: DesafioSlide): number {
+  switch (slide.type) {
+    case 'discovery_challenge':     return 8;   // easy
+    case 'reinforcement_challenge': return 12;  // medium
+    case 'spaced_repetition':       return 12;  // medium
+    case 'boss_loop':               return slide.emoji === '🏆' ? 25 : 18; // final / hard
+    default:                        return 0;
+  }
+}
+
 // ══════════════════════════════════════════════════════════════════════════════
 // MAIN SCREEN
 // ══════════════════════════════════════════════════════════════════════════════
@@ -706,6 +724,40 @@ export default function DesafioScreen() {
   const [answers,     setAnswers]     = useState<Record<number, SlideAnswer>>({});
   // Available retries per concept index
   const [retriesLeft, setRetriesLeft] = useState<Record<number, number>>({});
+
+  // ── XP state ─────────────────────────────────────────────────────────────
+  const [totalXP,   setTotalXP]   = useState(0);
+  const [xpDisplay, setXpDisplay] = useState<number | null>(null);
+
+  const xpOpacity    = useSharedValue(0);
+  const xpTranslateY = useSharedValue(0);
+  const xpScale      = useSharedValue(1);
+
+  const xpFloatStyle = useAnimatedStyle(() => ({
+    opacity:   xpOpacity.value,
+    transform: [
+      { translateY: xpTranslateY.value },
+      { scale:      xpScale.value      },
+    ],
+  }));
+
+  const triggerXpFloat = useCallback((xp: number) => {
+    setXpDisplay(xp);
+    setTotalXP(prev => prev + xp);
+    xpOpacity.value    = 0;
+    xpTranslateY.value = 0;
+    xpScale.value      = 0.7;
+    xpOpacity.value    = withSequence(
+      withTiming(1,   { duration: 150, easing: Easing.out(Easing.quad) }),
+      withTiming(1,   { duration: 550 }),
+      withTiming(0,   { duration: 200, easing: Easing.in(Easing.quad)  }),
+    );
+    xpTranslateY.value = withTiming(-56, { duration: 900, easing: Easing.out(Easing.quad) });
+    xpScale.value      = withSequence(
+      withTiming(1.25, { duration: 200, easing: Easing.out(Easing.back(1.5)) }),
+      withTiming(1.0,  { duration: 700, easing: Easing.out(Easing.quad)      }),
+    );
+  }, [xpOpacity, xpTranslateY, xpScale]);
 
   // Per-interaction-type UI state (all reset on slide change)
   const [mcSelection,       setMcSelection]       = useState<string | null>(null);
@@ -814,6 +866,8 @@ export default function DesafioScreen() {
 
     setAnswers(prev => ({ ...prev, [currentIdx]: { value, correct } }));
 
+    if (correct && slide) triggerXpFloat(xpForSlide(slide));
+
     // Adaptive injection: insert retry slide on wrong answer
     if (!correct && slide.conceptIndex >= 0 && session) {
       const remaining = retriesLeft[slide.conceptIndex] ?? 0;
@@ -836,6 +890,7 @@ export default function DesafioScreen() {
     slide, revealed, itype, advance,
     mcSelection, pairsMatched, classifyAssigned, stepsOrder,
     currentIdx, session, retriesLeft,
+    triggerXpFloat,
   ]);
 
   // ── Loading / error states ─────────────────────────────────────────────────
@@ -911,6 +966,12 @@ export default function DesafioScreen() {
 
       {/* Stable child 3 — CTA footer (matches Misión / Quiz / Tarjetas pattern) */}
       <View style={[g.bottom, { paddingBottom: insets.bottom + 12 }]}>
+        {/* XP float — absolutely positioned above the button, pointerEvents ignored */}
+        {xpDisplay !== null && (
+          <Animated.View style={[g.xpBadge, xpFloatStyle]} pointerEvents="none">
+            <Text style={g.xpBadgeText}>+{xpDisplay} XP</Text>
+          </Animated.View>
+        )}
         {ctaDisabled ? (
           <View style={g.ctaBtnOff}>
             <Text style={g.ctaTextOff}>{ctaLabel}</Text>
@@ -945,6 +1006,16 @@ const g = StyleSheet.create({
   ctaText:     { fontSize: 16, fontWeight: '800', color: palette.blanco },
   ctaBtnOff:   { paddingVertical: 17, borderRadius: 18, alignItems: 'center', backgroundColor: palette.crema },
   ctaTextOff:  { fontSize: 16, fontWeight: '700', color: palette.grisMedio },
+
+  // ── XP float badge ───────────────────────────────────────────────────────
+  xpBadge: {
+    position: 'absolute', top: -44, alignSelf: 'center',
+    backgroundColor: palette.morado, borderRadius: 100,
+    paddingHorizontal: 16, paddingVertical: 7,
+    shadowColor: palette.morado, shadowOpacity: 0.35,
+    shadowOffset: { width: 0, height: 4 }, shadowRadius: 8, elevation: 8,
+  },
+  xpBadgeText: { fontSize: 15, fontWeight: '900', color: palette.blanco, letterSpacing: 0.3 },
 
   // ── Loading / error ───────────────────────────────────────────────────────
   centered:    { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 32 },
