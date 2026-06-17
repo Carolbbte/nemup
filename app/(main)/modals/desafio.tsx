@@ -182,12 +182,6 @@ function MultipleChoiceContent({
           />
         ))}
       </View>
-      {revealed && wrongHint && (
-        <View style={c.hintBox}><Text style={c.hintText}>{wrongHint}</Text></View>
-      )}
-      {revealed && !wrongHint && slide.explanation && (
-        <View style={c.explanationBox}><Text style={c.explanationText}>{slide.explanation}</Text></View>
-      )}
     </View>
   );
 }
@@ -223,12 +217,6 @@ function FillBlankContent({
           />
         ))}
       </View>
-      {revealed && wrongHint && (
-        <View style={c.hintBox}><Text style={c.hintText}>{wrongHint}</Text></View>
-      )}
-      {revealed && !wrongHint && slide.blankExplanation && (
-        <View style={c.explanationBox}><Text style={c.explanationText}>{slide.blankExplanation}</Text></View>
-      )}
     </View>
   );
 }
@@ -355,11 +343,6 @@ function MatchPairsContent({
           })}
         </View>
       </View>
-      {revealed && slide.pairsExplanation && (
-        <View style={[c.explanationBox, { marginTop: 16 }]}>
-          <Text style={c.explanationText}>{slide.pairsExplanation}</Text>
-        </View>
-      )}
     </View>
   );
 }
@@ -447,11 +430,6 @@ function ClassifyContent({
           </View>
         );
       })}
-      {revealed && slide.classifyExplanation && (
-        <View style={c.explanationBox}>
-          <Text style={c.explanationText}>{slide.classifyExplanation}</Text>
-        </View>
-      )}
     </View>
   );
 }
@@ -533,19 +511,6 @@ function OrderStepsContent({
           </View>
         );
       })}
-      {revealed && !answer.correct && correctSequence.length > 0 && (
-        <View style={os.correctOrderBox}>
-          <Text style={os.correctOrderTitle}>ORDEN CORRECTO</Text>
-          {correctSequence.map((text, i) => (
-            <Text key={i} style={os.correctOrderItem}>{i + 1}. {text}</Text>
-          ))}
-        </View>
-      )}
-      {revealed && slide.orderExplanation && (
-        <View style={c.explanationBox}>
-          <Text style={c.explanationText}>{slide.orderExplanation}</Text>
-        </View>
-      )}
     </View>
   );
 }
@@ -1036,6 +1001,44 @@ export default function DesafioScreen() {
     return isLast ? '¡Terminar!' : 'Continuar';
   }, [slide, revealed, isLast]);
 
+  // Derive answer feedback for the bottom panel (replaces inline hintBox/explanationBox)
+  const slideFeedback = useMemo(() => {
+    if (!revealed || !slide || !isInteractiveByType(slide)) return null;
+    const answer = answers[currentIdx];
+    if (!answer) return null;
+    const slideItype = effectiveInteractionType(slide);
+    let text: string | null = null;
+    let correctOrderItems: string[] | undefined;
+    switch (slideItype) {
+      case 'multiple_choice': {
+        const hint = !answer.correct ? slide.wrongHints?.[answer.value as string] : undefined;
+        text = hint ?? slide.explanation ?? null;
+        break;
+      }
+      case 'fill_blank': {
+        const hint = !answer.correct ? slide.wrongHints?.[answer.value as string] : undefined;
+        text = hint ?? slide.blankExplanation ?? null;
+        break;
+      }
+      case 'match_pairs':
+        text = slide.pairsExplanation ?? null;
+        break;
+      case 'classify':
+        text = slide.classifyExplanation ?? null;
+        break;
+      case 'order_steps': {
+        const steps = slide.steps ?? [];
+        const correctSeq = !answer.correct
+          ? (slide.correctOrder ?? []).map(i => steps[i]).filter(Boolean)
+          : [];
+        text = slide.orderExplanation ?? null;
+        correctOrderItems = correctSeq.length > 0 ? correctSeq : undefined;
+        break;
+      }
+    }
+    return { isCorrect: answer.correct, text, correctOrderItems };
+  }, [revealed, slide, answers, currentIdx]);
+
   // ── Advance to next slide ──────────────────────────────────────────────────
   const advance = useCallback(() => {
     if (currentIdx >= dynamicSlides.length - 1) { router.back(); return; }
@@ -1297,6 +1300,27 @@ export default function DesafioScreen() {
             <Text style={g.xpBadgeText}>+{xpDisplay} XP</Text>
           </Animated.View>
         )}
+        {/* Feedback panel — appears just above the CTA after answering */}
+        {slideFeedback && (
+          <View style={[g.feedbackPanel, slideFeedback.isCorrect ? g.feedbackPanelOk : g.feedbackPanelWrong]}>
+            <Text style={[g.feedbackLabel, slideFeedback.isCorrect ? g.feedbackLabelOk : g.feedbackLabelWrong]}>
+              {slideFeedback.isCorrect ? '✓ ¡Correcto!' : '✗ Incorrecto'}
+            </Text>
+            {slideFeedback.text != null && (
+              <Text style={[g.feedbackText, slideFeedback.isCorrect ? g.feedbackTextOk : g.feedbackTextWrong]}>
+                {slideFeedback.text}
+              </Text>
+            )}
+            {slideFeedback.correctOrderItems && (
+              <>
+                <Text style={[g.feedbackOrderTitle, g.feedbackOrderTitleWrong]}>ORDEN CORRECTO</Text>
+                {slideFeedback.correctOrderItems.map((t, i) => (
+                  <Text key={i} style={[g.feedbackOrderItem, g.feedbackOrderItemWrong]}>{i + 1}. {t}</Text>
+                ))}
+              </>
+            )}
+          </View>
+        )}
         {ctaDisabled ? (
           <View style={g.ctaBtnOff}>
             <Text style={g.ctaTextOff}>{ctaLabel}</Text>
@@ -1387,6 +1411,21 @@ const g = StyleSheet.create({
   energyMsgText:     { fontSize: 13, fontWeight: '700', textAlign: 'center' as const },
   energyMsgTextWarn: { color: '#9A3412' },
   energyMsgTextOk:   { color: '#166534' },
+
+  // ── Feedback panel ────────────────────────────────────────────────────────
+  feedbackPanel:          { borderRadius: 14, paddingHorizontal: 16, paddingVertical: 14, marginBottom: 12, borderWidth: 1 },
+  feedbackPanelOk:        { backgroundColor: '#F0FDF7', borderColor: palette.verde + '44' },
+  feedbackPanelWrong:     { backgroundColor: palette.rojoErrorBg, borderColor: palette.rojoError + '44' },
+  feedbackLabel:          { fontSize: 15, fontWeight: '800', marginBottom: 4 },
+  feedbackLabelOk:        { color: palette.verde },
+  feedbackLabelWrong:     { color: palette.rojoError },
+  feedbackText:           { fontSize: 13, lineHeight: 18 },
+  feedbackTextOk:         { color: '#166534' },
+  feedbackTextWrong:      { color: palette.rojoErrorDark },
+  feedbackOrderTitle:     { fontSize: 11, fontWeight: '700', marginTop: 8, marginBottom: 4, letterSpacing: 1 },
+  feedbackOrderTitleWrong:{ color: palette.rojoError },
+  feedbackOrderItem:      { fontSize: 12, lineHeight: 18 },
+  feedbackOrderItemWrong: { color: palette.rojoErrorDark },
 
   // ── Loading / error ───────────────────────────────────────────────────────
   centered:    { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 32 },
