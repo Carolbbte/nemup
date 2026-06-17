@@ -1079,7 +1079,6 @@ export default function DesafioScreen() {
 
     setAnswers(prev => ({ ...prev, [currentIdx]: { value, correct } }));
 
-    const isRecovery = (slide as any).isEnergyRecovery === true;
     let newEnergy = energy;
 
     if (correct && slide) {
@@ -1091,12 +1090,7 @@ export default function DesafioScreen() {
       const streakBonus = newStreak >= 3 ? 5 : 0;
       triggerXpFloat(xpForSlide(slide) + streakBonus + speedBonus);
       if (speedBonus > 0) triggerSpeedBonus();
-      if (!isRecovery) triggerSuccessMsg(pickRandom(SUCCESS_MSGS, lastSuccessIdx));
-      if (isRecovery && energy < 3) {
-        newEnergy = energy + 1;
-        setEnergy(newEnergy);
-        showEnergyMsg('Energía recuperada.', true);
-      }
+      triggerSuccessMsg(pickRandom(SUCCESS_MSGS, lastSuccessIdx));
     } else if (!correct) {
       if (streak >= 2) triggerComboLost();
       setStreak(0);
@@ -1105,19 +1099,17 @@ export default function DesafioScreen() {
       showEnergyMsg(pickRandom(WRONG_MSGS, lastWrongIdx), false);
     }
 
-    // Adaptive injection: insert retry slide on wrong answer.
-    // When energy hits 0, mark the injected slide as recovery so a correct
-    // answer on it restores one energy point.
+    // Adaptive injection: on wrong answer insert the next pre-generated retry slide.
+    // Each concept has up to 2 distinct retry slides (different questions, same concept).
+    // The remaining counter naturally prevents re-use: when it hits 0 no more retries fire.
     if (!correct && slide.conceptIndex >= 0 && session) {
-      const remaining    = retriesLeft[slide.conceptIndex] ?? 0;
-      const retryArr     = session.retrySlides?.[String(slide.conceptIndex)];
-      const markRecovery = newEnergy === 0;
+      const remaining = retriesLeft[slide.conceptIndex] ?? 0;
+      const retryArr  = session.retrySlides?.[String(slide.conceptIndex)];
       if (remaining > 0 && retryArr && retryArr.length > 0) {
-        const pickIdx  = retryArr.length - remaining;
+        const pickIdx    = retryArr.length - remaining;
         const retrySlide = {
           ...retryArr[Math.min(pickIdx, retryArr.length - 1)],
           isRetry: true,
-          ...(markRecovery ? { isEnergyRecovery: true } : {}),
         } as DesafioSlide;
         setDynamicSlides(prev => [
           ...prev.slice(0, currentIdx + 1),
@@ -1125,17 +1117,6 @@ export default function DesafioScreen() {
           ...prev.slice(currentIdx + 1),
         ]);
         setRetriesLeft(prev => ({ ...prev, [slide.conceptIndex]: remaining - 1 }));
-      } else if (markRecovery) {
-        // No retry slides left — inject easiest available slide as recovery
-        const source = session.slides.find(s => s.type === 'discovery_challenge');
-        if (source) {
-          const recoverySlide = { ...source, isRetry: true, isEnergyRecovery: true } as DesafioSlide;
-          setDynamicSlides(prev => [
-            ...prev.slice(0, currentIdx + 1),
-            recoverySlide,
-            ...prev.slice(currentIdx + 1),
-          ]);
-        }
       }
     }
   }, [

@@ -254,43 +254,86 @@ DEVUELVE EXACTAMENTE este JSON (sin texto adicional, sin markdown):
     }
   ],
 
-  // retrySlides: UNA entrada por cada concepto Tipo A identificado en FASE 1.
+  // retrySlides: DOS entradas distintas por cada concepto Tipo A identificado en FASE 1.
+  // Cada par evalúa el mismo concepto desde ángulos diferentes. NINGUNA pregunta puede repetir
+  // contenido de discovery_challenge, reinforcement_challenge ni spaced_repetition del mismo concepto.
   // Si son 2 conceptos → claves "0" y "1". Si son 3 → claves "0", "1" y "2". Etc.
   "retrySlides": {
-    "0": [{
-      "type": "reinforcement_challenge",
-      "interactionType": "fill_blank",
-      "isRetry": true,
-      "conceptIndex": 0,
-      "conceptName": "Nombre del concepto",
-      "blankSentence": "Expresión con ___ diferente al reinforcement original",
-      "blankChoices": [{"letter":"A","text":"..."},{"letter":"B","text":"..."},{"letter":"C","text":"..."}],
-      "blankAnswer": "B",
-      "blankExplanation": "..."
-    }],
-    "1": [{
-      "type": "reinforcement_challenge",
-      "interactionType": "multiple_choice",
-      "isRetry": true,
-      "conceptIndex": 1,
-      "conceptName": "Nombre del concepto",
-      "question": "Nuevo ángulo del mismo concepto, diferente al original.",
-      "choices": [{"letter":"A","text":"..."},{"letter":"B","text":"..."},{"letter":"C","text":"..."}],
-      "correctAnswer": "C",
-      "explanation": "...",
-      "wrongHints": {"A": "...", "B": "..."}
-    }],
-    "2": [{
-      "type": "reinforcement_challenge",
-      "interactionType": "order_steps",
-      "isRetry": true,
-      "conceptIndex": 2,
-      "conceptName": "Nombre del concepto",
-      "orderPrompt": "Ordena los pasos correctamente",
-      "steps": ["Paso B mezclado", "Paso C mezclado", "Paso A mezclado"],
-      "correctOrder": [2, 0, 1],
-      "orderExplanation": "Explicación del orden correcto (max 80 chars)"
-    }]
+    "0": [
+      {
+        "type": "reinforcement_challenge",
+        "interactionType": "fill_blank",
+        "isRetry": true,
+        "conceptIndex": 0,
+        "conceptName": "Nombre del concepto",
+        "blankSentence": "Expresión con ___ diferente a todas las preguntas anteriores del concepto",
+        "blankChoices": [{"letter":"A","text":"..."},{"letter":"B","text":"..."},{"letter":"C","text":"..."}],
+        "blankAnswer": "B",
+        "blankExplanation": "..."
+      },
+      {
+        "type": "reinforcement_challenge",
+        "interactionType": "multiple_choice",
+        "isRetry": true,
+        "conceptIndex": 0,
+        "conceptName": "Nombre del concepto",
+        "question": "Segundo ángulo del concepto — distinto a discovery, reinforcement y retry anterior.",
+        "choices": [{"letter":"A","text":"..."},{"letter":"B","text":"..."},{"letter":"C","text":"..."}],
+        "correctAnswer": "A",
+        "explanation": "...",
+        "wrongHints": {"B": "...", "C": "..."}
+      }
+    ],
+    "1": [
+      {
+        "type": "reinforcement_challenge",
+        "interactionType": "multiple_choice",
+        "isRetry": true,
+        "conceptIndex": 1,
+        "conceptName": "Nombre del concepto",
+        "question": "Ángulo diferente a discovery y reinforcement de este concepto.",
+        "choices": [{"letter":"A","text":"..."},{"letter":"B","text":"..."},{"letter":"C","text":"..."}],
+        "correctAnswer": "C",
+        "explanation": "...",
+        "wrongHints": {"A": "...", "B": "..."}
+      },
+      {
+        "type": "reinforcement_challenge",
+        "interactionType": "fill_blank",
+        "isRetry": true,
+        "conceptIndex": 1,
+        "conceptName": "Nombre del concepto",
+        "blankSentence": "Expresión con ___ diferente a todas las preguntas anteriores del concepto",
+        "blankChoices": [{"letter":"A","text":"..."},{"letter":"B","text":"..."},{"letter":"C","text":"..."}],
+        "blankAnswer": "A",
+        "blankExplanation": "..."
+      }
+    ],
+    "2": [
+      {
+        "type": "reinforcement_challenge",
+        "interactionType": "order_steps",
+        "isRetry": true,
+        "conceptIndex": 2,
+        "conceptName": "Nombre del concepto",
+        "orderPrompt": "Ordena los pasos correctamente",
+        "steps": ["Paso B mezclado", "Paso C mezclado", "Paso A mezclado"],
+        "correctOrder": [2, 0, 1],
+        "orderExplanation": "Explicación del orden correcto (max 80 chars)"
+      },
+      {
+        "type": "reinforcement_challenge",
+        "interactionType": "multiple_choice",
+        "isRetry": true,
+        "conceptIndex": 2,
+        "conceptName": "Nombre del concepto",
+        "question": "Segundo ángulo del concepto — distinto a discovery, reinforcement y retry anterior.",
+        "choices": [{"letter":"A","text":"..."},{"letter":"B","text":"..."},{"letter":"C","text":"..."}],
+        "correctAnswer": "B",
+        "explanation": "...",
+        "wrongHints": {"A": "...", "C": "..."}
+      }
+    ]
   }
 }`;
 
@@ -395,11 +438,13 @@ Slide final no interactiva. type: "mastery_screen"
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 FASE 6 — RETRY SLIDES (campo "retrySlides" en JSON)
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-Para CADA concepto Tipo A, generar 1 retry slide en retrySlides[String(conceptIndex)]:
+Para CADA concepto Tipo A, generar 2 retry slides DISTINTOS en retrySlides[String(conceptIndex)]:
   - type: "reinforcement_challenge", isRetry: true
-  - interactionType: DIFERENTE al usado en [2] para ese concepto
+  - Las 2 preguntas deben ser DIFERENTES entre sí y distintas a discovery, reinforcement y spaced_repetition del mismo concepto
+  - Retry slide 1: interactionType DIFERENTE al usado en [2] para ese concepto
     (Si [2] fue "match_pairs" → usar "fill_blank" o "multiple_choice")
-  - Mismo concepto, NUEVO ángulo, diferente a discovery y reinforcement ya generados
+  - Retry slide 2: interactionType diferente al retry slide 1 (puede ser "multiple_choice")
+  - Misma dificultad, ángulos distintos — ninguna pregunta puede repetirse
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 REGLAS TRANSVERSALES:
@@ -654,7 +699,7 @@ export async function generateDesafioContent(
       model: 'gpt-4o',
       messages: [{ role: 'user', content: prompt }],
       temperature: 0.7,
-      max_tokens: 12000,
+      max_tokens: 14000,
     });
     const raw = completion.choices[0]?.message?.content ?? '';
     const { topic, slides, retrySlides } = parseDesafioJson(raw);
