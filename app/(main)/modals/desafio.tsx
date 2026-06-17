@@ -16,7 +16,7 @@
  * No type switches at SafeAreaView direct-child level. No animations.
  */
 
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Pressable,
   ScrollView,
@@ -725,6 +725,9 @@ export default function DesafioScreen() {
   // Available retries per concept index
   const [retriesLeft, setRetriesLeft] = useState<Record<number, number>>({});
 
+  // Timer: records when each interactive slide first renders (read-only in handleCta)
+  const slideStartTime = useRef(Date.now());
+
   // ── XP state ─────────────────────────────────────────────────────────────
   const [totalXP,   setTotalXP]   = useState(0);
   const [xpDisplay, setXpDisplay] = useState<number | null>(null);
@@ -809,6 +812,33 @@ export default function DesafioScreen() {
     setTimeout(() => setEnergyMsg(null), 2200);
   }, [energyMsgOpacity]);
 
+  // ── Speed bonus ───────────────────────────────────────────────────────────
+  const [speedBonusVisible, setSpeedBonusVisible] = useState(false);
+
+  const speedOpacity = useSharedValue(0);
+  const speedScale   = useSharedValue(1);
+
+  const speedBonusStyle = useAnimatedStyle(() => ({
+    opacity:   speedOpacity.value,
+    transform: [{ scale: speedScale.value }],
+  }));
+
+  const triggerSpeedBonus = useCallback(() => {
+    setSpeedBonusVisible(true);
+    speedOpacity.value = 0;
+    speedScale.value   = 0.6;
+    speedOpacity.value = withSequence(
+      withTiming(1,   { duration: 120, easing: Easing.out(Easing.quad) }),
+      withTiming(1,   { duration: 280 }),
+      withTiming(0,   { duration: 200, easing: Easing.in(Easing.quad)  }),
+    );
+    speedScale.value = withSequence(
+      withTiming(1.3, { duration: 150, easing: Easing.out(Easing.back(2)) }),
+      withTiming(1.0, { duration: 450, easing: Easing.out(Easing.quad)   }),
+    );
+    setTimeout(() => setSpeedBonusVisible(false), 620);
+  }, [speedOpacity, speedScale]);
+
   // Per-interaction-type UI state (all reset on slide change)
   const [mcSelection,       setMcSelection]       = useState<string | null>(null);
   const [pairsSelectedLeft, setPairsSelectedLeft] = useState<string | null>(null);
@@ -846,6 +876,7 @@ export default function DesafioScreen() {
     setClassifyAssigned({});
     const slide = dynamicSlides[currentIdx];
     setStepsOrder(slide?.steps ? slide.steps.map((_, i) => i) : []);
+    slideStartTime.current = Date.now();
   }, [currentIdx]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Derived values ─────────────────────────────────────────────────────────
@@ -920,10 +951,13 @@ export default function DesafioScreen() {
     let newEnergy = energy;
 
     if (correct && slide) {
-      const newStreak = streak + 1;
+      const elapsed     = Date.now() - slideStartTime.current;
+      const speedBonus  = elapsed < 6000 ? 5 : 0;
+      const newStreak   = streak + 1;
       setStreak(newStreak);
-      const bonus = newStreak >= 3 ? 5 : 0;
-      triggerXpFloat(xpForSlide(slide) + bonus);
+      const streakBonus = newStreak >= 3 ? 5 : 0;
+      triggerXpFloat(xpForSlide(slide) + streakBonus + speedBonus);
+      if (speedBonus > 0) triggerSpeedBonus();
       if (isRecovery && energy < 3) {
         newEnergy = energy + 1;
         setEnergy(newEnergy);
@@ -974,7 +1008,7 @@ export default function DesafioScreen() {
     slide, revealed, itype, advance,
     mcSelection, pairsMatched, classifyAssigned, stepsOrder,
     currentIdx, session, retriesLeft,
-    energy, streak, triggerXpFloat, triggerComboLost, showEnergyMsg,
+    energy, streak, triggerXpFloat, triggerComboLost, showEnergyMsg, triggerSpeedBonus,
   ]);
 
   // ── Loading / error states ─────────────────────────────────────────────────
@@ -1086,7 +1120,7 @@ export default function DesafioScreen() {
 
       {/* Stable child 3 — CTA footer (matches Misión / Quiz / Tarjetas pattern) */}
       <View style={[g.bottom, { paddingBottom: insets.bottom + 12 }]}>
-        {/* Energy message — absolutely positioned above XP badge */}
+        {/* Energy message — top: -116, above speed badge */}
         {energyMsg !== null && (
           <Animated.View
             style={[
@@ -1099,6 +1133,12 @@ export default function DesafioScreen() {
             <Text style={[g.energyMsgText, energyMsg.recovery ? g.energyMsgTextOk : g.energyMsgTextWarn]}>
               {energyMsg.text}
             </Text>
+          </Animated.View>
+        )}
+        {/* Speed bonus badge — top: -80, quick flash on correct < 6s */}
+        {speedBonusVisible && (
+          <Animated.View style={[g.speedBadge, speedBonusStyle]} pointerEvents="none">
+            <Text style={g.speedBadgeText}>⚡ Rápido!</Text>
           </Animated.View>
         )}
         {/* XP float — absolutely positioned above the button, pointerEvents ignored */}
@@ -1167,8 +1207,18 @@ const g = StyleSheet.create({
   energyRow:         { flexDirection: 'row', gap: 2, alignItems: 'center' },
   energyBrain:       { fontSize: 16 },
   energyBrainLost:   { opacity: 0.2 },
-  energyMsgBadge: {
+  speedBadge: {
     position: 'absolute', top: -80, alignSelf: 'center',
+    backgroundColor: '#FEFCE8', borderRadius: 100,
+    borderWidth: 1, borderColor: '#FCD34D',
+    paddingHorizontal: 14, paddingVertical: 6,
+    shadowColor: '#F59E0B', shadowOpacity: 0.25,
+    shadowOffset: { width: 0, height: 2 }, shadowRadius: 6, elevation: 6,
+  },
+  speedBadgeText: { fontSize: 14, fontWeight: '800', color: '#92400E' },
+
+  energyMsgBadge: {
+    position: 'absolute', top: -116, alignSelf: 'center',
     borderRadius: 20, paddingHorizontal: 16, paddingVertical: 7,
     shadowOpacity: 0.15, shadowOffset: { width: 0, height: 3 }, shadowRadius: 6, elevation: 6,
   },
