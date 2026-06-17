@@ -65,7 +65,7 @@ router.post('/generate', upload.array('documents', 10), async (req, res) => {
 
   const configValues = typeof configJson === 'string' ? JSON.parse(configJson) : configJson;
   const sessionConfig = configValues as SessionConfig;
-  const curso = configValues.curso ?? '1º Medio';
+  const curso = configValues.curso || '1º Medio';
   const userId = req.body.userId ?? 'anonymous';
   console.log('[Sessions] Curso recibido:', curso);
   const documentId = randomUUID();

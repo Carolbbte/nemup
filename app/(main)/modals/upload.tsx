@@ -241,7 +241,8 @@ export default function UploadFlowScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { state: onboardingState } = useOnboarding();
-  const curso = onboardingState.data.curso || '1º Medio';
+  const onboardingDataRef = useRef(onboardingState.data);
+  onboardingDataRef.current = onboardingState.data;
 
   // ── State ──────────────────────────────────────────────────────
   const [step, setStep]                       = useState(0);
@@ -512,6 +513,7 @@ export default function UploadFlowScreen() {
     xhrRef.current = { abort: () => controller.abort() };
 
     try {
+      const curso = onboardingDataRef.current.curso || '1º Medio';
       const primary = selectedFiles[0];
       console.log('[NEMup] Curso detectado:', curso);
       console.log('[NEMup] Curso enviado al backend:', curso);
@@ -558,7 +560,7 @@ export default function UploadFlowScreen() {
       if (e?.name === 'AbortError') return;
       setGenerationError(`Error de red. Intenta nuevamente.`);
     }
-  }, [selectedFiles, curso]);
+  }, [selectedFiles]);
 
   useEffect(() => {
     if (step !== 1) { generationStartedRef.current = false; return; }
