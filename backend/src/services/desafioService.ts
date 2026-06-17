@@ -250,10 +250,12 @@ DEVUELVE EXACTAMENTE este JSON (sin texto adicional, sin markdown):
       "conceptName": "Completado",
       "title": "¡Desafío superado!",
       "body": "Celebración de lo aprendido, max 25 palabras.",
-      "conceptsCovered": ["Concepto 0", "Concepto 1"]
+      "conceptsCovered": ["Concepto 0", "Concepto 1", "Concepto 2"]
     }
   ],
 
+  // retrySlides: UNA entrada por cada concepto Tipo A identificado en FASE 1.
+  // Si son 2 conceptos → claves "0" y "1". Si son 3 → claves "0", "1" y "2". Etc.
   "retrySlides": {
     "0": [{
       "type": "reinforcement_challenge",
@@ -277,6 +279,17 @@ DEVUELVE EXACTAMENTE este JSON (sin texto adicional, sin markdown):
       "correctAnswer": "C",
       "explanation": "...",
       "wrongHints": {"A": "...", "B": "..."}
+    }],
+    "2": [{
+      "type": "reinforcement_challenge",
+      "interactionType": "order_steps",
+      "isRetry": true,
+      "conceptIndex": 2,
+      "conceptName": "Nombre del concepto",
+      "orderPrompt": "Ordena los pasos correctamente",
+      "steps": ["Paso B mezclado", "Paso C mezclado", "Paso A mezclado"],
+      "correctOrder": [2, 0, 1],
+      "orderExplanation": "Explicación del orden correcto (max 80 chars)"
     }]
   }
 }`;
