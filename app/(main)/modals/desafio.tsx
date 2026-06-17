@@ -707,6 +707,18 @@ function xpForSlide(slide: DesafioSlide): number {
   }
 }
 
+// ── Feedback message pools ────────────────────────────────────────────────────
+const SUCCESS_MSGS = ['¡Bien!', '¡Excelente!', '¡Eso!', '¡Vas increíble!', '¡Dominado!'] as const;
+const WRONG_MSGS   = ['Casi.', 'Buen intento.', 'Revisemos esto.'] as const;
+
+function pickRandom(pool: readonly string[], lastIdx: { current: number }): string {
+  const len = pool.length;
+  let idx   = Math.floor(Math.random() * len);
+  if (len > 1 && idx === lastIdx.current) idx = (idx + 1) % len;
+  lastIdx.current = idx;
+  return pool[idx];
+}
+
 // ══════════════════════════════════════════════════════════════════════════════
 // MAIN SCREEN
 // ══════════════════════════════════════════════════════════════════════════════
@@ -726,7 +738,10 @@ export default function DesafioScreen() {
   const [retriesLeft, setRetriesLeft] = useState<Record<number, number>>({});
 
   // Timer: records when each interactive slide first renders (read-only in handleCta)
-  const slideStartTime = useRef(Date.now());
+  const slideStartTime  = useRef(Date.now());
+  // No-repeat tracking for feedback messages
+  const lastSuccessIdx  = useRef(-1);
+  const lastWrongIdx    = useRef(-1);
 
   // ── XP state ─────────────────────────────────────────────────────────────
   const [totalXP,   setTotalXP]   = useState(0);
@@ -838,6 +853,30 @@ export default function DesafioScreen() {
     );
     setTimeout(() => setSpeedBonusVisible(false), 620);
   }, [speedOpacity, speedScale]);
+
+  // ── Success message ───────────────────────────────────────────────────────
+  const [successMsg,     setSuccessMsg]     = useState<string | null>(null);
+
+  const successOpacity = useSharedValue(0);
+  const successScale   = useSharedValue(1);
+
+  const successMsgStyle = useAnimatedStyle(() => ({
+    opacity:   successOpacity.value,
+    transform: [{ scale: successScale.value }],
+  }));
+
+  const triggerSuccessMsg = useCallback((msg: string) => {
+    setSuccessMsg(msg);
+    successOpacity.value = 0;
+    successScale.value   = 0.88;
+    successOpacity.value = withSequence(
+      withTiming(1, { duration: 150, easing: Easing.out(Easing.quad) }),
+      withTiming(1, { duration: 750 }),
+      withTiming(0, { duration: 300, easing: Easing.in(Easing.quad)  }),
+    );
+    successScale.value = withTiming(1, { duration: 250, easing: Easing.out(Easing.back(1.5)) });
+    setTimeout(() => setSuccessMsg(null), 1200);
+  }, [successOpacity, successScale]);
 
   // Per-interaction-type UI state (all reset on slide change)
   const [mcSelection,       setMcSelection]       = useState<string | null>(null);
@@ -958,6 +997,7 @@ export default function DesafioScreen() {
       const streakBonus = newStreak >= 3 ? 5 : 0;
       triggerXpFloat(xpForSlide(slide) + streakBonus + speedBonus);
       if (speedBonus > 0) triggerSpeedBonus();
+      if (!isRecovery) triggerSuccessMsg(pickRandom(SUCCESS_MSGS, lastSuccessIdx));
       if (isRecovery && energy < 3) {
         newEnergy = energy + 1;
         setEnergy(newEnergy);
@@ -968,7 +1008,7 @@ export default function DesafioScreen() {
       setStreak(0);
       newEnergy = Math.max(0, energy - 1);
       setEnergy(newEnergy);
-      showEnergyMsg('Casi. Vamos a reforzarlo.', false);
+      showEnergyMsg(pickRandom(WRONG_MSGS, lastWrongIdx), false);
     }
 
     // Adaptive injection: insert retry slide on wrong answer.
@@ -1008,7 +1048,7 @@ export default function DesafioScreen() {
     slide, revealed, itype, advance,
     mcSelection, pairsMatched, classifyAssigned, stepsOrder,
     currentIdx, session, retriesLeft,
-    energy, streak, triggerXpFloat, triggerComboLost, showEnergyMsg, triggerSpeedBonus,
+    energy, streak, triggerXpFloat, triggerComboLost, showEnergyMsg, triggerSpeedBonus, triggerSuccessMsg,
   ]);
 
   // ── Loading / error states ─────────────────────────────────────────────────
@@ -1092,6 +1132,13 @@ export default function DesafioScreen() {
             <Text style={g.statValue}>{totalXP} XP</Text>
           </View>
         </View>
+
+        {/* Success message — floats below stats bar over the scroll content */}
+        {successMsg !== null && (
+          <Animated.View style={[g.successMsgBadge, successMsgStyle]} pointerEvents="none">
+            <Text style={g.successMsgText}>{successMsg}</Text>
+          </Animated.View>
+        )}
       </View>
 
       {/* Stable child 2 — slide content; key forces remount on advance */}
@@ -1207,6 +1254,16 @@ const g = StyleSheet.create({
   energyRow:         { flexDirection: 'row', gap: 2, alignItems: 'center' },
   energyBrain:       { fontSize: 16 },
   energyBrainLost:   { opacity: 0.2 },
+  successMsgBadge: {
+    position: 'absolute', bottom: -24, alignSelf: 'center',
+    backgroundColor: palette.morado, borderRadius: 100,
+    paddingHorizontal: 20, paddingVertical: 8,
+    shadowColor: palette.morado, shadowOpacity: 0.3,
+    shadowOffset: { width: 0, height: 3 }, shadowRadius: 8, elevation: 7,
+    zIndex: 10,
+  },
+  successMsgText: { fontSize: 15, fontWeight: '800', color: palette.blanco, letterSpacing: 0.2 },
+
   speedBadge: {
     position: 'absolute', top: -80, alignSelf: 'center',
     backgroundColor: '#FEFCE8', borderRadius: 100,
