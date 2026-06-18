@@ -48,7 +48,7 @@ const challengeOptionLetter: TextStyle = {
 const challengeExplanation: TextStyle = {
   fontFamily: 'Nunito',
   fontWeight: '500',
-  fontSize: 17,
+  fontSize: 16,
   lineHeight: 24,
 };
 
@@ -93,7 +93,7 @@ const challengeStreak: TextStyle = {
 const challengeMicroCelebration: TextStyle = {
   fontFamily: 'Fredoka',
   fontWeight: '700',
-  fontSize: 18,
+  fontSize: 16,
 };
 
 const challengeRewardXP: TextStyle = {

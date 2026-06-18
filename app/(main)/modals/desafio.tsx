@@ -603,6 +603,64 @@ function InformationalContent({ slide }: { slide: DesafioSlide }) {
   );
 }
 
+// ── Bullet parser for insight slides ─────────────────────────────────────────
+
+function parseBullets(body: string): { bullets: string[]; rest: string } {
+  const lines = body.split('\n').map(l => l.trim()).filter(Boolean);
+  const bullets: string[] = [];
+  const restLines: string[] = [];
+  for (const line of lines) {
+    if (line.startsWith('* ') || line.startsWith('• ')) {
+      bullets.push(line.replace(/^[*•]\s*/, '').trim());
+    } else {
+      restLines.push(line);
+    }
+  }
+  return { bullets, rest: restLines.join(' ').trim() };
+}
+
+// ── Insight content — redesigned CONCEPTO slide ───────────────────────────────
+
+function InsightContent({ slide }: { slide: DesafioSlide }) {
+  const { bullets, rest } = parseBullets(slide.body ?? '');
+  const hasExamples = Array.isArray(slide.examples) && slide.examples.length > 0;
+
+  return (
+    <View style={ins.root}>
+      <Text style={c.typeLabel}>{slideTypeLabel(slide.type)}</Text>
+      {slide.emoji != null && <Text style={ins.emoji}>{displayEmoji(slide.emoji)}</Text>}
+
+      {/* Concept title — stronger hierarchy */}
+      <Text style={ins.title}>{slide.title}</Text>
+
+      {/* Learning blocks — each bullet becomes a mini-card */}
+      {bullets.length > 0 && (
+        <View style={ins.blocksContainer}>
+          {bullets.map((bullet, i) => (
+            <View key={i} style={ins.learningBlock}>
+              <Text style={ins.blockIcon}>✦</Text>
+              <Text style={ins.blockText}>{bullet}</Text>
+            </View>
+          ))}
+        </View>
+      )}
+
+      {/* Plain text body (key_relation, process_flow — no bullet markers) */}
+      {rest.length > 0 && <Text style={ins.restText}>{rest}</Text>}
+
+      {/* Example card — pedagogical highlight */}
+      {hasExamples && (
+        <View style={ins.exampleCard}>
+          <Text style={ins.exampleTag}>Ejemplo práctico</Text>
+          {slide.examples!.map((ex, i) => (
+            <Text key={i} style={ins.exampleExpr}>{ex.expression}</Text>
+          ))}
+        </View>
+      )}
+    </View>
+  );
+}
+
 // ── Mastery / completion reward summary ──────────────────────────────────────
 
 function MasteryContent({
@@ -701,6 +759,7 @@ function SlideContent({
   answer: SlideAnswer | undefined;
 }) {
   if (!isInteractiveByType(slide)) {
+    if (slide.type === 'insight') return <InsightContent slide={slide} />;
     return <InformationalContent slide={slide} />;
   }
 
@@ -801,6 +860,77 @@ const c = StyleSheet.create({
     textTransform: 'uppercase' as const,
     letterSpacing: 0.5,
     textAlign: 'center' as const,
+  },
+});
+
+// ── Insight (CONCEPTO) slide styles ──────────────────────────────────────────
+
+const ins = StyleSheet.create({
+  root: { paddingHorizontal: 20, paddingTop: 8, paddingBottom: 24 },
+  emoji: { fontSize: 48, textAlign: 'center', marginBottom: 14 },
+  title: {
+    fontSize: 26,
+    fontWeight: '800',
+    color: palette.charcoal,
+    lineHeight: 34,
+    letterSpacing: -0.3,
+    marginBottom: 20,
+  },
+  blocksContainer: { gap: 10, marginBottom: 4 },
+  learningBlock: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 10,
+    backgroundColor: '#F5F2FF',
+    borderRadius: 16,
+    padding: 14,
+  },
+  blockIcon: {
+    fontSize: 13,
+    color: palette.morado,
+    lineHeight: 22,
+    marginTop: 1,
+    flexShrink: 0,
+  },
+  blockText: {
+    flex: 1,
+    fontSize: 15,
+    fontWeight: '600',
+    color: palette.charcoal,
+    lineHeight: 22,
+  },
+  restText: {
+    fontSize: 15,
+    color: palette.charcoal,
+    lineHeight: 24,
+    marginTop: 12,
+  },
+  exampleCard: {
+    marginTop: 24,
+    backgroundColor: palette.blanco,
+    borderRadius: 16,
+    borderWidth: 1.5,
+    borderColor: palette.morado + '33',
+    padding: 18,
+    shadowColor: palette.morado,
+    shadowOpacity: 0.08,
+    shadowOffset: { width: 0, height: 3 },
+    shadowRadius: 10,
+    elevation: 2,
+  },
+  exampleTag: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: palette.morado,
+    letterSpacing: 1,
+    textTransform: 'uppercase' as const,
+    marginBottom: 10,
+  },
+  exampleExpr: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: palette.charcoal,
+    lineHeight: 28,
   },
 });
 
