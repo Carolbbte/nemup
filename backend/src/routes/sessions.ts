@@ -23,7 +23,7 @@ import {
 } from '../repository/sessionRepository.js';
 import { classifyContent } from '../services/pedagogicalClassifier.js';
 import { generateSkillMission } from '../services/generationService.js';
-import { generateDesafioContent } from '../services/desafioService.js';
+import { buildDesafioFromMission } from '../services/desafioAdapter.js';
 import type { SessionConfig } from '../types.js';
 
 const router = express.Router();
@@ -193,19 +193,19 @@ router.post('/generate', upload.array('documents', 10), async (req, res) => {
     applyUserRewards(userId, allMissions[0].session.baseXpReward, 0)
       .catch(err => console.warn('[Sessions] Rewards error:', err?.message));
 
-    // ── Desafío generation for PROCEDURAL path ───────────────────────────────
-    sendSse(res, 'progress', createProgressPayload('generating_desafio', 95, 'Generando modo Desafío...'));
-    const desafioHeartbeatP = setInterval(() => { try { res.write(': keepalive\n\n'); } catch {} }, 15000);
+    // ── Desafío (built from Mission slides — no second AI call) ─────────────
+    sendSse(res, 'progress', createProgressPayload('generating_desafio', 95, 'Preparando modo Desafío...'));
     try {
       const firstMissionSlides = (allMissions[0].session.summary as any).slides ?? [];
       const firstMissionTopic = allMissions[0].skillLabel ?? '';
-      const desafioResult = await generateDesafioContent(firstMissionSlides, curso, firstMissionTopic);
-      (allMissions[0].session as any).desafio = desafioResult.session;
-      console.log(`[Sessions] Desafío generado (PROCEDURAL): ${desafioResult.session.conceptCount} conceptos`);
+      const desafioSession = buildDesafioFromMission(firstMissionSlides, firstMissionTopic);
+      if (desafioSession.conceptCount > 0) {
+        (allMissions[0].session as any).desafio = desafioSession;
+        console.log(`[Sessions] Desafío construido (PROCEDURAL): ${desafioSession.conceptCount} conceptos`);
+      }
     } catch (err: any) {
-      console.warn('[Sessions] Desafío generation failed (non-fatal):', err?.message);
+      console.warn('[Sessions] Desafío build failed (non-fatal):', err?.message);
     }
-    clearInterval(desafioHeartbeatP);
 
     sendSse(res, 'progress', createProgressPayload('done', 100, `${allMissions.length} misiones listas.`));
     sendSse(res, 'complete', {
@@ -280,19 +280,19 @@ router.post('/generate', upload.array('documents', 10), async (req, res) => {
     console.log('[Sessions] Engagement OK — interactions:', engagementReport.interactionCount);
   }
 
-  // ── Desafío generation (runs after main session, non-blocking on error) ──────
-  sendSse(res, 'progress', createProgressPayload('generating_desafio', 90, 'Generando modo Desafío...'));
-  const desafioHeartbeat = setInterval(() => { try { res.write(': keepalive\n\n'); } catch {} }, 15000);
+  // ── Desafío (built from Mission slides — no second AI call) ──────────────
+  sendSse(res, 'progress', createProgressPayload('generating_desafio', 90, 'Preparando modo Desafío...'));
   try {
     const sessionSlides = session.summary.slides as any[];
     const sessionTopic = (session.summary as any).title ?? '';
-    const desafioResult = await generateDesafioContent(sessionSlides, curso, sessionTopic);
-    (session as any).desafio = desafioResult.session;
-    console.log(`[Sessions] Desafío generado: ${desafioResult.session.conceptCount} conceptos`);
+    const desafioSession = buildDesafioFromMission(sessionSlides, sessionTopic);
+    if (desafioSession.conceptCount > 0) {
+      (session as any).desafio = desafioSession;
+      console.log(`[Sessions] Desafío construido: ${desafioSession.conceptCount} conceptos`);
+    }
   } catch (err: any) {
-    console.warn('[Sessions] Desafío generation failed (non-fatal):', err?.message);
+    console.warn('[Sessions] Desafío build failed (non-fatal):', err?.message);
   }
-  clearInterval(desafioHeartbeat);
 
   Promise.all([
     saveGeneratedSession(userId, sessionId, session),
