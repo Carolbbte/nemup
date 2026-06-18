@@ -1674,7 +1674,7 @@ async function callOpenAIAndBuildResult(
   configValues: SessionConfig,
   maxTokens = 7000,
 ): Promise<Omit<GenerationResult, 'pedagogicalType' | 'primarySkill' | 'learningPath'>> {
-  console.log('[Generation] Prompt enviado a la IA:\n' + prompt);
+  console.log(`[Generation] Prompt enviado a la IA (${prompt.length} chars)`);
   const response = await openai.chat.completions.create({
     model: config.openai_model,
     messages: [
@@ -1781,13 +1781,23 @@ async function callOpenAIAndBuildResult(
     difficulty: card.difficulty || 'easy',
   })) as Flashcard[];
 
+  // Strip feedback opener prefixes (e.g. "🔥 Exacto — ") from interactive slide definitions.
+  // The LLM prepends them despite prompt instructions — stripping keeps the actual explanation
+  // and prevents false-positive pedagogical flow violations that would trigger regeneration.
+  const FEEDBACK_PREFIX_RE = /^.{0,8}(?:exacto|correcto|acertaste|lo captaste|bien hecho|perfecto|muy bien).{0,8}/i;
+  const stripFeedbackPrefix = (raw: string, type: string): string => {
+    if (type !== 'micro_challenge' && type !== 'reinforcement_challenge') return raw;
+    const stripped = raw.replace(FEEDBACK_PREFIX_RE, '').trim();
+    return stripped.length >= 10 ? stripped : raw;
+  };
+
   const rawSlides = (parsed.summary?.slides || []).map((slide: any, i: number) => {
     const clean = stripTemplatePlaceholders(slide);
     return {
       type: VALID_SLIDE_TYPES.includes(clean.type) ? clean.type : 'concept',
       emoji: clean.emoji || '📚',
       title: clean.title || `Concepto ${i + 1}`,
-      definition: clean.definition || clean.content || '',
+      definition: stripFeedbackPrefix(clean.definition || clean.content || '', clean.type),
       example: clean.example || null,
       visualHint: clean.visualHint || undefined,
       illustrationType: VALID_ILLUSTRATION_TYPES.includes(clean.illustrationType) ? clean.illustrationType : undefined,
