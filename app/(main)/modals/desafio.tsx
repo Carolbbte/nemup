@@ -292,6 +292,8 @@ function MatchPairsContent({
       <Text style={c.typeLabel}>{slideTypeLabel(slide.type, slide.isRetry, slide.isSpacedRepetition)}</Text>
       <Text style={mp.prompt}>{slide.pairsPrompt ?? 'Une cada elemento con su descripción'}</Text>
       <View style={mp.cols}>
+
+        {/* Left column — chips with drag handle */}
         <View style={mp.col}>
           {pairs.map((pair) => {
             const color  = getLeftColor(pair.id);
@@ -302,47 +304,52 @@ function MatchPairsContent({
               <Pressable
                 key={pair.id}
                 style={[
-                  mp.item,
-                  isSel && mp.itemSelected,
-                  !revealed && color ? { borderColor: color, borderWidth: 2 } : null,
-                  revealed && isCorr && mp.itemCorrect,
-                  revealed && isWrg  && mp.itemWrong,
+                  mp.chip,
+                  isSel && mp.chipSelected,
+                  !revealed && color ? { borderColor: color, borderWidth: 2, backgroundColor: color + '18' } : null,
+                  revealed && isCorr && mp.chipCorrect,
+                  revealed && isWrg  && mp.chipWrong,
                 ]}
                 onPress={() => handleLeftPress(pair.id)}
                 disabled={revealed}
               >
-                {!revealed && color && <View style={[mp.dot, { backgroundColor: color }]} />}
-                {revealed && (
+                {revealed ? (
                   <Text style={[mp.revealIcon, isCorr ? mp.iconCorrect : mp.iconWrong]}>
                     {isCorr ? '✓' : '✗'}
                   </Text>
+                ) : (
+                  <Text style={[mp.handle, isSel && mp.handleActive]}>☰</Text>
                 )}
-                <Text style={mp.itemText} numberOfLines={2}>{pair.left}</Text>
+                <Text style={mp.chipText} numberOfLines={2}>{pair.left}</Text>
+                {!revealed && color && <View style={[mp.connector, { backgroundColor: color }]} />}
               </Pressable>
             );
           })}
         </View>
+
+        {/* Right column — target slots */}
         <View style={mp.col}>
           {shuffledRight.map((pair) => {
-            const color      = getRightColor(pair.id);
+            const color       = getRightColor(pair.id);
             const hasSelected = !!selectedLeft && !revealed;
             return (
               <Pressable
                 key={pair.id + '_r'}
                 style={[
-                  mp.item,
-                  hasSelected && mp.itemTargetable,
+                  mp.target,
+                  hasSelected && mp.targetActive,
                   !revealed && color ? { borderColor: color, borderWidth: 2 } : null,
                 ]}
                 onPress={() => handleRightPress(pair)}
                 disabled={revealed || !selectedLeft}
               >
-                {!revealed && color && <View style={[mp.dot, { backgroundColor: color }]} />}
-                <Text style={mp.itemText} numberOfLines={2}>{pair.right}</Text>
+                {!revealed && color && <View style={[mp.connector, { backgroundColor: color }]} />}
+                <Text style={mp.targetText} numberOfLines={2}>{pair.right}</Text>
               </Pressable>
             );
           })}
         </View>
+
       </View>
     </View>
   );
@@ -350,23 +357,41 @@ function MatchPairsContent({
 
 const mp = StyleSheet.create({
   prompt: { fontSize: 16, fontWeight: '700', color: palette.charcoal, marginBottom: 16, lineHeight: 22 },
-  cols:   { flexDirection: 'row', gap: 8 },
-  col:    { flex: 1, gap: 8 },
-  item: {
-    flexDirection: 'row', alignItems: 'center', gap: 6,
-    backgroundColor: palette.blanco, borderRadius: 12,
-    borderWidth: 1.5, borderColor: palette.bordeClaro,
-    paddingHorizontal: 10, paddingVertical: 12, minHeight: 52,
+  cols:   { flexDirection: 'row', gap: 10 },
+  col:    { flex: 1, gap: 10 },
+
+  // Left: interactive chip with drag handle
+  chip: {
+    flexDirection: 'row', alignItems: 'center', gap: 8,
+    backgroundColor: palette.blanco, borderRadius: 22,
+    borderWidth: 2, borderColor: palette.bordeClaro,
+    paddingHorizontal: 12, paddingVertical: 14, minHeight: 58,
   },
-  itemSelected:  { borderColor: palette.morado, borderWidth: 2 },
-  itemTargetable:{ borderColor: palette.morado + '66' },
-  itemCorrect:   { borderColor: palette.verde, backgroundColor: '#F0FDF7' },
-  itemWrong:     { borderColor: palette.rojoError, backgroundColor: palette.rojoErrorBg },
-  dot:        { width: 8, height: 8, borderRadius: 4, flexShrink: 0 },
+  chipSelected: { borderColor: palette.morado, backgroundColor: palette.moradoBg },
+  chipCorrect:  { borderColor: palette.verde,      backgroundColor: '#F0FDF7' },
+  chipWrong:    { borderColor: palette.rojoError,  backgroundColor: palette.rojoErrorBg },
+
+  handle:       { fontSize: 15, color: palette.grisMedio, flexShrink: 0, opacity: 0.5 },
+  handleActive: { color: palette.morado, opacity: 1 },
+  chipText:     { flex: 1, fontSize: 13, fontWeight: '600', color: palette.charcoal, lineHeight: 18 },
+
+  // Color connector pill — appears on right of left chip and left of right target
+  connector: { width: 14, height: 4, borderRadius: 2, flexShrink: 0 },
+
+  // Right: target slot — lavender background signals "receptive"
+  target: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
+    backgroundColor: palette.moradoBg,
+    borderRadius: 22,
+    borderWidth: 1.5, borderColor: palette.morado + '30',
+    paddingHorizontal: 12, paddingVertical: 14, minHeight: 58,
+  },
+  targetActive: { borderColor: palette.morado + '80', borderWidth: 2 },
+  targetText:   { flex: 1, fontSize: 13, fontWeight: '700', color: palette.charcoal, lineHeight: 18, textAlign: 'center' },
+
   revealIcon: { fontSize: 14, fontWeight: '700', flexShrink: 0 },
   iconCorrect:{ color: palette.verde },
   iconWrong:  { color: palette.rojoError },
-  itemText:   { flex: 1, fontSize: 13, color: palette.charcoal, lineHeight: 18 },
 });
 
 // ── Classify content ──────────────────────────────────────────────────────────
