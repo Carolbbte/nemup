@@ -19,7 +19,7 @@ import { TextStyle } from 'react-native';
 const challengeSectionLabel: TextStyle = {
   fontFamily: 'Nunito',
   fontWeight: '800',
-  fontSize: 18,
+  fontSize: 14,
   letterSpacing: 2.2,
   textTransform: 'uppercase',
 };
@@ -48,7 +48,7 @@ const challengeOptionLetter: TextStyle = {
 const challengeExplanation: TextStyle = {
   fontFamily: 'Nunito',
   fontWeight: '500',
-  fontSize: 16,
+  fontSize: 14,
   lineHeight: 24,
 };
 
@@ -99,7 +99,7 @@ const challengeMicroCelebration: TextStyle = {
 const challengeRewardXP: TextStyle = {
   fontFamily: 'Fredoka',
   fontWeight: '700',
-  fontSize: 40,
+  fontSize: 30,
 };
 // ── Export ────────────────────────────────────────────────────────────────────
 

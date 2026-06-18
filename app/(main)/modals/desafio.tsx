@@ -619,6 +619,88 @@ function parseBullets(body: string): { bullets: string[]; rest: string } {
   return { bullets, rest: restLines.join(' ').trim() };
 }
 
+// ── Focus detection for SmartExampleCard ─────────────────────────────────────
+//
+// Finds the pedagogically key fragment inside a raw example string.
+// Works across subjects (math, history, chemistry, biology, etc.) using
+// pattern matching only — no AI calls, no subject-specific rules.
+
+interface FocusResult {
+  before: string;
+  focus:  string;
+  after:  string;
+  focusLabel: string | null;
+}
+
+function detectExampleFocus(raw: string, conceptTitle: string): FocusResult {
+  // Strip redundant "Ejemplo: " prefix — the card header already says "Ejemplo práctico"
+  const expr = raw.replace(/^[Ee]jemplo\s*:\s*/, '').trim() || raw.trim();
+  const none: FocusResult = { before: expr, focus: '', after: '', focusLabel: null };
+
+  // 1. Date range: 1914–1918 / 1939-1945
+  const dr = expr.match(/([\s\S]*?)(\d{4}[–—\-]\d{4})([\s\S]*)/);
+  if (dr) return { before: dr[1], focus: dr[2], after: dr[3], focusLabel: 'período' };
+
+  // 2. Algebraic term with Unicode superscript: -6m⁴, ax², 3x²y
+  const alg = expr.match(/([\s\S]*?)([-−]?\d*[a-zA-Z]\w*[⁰¹²³⁴-⁹]+)([\s\S]*)/);
+  if (alg && alg[2].length >= 2) return { before: alg[1], focus: alg[2], after: alg[3], focusLabel: 'expresión' };
+
+  // 3. Coefficient × variable: -6m, 3x, 2ab
+  const cv = expr.match(/([\s\S]*?)([-−]?\d+[a-zA-Z][a-zA-Z0-9]*)([\s\S]*)/);
+  if (cv && cv[2].length >= 2) return { before: cv[1], focus: cv[2], after: cv[3], focusLabel: 'expresión' };
+
+  // 4. Chemical / molecular formula: NaCl, H2O, CO2, ATP, DNA
+  const chem = expr.match(/([\s\S]*?)(\b[A-Z][a-z]?\d*(?:[A-Z][a-z]?\d*)+\b)([\s\S]*)/);
+  if (chem) return { before: chem[1], focus: chem[2], after: chem[3], focusLabel: 'compuesto' };
+
+  // 5. Arrow relation: "X → Y" — highlight the subject (X)
+  const arrIdx = expr.indexOf('→');
+  if (arrIdx > 0) {
+    return { before: '', focus: expr.slice(0, arrIdx).trim(), after: ' → ' + expr.slice(arrIdx + 1).trim(), focusLabel: null };
+  }
+
+  // 6. Single year: 1818, 1969
+  const yr = expr.match(/([\s\S]*?)(\b\d{4}\b)([\s\S]*)/);
+  if (yr) return { before: yr[1], focus: yr[2], after: yr[3], focusLabel: 'año' };
+
+  // 7. Short expression (≤ 20 chars): highlight the whole thing with concept title as label
+  if (expr.length <= 20) {
+    const label = conceptTitle.length <= 28 ? conceptTitle : null;
+    return { before: '', focus: expr, after: '', focusLabel: label };
+  }
+
+  return none;
+}
+
+// ── Smart example card — highlights the pedagogical focus element ──────────────
+
+function SmartExampleCard({ expression, conceptTitle }: { expression: string; conceptTitle: string }) {
+  const { before, focus, after, focusLabel } = detectExampleFocus(expression, conceptTitle);
+  const hasFocus = focus.length > 0;
+
+  return (
+    <View style={ins.exampleCard}>
+      <Text style={ins.exampleTag}>Ejemplo práctico</Text>
+
+      {/* Full expression with the focus element highlighted inline */}
+      <Text style={ins.smartExprText}>
+        {before}
+        {hasFocus ? <Text style={ins.smartFocusText}>{focus}</Text> : null}
+        {after}
+      </Text>
+
+      {/* Focus label badge — names the type of element highlighted */}
+      {hasFocus && focusLabel ? (
+        <View style={ins.focusBadgeRow}>
+          <View style={ins.focusBadge}>
+            <Text style={ins.focusBadgeText}>{focusLabel}</Text>
+          </View>
+        </View>
+      ) : null}
+    </View>
+  );
+}
+
 // ── Insight content — redesigned CONCEPTO slide ───────────────────────────────
 
 function InsightContent({ slide }: { slide: DesafioSlide }) {
@@ -645,18 +727,14 @@ function InsightContent({ slide }: { slide: DesafioSlide }) {
         </View>
       )}
 
-      {/* Plain text body (key_relation, process_flow — no bullet markers) */}
-      {rest.length > 0 && <Text style={ins.restText}>{rest}</Text>}
+      {/* Plain text body (key_relation, process_flow — no bullet markers).
+          Hidden when examples are present: same content already appears in the example card. */}
+      {rest.length > 0 && !hasExamples && <Text style={ins.restText}>{rest}</Text>}
 
-      {/* Example card — pedagogical highlight */}
-      {hasExamples && (
-        <View style={ins.exampleCard}>
-          <Text style={ins.exampleTag}>Ejemplo práctico</Text>
-          {slide.examples!.map((ex, i) => (
-            <Text key={i} style={ins.exampleExpr}>{ex.expression}</Text>
-          ))}
-        </View>
-      )}
+      {/* Example card — smart focus highlight */}
+      {hasExamples && slide.examples!.map((ex, i) => (
+        <SmartExampleCard key={i} expression={ex.expression} conceptTitle={slide.title ?? ''} />
+      ))}
     </View>
   );
 }
@@ -926,11 +1004,34 @@ const ins = StyleSheet.create({
     textTransform: 'uppercase' as const,
     marginBottom: 10,
   },
-  exampleExpr: {
+  smartExprText: {
     fontSize: 18,
-    fontWeight: '700',
+    fontWeight: '600',
     color: palette.charcoal,
     lineHeight: 28,
+  },
+  smartFocusText: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: palette.morado,
+    lineHeight: 28,
+  },
+  focusBadgeRow: {
+    flexDirection: 'row' as const,
+    marginTop: 10,
+  },
+  focusBadge: {
+    backgroundColor: palette.morado + '18',
+    borderRadius: 20,
+    paddingHorizontal: 10,
+    paddingVertical: 3,
+  },
+  focusBadgeText: {
+    fontSize: 11,
+    fontWeight: '700' as const,
+    color: palette.morado,
+    letterSpacing: 0.5,
+    textTransform: 'uppercase' as const,
   },
 });
 
