@@ -20,22 +20,23 @@ const challengeSectionLabel: TextStyle = {
   fontFamily: 'Nunito',
   fontWeight: '800',
   fontSize: 18,
-  letterSpacing: 2,
+  letterSpacing: 2.2,
+  textTransform: 'uppercase',
 };
 
 const challengeQuestion: TextStyle = {
   fontFamily: 'Nunito',
   fontWeight: '800',
-  fontSize: 34,
-  lineHeight: 42,
-  letterSpacing: -0.5,
+  fontSize: 20,
+  lineHeight: 31,
+  letterSpacing: -0.3,
 };
 
 const challengeOption: TextStyle = {
   fontFamily: 'Nunito',
-  fontWeight: '700',
-  fontSize: 24,
-  lineHeight: 30,
+  fontWeight: '600',
+  fontSize: 18,
+  lineHeight: 24,
 };
 
 const challengeOptionLetter: TextStyle = {
@@ -46,27 +47,27 @@ const challengeOptionLetter: TextStyle = {
 
 const challengeExplanation: TextStyle = {
   fontFamily: 'Nunito',
-  fontWeight: '600',
-  fontSize: 18,
-  lineHeight: 28,
+  fontWeight: '500',
+  fontSize: 17,
+  lineHeight: 24,
 };
 
 const challengeCTA: TextStyle = {
   fontFamily: 'Nunito',
   fontWeight: '800',
-  fontSize: 26,
+  fontSize: 18,
 };
 
 const challengeRewardStats: TextStyle = {
   fontFamily: 'Nunito',
   fontWeight: '800',
-  fontSize: 36,
+  fontSize: 28,
 };
 
 const challengeConceptChip: TextStyle = {
   fontFamily: 'Nunito',
   fontWeight: '700',
-  fontSize: 18,
+  fontSize: 20,
 };
 
 // ── Recompensa y feedback emocional (Fredoka) ─────────────────────────────────
@@ -74,33 +75,32 @@ const challengeConceptChip: TextStyle = {
 const challengeXP: TextStyle = {
   fontFamily: 'Fredoka',
   fontWeight: '700',
-  fontSize: 28,
+  fontSize: 18,
 };
 
 const challengeFloatingXP: TextStyle = {
   fontFamily: 'Fredoka',
   fontWeight: '700',
-  fontSize: 34,
+  fontSize: 22,
 };
 
 const challengeStreak: TextStyle = {
   fontFamily: 'Fredoka',
   fontWeight: '700',
-  fontSize: 22,
+  fontSize: 18,
 };
 
 const challengeMicroCelebration: TextStyle = {
   fontFamily: 'Fredoka',
   fontWeight: '700',
-  fontSize: 26,
+  fontSize: 18,
 };
 
 const challengeRewardXP: TextStyle = {
   fontFamily: 'Fredoka',
   fontWeight: '700',
-  fontSize: 48,
+  fontSize: 40,
 };
-
 // ── Export ────────────────────────────────────────────────────────────────────
 
 export const Typography = {
