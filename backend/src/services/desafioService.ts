@@ -184,8 +184,7 @@ DEVUELVE EXACTAMENTE este JSON (sin texto adicional, sin markdown):
       "body": "Definición concisa. Analogía cotidiana. Max 35 palabras.",
       "examples": [
         {"expression": "5x", "label": "monomio"},
-        {"expression": "x+2", "label": "binomio"},
-        {"expression": "a+b+c", "label": "trinomio"}
+        {"expression": "x+2", "label": "binomio"}
       ]
     },
 
@@ -714,9 +713,12 @@ export async function generateDesafioContent(
       model: 'gpt-4o',
       messages: [{ role: 'user', content: prompt }],
       temperature: 0.7,
-      max_tokens: 14000,
+      max_tokens: 16000,
     });
     const raw = completion.choices[0]?.message?.content ?? '';
+    const finishReason = completion.choices[0]?.finish_reason;
+    if (!raw) throw new Error(`Empty AI response (finish_reason: ${finishReason})`);
+    console.log(`[Desafío] Full prompt response — finish_reason: ${finishReason}, length: ${raw.length} chars`);
     const { topic, slides, retrySlides } = parseDesafioJson(raw);
     const conceptCount = slides.filter(s => s.type === 'insight').length;
     return {
