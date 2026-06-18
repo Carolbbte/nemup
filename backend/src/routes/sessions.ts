@@ -197,7 +197,9 @@ router.post('/generate', upload.array('documents', 10), async (req, res) => {
     sendSse(res, 'progress', createProgressPayload('generating_desafio', 95, 'Generando modo Desafío...'));
     const desafioHeartbeatP = setInterval(() => { try { res.write(': keepalive\n\n'); } catch {} }, 15000);
     try {
-      const desafioResult = await generateDesafioContent(transcription, curso);
+      const firstMissionSlides = (allMissions[0].session.summary as any).slides ?? [];
+      const firstMissionTopic = allMissions[0].skillLabel ?? '';
+      const desafioResult = await generateDesafioContent(firstMissionSlides, curso, firstMissionTopic);
       (allMissions[0].session as any).desafio = desafioResult.session;
       console.log(`[Sessions] Desafío generado (PROCEDURAL): ${desafioResult.session.conceptCount} conceptos`);
     } catch (err: any) {
@@ -282,7 +284,9 @@ router.post('/generate', upload.array('documents', 10), async (req, res) => {
   sendSse(res, 'progress', createProgressPayload('generating_desafio', 90, 'Generando modo Desafío...'));
   const desafioHeartbeat = setInterval(() => { try { res.write(': keepalive\n\n'); } catch {} }, 15000);
   try {
-    const desafioResult = await generateDesafioContent(transcription, curso);
+    const sessionSlides = session.summary.slides as any[];
+    const sessionTopic = (session.summary as any).title ?? '';
+    const desafioResult = await generateDesafioContent(sessionSlides, curso, sessionTopic);
     (session as any).desafio = desafioResult.session;
     console.log(`[Sessions] Desafío generado: ${desafioResult.session.conceptCount} conceptos`);
   } catch (err: any) {

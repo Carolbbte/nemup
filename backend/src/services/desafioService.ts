@@ -1,14 +1,20 @@
 /**
- * Desafío generation service — Phase 2 (adaptive, multi-interaction-type).
+ * Desafío generation service — v2 (KB-driven, Mission-grounded).
  *
- * Generates a Duolingo-style adaptive challenge session from a document transcription.
+ * NEW ARCHITECTURE:
+ *   Document → Mission JSON → Knowledge Base → Desafío Generator
+ *
+ * The Desafío no longer reads the raw transcription.
+ * A Knowledge Base is extracted deterministically from Mission slides and
+ * used as the sole content source — guaranteeing coherence with what the
+ * student already learned. No new concepts are introduced.
+ *
  * Interaction types: multiple_choice, match_pairs, fill_blank, classify, order_steps
  * Adaptive features: spaced repetition, pre-generated retry slides, boss challenge
  */
 
 import OpenAI from 'openai';
 import { randomUUID } from 'crypto';
-import { classifyContent } from './pedagogicalClassifier.js';
 import { config } from '../config.js';
 
 // ── Local type definitions (mirrors shared/desafio.ts — no cross-root import) ─
@@ -75,30 +81,96 @@ interface DesafioSession {
   retrySlides?: Record<string, DesafioSlide[]>;
 }
 
-const openai = new OpenAI({ apiKey: config.openai_api_key });
+// ── Knowledge Base — extracted from Mission slides ────────────────────────────
 
-function normalizeText(text: string): string {
-  return text.replace(/[\r\n]+/g, ' ').replace(/\s+/g, ' ').trim();
+interface DesafioKnowledgeBase {
+  topic: string;
+  concepts: Array<{
+    name: string;
+    definition: string;
+    emoji?: string;
+  }>;
+  // Correct answers seen in Mission — use as material for exercises
+  examples: Array<{
+    expression: string;
+    label: string;
+    concept: string;
+  }>;
+  // Wrong answers + corrections seen in Mission — use as distractors/hints
+  mistakes: Array<{
+    wrongAnswer: string;
+    correction: string;
+    concept: string;
+  }>;
+  // Questions already asked in Mission — NEVER repeat these verbatim
+  usedQuestions: string[];
 }
 
-// ── JSON schema template ──────────────────────────────────────────────────────
+export function extractKnowledgeBase(slides: any[], topicOverride: string): DesafioKnowledgeBase {
+  const concepts: DesafioKnowledgeBase['concepts'] = [];
+  const examples: DesafioKnowledgeBase['examples'] = [];
+  const mistakes: DesafioKnowledgeBase['mistakes'] = [];
+  const usedQuestions: string[] = [];
+  let currentConceptName = '';
+
+  const INTERACTIVE_TYPES = ['micro_challenge', 'reinforcement_challenge', 'application', 'final_challenge'];
+
+  for (const slide of slides) {
+    if (!slide || typeof slide !== 'object') continue;
+    const type = String(slide.type ?? '');
+
+    if (type === 'main_concept') {
+      const name = String(slide.title ?? '').trim();
+      const definition = String(slide.body ?? '').trim();
+      if (name && definition) {
+        concepts.push({ name, definition, emoji: slide.emoji });
+        currentConceptName = name;
+      }
+      continue;
+    }
+
+    if (INTERACTIVE_TYPES.includes(type) && Array.isArray(slide.choices)) {
+      const question = String(slide.question ?? '').trim();
+      if (question) usedQuestions.push(question);
+
+      const correctAnswer = slide.correctAnswer as string | undefined;
+      const wrongHints: Record<string, string> = slide.wrongHints ?? {};
+
+      for (const choice of slide.choices as Array<{ letter: string; text: string }>) {
+        if (!choice?.text) continue;
+        if (choice.letter === correctAnswer) {
+          examples.push({ expression: choice.text, label: currentConceptName, concept: currentConceptName });
+        } else if (wrongHints[choice.letter]) {
+          mistakes.push({ wrongAnswer: choice.text, correction: wrongHints[choice.letter], concept: currentConceptName });
+        }
+      }
+    }
+  }
+
+  const topic = topicOverride || concepts[0]?.name || 'Desafío de Refuerzo';
+  return { topic, concepts, examples, mistakes, usedQuestions };
+}
+
+const openai = new OpenAI({ apiKey: config.openai_api_key });
+
+// ── JSON schema template (output format — unchanged) ──────────────────────────
 
 const DESAFIO_SCHEMA = `
 DEVUELVE EXACTAMENTE este JSON (sin texto adicional, sin markdown):
 {
-  "topic": "Nombre del tema principal",
+  "topic": "kb.topic o nombre descriptivo del tema",
   "slides": [
 
-    // ── BLOQUE POR CONCEPTO (repetir para cada concepto Tipo A) ──
+    // ── BLOQUE POR CONCEPTO (repetir para cada concepto de kb.concepts[]) ──
 
     // [1] discovery_challenge — siempre multiple_choice
     {
       "type": "discovery_challenge",
       "interactionType": "multiple_choice",
       "conceptIndex": 0,
-      "conceptName": "Nombre del concepto",
+      "conceptName": "Nombre EXACTO de kb.concepts[0].name",
       "emoji": "🔢",
-      "question": "Pregunta de descubrimiento con ejemplo concreto del documento (max 20 palabras)?",
+      "question": "Pregunta usando ejemplos de kb.examples[] (max 20 palabras)?",
       "choices": [
         {"letter": "A", "text": "Opción A (max 10 palabras)"},
         {"letter": "B", "text": "Opción B"},
@@ -107,8 +179,8 @@ DEVUELVE EXACTAMENTE este JSON (sin texto adicional, sin markdown):
       "correctAnswer": "A",
       "explanation": "Por qué A es correcto (max 100 chars, sin 'Correcto' ni emojis).",
       "wrongHints": {
-        "B": "Elegiste B porque [razón]. La pregunta buscaba [criterio exacto].",
-        "C": "Elegiste C porque [razón]. La pregunta buscaba [criterio exacto]."
+        "B": "Basado en kb.mistakes[] — por qué B es incorrecto.",
+        "C": "Basado en kb.mistakes[] — por qué C es incorrecto."
       }
     },
 
@@ -118,7 +190,7 @@ DEVUELVE EXACTAMENTE este JSON (sin texto adicional, sin markdown):
       "type": "reinforcement_challenge",
       "interactionType": "match_pairs",
       "conceptIndex": 0,
-      "conceptName": "Nombre del concepto",
+      "conceptName": "Nombre EXACTO de kb.concepts[0].name",
       "pairsPrompt": "Une cada elemento con su descripción (max 12 palabras)",
       "pairs": [
         {"id": "p1", "left": "Texto izquierda 1 (max 8 palabras)", "right": "Texto derecha 1 (max 8 palabras)"},
@@ -169,22 +241,22 @@ DEVUELVE EXACTAMENTE este JSON (sin texto adicional, sin markdown):
     {
       "type": "instant_feedback",
       "conceptIndex": 0,
-      "conceptName": "Nombre del concepto",
+      "conceptName": "Nombre EXACTO de kb.concepts[0].name",
       "title": "¿Por qué? (max 5 palabras)",
-      "body": "Conecta discovery con insight, max 35 palabras."
+      "body": "Conecta discovery con insight, puede referenciar un error de kb.mistakes[]. Max 35 palabras."
     },
 
-    // [4] insight — NO interactivo
+    // [4] insight — NO interactivo — usa kb.concepts[i].definition como base
     {
       "type": "insight",
       "conceptIndex": 0,
-      "conceptName": "Nombre del concepto",
+      "conceptName": "Nombre EXACTO de kb.concepts[0].name",
       "emoji": "💡",
       "title": "Nombre del Concepto",
-      "body": "Definición concisa. Analogía cotidiana. Max 35 palabras.",
+      "body": "Basado en kb.concepts[0].definition + analogía cotidiana. Max 35 palabras.",
       "examples": [
-        {"expression": "5x", "label": "monomio"},
-        {"expression": "x+2", "label": "binomio"}
+        {"expression": "De kb.examples[]", "label": "categoría"},
+        {"expression": "De kb.examples[]", "label": "categoría"}
       ]
     },
 
@@ -193,8 +265,8 @@ DEVUELVE EXACTAMENTE este JSON (sin texto adicional, sin markdown):
       "type": "reinforcement_challenge",
       "interactionType": "multiple_choice",
       "conceptIndex": 0,
-      "conceptName": "Nombre del concepto",
-      "question": "Nueva situación, mismo concepto, contexto diferente (max 20 palabras)?",
+      "conceptName": "Nombre EXACTO de kb.concepts[0].name",
+      "question": "Ángulo distinto al discovery, usando otro ejemplo de kb.examples[] (max 20 palabras)?",
       "choices": [
         {"letter": "A", "text": "..."},
         {"letter": "B", "text": "..."},
@@ -210,9 +282,9 @@ DEVUELVE EXACTAMENTE este JSON (sin texto adicional, sin markdown):
       "type": "spaced_repetition",
       "interactionType": "multiple_choice",
       "conceptIndex": 0,
-      "conceptName": "Nombre del concepto revisado",
+      "conceptName": "Nombre EXACTO del concepto revisado",
       "isSpacedRepetition": true,
-      "question": "Pregunta DIFERENTE a discovery/reinforcement de ese concepto.",
+      "question": "Pregunta DIFERENTE a todas las ya generadas para ese concepto.",
       "choices": [{"letter":"A","text":"..."},{"letter":"B","text":"..."},{"letter":"C","text":"..."}],
       "correctAnswer": "C",
       "explanation": "..."
@@ -241,7 +313,7 @@ DEVUELVE EXACTAMENTE este JSON (sin texto adicional, sin markdown):
       "conceptIndex": -1,
       "conceptName": "Boss Battle",
       "emoji": "🏆",
-      "question": "Pregunta que solo puede responder quien dominó TODOS los conceptos (max 30 palabras)?",
+      "question": "Pregunta que integra TODOS los conceptos del KB (max 30 palabras)?",
       "choices": [{"letter":"A","text":"..."},{"letter":"B","text":"..."},{"letter":"C","text":"..."}],
       "correctAnswer": "A",
       "explanation": "...",
@@ -255,11 +327,11 @@ DEVUELVE EXACTAMENTE este JSON (sin texto adicional, sin markdown):
       "conceptName": "Completado",
       "title": "¡Desafío superado!",
       "body": "Celebración de lo aprendido, max 25 palabras.",
-      "conceptsCovered": ["Concepto 0", "Concepto 1", "Concepto 2"]
+      "conceptsCovered": ["kb.concepts[0].name", "kb.concepts[1].name", "kb.concepts[2].name"]
     }
   ],
 
-  // retrySlides: DOS entradas distintas por cada concepto Tipo A identificado en FASE 1.
+  // retrySlides: DOS entradas distintas por cada concepto de kb.concepts[].
   // Cada par evalúa el mismo concepto desde ángulos diferentes. NINGUNA pregunta puede repetir
   // contenido de discovery_challenge, reinforcement_challenge ni spaced_repetition del mismo concepto.
   // Si son 2 conceptos → claves "0" y "1". Si son 3 → claves "0", "1" y "2". Etc.
@@ -270,7 +342,7 @@ DEVUELVE EXACTAMENTE este JSON (sin texto adicional, sin markdown):
         "interactionType": "fill_blank",
         "isRetry": true,
         "conceptIndex": 0,
-        "conceptName": "Nombre del concepto",
+        "conceptName": "Nombre EXACTO de kb.concepts[0].name",
         "blankSentence": "Expresión con ___ diferente a todas las preguntas anteriores del concepto",
         "blankChoices": [{"letter":"A","text":"..."},{"letter":"B","text":"..."},{"letter":"C","text":"..."}],
         "blankAnswer": "B",
@@ -281,7 +353,7 @@ DEVUELVE EXACTAMENTE este JSON (sin texto adicional, sin markdown):
         "interactionType": "multiple_choice",
         "isRetry": true,
         "conceptIndex": 0,
-        "conceptName": "Nombre del concepto",
+        "conceptName": "Nombre EXACTO de kb.concepts[0].name",
         "question": "Segundo ángulo del concepto — distinto a discovery, reinforcement y retry anterior.",
         "choices": [{"letter":"A","text":"..."},{"letter":"B","text":"..."},{"letter":"C","text":"..."}],
         "correctAnswer": "A",
@@ -295,7 +367,7 @@ DEVUELVE EXACTAMENTE este JSON (sin texto adicional, sin markdown):
         "interactionType": "multiple_choice",
         "isRetry": true,
         "conceptIndex": 1,
-        "conceptName": "Nombre del concepto",
+        "conceptName": "Nombre EXACTO de kb.concepts[1].name",
         "question": "Ángulo diferente a discovery y reinforcement de este concepto.",
         "choices": [{"letter":"A","text":"..."},{"letter":"B","text":"..."},{"letter":"C","text":"..."}],
         "correctAnswer": "C",
@@ -307,7 +379,7 @@ DEVUELVE EXACTAMENTE este JSON (sin texto adicional, sin markdown):
         "interactionType": "fill_blank",
         "isRetry": true,
         "conceptIndex": 1,
-        "conceptName": "Nombre del concepto",
+        "conceptName": "Nombre EXACTO de kb.concepts[1].name",
         "blankSentence": "Expresión con ___ diferente a todas las preguntas anteriores del concepto",
         "blankChoices": [{"letter":"A","text":"..."},{"letter":"B","text":"..."},{"letter":"C","text":"..."}],
         "blankAnswer": "A",
@@ -320,7 +392,7 @@ DEVUELVE EXACTAMENTE este JSON (sin texto adicional, sin markdown):
         "interactionType": "order_steps",
         "isRetry": true,
         "conceptIndex": 2,
-        "conceptName": "Nombre del concepto",
+        "conceptName": "Nombre EXACTO de kb.concepts[2].name",
         "orderPrompt": "Ordena los pasos correctamente",
         "steps": ["Paso B mezclado", "Paso C mezclado", "Paso A mezclado"],
         "correctOrder": [2, 0, 1],
@@ -331,7 +403,7 @@ DEVUELVE EXACTAMENTE este JSON (sin texto adicional, sin markdown):
         "interactionType": "multiple_choice",
         "isRetry": true,
         "conceptIndex": 2,
-        "conceptName": "Nombre del concepto",
+        "conceptName": "Nombre EXACTO de kb.concepts[2].name",
         "question": "Segundo ángulo del concepto — distinto a discovery, reinforcement y retry anterior.",
         "choices": [{"letter":"A","text":"..."},{"letter":"B","text":"..."},{"letter":"C","text":"..."}],
         "correctAnswer": "B",
@@ -342,52 +414,48 @@ DEVUELVE EXACTAMENTE este JSON (sin texto adicional, sin markdown):
   }
 }`;
 
-// ── Prompt builder ────────────────────────────────────────────────────────────
+// ── Prompt builders ───────────────────────────────────────────────────────────
 
-function buildDesafioPrompt(transcription: string, curso: string): string {
+function buildDesafioPrompt(kb: DesafioKnowledgeBase, curso: string): string {
+  const kbJson = JSON.stringify(kb, null, 2);
   return `Eres un diseñador de sesiones de aprendizaje estilo Duolingo para estudiantes chilenos de enseñanza media (${curso}).
 
-⚠️ REGLA CRÍTICA: TODO contenido DEBE derivarse EXCLUSIVAMENTE de la transcripción.
-No introduzcas conceptos, términos ni ejemplos ajenos. DEVUELVE SOLO JSON VÁLIDO. En español.
+⚠️ REGLA CRÍTICA: TODO contenido DEBE derivarse EXCLUSIVAMENTE del KNOWLEDGE BASE.
+No introduzcas conceptos, términos, ejemplos ni relaciones que no estén en el KB.
+Las preguntas de kb.usedQuestions[] NO PUEDEN repetirse verbatim — crea variaciones nuevas.
+DEVUELVE SOLO JSON VÁLIDO. En español.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-FASE 1 — EXTRACCIÓN MENTAL DE CONCEPTOS TIPO A
+KNOWLEDGE BASE — contenido ya enseñado en la Misión completada por el estudiante
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-LÍMITE DE CONCEPTOS:
-  • Documento corto (< 400 palabras): máx. 3 conceptos Tipo A
-  • Documento largo (≥ 400 palabras): máx. 4 conceptos Tipo A
+${kbJson}
 
-REGLA DE CONSERVACIÓN DE OBJETIVOS (prioridad absoluta):
-Si el documento contiene objetivos de aprendizaje explícitos (enumerados con números o letras,
-declarados con verbos de acción como "reconocer", "identificar", "clasificar", "reducir",
-"simplificar", "aplicar", "resolver", "agrupar", "operar"):
-  → CADA objetivo explícito es Tipo A por defecto. No requiere verificación adicional.
-  → NUNCA eliminar un objetivo explícito para hacer espacio a un concepto inferido.
-  → Si los objetivos explícitos ya ocupan el límite: los conceptos inferidos quedan fuera.
-
-Un concepto inferido es Tipo A SOLO si:
-  → Su ausencia impide alcanzar el objetivo de aprendizaje del documento
-  → Tiene significado propio y puede evaluarse de forma independiente
-  → Requiere comprensión profunda, no solo memorización
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+FASE 1 — CONCEPTOS A DESAFIAR
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Usa EXACTAMENTE los conceptos de kb.concepts[] en el orden dado. Máx. 4.
+El campo conceptName en CADA slide DEBE coincidir exactamente con el nombre en kb.concepts[].
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 FASE 2 — DISEÑO DEL DESAFÍO: 5 SLIDES POR CONCEPTO
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-Para CADA concepto Tipo A, genera EXACTAMENTE en este orden:
+Para CADA concepto en kb.concepts[], genera EXACTAMENTE en este orden:
 
 [1] discovery_challenge — interactionType: "multiple_choice" SIEMPRE
-    Pregunta de descubrimiento. El estudiante DESCUBRE el concepto antes del insight.
-    - question: max 20 palabras, con ejemplo concreto del documento
-    - choices: EXACTAMENTE 3 (A, B, C). Una correcta. Dos distractores plausibles.
+    Pregunta de descubrimiento usando términos y ejemplos del KB.
+    - question: max 20 palabras. NO repetir kb.usedQuestions[]. Usa kb.examples[].expression.
+    - choices: EXACTAMENTE 3 (A, B, C). Una correcta. Dos distractores basados en kb.mistakes[].
     - correctAnswer: "A"|"B"|"C" — VARIAR posición entre conceptos, no siempre A
     - explanation: por qué es correcto (max 100 chars, sin "Correcto" ni emojis)
-    - wrongHints: {"B": "Elegiste B porque [razón]. La pregunta buscaba [criterio].", "C": "..."}
+    - wrongHints: basados en kb.mistakes[] de ese concepto — por qué cada opción incorrecta falla
     - emoji: emoji del concepto — NUNCA geometría (📐📏🔺🔷); usar 🔢🧮➗✖️➕➖ para matemáticas
 
 [2] interactive_challenge — interactionType ROTA entre conceptos:
     C0 → "match_pairs", C1 → "fill_blank", C2 → "classify", C3 → "order_steps"
     (Con 2 conceptos: C0 → "match_pairs", C1 → "fill_blank")
     (Con 3 conceptos: C0 → "match_pairs", C1 → "fill_blank", C2 → "classify")
+
+    Usa kb.examples[] y kb.mistakes[] como material para pares/opciones/ítems.
 
     REGLAS POR TIPO:
     • match_pairs: pairsPrompt (max 12 palabras), pairs con 3-4 objetos {id:"p1",left,right}
@@ -402,19 +470,18 @@ Para CADA concepto Tipo A, genera EXACTAMENTE en este orden:
 [3] instant_feedback — SIN interactionType
     No interactivo. Conecta la pregunta anterior con el insight que viene.
     - title: max 5 palabras
-    - body: 1-2 oraciones, max 35 palabras
+    - body: 1-2 oraciones, max 35 palabras. Puede referenciar un error de kb.mistakes[].
 
 [4] insight — SIN interactionType
-    No interactivo. Define el concepto de forma clara y memorable.
-    - emoji, title (max 5 palabras), body (definición + analogía, max 35 palabras)
-    - examples: 2-3 ejemplos concretos del documento como mini tarjetas
-      { "expression": "término o expresión (max 12 chars)", "label": "nombre/categoría (max 12 chars)" }
-      Si el concepto es algebraico: usa expresiones reales del documento (ej. 5x → monomio)
-      Si el concepto es procedimental: usa pasos cortos como expression y el orden como label
+    No interactivo. Usa kb.concepts[i].definition como base de la definición.
+    - emoji, title (max 5 palabras), body (definición del KB + analogía, max 35 palabras)
+    - examples: 2 ítems de kb.examples[] como mini tarjetas
+      { "expression": "texto de kb.examples[].expression (max 12 chars)", "label": "etiqueta (max 12 chars)" }
 
 [5] reinforcement_challenge — interactionType según concepto:
     C0/C2 → "multiple_choice". C1/C3 → mismo tipo que [2] de ese concepto.
-    DIFERENTE contexto al discovery_challenge del mismo concepto.
+    DIFERENTE ángulo al discovery_challenge del mismo concepto.
+    Usa material de kb.examples[] y kb.mistakes[].
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 FASE 3 — SPACED REPETITION (insertar ENTRE bloques de conceptos)
@@ -424,7 +491,7 @@ Insertar 1 slide type "spaced_repetition" que repasa el CONCEPTO ANTERIOR:
   - interactionType: "multiple_choice" O "fill_blank"
   - isSpacedRepetition: true
   - conceptIndex: índice del concepto que se repasa
-  - Pregunta DIFERENTE a las ya generadas para ese concepto
+  - Pregunta DIFERENTE a las ya generadas para ese concepto y a kb.usedQuestions[]
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 FASE 4 — BOSS CHALLENGE (al finalizar todos los conceptos y spaced repetitions)
@@ -432,42 +499,102 @@ FASE 4 — BOSS CHALLENGE (al finalizar todos los conceptos y spaced repetitions
 Generar 2 slides boss_loop:
   - PRIMER boss: interactionType ≠ "multiple_choice" (usar "classify" o "match_pairs")
     conceptIndex: -1, conceptName: "Boss Battle"
-    Debe integrar ≥ 2 de los conceptos aprendidos
+    Integra material de ≥ 2 conceptos del KB
   - SEGUNDO boss: interactionType "multiple_choice"
     conceptIndex: -1, conceptName: "Boss Battle", emoji: "🏆"
-    Pregunta que solo puede responder quien dominó TODOS los conceptos (max 30 palabras)
+    Pregunta integradora que solo puede responder quien dominó TODOS los conceptos (max 30 palabras)
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 FASE 5 — MASTERY SCREEN
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 Slide final no interactiva. type: "mastery_screen"
   - conceptIndex: -1, title (max 6 palabras), body (max 25 palabras)
-  - conceptsCovered: nombres exactos de todos los conceptos (igual que en conceptName de insights)
+  - conceptsCovered: nombres EXACTOS de kb.concepts[] (igual que conceptName de los insights)
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 FASE 6 — RETRY SLIDES (campo "retrySlides" en JSON)
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-Para CADA concepto Tipo A, generar 2 retry slides DISTINTOS en retrySlides[String(conceptIndex)]:
+Para CADA concepto de kb.concepts[], generar 2 retry slides en retrySlides[String(conceptIndex)]:
   - type: "reinforcement_challenge", isRetry: true
-  - Las 2 preguntas deben ser DIFERENTES entre sí y distintas a discovery, reinforcement y spaced_repetition del mismo concepto
-  - Retry slide 1: interactionType DIFERENTE al usado en [2] para ese concepto
+  - Las 2 preguntas DIFERENTES entre sí y distintas a discovery, reinforcement y spaced_repetition
+  - NO repetir kb.usedQuestions[]
+  - Retry 1: interactionType DIFERENTE al [2] de ese concepto
     (Si [2] fue "match_pairs" → usar "fill_blank" o "multiple_choice")
-  - Retry slide 2: interactionType diferente al retry slide 1 (puede ser "multiple_choice")
-  - Misma dificultad, ángulos distintos — ninguna pregunta puede repetirse
+  - Retry 2: interactionType diferente al retry 1 (puede ser "multiple_choice")
+  - Misma dificultad, ángulos distintos
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 REGLAS TRANSVERSALES:
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-• Distractores plausibles — no eliminables por descarte directo
+• Distractores plausibles — basados en kb.mistakes[], no inventados
 • Sin "Todas/Ninguna de las anteriores"
 • La opción correcta NO es siempre la más larga
 • wrongHints OBLIGATORIOS para todas las opciones incorrectas en multiple_choice
 • Para ${curso}: vocabulario y contextos apropiados al nivel
 
-Transcripción:
-${normalizeText(transcription)}
-
 ${DESAFIO_SCHEMA}`;
+}
+
+function buildSimpleDesafioPrompt(kb: DesafioKnowledgeBase, curso: string): string {
+  return `Eres un diseñador de sesiones de aprendizaje para estudiantes chilenos de ${curso}.
+REGLA CRÍTICA: Devuelve SOLO JSON VÁLIDO, sin comentarios, sin texto adicional. En español.
+TODO contenido DEBE derivarse EXCLUSIVAMENTE del KNOWLEDGE BASE. No introduzcas conceptos nuevos.
+Las preguntas de kb.usedQuestions[] NO pueden repetirse verbatim.
+
+KNOWLEDGE BASE:
+${JSON.stringify(kb, null, 2)}
+
+Para cada concepto en kb.concepts[] genera en orden:
+1. discovery_challenge (multiple_choice): pregunta usando kb.examples[] como material
+2. insight: body basado en kb.concepts[i].definition, con 2 examples de kb.examples[]
+3. reinforcement_challenge (multiple_choice): pregunta diferente al discovery
+
+Al final agrega 1 boss_loop (multiple_choice integrador de todos los conceptos) y 1 mastery_screen.
+
+Reglas para multiple_choice: exactamente 3 opciones (A, B, C), incluye correctAnswer y wrongHints.
+conceptName DEBE coincidir exactamente con kb.concepts[i].name.
+
+JSON de respuesta:
+{
+  "topic": "Nombre del tema",
+  "slides": [
+    {
+      "type": "discovery_challenge",
+      "interactionType": "multiple_choice",
+      "conceptIndex": 0,
+      "conceptName": "Nombre EXACTO de kb.concepts[0].name",
+      "emoji": "🔢",
+      "question": "Pregunta usando ejemplos del KB (max 20 palabras)?",
+      "choices": [{"letter":"A","text":"..."},{"letter":"B","text":"..."},{"letter":"C","text":"..."}],
+      "correctAnswer": "A",
+      "explanation": "Por qué es correcto (max 80 chars).",
+      "wrongHints": {"B": "Por qué B es incorrecto.", "C": "Por qué C es incorrecto."}
+    },
+    {
+      "type": "insight",
+      "conceptIndex": 0,
+      "conceptName": "Nombre EXACTO de kb.concepts[0].name",
+      "emoji": "💡",
+      "title": "Nombre corto del concepto",
+      "body": "Basado en kb.concepts[0].definition + analogía cotidiana. Max 35 palabras.",
+      "examples": [
+        {"expression": "De kb.examples[]", "label": "categoría"}
+      ]
+    },
+    {
+      "type": "reinforcement_challenge",
+      "interactionType": "multiple_choice",
+      "conceptIndex": 0,
+      "conceptName": "Nombre EXACTO de kb.concepts[0].name",
+      "question": "Pregunta diferente al discovery (max 20 palabras)?",
+      "choices": [{"letter":"A","text":"..."},{"letter":"B","text":"..."},{"letter":"C","text":"..."}],
+      "correctAnswer": "B",
+      "explanation": "Por qué es correcto (max 80 chars).",
+      "wrongHints": {"A": "Por qué A es incorrecto.", "C": "Por qué C es incorrecto."}
+    }
+  ],
+  "retrySlides": {}
+}`;
 }
 
 // ── Validation ────────────────────────────────────────────────────────────────
@@ -491,7 +618,6 @@ function validateSlide(slide: unknown): DesafioSlide | null {
     ? (s.interactionType as DesafioInteractionType)
     : undefined;
 
-  // Interactive slides need at least some content
   const isInteractive = type !== 'instant_feedback' && type !== 'insight' && type !== 'mastery_screen';
   if (isInteractive && itype) {
     switch (itype) {
@@ -512,7 +638,6 @@ function validateSlide(slide: unknown): DesafioSlide | null {
         break;
     }
   } else if (isInteractive && !itype) {
-    // Legacy: old-style slides without interactionType — require question+choices
     if (!s.question || !Array.isArray(s.choices)) return null;
   }
 
@@ -609,7 +734,6 @@ function parseDesafioJson(raw: string): { topic: string; slides: DesafioSlide[];
 
   if (slides.length === 0) throw new Error('No valid slides parsed');
   if (slides[slides.length - 1].type !== 'mastery_screen') {
-    // Append a minimal mastery screen if missing
     slides.push({
       type: 'mastery_screen',
       conceptIndex: -1,
@@ -620,7 +744,6 @@ function parseDesafioJson(raw: string): { topic: string; slides: DesafioSlide[];
     });
   }
 
-  // Parse retrySlides
   const retrySlides: Record<string, DesafioSlide[]> = {};
   if (obj.retrySlides && typeof obj.retrySlides === 'object' && !Array.isArray(obj.retrySlides)) {
     for (const [key, rawSlideArr] of Object.entries(obj.retrySlides as Record<string, unknown>)) {
@@ -635,80 +758,29 @@ function parseDesafioJson(raw: string): { topic: string; slides: DesafioSlide[];
   return { topic: obj.topic as string, slides, retrySlides };
 }
 
-// ── Simple fallback prompt (multiple_choice only, 3 slides per concept) ──────
+// ── Main export ───────────────────────────────────────────────────────────────
 
-function buildSimpleDesafioPrompt(transcription: string, curso: string): string {
-  return `Eres un diseñador de sesiones de aprendizaje para estudiantes chilenos de ${curso}.
-REGLA CRÍTICA: Devuelve SOLO JSON VÁLIDO, sin comentarios, sin texto adicional. En español.
-
-Del documento identifica los conceptos clave (máx. 3). Si el documento tiene objetivos de aprendizaje explícitos (numerados con verbos como "reconocer", "clasificar", "reducir", "resolver"), CADA objetivo explícito es un concepto obligatorio — no los omitas. Para cada concepto genera en orden:
-1. discovery_challenge (multiple_choice): pregunta de descubrimiento
-2. insight: definición clara con analogía
-3. reinforcement_challenge (multiple_choice): pregunta de refuerzo diferente al discovery
-
-Al final agrega 1 boss_loop (multiple_choice integrador de todos los conceptos) y 1 mastery_screen.
-
-Reglas para multiple_choice: exactamente 3 opciones (A, B, C), incluye correctAnswer y wrongHints.
-
-JSON de respuesta:
-{
-  "topic": "Nombre del tema",
-  "slides": [
-    {
-      "type": "discovery_challenge",
-      "interactionType": "multiple_choice",
-      "conceptIndex": 0,
-      "conceptName": "Nombre concepto",
-      "emoji": "📐",
-      "question": "Pregunta (max 20 palabras)?",
-      "choices": [{"letter":"A","text":"..."},{"letter":"B","text":"..."},{"letter":"C","text":"..."}],
-      "correctAnswer": "A",
-      "explanation": "Por qué es correcto (max 80 chars).",
-      "wrongHints": {"B": "Por qué B es incorrecto.", "C": "Por qué C es incorrecto."}
-    },
-    {
-      "type": "insight",
-      "conceptIndex": 0,
-      "conceptName": "Nombre concepto",
-      "emoji": "💡",
-      "title": "Nombre corto del concepto",
-      "body": "Definición + analogía cotidiana. Max 35 palabras."
-    },
-    {
-      "type": "reinforcement_challenge",
-      "interactionType": "multiple_choice",
-      "conceptIndex": 0,
-      "conceptName": "Nombre concepto",
-      "question": "Pregunta diferente al discovery (max 20 palabras)?",
-      "choices": [{"letter":"A","text":"..."},{"letter":"B","text":"..."},{"letter":"C","text":"..."}],
-      "correctAnswer": "B",
-      "explanation": "Por qué es correcto (max 80 chars).",
-      "wrongHints": {"A": "Por qué A es incorrecto.", "C": "Por qué C es incorrecto."}
-    }
-  ],
-  "retrySlides": {}
-}
-
-Transcripción:
-${normalizeText(transcription)}`;
-}
-
-// ── Public API ────────────────────────────────────────────────────────────────
-
-export interface DesafioGenerationResult {
+interface DesafioGenerationResult {
   session: DesafioSession;
   pedagogicalType: string;
 }
 
 export async function generateDesafioContent(
-  transcription: string,
+  missionSlides: any[],
   curso: string,
+  topic?: string,
 ): Promise<DesafioGenerationResult> {
-  const classification = classifyContent(transcription);
+  const kb = extractKnowledgeBase(missionSlides, topic ?? '');
 
-  // Attempt 1 — full adaptive prompt
+  if (kb.concepts.length === 0) {
+    throw new Error('No se encontraron conceptos en la Misión para generar el Desafío');
+  }
+
+  console.log(`[Desafío] KB extraído — ${kb.concepts.length} conceptos, ${kb.examples.length} ejemplos, ${kb.mistakes.length} errores comunes`);
+
+  // Attempt 1 — full adaptive prompt with KB
   try {
-    const prompt = buildDesafioPrompt(transcription, curso);
+    const prompt = buildDesafioPrompt(kb, curso);
     const completion = await openai.chat.completions.create({
       model: 'gpt-4o',
       messages: [{ role: 'user', content: prompt }],
@@ -719,24 +791,24 @@ export async function generateDesafioContent(
     const finishReason = completion.choices[0]?.finish_reason;
     if (!raw) throw new Error(`Empty AI response (finish_reason: ${finishReason})`);
     console.log(`[Desafío] Full prompt response — finish_reason: ${finishReason}, length: ${raw.length} chars`);
-    const { topic, slides, retrySlides } = parseDesafioJson(raw);
+    const { topic: responseTopic, slides, retrySlides } = parseDesafioJson(raw);
     const conceptCount = slides.filter(s => s.type === 'insight').length;
     return {
       session: {
         id: randomUUID(),
-        topic,
+        topic: responseTopic,
         conceptCount,
         slides,
         retrySlides: Object.keys(retrySlides).length > 0 ? retrySlides : undefined,
       },
-      pedagogicalType: classification.type,
+      pedagogicalType: 'CONCEPTUAL',
     };
   } catch (err: any) {
     console.warn('[Desafío] Full prompt failed, retrying with simple prompt:', err?.message);
   }
 
-  // Attempt 2 — simplified prompt (MC only, 3 slides per concept)
-  const simplePrompt = buildSimpleDesafioPrompt(transcription, curso);
+  // Attempt 2 — simplified prompt (MC only)
+  const simplePrompt = buildSimpleDesafioPrompt(kb, curso);
   const completion = await openai.chat.completions.create({
     model: 'gpt-4o',
     messages: [{ role: 'user', content: simplePrompt }],
@@ -744,17 +816,17 @@ export async function generateDesafioContent(
     max_tokens: 6000,
   });
   const raw = completion.choices[0]?.message?.content ?? '';
-  const { topic, slides, retrySlides } = parseDesafioJson(raw);
+  const { topic: responseTopic, slides, retrySlides } = parseDesafioJson(raw);
   const conceptCount = slides.filter(s => s.type === 'insight').length;
   return {
     session: {
       id: randomUUID(),
-      topic,
+      topic: responseTopic,
       conceptCount,
       slides,
       retrySlides: Object.keys(retrySlides).length > 0 ? retrySlides : undefined,
     },
-    pedagogicalType: classification.type,
+    pedagogicalType: 'CONCEPTUAL',
   };
 }
 
