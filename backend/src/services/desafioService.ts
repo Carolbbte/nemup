@@ -121,27 +121,49 @@ export function extractKnowledgeBase(slides: any[], topicOverride: string): Desa
 
     if (type === 'main_concept') {
       const name = String(slide.title ?? '').trim();
-      const definition = String(slide.body ?? '').trim();
+      // Mission slides use 'definition'; fallback to 'body' for forward compat
+      const definition = String(slide.definition ?? slide.body ?? '').trim();
       if (name && definition) {
         concepts.push({ name, definition, emoji: slide.emoji });
         currentConceptName = name;
       }
+      // Mission slides also carry a concrete 'example' string — great material for insight cards
+      const ex = String(slide.example ?? '').trim();
+      if (ex && currentConceptName) {
+        examples.push({ expression: ex, label: currentConceptName, concept: currentConceptName });
+      }
       continue;
     }
 
-    if (INTERACTIVE_TYPES.includes(type) && Array.isArray(slide.choices)) {
+    if (INTERACTIVE_TYPES.includes(type)) {
       const question = String(slide.question ?? '').trim();
       if (question) usedQuestions.push(question);
 
       const correctAnswer = slide.correctAnswer as string | undefined;
-      const wrongHints: Record<string, string> = slide.wrongHints ?? {};
 
-      for (const choice of slide.choices as Array<{ letter: string; text: string }>) {
-        if (!choice?.text) continue;
-        if (choice.letter === correctAnswer) {
-          examples.push({ expression: choice.text, label: currentConceptName, concept: currentConceptName });
-        } else if (wrongHints[choice.letter]) {
-          mistakes.push({ wrongAnswer: choice.text, correction: wrongHints[choice.letter], concept: currentConceptName });
+      // ── Mission format: options = string[], correctAnswer = option text ──────
+      if (Array.isArray(slide.options)) {
+        const wrongHints: Record<string, string> = slide.wrongAnswerHints ?? {};
+        for (const opt of slide.options as string[]) {
+          if (!opt) continue;
+          if (opt === correctAnswer) {
+            examples.push({ expression: opt, label: currentConceptName, concept: currentConceptName });
+          } else if (wrongHints[opt]) {
+            mistakes.push({ wrongAnswer: opt, correction: wrongHints[opt], concept: currentConceptName });
+          }
+        }
+      }
+
+      // ── Desafío legacy format: choices = {letter,text}[], correctAnswer = letter ─
+      if (Array.isArray(slide.choices)) {
+        const wrongHints: Record<string, string> = slide.wrongHints ?? {};
+        for (const choice of slide.choices as Array<{ letter: string; text: string }>) {
+          if (!choice?.text) continue;
+          if (choice.letter === correctAnswer) {
+            examples.push({ expression: choice.text, label: currentConceptName, concept: currentConceptName });
+          } else if (wrongHints[choice.letter]) {
+            mistakes.push({ wrongAnswer: choice.text, correction: wrongHints[choice.letter], concept: currentConceptName });
+          }
         }
       }
     }
