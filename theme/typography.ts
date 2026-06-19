@@ -99,7 +99,7 @@ const challengeMicroCelebration: TextStyle = {
 const challengeRewardXP: TextStyle = {
   fontFamily: 'Fredoka',
   fontWeight: '700',
-  fontSize: 30,
+  fontSize: 24,
 };
 // ── Export ────────────────────────────────────────────────────────────────────
 

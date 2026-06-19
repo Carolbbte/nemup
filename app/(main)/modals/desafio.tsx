@@ -108,48 +108,92 @@ interface SlideAnswer {
   correct: boolean;
 }
 
-// ── Option row (multiple_choice + fill_blank) ─────────────────────────────────
+// ── Animated option row — Duolingo-style microinteractions ────────────────────
 
-function OptionRow({
-  letter, text, selected, revealed, correct, onPress,
+function AnimOptionRow({
+  letter, text, selected, revealed, correct, onPress, blocked,
 }: {
   letter: string; text: string; selected: boolean;
   revealed: boolean; correct: boolean; onPress: () => void;
+  blocked: boolean; // true while tap is being processed (before reveal)
 }) {
+  const scale  = useSharedValue(1);
+  const shakeX = useSharedValue(0);
+
   const isCorrectRevealed = revealed && correct;
   const isWrongSelected   = revealed && selected && !correct;
+
+  // Pulse on correct selection
+  useEffect(() => {
+    if (isCorrectRevealed && selected) {
+      scale.value = withSequence(
+        withTiming(0.97, { duration: 60 }),
+        withTiming(1.08, { duration: 130, easing: Easing.out(Easing.back(1.5)) }),
+        withTiming(1.0,  { duration: 100 }),
+      );
+    }
+  }, [isCorrectRevealed, selected]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Shake on wrong selection
+  useEffect(() => {
+    if (isWrongSelected) {
+      shakeX.value = withSequence(
+        withTiming(-7, { duration: 50 }),
+        withTiming( 7, { duration: 50 }),
+        withTiming(-5, { duration: 50 }),
+        withTiming( 5, { duration: 50 }),
+        withTiming( 0, { duration: 50 }),
+      );
+    }
+  }, [isWrongSelected]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const animStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: scale.value }, { translateX: shakeX.value }],
+  }));
+
+  const handlePress = useCallback(() => {
+    // Brief press-down before handing off to parent
+    scale.value = withSequence(
+      withTiming(0.97, { duration: 80 }),
+      withTiming(1.0,  { duration: 80 }),
+    );
+    onPress();
+  }, [onPress, scale]);
+
   return (
-    <Pressable
-      style={[
-        o.option,
-        selected && !revealed && o.optionSelected,
-        isCorrectRevealed && o.optionCorrect,
-        isWrongSelected   && o.optionWrong,
-      ]}
-      onPress={onPress}
-      disabled={revealed}
-    >
-      <View style={[
-        o.letterBubble,
-        selected && !revealed && o.letterSelected,
-        isCorrectRevealed && o.letterCorrect,
-        isWrongSelected   && o.letterWrong,
-      ]}>
-        <Text style={[
-          o.letterText,
-          (selected && !revealed) || isCorrectRevealed || isWrongSelected ? o.letterTextLight : null,
+    <Animated.View style={animStyle}>
+      <Pressable
+        style={[
+          o.option,
+          selected && !revealed && o.optionSelected,
+          isCorrectRevealed && o.optionCorrect,
+          isWrongSelected   && o.optionWrong,
+        ]}
+        onPress={handlePress}
+        disabled={revealed || blocked}
+      >
+        <View style={[
+          o.letterBubble,
+          selected && !revealed && o.letterSelected,
+          isCorrectRevealed && o.letterCorrect,
+          isWrongSelected   && o.letterWrong,
         ]}>
-          {letter}
+          <Text style={[
+            o.letterText,
+            (selected && !revealed) || isCorrectRevealed || isWrongSelected ? o.letterTextLight : null,
+          ]}>
+            {letter}
+          </Text>
+        </View>
+        <Text style={[
+          o.optionText,
+          isCorrectRevealed && o.optionTextCorrect,
+          isWrongSelected   && o.optionTextWrong,
+        ]}>
+          {text}
         </Text>
-      </View>
-      <Text style={[
-        o.optionText,
-        isCorrectRevealed && o.optionTextCorrect,
-        isWrongSelected   && o.optionTextWrong,
-      ]}>
-        {text}
-      </Text>
-    </Pressable>
+      </Pressable>
+    </Animated.View>
   );
 }
 
@@ -180,15 +224,13 @@ const o = StyleSheet.create({
 // ── Multiple choice content ───────────────────────────────────────────────────
 
 function MultipleChoiceContent({
-  slide, selection, onSelect, answer,
+  slide, selection, onSelect, answer, blocked,
 }: {
   slide: DesafioSlide; selection: string | null;
   onSelect: (letter: string) => void; answer: SlideAnswer | undefined;
+  blocked: boolean;
 }) {
-  const revealed  = !!answer;
-  const wrongHint = revealed && answer.value !== slide.correctAnswer
-    ? slide.wrongHints?.[answer.value as string]
-    : undefined;
+  const revealed = !!answer;
 
   return (
     <View style={c.root}>
@@ -197,11 +239,12 @@ function MultipleChoiceContent({
       <Text style={c.question}>{slide.question}</Text>
       <View>
         {(slide.choices ?? []).map(ch => (
-          <OptionRow
+          <AnimOptionRow
             key={ch.letter} letter={ch.letter} text={ch.text}
             selected={revealed ? answer.value === ch.letter : selection === ch.letter}
             revealed={revealed} correct={ch.letter === slide.correctAnswer}
             onPress={() => onSelect(ch.letter)}
+            blocked={blocked}
           />
         ))}
       </View>
@@ -212,15 +255,13 @@ function MultipleChoiceContent({
 // ── Fill blank content ────────────────────────────────────────────────────────
 
 function FillBlankContent({
-  slide, selection, onSelect, answer,
+  slide, selection, onSelect, answer, blocked,
 }: {
   slide: DesafioSlide; selection: string | null;
   onSelect: (letter: string) => void; answer: SlideAnswer | undefined;
+  blocked: boolean;
 }) {
-  const revealed  = !!answer;
-  const wrongHint = revealed && answer.value !== slide.blankAnswer
-    ? slide.wrongHints?.[answer.value as string]
-    : undefined;
+  const revealed = !!answer;
 
   return (
     <View style={c.root}>
@@ -232,11 +273,12 @@ function FillBlankContent({
       <Text style={c.subLabel}>Elige la respuesta correcta:</Text>
       <View>
         {(slide.blankChoices ?? []).map(ch => (
-          <OptionRow
+          <AnimOptionRow
             key={ch.letter} letter={ch.letter} text={ch.text}
             selected={revealed ? answer.value === ch.letter : selection === ch.letter}
             revealed={revealed} correct={ch.letter === slide.blankAnswer}
             onPress={() => onSelect(ch.letter)}
+            blocked={blocked}
           />
         ))}
       </View>
@@ -839,7 +881,7 @@ function MasteryContent({
 
 function SlideContent({
   slide,
-  mcSelection, onMcSelect,
+  mcSelection, onMcSelect, mcBlocked,
   pairsSelectedLeft, onPairsSelectLeft, pairsMatched, onPairsMatch,
   classifyAssigned, onClassifyAssign,
   stepsOrder, onStepsReorder,
@@ -848,6 +890,7 @@ function SlideContent({
   slide: DesafioSlide;
   mcSelection: string | null;
   onMcSelect: (letter: string) => void;
+  mcBlocked: boolean;
   pairsSelectedLeft: string | null;
   onPairsSelectLeft: (id: string | null) => void;
   pairsMatched: Record<string, string>;
@@ -865,9 +908,9 @@ function SlideContent({
 
   switch (effectiveInteractionType(slide)) {
     case 'multiple_choice':
-      return <MultipleChoiceContent slide={slide} selection={mcSelection} onSelect={onMcSelect} answer={answer} />;
+      return <MultipleChoiceContent slide={slide} selection={mcSelection} onSelect={onMcSelect} answer={answer} blocked={mcBlocked} />;
     case 'fill_blank':
-      return <FillBlankContent slide={slide} selection={mcSelection} onSelect={onMcSelect} answer={answer} />;
+      return <FillBlankContent slide={slide} selection={mcSelection} onSelect={onMcSelect} answer={answer} blocked={mcBlocked} />;
     case 'match_pairs':
       return (
         <MatchPairsContent
@@ -1267,6 +1310,28 @@ export default function DesafioScreen() {
   const [classifyAssigned,  setClassifyAssigned]  = useState<Record<string, string>>({});
   const [stepsOrder,        setStepsOrder]        = useState<number[]>([]);
 
+  // ── Feedback reveal state ─────────────────────────────────────────────────
+  // showFeedback is separate from `revealed`: it's set with a delay after tap
+  // to let the option animations play before the feedback panel slides in.
+  const [showFeedback,  setShowFeedback]  = useState(false);
+  const [mcBlocked,     setMcBlocked]     = useState(false); // blocks options between tap + reveal
+
+  const feedbackY       = useSharedValue(20);
+  const feedbackOpacity = useSharedValue(0);
+  const feedbackAnimStyle = useAnimatedStyle(() => ({
+    transform: [{ translateY: feedbackY.value }],
+    opacity: feedbackOpacity.value,
+  }));
+
+  // Animate feedback card in when it becomes visible
+  useEffect(() => {
+    if (!showFeedback) return;
+    feedbackY.value       = 20;
+    feedbackOpacity.value = 0;
+    feedbackY.value       = withTiming(0, { duration: 260, easing: Easing.out(Easing.quad) });
+    feedbackOpacity.value = withTiming(1, { duration: 200 });
+  }, [showFeedback]); // eslint-disable-line react-hooks/exhaustive-deps
+
   // ── Load session from AsyncStorage ────────────────────────────────────────
   // useFocusEffect instead of useEffect([]) so that re-entering this screen
   // after a new PDF upload always starts fresh (screen may stay mounted in the
@@ -1309,6 +1374,10 @@ export default function DesafioScreen() {
   // ── Reset interaction state on slide advance ───────────────────────────────
   useEffect(() => {
     setMcSelection(null);
+    setMcBlocked(false);
+    setShowFeedback(false);
+    feedbackY.value       = 20;
+    feedbackOpacity.value = 0;
     setPairsSelectedLeft(null);
     setPairsMatched({});
     setClassifyAssigned({});
@@ -1323,25 +1392,29 @@ export default function DesafioScreen() {
   const isLast   = currentIdx >= dynamicSlides.length - 1;
   const itype    = slide ? effectiveInteractionType(slide) : 'multiple_choice';
 
+  // MC/fill_blank evaluate on tap — no CTA submit step needed
+  const isImmediateMcSlide = !!slide && isInteractiveByType(slide) &&
+    (itype === 'multiple_choice' || itype === 'fill_blank');
+
   const ctaDisabled = useMemo(() => {
     if (!slide || !isInteractiveByType(slide)) return false;
     if (revealed) return false;
     switch (itype) {
-      case 'multiple_choice': return mcSelection === null;
-      case 'fill_blank':      return mcSelection === null;
+      case 'multiple_choice': return true; // CTA hidden until feedback shows
+      case 'fill_blank':      return true;
       case 'match_pairs':     return Object.keys(pairsMatched).length < (slide.pairs?.length ?? 1);
       case 'classify':        return Object.keys(classifyAssigned).length < (slide.classifyItems?.length ?? 1);
       case 'order_steps':     return false;
       default:                return false;
     }
-  }, [slide, revealed, itype, mcSelection, pairsMatched, classifyAssigned]);
+  }, [slide, revealed, itype, pairsMatched, classifyAssigned]);
 
   const ctaLabel = useMemo(() => {
     if (!slide) return 'Continuar';
     if (!isInteractiveByType(slide)) return isLast ? '¡Terminar!' : 'Continuar';
-    if (!revealed) return 'Verificar';
+    if (!revealed) return isImmediateMcSlide ? 'Continuar' : 'Verificar';
     return isLast ? '¡Terminar!' : 'Continuar';
-  }, [slide, revealed, isLast]);
+  }, [slide, revealed, isLast, isImmediateMcSlide]);
 
   // Derive answer feedback for the bottom panel (replaces inline hintBox/explanationBox)
   const slideFeedback = useMemo(() => {
@@ -1387,25 +1460,77 @@ export default function DesafioScreen() {
     setCurrentIdx(idx => idx + 1);
   }, [currentIdx, dynamicSlides.length, router]);
 
-  // ── CTA press handler ──────────────────────────────────────────────────────
+  // ── MC/fill_blank: evaluate immediately on option tap (Duolingo-style) ───────
+  const handleMcTap = useCallback((letter: string) => {
+    if (revealed || !slide || !isInteractiveByType(slide)) return;
+    const slideItype = effectiveInteractionType(slide);
+    if (slideItype !== 'multiple_choice' && slideItype !== 'fill_blank') return;
+
+    setMcBlocked(true);  // block all options instantly
+    setMcSelection(letter);
+
+    const correct = slideItype === 'multiple_choice'
+      ? letter === slide.correctAnswer
+      : letter === slide.blankAnswer;
+
+    setAnswers(prev => ({ ...prev, [currentIdx]: { value: letter, correct } }));
+
+    // Delay feedback: let animations breathe (correct=350ms, wrong=80ms)
+    const delay = correct ? 350 : 80;
+    setTimeout(() => setShowFeedback(true), delay);
+
+    if (correct) {
+      const elapsed     = Date.now() - slideStartTime.current;
+      const speedBonus  = elapsed < 6000 ? 5 : 0;
+      const newStreak   = streak + 1;
+      setStreak(newStreak);
+      setBestStreak(prev => Math.max(prev, newStreak));
+      const streakBonus = newStreak >= 3 ? 5 : 0;
+      triggerXpFloat(xpForSlide(slide) + streakBonus + speedBonus);
+      if (speedBonus > 0) triggerSpeedBonus();
+      triggerSuccessMsg(pickRandom(SUCCESS_MSGS, lastSuccessIdx));
+    } else {
+      if (streak >= 2) triggerComboLost();
+      setStreak(0);
+      setEnergy(prev => Math.max(0, prev - 1));
+      showEnergyMsg(pickRandom(WRONG_MSGS, lastWrongIdx), false);
+    }
+
+    if (!correct && slide.conceptIndex >= 0 && session) {
+      const remaining = retriesLeft[slide.conceptIndex] ?? 0;
+      const retryArr  = session.retrySlides?.[String(slide.conceptIndex)];
+      if (remaining > 0 && retryArr && retryArr.length > 0) {
+        const pickIdx    = retryArr.length - remaining;
+        const retrySlide = shuffleSlideChoices({
+          ...retryArr[Math.min(pickIdx, retryArr.length - 1)],
+          isRetry: true,
+        } as DesafioSlide);
+        setDynamicSlides(prev => [
+          ...prev.slice(0, currentIdx + 1),
+          retrySlide,
+          ...prev.slice(currentIdx + 1),
+        ]);
+        setRetriesLeft(prev => ({ ...prev, [slide.conceptIndex]: remaining - 1 }));
+      }
+    }
+  }, [
+    revealed, slide, currentIdx, streak, session, retriesLeft,
+    triggerXpFloat, triggerComboLost, showEnergyMsg, triggerSpeedBonus, triggerSuccessMsg,
+  ]);
+
+  // ── CTA press handler (non-MC types + advance after reveal) ──────────────
   const handleCta = useCallback(() => {
     if (!slide) return;
     if (!isInteractiveByType(slide)) { advance(); return; }
     if (revealed) { advance(); return; }
+    // MC/fill_blank are handled by handleMcTap — CTA only reaches here for other types
+    if (itype === 'multiple_choice' || itype === 'fill_blank') return;
 
-    // Evaluate submitted answer
+    // Evaluate non-immediate interaction types
     let value: SlideAnswer['value'] = '';
     let correct = false;
 
     switch (itype) {
-      case 'multiple_choice':
-        value   = mcSelection ?? '';
-        correct = mcSelection === slide.correctAnswer;
-        break;
-      case 'fill_blank':
-        value   = mcSelection ?? '';
-        correct = mcSelection === slide.blankAnswer;
-        break;
       case 'match_pairs':
         value   = { ...pairsMatched };
         correct = (slide.pairs ?? []).every(p => pairsMatched[p.id] === p.id + '_r');
@@ -1422,8 +1547,7 @@ export default function DesafioScreen() {
     }
 
     setAnswers(prev => ({ ...prev, [currentIdx]: { value, correct } }));
-
-    let newEnergy = energy;
+    setShowFeedback(true); // immediate reveal for non-MC types
 
     if (correct && slide) {
       const elapsed     = Date.now() - slideStartTime.current;
@@ -1438,14 +1562,10 @@ export default function DesafioScreen() {
     } else if (!correct) {
       if (streak >= 2) triggerComboLost();
       setStreak(0);
-      newEnergy = Math.max(0, energy - 1);
-      setEnergy(newEnergy);
+      setEnergy(prev => Math.max(0, prev - 1));
       showEnergyMsg(pickRandom(WRONG_MSGS, lastWrongIdx), false);
     }
 
-    // Adaptive injection: on wrong answer insert the next pre-generated retry slide.
-    // Each concept has up to 2 distinct retry slides (different questions, same concept).
-    // The remaining counter naturally prevents re-use: when it hits 0 no more retries fire.
     if (!correct && slide.conceptIndex >= 0 && session) {
       const remaining = retriesLeft[slide.conceptIndex] ?? 0;
       const retryArr  = session.retrySlides?.[String(slide.conceptIndex)];
@@ -1465,9 +1585,9 @@ export default function DesafioScreen() {
     }
   }, [
     slide, revealed, itype, advance,
-    mcSelection, pairsMatched, classifyAssigned, stepsOrder,
+    pairsMatched, classifyAssigned, stepsOrder,
     currentIdx, session, retriesLeft,
-    energy, streak, triggerXpFloat, triggerComboLost, showEnergyMsg, triggerSpeedBonus, triggerSuccessMsg,
+    streak, triggerXpFloat, triggerComboLost, showEnergyMsg, triggerSpeedBonus, triggerSuccessMsg,
   ]);
 
   // ── Loading / error states ─────────────────────────────────────────────────
@@ -1580,7 +1700,8 @@ export default function DesafioScreen() {
           <SlideContent
             slide={slide}
             mcSelection={mcSelection}
-            onMcSelect={setMcSelection}
+            onMcSelect={handleMcTap}
+            mcBlocked={mcBlocked}
             pairsSelectedLeft={pairsSelectedLeft}
             onPairsSelectLeft={setPairsSelectedLeft}
             pairsMatched={pairsMatched}
@@ -1623,28 +1744,35 @@ export default function DesafioScreen() {
             </Text>
           </Animated.View>
         )}
-        {/* Feedback panel — appears just above the CTA after answering */}
-        {slideFeedback && (
-          <View style={[g.feedbackPanel, slideFeedback.isCorrect ? g.feedbackPanelOk : g.feedbackPanelWrong]}>
-            <Text style={[g.feedbackLabel, slideFeedback.isCorrect ? g.feedbackLabelOk : g.feedbackLabelWrong]}>
-              {slideFeedback.isCorrect ? '✓ ¡Correcto!' : '✗ Incorrecto'}
-            </Text>
-            {slideFeedback.text != null && (
-              <Text style={[g.feedbackText, slideFeedback.isCorrect ? g.feedbackTextOk : g.feedbackTextWrong]}>
-                {slideFeedback.text}
+        {/* Feedback panel — slide-up + fade-in after answer animations complete */}
+        {showFeedback && slideFeedback && (
+          <Animated.View style={feedbackAnimStyle}>
+            <View style={[g.feedbackPanel, slideFeedback.isCorrect ? g.feedbackPanelOk : g.feedbackPanelWrong]}>
+              <Text style={[g.feedbackLabel, slideFeedback.isCorrect ? g.feedbackLabelOk : g.feedbackLabelWrong]}>
+                {slideFeedback.isCorrect ? '✓ ¡Correcto!' : '✗ Incorrecto'}
               </Text>
-            )}
-            {slideFeedback.correctOrderItems && (
-              <>
-                <Text style={[g.feedbackOrderTitle, g.feedbackOrderTitleWrong]}>ORDEN CORRECTO</Text>
-                {slideFeedback.correctOrderItems.map((t, i) => (
-                  <Text key={i} style={[g.feedbackOrderItem, g.feedbackOrderItemWrong]}>{i + 1}. {t}</Text>
-                ))}
-              </>
-            )}
-          </View>
+              {slideFeedback.text != null && (
+                <Text style={[g.feedbackText, slideFeedback.isCorrect ? g.feedbackTextOk : g.feedbackTextWrong]}>
+                  {slideFeedback.text}
+                </Text>
+              )}
+              {slideFeedback.correctOrderItems && (
+                <>
+                  <Text style={[g.feedbackOrderTitle, g.feedbackOrderTitleWrong]}>ORDEN CORRECTO</Text>
+                  {slideFeedback.correctOrderItems.map((t, i) => (
+                    <Text key={i} style={[g.feedbackOrderItem, g.feedbackOrderItemWrong]}>{i + 1}. {t}</Text>
+                  ))}
+                </>
+              )}
+            </View>
+          </Animated.View>
         )}
-        {ctaDisabled ? (
+        {/* CTA: hidden for MC until feedback shows; always visible for other types */}
+        {isImmediateMcSlide && !showFeedback ? (
+          <View style={g.ctaBtnOff}>
+            <Text style={g.ctaTextOff}>Selecciona una opción</Text>
+          </View>
+        ) : ctaDisabled ? (
           <View style={g.ctaBtnOff}>
             <Text style={g.ctaTextOff}>{ctaLabel}</Text>
           </View>
