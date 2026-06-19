@@ -111,6 +111,7 @@ JSON SCHEMA — return ONLY this structure:
         "question": string | null,
         "options": [string] | null,
         "correctAnswer": string | null,
+        "correctAnswerReason": string | null,
         "wrongAnswerHints": { "<letter>": string } | null
       }
     ],
@@ -414,8 +415,13 @@ PANTALLA "micro_challenge" — DESAFÍO DE DESCUBRIMIENTO [OBLIGATORIA — UNA P
 
   SOLO FORMATO — crear preguntas sobre ESTE documento (no copiar estos temas):
   ✓ "En −6m⁴, ¿qué parte representa '-6'?" A) el coeficiente B) el exponente C) la variable [SOLO FORMATO]
-  ✓ "¿Cuál expresión es un binomio?"  A) 78a⁵b³c²  B) 3m+1  C) x/4 − z⁸ + 3/2 [SOLO FORMATO]
-  ✓ "¿Son semejantes −156a⁸ y −6m⁴?" A) Sí, mismo exponente B) No, diferente letra C) Sí, mismos signos [SOLO FORMATO]
+  ✓ "¿Cuál expresión es un binomio?"  A) 5x³  B) 3m+1  C) x − z + 2 [SOLO FORMATO]
+  ✓ "¿Son semejantes −4a² y −4b²?" A) Sí, mismo coeficiente B) No, diferente letra C) Sí, mismo exponente [SOLO FORMATO]
+
+  ⚠️ EJEMPLO INEQUÍVOCO (regla absoluta para preguntas de clasificación):
+  Cada alternativa debe pertenecer CLARAMENTE a una sola categoría. Prohibido usar expresiones cuya clasificación sea discutible o dependa de convenciones no mencionadas en el documento.
+  ✗ PROHIBIDO: opciones que el estudiante podría clasificar correctamente en más de una categoría.
+  ✓ CORRECTO: cada opción incorrecta es claramente distinta del concepto buscado.
 
   - title: "Checkpoint" (texto fijo)
   - question: pregunta de descubrimiento con ejemplo concreto del documento. Max 20 palabras. < 15 segundos.
@@ -425,6 +431,12 @@ PANTALLA "micro_challenge" — DESAFÍO DE DESCUBRIMIENTO [OBLIGATORIA — UNA P
     Máximo 8 palabras por alternativa. Sin punto final.
     La respuesta correcta puede estar en A, B o C (variar posición). Alternar tipo de pregunta entre secciones.
   - correctAnswer: "A", "B" o "C"
+    ⚠️ AUTO-VERIFICACIÓN OBLIGATORIA: antes de escribir la letra, completa mentalmente:
+    "[Letra] es correcta porque [razón técnica en 1 frase]."
+    Si no puedes completar esa frase sin contradicción → la opción que elegiste es incorrecta. Cambia correctAnswer.
+  - correctAnswerReason: escribe aquí la frase de auto-verificación. 1 oración. Sin emojis. Sin "Acertaste".
+    ✓ "B es correcta porque el coeficiente es el factor numérico que multiplica la parte literal."
+    ✗ "B porque es la correcta." — demasiado vago, indica que no verificaste.
   - definition: explicación de POR QUÉ esa opción es correcta. Máximo 120 caracteres.
     Texto plano, sin emojis, sin "Acertaste" ni "Exacto".
     Este texto es el feedback post-respuesta Y anticipa el insight que confirma el main_concept siguiente.
@@ -454,6 +466,11 @@ PANTALLA "reinforcement_challenge" — DESAFÍO DE REFUERZO [OBLIGATORIA — UNA
     Máximo 10 palabras por alternativa. Sin punto final.
     La respuesta correcta puede estar en A, B o C (variar posición).
   - correctAnswer: "A", "B" o "C"
+    ⚠️ AUTO-VERIFICACIÓN OBLIGATORIA: antes de escribir la letra, aplica el concepto del main_concept anterior
+    sobre cada opción y confirma cuál es la única correcta. Si hay duda → reescribe la pregunta.
+  - correctAnswerReason: escribe en 1 oración por qué esa letra es correcta, citando el concepto enseñado. Sin emojis.
+    ✓ "A es correcta porque frecuencia alta implica longitud de onda corta según la relación v = f·λ."
+    ✗ "A porque es la respuesta correcta." — esto indica que no verificaste.
   - definition: explica POR QUÉ esa respuesta aplica correctamente el concepto. Máximo 120 caracteres.
     Texto plano, sin emojis, sin "Muy bien" ni "Correcto".
     Conecta directamente con el concepto enseñado en el main_concept inmediatamente anterior.
@@ -680,6 +697,7 @@ VALIDACIÓN FINAL — ejecutar antes de generar JSON:
 12. ¿El reinforcement_challenge de cada sección usa una situación distinta a la del micro_challenge de esa misma sección? → Si NO → reescribir la pregunta.
 13. ¿CADA micro_challenge tiene question + options + correctAnswer? → Si NO → es texto disfrazado de challenge. CORRÍGELO: escribe una pregunta real con 3 opciones.
 14. ¿CADA reinforcement_challenge tiene question + options + correctAnswer? → Si NO → es texto disfrazado de refuerzo. CORRÍGELO: escribe una pregunta de aplicación real con 3 opciones.
+15. ¿El correctAnswerReason de cada micro_challenge y reinforcement_challenge justifica con una razón técnica real por qué esa letra es correcta? → Si el reason dice solo "porque es la correcta" o está vacío → la respuesta probablemente es incorrecta. Reescribe la pregunta y el correctAnswer.
 Si alguna verificación falla → corregir antes de generar JSON.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -1121,7 +1139,9 @@ Ejercicio NIVEL 1. El más simple. Practica "${skill}" directamente.
 - question: problema de NIVEL 1 sobre "${skill}" con valores simples del documento. Max 25 palabras. NO uses corchetes.
 - options: exactamente 4 opciones (A, B, C, D). Una correcta. Tres errores plausibles de "${skill}": error en paso 1, error en paso 2, error conceptual clásico.
 - correctAnswer: "A", "B", "C" o "D" — verifica que sea matemáticamente correcto.
-- definition: feedback emocional que explica el error. DEBE empezar con 🎯 o ⚡. Max 20 palabras.
+  ⚠️ Antes de escribir la letra: calcula mentalmente el resultado correcto de "${skill}" para este problema.
+  Si el resultado no coincide con ninguna opción → reescribe las opciones, no cambies el resultado.
+- correctAnswerReason: 1 oración explicando por qué esa letra es matemáticamente correcta. Sin emojis.
 
 PANTALLA 5 — type: "application" — emoji: 🌍  [APLICACIÓN — "${skill}" en la vida real]
 Contexto real donde se usa "${skill}". NO interactiva.
@@ -1141,6 +1161,8 @@ El alumno identifica en qué paso de una solución de "${skill}" está el error.
   Una es correcta (identifica el paso real con error). Tres son incorrectas.
   La cuarta opción SIEMPRE es: "D. El procedimiento no tiene errores" (esta es SIEMPRE incorrecta).
 - correctAnswer: "A", "B", o "C"
+  ⚠️ Verifica: la opción señalada identifica el paso donde realmente ocurre el error en la solución incorrecta.
+- correctAnswerReason: 1 oración indicando qué error específico ocurrió en ese paso. Sin emojis.
 
 PANTALLA 7 — type: "decide" — emoji: 🤔  [INTERACTIVA — NIVEL 2 de "${skill}"]
 Ejercicio NIVEL 2. Más complejo que pantalla 4. Practica "${skill}" con números distintos.
@@ -1148,6 +1170,8 @@ Ejercicio NIVEL 2. Más complejo que pantalla 4. Practica "${skill}" con número
 - question: problema de NIVEL 2 sobre "${skill}" con números DISTINTOS a pantallas 3 y 4. Max 30 palabras. NO uses corchetes.
 - options: 4 opciones (A, B, C, D). Una correcta. Tres errores plausibles de "${skill}".
 - correctAnswer: "A", "B", "C" o "D" — verifica que sea matemáticamente correcto.
+  ⚠️ Antes de escribir la letra: resuelve el problema paso a paso con los números dados. Compara con las opciones.
+- correctAnswerReason: 1 oración con el resultado numérico o razonamiento que confirma la respuesta. Sin emojis.
 - definition: feedback emocional. DEBE empezar con 🔥, 🚀, ⚡ o 🎯. Max 20 palabras.
 
 PANTALLA 8 — type: "challenge" — emoji: 🧠  [CONFUSIÓN CONCEPTUAL sobre "${skill}"]
@@ -1167,6 +1191,8 @@ Ejercicio NIVEL 3. El más difícil de esta misión. Usa el caso más complejo d
 - question: problema de NIVEL 3 sobre "${skill}" con números DISTINTOS a pantallas 4 y 7. Max 35 palabras. NO uses corchetes.
 - options: 4 opciones (A, B, C, D). Una correcta. Tres distractores con errores en distintos pasos de "${skill}".
 - correctAnswer: "A", "B", "C" o "D" — verifica que sea matemáticamente correcto.
+  ⚠️ Antes de escribir la letra: resuelve paso a paso el problema del NIVEL 3. Confirma que la opción elegida coincide con el resultado real.
+- correctAnswerReason: 1 oración con el resultado o el razonamiento que confirma la respuesta. Sin emojis.
 - definition: explica el proceso correcto de "${skill}" paso a paso. DEBE empezar con 🏆. Max 25 palabras.
 
 PANTALLA 10 — type: "victory" — emoji: 🏆  [RESULTADO]
