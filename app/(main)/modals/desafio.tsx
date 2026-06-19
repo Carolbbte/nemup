@@ -79,6 +79,28 @@ function slideTypeLabel(type: DesafioSlide['type'], isRetry?: boolean, isSpaced?
   }
 }
 
+// Shuffles multiple-choice options so the correct answer isn't always first.
+// Reassigns A/B/C letters to match the new order and updates correctAnswer.
+function shuffleSlideChoices(slide: DesafioSlide): DesafioSlide {
+  if (!Array.isArray(slide.choices) || slide.choices.length < 2 || !slide.correctAnswer) {
+    return slide;
+  }
+  const correctText = slide.choices.find(c => c.letter === slide.correctAnswer)?.text;
+  if (correctText === undefined) return slide;
+
+  const texts = slide.choices.map(c => c.text);
+  for (let i = texts.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [texts[i], texts[j]] = [texts[j], texts[i]];
+  }
+
+  const LETTERS: Array<'A' | 'B' | 'C'> = ['A', 'B', 'C'];
+  const newChoices = texts.map((text, i) => ({ letter: LETTERS[i], text }));
+  const newCorrect = newChoices.find(c => c.text === correctText)?.letter ?? slide.correctAnswer;
+
+  return { ...slide, choices: newChoices, correctAnswer: newCorrect };
+}
+
 // ── Answer state ──────────────────────────────────────────────────────────────
 
 interface SlideAnswer {
@@ -643,11 +665,11 @@ function detectExampleFocus(raw: string, conceptTitle: string): FocusResult {
 
   // 2. Algebraic term with Unicode superscript: -6m⁴, ax², 3x²y
   const alg = expr.match(/([\s\S]*?)([-−]?\d*[a-zA-Z]\w*[⁰¹²³⁴-⁹]+)([\s\S]*)/);
-  if (alg && alg[2].length >= 2) return { before: alg[1], focus: alg[2], after: alg[3], focusLabel: 'expresión' };
+  if (alg && alg[2].length >= 2) return { before: alg[1], focus: alg[2], after: alg[3], focusLabel: null };
 
   // 3. Coefficient × variable: -6m, 3x, 2ab
   const cv = expr.match(/([\s\S]*?)([-−]?\d+[a-zA-Z][a-zA-Z0-9]*)([\s\S]*)/);
-  if (cv && cv[2].length >= 2) return { before: cv[1], focus: cv[2], after: cv[3], focusLabel: 'expresión' };
+  if (cv && cv[2].length >= 2) return { before: cv[1], focus: cv[2], after: cv[3], focusLabel: null };
 
   // 4. Chemical / molecular formula: NaCl, H2O, CO2, ATP, DNA
   const chem = expr.match(/([\s\S]*?)(\b[A-Z][a-z]?\d*(?:[A-Z][a-z]?\d*)+\b)([\s\S]*)/);
@@ -1255,7 +1277,7 @@ export default function DesafioScreen() {
           try {
             const s: DesafioSession = JSON.parse(raw);
             setSession(s);
-            setDynamicSlides([...s.slides]);
+            setDynamicSlides(s.slides.map(shuffleSlideChoices));
             if (s.retrySlides) {
               const init: Record<number, number> = {};
               Object.keys(s.retrySlides).forEach(k => {
@@ -1416,10 +1438,10 @@ export default function DesafioScreen() {
       const retryArr  = session.retrySlides?.[String(slide.conceptIndex)];
       if (remaining > 0 && retryArr && retryArr.length > 0) {
         const pickIdx    = retryArr.length - remaining;
-        const retrySlide = {
+        const retrySlide = shuffleSlideChoices({
           ...retryArr[Math.min(pickIdx, retryArr.length - 1)],
           isRetry: true,
-        } as DesafioSlide;
+        } as DesafioSlide);
         setDynamicSlides(prev => [
           ...prev.slice(0, currentIdx + 1),
           retrySlide,

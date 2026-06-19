@@ -1784,7 +1784,7 @@ async function callOpenAIAndBuildResult(
   // Strip feedback opener prefixes (e.g. "🔥 Exacto — ") from interactive slide definitions.
   // The LLM prepends them despite prompt instructions — stripping keeps the actual explanation
   // and prevents false-positive pedagogical flow violations that would trigger regeneration.
-  const FEEDBACK_PREFIX_RE = /^.{0,8}(?:exacto|correcto|acertaste|lo captaste|bien hecho|perfecto|muy bien).{0,8}/i;
+  const FEEDBACK_PREFIX_RE = /^.{0,8}(?:exacto|correcto|acertaste|lo captaste|bien hecho|perfecto|muy bien)[^a-zA-ZÀ-ÿ]{0,12}/i;
   const stripFeedbackPrefix = (raw: string, type: string): string => {
     if (type !== 'micro_challenge' && type !== 'reinforcement_challenge') return raw;
     const stripped = raw.replace(FEEDBACK_PREFIX_RE, '').trim();
