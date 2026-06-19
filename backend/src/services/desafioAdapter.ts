@@ -180,9 +180,12 @@ export function buildDesafioFromMission(slides: any[], topic: string): DesafioSe
       const desafioType = INTERACTIVE_MAP[type] ?? 'reinforcement_challenge';
       const choices = parseChoices(slide.options);
       const rawAnswer = String(slide.correctAnswer ?? '').toUpperCase();
-      const correctAnswer: 'A' | 'B' | 'C' = (LETTERS as readonly string[]).includes(rawAnswer)
-        ? (rawAnswer as 'A' | 'B' | 'C')
-        : 'A';
+      // Skip slide rather than defaulting to 'A' — a wrong correctAnswer is worse than a missing slide
+      if (!(LETTERS as readonly string[]).includes(rawAnswer)) {
+        console.warn(`[DesafioAdapter] Slide ${i} (${type}) skipped — invalid correctAnswer: ${slide.correctAnswer}`);
+        continue;
+      }
+      const correctAnswer = rawAnswer as 'A' | 'B' | 'C';
 
       const wrongHints: Record<string, string> = {};
       if (slide.wrongAnswerHints && typeof slide.wrongAnswerHints === 'object') {
