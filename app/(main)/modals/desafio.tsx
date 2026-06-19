@@ -193,7 +193,7 @@ function MultipleChoiceContent({
   return (
     <View style={c.root}>
       <Text style={c.typeLabel}>{slideTypeLabel(slide.type, slide.isRetry, slide.isSpacedRepetition)}</Text>
-      {slide.emoji != null && <Text style={c.emoji}>{displayEmoji(slide.emoji)}</Text>}
+      <Text style={c.emoji}>{slideEmoji(slide)}</Text>
       <Text style={c.question}>{slide.question}</Text>
       <View>
         {(slide.choices ?? []).map(ch => (
@@ -225,7 +225,7 @@ function FillBlankContent({
   return (
     <View style={c.root}>
       <Text style={c.typeLabel}>{slideTypeLabel(slide.type, slide.isRetry, slide.isSpacedRepetition)}</Text>
-      {slide.emoji != null && <Text style={c.emoji}>{displayEmoji(slide.emoji)}</Text>}
+      <Text style={c.emoji}>{slideEmoji(slide)}</Text>
       <View style={fb.sentenceBox}>
         <Text style={fb.sentenceText}>{slide.blankSentence}</Text>
       </View>
@@ -599,7 +599,7 @@ function InformationalContent({ slide }: { slide: DesafioSlide }) {
   return (
     <View style={c.root}>
       <Text style={c.typeLabel}>{slideTypeLabel(slide.type)}</Text>
-      {slide.emoji != null && <Text style={c.emoji}>{displayEmoji(slide.emoji)}</Text>}
+      <Text style={c.emoji}>{slideEmoji(slide)}</Text>
       <Text style={isMastery ? c.masteryTitle : c.insightTitle}>{slide.title}</Text>
       <Text style={c.body}>{slide.body}</Text>
       {hasExamples && (
@@ -732,7 +732,7 @@ function InsightContent({ slide }: { slide: DesafioSlide }) {
   return (
     <View style={ins.root}>
       <Text style={c.typeLabel}>{slideTypeLabel(slide.type)}</Text>
-      {slide.emoji != null && <Text style={ins.emoji}>{displayEmoji(slide.emoji)}</Text>}
+      <Text style={ins.emoji}>{slideEmoji(slide)}</Text>
 
       {/* Concept title — stronger hierarchy */}
       <Text style={ins.title}>{slide.title}</Text>
@@ -1085,6 +1085,19 @@ const GEOMETRY_EMOJIS = new Set(['📐', '📏', '🔺', '🔷', '🔶', '🔵',
 function displayEmoji(emoji: string | undefined): string | undefined {
   if (!emoji) return undefined;
   return GEOMETRY_EMOJIS.has(emoji) ? '🔢' : emoji;
+}
+
+// Returns a type-based emoji that varies per concept so each slide feels distinct.
+// Ignores slide.emoji — the AI-generated one is usually always 📚.
+function slideEmoji(slide: DesafioSlide): string {
+  const idx = slide.conceptIndex ?? 0;
+  switch (slide.type) {
+    case 'discovery_challenge':     return ['🔎', '🧠', '⚔️'][idx % 3];
+    case 'insight':                 return ['💡', '🧩', '🗺️'][idx % 3];
+    case 'reinforcement_challenge': return ['🎯', '🔥'][idx % 2];
+    case 'spaced_repetition':       return '📝';
+    default:                        return displayEmoji(slide.emoji) ?? '📚';
+  }
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
