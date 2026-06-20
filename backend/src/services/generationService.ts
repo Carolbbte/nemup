@@ -21,6 +21,7 @@ import type {
 } from '../types.js';
 import { config } from '../config.js';
 import { classifyContent, type DetectedSkill } from './pedagogicalClassifier.js';
+import { validateTruth, buildTruthFeedback } from './truthValidator.js';
 
 const openai = new OpenAI({ apiKey: config.openai_api_key });
 
@@ -2332,7 +2333,17 @@ export async function generateSessionContent(
   console.log(`  pedagogicalFlowScore: ${gFlow.pedagogicalFlowScore}/100`);
   console.log(`  passes:               ${gFlow.passesThreshold ? 'YES' : 'NO'}`);
 
-  const needsRegeneration = qualityScore < 0.65 || gMicroChallenge.hasPassive || !gEngagement.passesThreshold || !gInteractiveLoops.passesThreshold || !gFlow.passesThreshold;
+  // ── Truth Validation — gatekeeper between quality check and regeneration ──────
+  const gTruth = await validateTruth((base.summary?.slides ?? []) as SummarySlide[], transcription);
+
+  const needsRegeneration =
+    qualityScore < 0.65 ||
+    gMicroChallenge.hasPassive ||
+    !gEngagement.passesThreshold ||
+    !gInteractiveLoops.passesThreshold ||
+    !gFlow.passesThreshold ||
+    !gTruth.passed;
+
   let finalBase = base;
   if (needsRegeneration) {
     const reasons: string[] = [];
@@ -2341,6 +2352,7 @@ export async function generateSessionContent(
     if (!gEngagement.passesThreshold)       reasons.push(`engagement (score=${gEngagement.engagementScore.toFixed(2)}, cfViolations=${gEngagement.challengeFirstViolations})`);
     if (!gInteractiveLoops.passesThreshold) reasons.push(`interactive_loops (${gInteractiveLoops.completeLoops}/${gInteractiveLoops.totalConcepts} loops completos)`);
     if (!gFlow.passesThreshold)             reasons.push(`pedagogical_flow (score=${gFlow.pedagogicalFlowScore}, violations=${gFlow.violations.map(v => v.type).join(',')})`);
+    if (!gTruth.passed)                     reasons.push(`truth (score=${gTruth.score.toFixed(2)}, failures=${gTruth.failures.length})`);
     console.log(`  action:           REGENERATE (${reasons.join(', ')})`);
 
     const feedbackParts: string[] = [buildQualityFeedback(gUnknown.unknownConcepts, gSemantic.overallOverlap)];
@@ -2348,6 +2360,7 @@ export async function generateSessionContent(
     if (!gEngagement.passesThreshold)       feedbackParts.push(buildEngagementFeedback(gEngagement));
     if (!gInteractiveLoops.passesThreshold) feedbackParts.push(buildInteractiveLoopsFeedback(gInteractiveLoops));
     if (!gFlow.passesThreshold)             feedbackParts.push(buildFlowFeedback(gFlow));
+    if (!gTruth.passed)                     feedbackParts.push(buildTruthFeedback(gTruth));
     const retryPrompt = `${prompt}\n\n${'━'.repeat(40)}\n${feedbackParts.join('\n\n')}\n${'━'.repeat(40)}`;
     finalBase = await callOpenAIAndBuildResult(retryPrompt, systemMsg, configValues);
     console.log('[QUALITY REPORT] Regeneración completada.');
