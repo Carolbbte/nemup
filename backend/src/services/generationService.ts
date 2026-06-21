@@ -2383,7 +2383,7 @@ export async function generateSessionContent(
   console.log(`  passes:               ${gFlow.passesThreshold ? 'YES' : 'NO'}`);
 
   // ── Truth Validation — gatekeeper between quality check and regeneration ──────
-  const gTruth = await validateTruth((base.summary?.slides ?? []) as SummarySlide[], transcription);
+  const gTruth = await validateTruth((base.summary?.slides ?? []) as SummarySlide[], transcription, knowledgeGraph);
 
   const needsRegeneration =
     qualityScore < 0.65 ||

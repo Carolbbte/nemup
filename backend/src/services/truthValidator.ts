@@ -25,12 +25,13 @@ import {
   normalizeCanonicalForm,
   canonicalizeSlide,
 } from './canonicalNormalizer.js';
+import type { KnowledgeGraph } from './knowledgeExtractor.js';
 
 // ── Public truth-validation types ─────────────────────────────────────────────
 
 export interface TruthFailure {
   slideId: string;
-  type: 'incorrect_answer' | 'multiple_correct' | 'invalid_distractor' | 'broken_explanation';
+  type: 'incorrect_answer' | 'multiple_correct' | 'invalid_distractor' | 'broken_explanation' | 'kg_violation';
   message: string;
 }
 
@@ -242,6 +243,121 @@ function validateExplanation(slide: SummarySlide, index: number): TruthFailure |
   return null;
 }
 
+// ── KnowledgeGraph-aware validators ──────────────────────────────────────────
+
+const KG_STOP_WORDS = new Set([
+  'para', 'como', 'donde', 'tienen', 'siendo', 'mismo', 'misma',
+  'mismos', 'mismas', 'desde', 'hasta', 'entre', 'sobre', 'bajo',
+  'estos', 'estas', 'aquel', 'aquella', 'cuales', 'todos', 'todas',
+  'cada', 'otros', 'otras', 'dicho', 'dicha', 'dichos', 'dichas',
+]);
+
+/**
+ * Entity consistency: when a slide's question references a KG entity's context (≥2 content
+ * words match) and the entity value appears in at least one option, the correct answer must
+ * contain the entity value.
+ * Catches: "¿En qué año fue la Proclamación de la Independencia?" → KG says 1818, slide marks 1810.
+ */
+function validateKgEntityConsistency(
+  slide: SummarySlide,
+  index: number,
+  graph: KnowledgeGraph,
+): TruthFailure | null {
+  if (!slide.question || !Array.isArray(slide.options) || !slide.correctAnswer) return null;
+  const correctText = getCorrectText(slide);
+  if (!correctText) return null;
+  const qNorm = norm(slide.question);
+  const cNorm = norm(correctText);
+  for (const entity of graph.entities) {
+    if (!entity.context) continue;
+    const entityVal = norm(entity.value);
+    if (entityVal.length < 2) continue;
+    const ctxWords = norm(entity.context).split(/\s+/).filter(w => w.length > 3);
+    if (ctxWords.filter(w => qNorm.includes(w)).length < 2) continue;
+    if (!parseOptions(slide.options).some(o => norm(o.text).includes(entityVal))) continue;
+    if (!cNorm.includes(entityVal)) {
+      console.log(`[TruthValidator] kg_violation at slide ${index} — KG entity "${entity.value}" expected in correct answer but absent`);
+      return {
+        slideId: makeSlideId(slide, index),
+        type:    'kg_violation',
+        message: `[${slide.type}] KG entity "${entity.value}" (${entity.context}) expected in correctAnswer, got "${correctText}"`,
+      };
+    }
+  }
+  return null;
+}
+
+/**
+ * Definition consistency: when the question mentions a KG definition term, the correct
+ * answer (if ≥3 words) must share at least one keyword with the KG definition text.
+ * Catches prose-answer slides where the AI invented a different definition.
+ */
+function validateKgDefinitionConsistency(
+  slide: SummarySlide,
+  index: number,
+  graph: KnowledgeGraph,
+): TruthFailure | null {
+  if (!slide.question || !Array.isArray(slide.options) || !slide.correctAnswer) return null;
+  const correctText = getCorrectText(slide);
+  if (!correctText || correctText.split(/\s+/).length < 3) return null;
+  const qNorm = norm(slide.question);
+  for (const def of graph.definitions) {
+    const termNorm = norm(def.term);
+    if (termNorm.length < 3 || !qNorm.includes(termNorm)) continue;
+    const defKeywords = def.definition
+      .toLowerCase()
+      .split(/[\s,;.:()]+/)
+      .filter(w => w.length > 4 && !KG_STOP_WORDS.has(w));
+    if (defKeywords.length < 2) continue;
+    const cLower = correctText.toLowerCase();
+    const overlap = defKeywords.filter(w => cLower.includes(w)).length;
+    if (overlap === 0) {
+      console.log(`[TruthValidator] kg_violation at slide ${index} — correct answer has 0% keyword overlap with KG definition of "${def.term}"`);
+      return {
+        slideId: makeSlideId(slide, index),
+        type:    'kg_violation',
+        message: `[${slide.type}] answer "${correctText.slice(0, 60)}" has no keyword overlap with KG definition of "${def.term}"`,
+      };
+    }
+  }
+  return null;
+}
+
+/**
+ * Example consistency: when a KG example has the form "X = Y" and the slide question
+ * references X, the correct answer must match Y.
+ * Catches math errors like marking "−4a² + 6a" correct when KG says "−4a²".
+ */
+function validateKgExampleConsistency(
+  slide: SummarySlide,
+  index: number,
+  graph: KnowledgeGraph,
+): TruthFailure | null {
+  if (!slide.question || !Array.isArray(slide.options) || !slide.correctAnswer) return null;
+  const correctText = getCorrectText(slide);
+  if (!correctText) return null;
+  const qNorm = norm(slide.question);
+  const cNorm = norm(correctText);
+  const EXAMPLE_EQ_RE = /^([^=]{3,})\s*=\s*(.+)$/;
+  for (const example of graph.examples) {
+    const m = EXAMPLE_EQ_RE.exec(example.content);
+    if (!m) continue;
+    const exInput  = norm(m[1].trim());
+    const exOutput = norm(m[2].trim());
+    if (exInput.length < 3 || exOutput.length < 1) continue;
+    if (!qNorm.includes(exInput.slice(0, 12))) continue;
+    if (!cNorm.includes(exOutput) && !exOutput.includes(cNorm)) {
+      console.log(`[TruthValidator] kg_violation at slide ${index} — KG example says "${exOutput}" but correctAnswer is "${correctText}"`);
+      return {
+        slideId: makeSlideId(slide, index),
+        type:    'kg_violation',
+        message: `[${slide.type}] KG example says result is "${exOutput}" but correctAnswer is "${correctText}"`,
+      };
+    }
+  }
+  return null;
+}
+
 // ── Public API ────────────────────────────────────────────────────────────────
 
 /**
@@ -255,6 +371,7 @@ function validateExplanation(slide: SummarySlide, index: number): TruthFailure |
 export async function validateTruth(
   slides: SummarySlide[],
   _sourceContent: string,
+  knowledgeGraph?: KnowledgeGraph | null,
 ): Promise<TruthValidationResult> {
   const failures: TruthFailure[] = [];
   const interactiveSlides = slides.filter(
@@ -282,6 +399,18 @@ export async function validateTruth(
 
     const f4 = validateExplanation(normalizedSlide, i);
     if (f4) failures.push(f4);
+
+    // Step 3 — KnowledgeGraph-aware validation (only when KG is available)
+    if (knowledgeGraph) {
+      const f5 = validateKgEntityConsistency(normalizedSlide, i, knowledgeGraph);
+      if (f5) failures.push(f5);
+
+      const f6 = validateKgDefinitionConsistency(normalizedSlide, i, knowledgeGraph);
+      if (f6) failures.push(f6);
+
+      const f7 = validateKgExampleConsistency(normalizedSlide, i, knowledgeGraph);
+      if (f7) failures.push(f7);
+    }
   }
 
   const total = interactiveSlides.length;
@@ -317,6 +446,7 @@ export function buildTruthFeedback(result: TruthValidationResult): string {
     multiple_correct:   '❌ MÚLTIPLES CORRECTAS',
     invalid_distractor: '⚠️ DISTRACTOR INVÁLIDO',
     broken_explanation: '⚠️ EXPLICACIÓN CONTRADICE RESPUESTA',
+    kg_violation:       '⚠️ CONTENIDO CONTRADICE KNOWLEDGE GRAPH',
   };
   for (const f of result.failures) {
     lines.push(`  ${LABELS[f.type]}: ${f.message}`);
