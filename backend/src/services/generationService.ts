@@ -23,6 +23,7 @@ import { config } from '../config.js';
 import { classifyContent, type DetectedSkill } from './pedagogicalClassifier.js';
 import { validateTruth, buildTruthFeedback } from './truthValidator.js';
 import { normalizeAllSlides } from './canonicalNormalizer.js';
+import type { KnowledgeGraph } from './knowledgeExtractor.js';
 
 const openai = new OpenAI({ apiKey: config.openai_api_key });
 
@@ -31,6 +32,53 @@ function normalizeText(text: string): string {
     .replace(/[\r\n]+/g, ' ')
     .replace(/\s+/g, ' ')
     .trim();
+}
+
+function buildKnowledgeBlock(graph: KnowledgeGraph): string {
+  const lines: string[] = [
+    'KNOWLEDGE GRAPH — INSTRUCCIÓN OBLIGATORIA:',
+    'Usa SOLO esta estructura de conocimiento. No re-analices. No inventes. No salgas de este knowledge graph.',
+    '',
+  ];
+  if (graph.concepts.length > 0) {
+    lines.push('CONCEPTOS:');
+    for (const c of graph.concepts) lines.push(`• ${c.name}${c.description ? ': ' + c.description : ''}`);
+    lines.push('');
+  }
+  if (graph.definitions.length > 0) {
+    lines.push('DEFINICIONES:');
+    for (const d of graph.definitions) lines.push(`• ${d.term}: ${d.definition}`);
+    lines.push('');
+  }
+  if (graph.procedures.length > 0) {
+    lines.push('PROCEDIMIENTOS:');
+    for (const p of graph.procedures) {
+      lines.push(`• ${p.name}:`);
+      p.steps.forEach((s, i) => lines.push(`  ${i + 1}. ${s}`));
+    }
+    lines.push('');
+  }
+  if (graph.examples.length > 0) {
+    lines.push('EJEMPLOS:');
+    for (const e of graph.examples) lines.push(`• ${e.content}`);
+    lines.push('');
+  }
+  if (graph.mistakes.length > 0) {
+    lines.push('ERRORES COMUNES:');
+    for (const m of graph.mistakes) lines.push(`• ${m.description}${m.correction ? ' → ' + m.correction : ''}`);
+    lines.push('');
+  }
+  if (graph.entities.length > 0) {
+    lines.push('ENTIDADES (fechas, fórmulas, símbolos, nombres):');
+    for (const en of graph.entities) lines.push(`• [${en.type}] ${en.value}${en.context ? ': ' + en.context : ''}`);
+    lines.push('');
+  }
+  if (graph.relationships.length > 0) {
+    lines.push('RELACIONES:');
+    for (const r of graph.relationships) lines.push(`• ${r.from} → ${r.to} (${r.type})${r.description ? ': ' + r.description : ''}`);
+    lines.push('');
+  }
+  return lines.join('\n').trimEnd();
 }
 
 // Fisher-Yates shuffle — used to randomize quiz option positions after generation.
@@ -123,7 +171,7 @@ JSON SCHEMA — return ONLY this structure:
 
 // ── Prompt builders ───────────────────────────────────────────────────────────
 
-function buildConceptualPrompt(transcription: string, curso: string): string {
+function buildConceptualPrompt(transcription: string, curso: string, contentOverride?: string): string {
   return `Eres un Arquitecto de Aprendizaje para estudiantes chilenos de enseñanza media (${curso}).
 Tu tarea NO es generar una secuencia fija de pantallas. Es DISEÑAR una misión pedagógicamente coherente a partir de un análisis real del contenido.
 
@@ -904,8 +952,7 @@ FLASHCARDS:
 
 Si la transcripción tiene menos de 100 palabras → devuelve un JSON con questions y flashcards vacíos y un resumen mínimo usando la misma estructura (1 gancho + 1 sección + 1 application + 1 final_challenge + 1 victory).
 
-Transcripción:
-${normalizeText(transcription)}
+${contentOverride ?? `Transcripción:\n${normalizeText(transcription)}`}
 ${JSON_SCHEMA}`;
 }
 
@@ -1017,6 +1064,7 @@ function buildFocusedProceduralPrompt(
   curso: string,
   primarySkill: DetectedSkill,
   _learningPath: DetectedSkill[], // reserved — sequencing is handled by the caller
+  contentOverride?: string,
 ): string {
   const algorithm = SKILL_ALGORITHMS[primarySkill.skillId] ?? '';
   const skill = primarySkill.skillLabel;
@@ -1238,15 +1286,14 @@ REGLAS ABSOLUTAS — verifica ANTES de outputtar el JSON:
       ❌ Datos curiosos, definiciones aisladas o mensajes motivacionales
       ❌ Repetir textualmente la respuesta correcta o el enunciado de la pregunta
 
-Transcripción:
-${normalizeText(transcription)}
+${contentOverride ?? `Transcripción:\n${normalizeText(transcription)}`}
 ${JSON_SCHEMA}`;
 }
 
 
 // ── MEMORIZATION prompt ───────────────────────────────────────────────────────
 
-function buildMemorizationPrompt(transcription: string, curso: string): string {
+function buildMemorizationPrompt(transcription: string, curso: string, contentOverride?: string): string {
   return `Eres un diseñador de sesiones de aprendizaje por MEMORIZACIÓN para estudiantes chilenos de enseñanza media (${curso}).
 Este documento requiere que el estudiante RECUERDE datos, definiciones, fechas o vocabulario específico.
 Tu misión: crear una sesión con técnicas de memoria (asociaciones, imágenes mentales, conexiones) que hagan los datos memorables.
@@ -1457,8 +1504,7 @@ REGLAS ABSOLUTAS:
 - Pantalla 8 DEBE usar formato ✓ checklist.
 - TODO el contenido académico debe derivarse de la transcripción.
 
-Transcripción:
-${normalizeText(transcription)}
+${contentOverride ?? `Transcripción:\n${normalizeText(transcription)}`}
 ${JSON_SCHEMA}`;
 }
 
@@ -2178,7 +2224,8 @@ export function mapToMissionStages(tipoACandidates: string[], transcription?: st
 export async function generateSessionContent(
   transcription: string,
   configValues: SessionConfig,
-  curso: string = '1º Medio'
+  curso: string = '1º Medio',
+  knowledgeGraph?: KnowledgeGraph | null,
 ): Promise<GenerationResult> {
   console.log('[Generation] Curso utilizado para generar sesión:', curso);
 
@@ -2195,7 +2242,8 @@ export async function generateSessionContent(
   console.log(`  maxStage: ${missionStages.maxStage}`);
 
   // Classify content type before selecting prompt
-  const classification = classifyContent(transcription);
+  const contentOverride = knowledgeGraph ? buildKnowledgeBlock(knowledgeGraph) : undefined;
+  const classification = classifyContent(knowledgeGraph ?? transcription);
   console.log(`[Generation] Tipo pedagógico: ${classification.type} (confianza: ${(classification.confidence * 100).toFixed(0)}%)`);
   console.log(`[Generation] Scores — conceptual: ${(classification.scores.conceptual * 100).toFixed(0)}%, procedimental: ${(classification.scores.procedural * 100).toFixed(0)}%, memorización: ${(classification.scores.memorization * 100).toFixed(0)}%`);
   const primarySkill = classification.detectedSkills[0];
@@ -2213,14 +2261,14 @@ export async function generateSessionContent(
   let systemMsg: string;
 
   if (classification.type === 'PROCEDURAL' && primarySkill) {
-    prompt = buildFocusedProceduralPrompt(transcription, curso, primarySkill, learningPath);
+    prompt = buildFocusedProceduralPrompt(transcription, curso, primarySkill, learningPath, contentOverride);
     systemMsg = `Eres un diseñador de sesiones de aprendizaje procedimental para estudiantes chilenos de enseñanza media. Esta misión enseña UNA SOLA habilidad. Tu filosofía: GANCHO → MÉTODO PASO A PASO → EJEMPLO RESUELTO → PRÁCTICA → ERROR COMÚN → DESAFÍO → VICTORIA. Cada pantalla construye competencia para resolver ejercicios de la habilidad específica. NO mezcles habilidades distintas. Genera exactamente 7 pantallas en el orden indicado. JSON válido únicamente. Todo en español.`;
   } else if (classification.type === 'MEMORIZATION') {
-    prompt = buildMemorizationPrompt(transcription, curso);
+    prompt = buildMemorizationPrompt(transcription, curso, contentOverride);
     systemMsg = `Eres un diseñador de sesiones de aprendizaje por memorización para estudiantes chilenos de enseñanza media. Tu filosofía: DATO → ASOCIACIÓN → RETO → REPASO → CURIOSIDAD → VICTORIA. Cada pantalla usa técnicas de memoria para que los datos sean inolvidables. Genera exactamente 8 pantallas en el orden indicado. JSON válido únicamente. Todo en español.`;
   } else {
     // CONCEPTUAL and MIXED → section-based pedagogical mission
-    prompt = buildConceptualPrompt(transcription, curso);
+    prompt = buildConceptualPrompt(transcription, curso, contentOverride);
     systemMsg = `Eres un Arquitecto de Aprendizaje para estudiantes chilenos de enseñanza media. Tu filosofía: DUOLINGO LOOP. Cada concepto tiene exactamente 3 slides obligatorios en este orden: (1) micro_challenge — el estudiante DESCUBRE el concepto respondiendo una pregunta, con question+options+correctAnswer; (2) main_concept — INSIGHT breve que confirma lo descubierto, máximo 25 palabras; (3) reinforcement_challenge — el estudiante APLICA el concepto en una situación nueva, con question+options+correctAnswer, title="Refuerzo". NUNCA main_concept sin micro_challenge antes. NUNCA main_concept sin reinforcement_challenge después. NUNCA dos slides pasivos consecutivos. 60%+ de slides deben ser interactivos. Después de todas las secciones: application → final_challenge (Boss Battle) → victory. JSON válido únicamente. Todo en español.`;
   }
 
@@ -2406,8 +2454,10 @@ export async function generateSkillMission(
   curso: string,
   primarySkill: DetectedSkill,
   learningPath: DetectedSkill[],
+  knowledgeGraph?: KnowledgeGraph | null,
 ): Promise<GenerationResult> {
-  const prompt = buildFocusedProceduralPrompt(transcription, curso, primarySkill, learningPath);
+  const contentOverride = knowledgeGraph ? buildKnowledgeBlock(knowledgeGraph) : undefined;
+  const prompt = buildFocusedProceduralPrompt(transcription, curso, primarySkill, learningPath, contentOverride);
   const systemMsg = `Eres un diseñador de sesiones de aprendizaje procedimental para estudiantes chilenos de enseñanza media. Esta misión enseña UNA SOLA habilidad: "${primarySkill.skillLabel}". PROHIBIDO incluir ejercicios evaluativos de otras habilidades. Estructura FIJA: GANCHO → MÉTODO → EJEMPLO GUIADO → COMPRENSIÓN → APLICACIÓN → ENCUENTRA EL ERROR → DESAFÍO → REFLEXIÓN → EVALUACIÓN FINAL → VICTORIA. Genera exactamente 10 pantallas en ese orden. Pantalla 6 (common_error) es INTERACTIVA: incluye question + options + correctAnswer. Verifica que todas las equivalencias matemáticas sean correctas. Nunca escribas corchetes como [instrucción] — escribe el contenido real. JSON válido únicamente. Todo en español.`;
   const base = await callOpenAIAndBuildResult(prompt, systemMsg, sessionConfig, 8000);
 

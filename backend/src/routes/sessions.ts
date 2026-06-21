@@ -155,7 +155,7 @@ router.post('/generate', upload.array('documents', 10), async (req, res) => {
 
       let generation: Awaited<ReturnType<typeof generateSkillMission>>;
       try {
-        generation = await generateSkillMission(transcription, sessionConfig, curso, skill, skills);
+        generation = await generateSkillMission(transcription, sessionConfig, curso, skill, skills, knowledgeGraph);
       } catch (err: any) {
         console.error(`[Sessions] Mission ${i} generation error:`, err?.message);
         continue;
@@ -240,7 +240,7 @@ router.post('/generate', upload.array('documents', 10), async (req, res) => {
   }, 20000);
   let generation: Awaited<ReturnType<typeof generateSessionContent>>;
   try {
-    generation = await generateSessionContent(transcription, sessionConfig, curso);
+    generation = await generateSessionContent(transcription, sessionConfig, curso, knowledgeGraph);
   } catch (err: any) {
     clearInterval(heartbeat);
     console.error('[Sessions] Generation error:', err?.message);
