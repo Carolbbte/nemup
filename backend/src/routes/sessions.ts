@@ -127,7 +127,7 @@ router.post('/generate', upload.array('documents', 10), async (req, res) => {
 
   // Step 3: Classify content to decide single-mission vs multi-skill path
   sendSse(res, 'progress', createProgressPayload('extracting', 40, 'Detectando habilidades clave...'));
-  const classification = classifyContent(transcription);
+  const classification = classifyContent(knowledgeGraph ?? transcription);
   const detectedSkills = classification.detectedSkills;
   console.log(`[Sessions] Tipo pedagógico: ${classification.type}, habilidades: ${detectedSkills.length}`);
 

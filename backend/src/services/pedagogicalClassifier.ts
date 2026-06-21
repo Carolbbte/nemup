@@ -6,7 +6,13 @@
  *   1. Route to the correct prompt architecture (CONCEPTUAL / PROCEDURAL / MEMORIZATION / MIXED)
  *   2. Generate a single focused mission for the primary skill
  *   3. Build a learning path listing remaining skills as upcoming missions
+ *
+ * classifyContent() accepts either:
+ *   - string        → legacy regex-based path (unchanged)
+ *   - KnowledgeGraph → structured path using extracted concepts/procedures/etc.
  */
+
+import type { KnowledgeGraph } from './knowledgeExtractor.js';
 
 export type PedagogicalType = 'CONCEPTUAL' | 'PROCEDURAL' | 'MEMORIZATION' | 'MIXED';
 
@@ -297,6 +303,72 @@ function detectSkills(transcription: string): DetectedSkill[] {
   });
 }
 
+// ── KnowledgeGraph classification path ───────────────────────────────────────
+//
+// Called when classifyContent() receives a KnowledgeGraph instead of raw text.
+// Derives CONCEPTUAL / PROCEDURAL / MEMORIZATION scores from structural features.
+// Skill detection reuses the existing regex catalog on a synthesized text snippet
+// built from concept names, procedure steps, examples, and definitions.
+
+function classifyFromKnowledgeGraph(graph: KnowledgeGraph): ClassificationResult {
+  const { concepts, procedures, examples, definitions, entities, relationships } = graph;
+
+  // ── Procedural score: step-by-step procedures + numeric/symbolic examples ──
+  const procedureStepCount = procedures.reduce((s, p) => s + (p.steps?.length ?? 0), 0);
+  const numericExamples = examples.filter(e => e.type === 'numeric' || e.type === 'symbolic').length;
+  const pRaw = procedures.length * 3 + procedureStepCount * 0.5 + numericExamples * 1;
+
+  // ── Conceptual score: rich concept network + relationships + textual examples
+  const textualExamples = examples.filter(e => !e.type || e.type === 'textual' || e.type === 'graphical').length;
+  const cRaw = concepts.length * 2 + relationships.length * 1.5 + textualExamples * 1;
+
+  // ── Memorization score: definitions + factual entities (dates, names, events)
+  const factualEntities = entities.filter(e => e.type === 'date' || e.type === 'name' || e.type === 'event').length;
+  const mRaw = definitions.length * 2 + factualEntities * 1.5;
+
+  const total = cRaw + pRaw + mRaw;
+
+  console.log(`[KnowledgeClassifier] scores — conceptual: ${cRaw.toFixed(1)} | procedural: ${pRaw.toFixed(1)} | memorization: ${mRaw.toFixed(1)}`);
+
+  if (total === 0) {
+    console.log('[KnowledgeClassifier] no signals → fallback CONCEPTUAL');
+    return { type: 'CONCEPTUAL', confidence: 0.5, scores: { conceptual: 0, procedural: 0, memorization: 0 }, detectedSkills: [] };
+  }
+
+  const scores = {
+    conceptual:   cRaw / total,
+    procedural:   pRaw / total,
+    memorization: mRaw / total,
+  };
+
+  let type: PedagogicalType;
+  let confidence: number;
+
+  if (scores.procedural >= DOMINANCE_THRESHOLD) {
+    type = 'PROCEDURAL';   confidence = scores.procedural;
+  } else if (scores.conceptual >= DOMINANCE_THRESHOLD) {
+    type = 'CONCEPTUAL';   confidence = scores.conceptual;
+  } else if (scores.memorization >= DOMINANCE_THRESHOLD) {
+    type = 'MEMORIZATION'; confidence = scores.memorization;
+  } else {
+    type = 'MIXED';
+    confidence = Math.max(scores.conceptual, scores.procedural, scores.memorization);
+  }
+
+  // Skill detection: synthesize text from structured graph and run existing regex catalog
+  const syntheticText = [
+    ...concepts.map(c => `${c.name} ${c.description ?? ''}`),
+    ...procedures.map(p => `${p.name} ${p.steps.join(' ')}`),
+    ...examples.map(e => e.content),
+    ...definitions.map(d => `${d.term} ${d.definition}`),
+  ].join(' ');
+  const detectedSkills = detectSkills(syntheticText);
+
+  console.log(`[KnowledgeClassifier] result: ${type} (${(confidence * 100).toFixed(0)}%) | skills: ${detectedSkills.length}`);
+
+  return { type, confidence, scores, detectedSkills };
+}
+
 // ── Main classifier ───────────────────────────────────────────────────────────
 
 const DOMINANCE_THRESHOLD = 0.60;
@@ -323,7 +395,14 @@ function auditIndicatorFiring(label: string, text: string, indicators: Indicator
     .forEach(f => console.log(`[Audit]     /${f.src}/ × ${f.count} × ${f.weight} = ${f.total.toFixed(1)}`));
 }
 
-export function classifyContent(transcription: string): ClassificationResult {
+export function classifyContent(input: string | KnowledgeGraph): ClassificationResult {
+  // ── KnowledgeGraph path (structured) ────────────────────────────────────────
+  if (typeof input !== 'string') {
+    return classifyFromKnowledgeGraph(input);
+  }
+
+  // ── Legacy text path (unchanged) ────────────────────────────────────────────
+  const transcription = input;
   const text = transcription.toLowerCase();
 
   const cRaw = scoreIndicators(text, CONCEPTUAL_INDICATORS);
