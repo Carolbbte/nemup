@@ -172,15 +172,16 @@ JSON SCHEMA — return ONLY this structure:
 // ── Prompt builders ───────────────────────────────────────────────────────────
 
 function buildConceptualPrompt(transcription: string, curso: string, contentOverride?: string): string {
+  const sourceRule = contentOverride
+    ? 'TODO el contenido debe derivarse EXCLUSIVAMENTE del knowledgeGraph provisto.\nEl knowledgeGraph es la única fuente de verdad académica permitida.'
+    : 'TODO el contenido (títulos, definiciones, ejemplos, preguntas, opciones, conectores) DEBE derivarse EXCLUSIVAMENTE de la transcripción.\nNO introduzcas conceptos, términos, vocabulario ni ejemplos ajenos a la transcripción.\nTrata la transcripción como la ÚNICA fuente de contenido académico permitida.';
   return `Eres un Arquitecto de Aprendizaje para estudiantes chilenos de enseñanza media (${curso}).
 Tu tarea NO es generar una secuencia fija de pantallas. Es DISEÑAR una misión pedagógicamente coherente a partir de un análisis real del contenido.
 
 ⚠️ REGLA CRÍTICA DE CONTENIDO — LEE ANTES DE GENERAR CUALQUIER COSA:
-TODO el contenido (títulos, definiciones, ejemplos, preguntas, opciones, conectores) DEBE derivarse EXCLUSIVAMENTE de la transcripción.
-NO introduzcas conceptos, términos, vocabulario ni ejemplos ajenos a la transcripción.
-Los ejemplos de formato en este prompt son SOLO demostraciones de estructura — su contenido temático (biología, física, química usados como ejemplo) NUNCA debe aparecer en el output salvo que también aparezca en la transcripción.
-Si la transcripción trata de Ondas → cada pantalla habla de ondas, frecuencia, amplitud — NUNCA de demanda, precio, fotosíntesis ni ningún otro tema.
-Trata la transcripción como la ÚNICA fuente de contenido académico permitida.
+${sourceRule}
+Los ejemplos de formato en este prompt son SOLO demostraciones de estructura — su contenido temático (biología, física, química usados como ejemplo) NUNCA debe aparecer en el output salvo que también esté en la fuente provista.
+Si el contenido trata de Ondas → cada pantalla habla de ondas, frecuencia, amplitud — NUNCA de demanda, precio, fotosíntesis ni ningún otro tema.
 
 DEVUELVE SOLO JSON VÁLIDO. Sin texto adicional. Todo el contenido en español.
 
@@ -725,7 +726,7 @@ Es un main_concept mal tipado. Dispara regeneración automática.
     "definition": "El 3 multiplica x²: siempre es el número delante de la parte literal." }
 
 REGLA DE ORO: si no tiene question+options+correctAnswer → no lo tipifiques como challenge. Cámbialo a main_concept o elimínalo.
-• DOCUMENT-FIRST: 100% del contenido académico debe derivarse de la transcripción. Si un concepto, ejemplo o aplicación no puede trazarse a la transcripción → eliminarlo.
+• DOCUMENT-FIRST: 100% del contenido académico debe derivarse de la fuente provista. Si un concepto, ejemplo o aplicación no puede trazarse a ella → eliminarlo.
 • PROGRESIÓN: la dificultad entre pantallas interactivas debe crecer. comprehension (Nivel 1 Recordar) → application (Nivel 3 Aplicar) → final_challenge (Nivel 4 Analizar).
 • NO-REPETICIÓN: Cada pantalla debe enseñar o evaluar algo DIFERENTE. Antes de escribir cada pantalla: "¿Ya mostré esta idea?" Si SÍ → usar un concepto distinto.
 • ADAPTACIÓN AL CURSO es OBLIGATORIA: complejidad, vocabulario y profundidad deben corresponder a ${curso}.
@@ -1068,6 +1069,9 @@ function buildFocusedProceduralPrompt(
 ): string {
   const algorithm = SKILL_ALGORITHMS[primarySkill.skillId] ?? '';
   const skill = primarySkill.skillLabel;
+  const sourceRule = contentOverride
+    ? 'TODO el contenido (pasos, números, ejemplos) debe derivarse EXCLUSIVAMENTE del knowledgeGraph provisto.\nEl knowledgeGraph es la única fuente de verdad académica permitida.'
+    : 'TODO el contenido (pasos, números, ejemplos) DEBE derivarse de la transcripción.\nNo inventes ejercicios que no estén en el documento. Usa los MISMOS tipos de problemas del material.';
 
   return `Eres un diseñador de sesiones de aprendizaje PROCEDIMENTAL para estudiantes chilenos de enseñanza media (${curso}).
 
@@ -1081,8 +1085,7 @@ PROHIBIDO: introducir ejercicios, preguntas o contenido evaluativo de otras habi
 Si el documento tiene otras habilidades, serán cubiertas en misiones separadas. NO las incluyas aquí.
 Las pantallas 4, 7 y 9 son todas sobre "${skill}" — distintos niveles de dificultad, misma habilidad.
 
-REGLA DE CONTENIDO: TODO el contenido (pasos, números, ejemplos) DEBE derivarse de la transcripción.
-No inventes ejercicios que no estén en el documento. Usa los MISMOS tipos de problemas del material.
+REGLA DE CONTENIDO: ${sourceRule}
 
 REGLA MATEMÁTICA: verifica que TODAS las equivalencias, resultados y respuestas sean matemáticamente correctos.
 Antes de escribir "A/B = X,Y" o "X,Y = A/B" → verifica la división. Antes de dar respuesta correcta → calcúlala.
@@ -1090,7 +1093,7 @@ Antes de escribir "A/B = X,Y" o "X,Y = A/B" → verifica la división. Antes de 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ALGORITMO PARA "${skill}":
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-${algorithm || 'Extrae los pasos del procedimiento directamente desde la transcripción.'}
+${algorithm || (contentOverride ? 'Extrae los pasos del procedimiento directamente desde el knowledgeGraph provisto.' : 'Extrae los pasos del procedimiento directamente desde la transcripción.')}
 
 PREGUNTAS Y FLASHCARDS:
 Cubren ÚNICAMENTE la habilidad "${skill}". El estudiante APLICA el procedimiento — no define ni memoriza.
@@ -1294,11 +1297,14 @@ ${JSON_SCHEMA}`;
 // ── MEMORIZATION prompt ───────────────────────────────────────────────────────
 
 function buildMemorizationPrompt(transcription: string, curso: string, contentOverride?: string): string {
+  const sourceRule = contentOverride
+    ? 'TODO el contenido debe derivarse EXCLUSIVAMENTE del knowledgeGraph provisto. No inventes datos.\nEl knowledgeGraph es la única fuente de verdad académica permitida.'
+    : 'TODO el contenido DEBE venir EXCLUSIVAMENTE de la transcripción. No inventes datos.';
   return `Eres un diseñador de sesiones de aprendizaje por MEMORIZACIÓN para estudiantes chilenos de enseñanza media (${curso}).
 Este documento requiere que el estudiante RECUERDE datos, definiciones, fechas o vocabulario específico.
 Tu misión: crear una sesión con técnicas de memoria (asociaciones, imágenes mentales, conexiones) que hagan los datos memorables.
 
-⚠️ REGLA CRÍTICA: TODO el contenido DEBE venir EXCLUSIVAMENTE de la transcripción. No inventes datos.
+⚠️ REGLA CRÍTICA: ${sourceRule}
 
 FILOSOFÍA: DATO → ASOCIACIÓN → RETO → APLICACIÓN → REPASO → CURIOSIDAD → VICTORIA
 Cada pantalla debe hacer que el dato se "pegue" en la memoria del estudiante.
@@ -1502,7 +1508,7 @@ REGLAS ABSOLUTAS:
 - Pantallas 4 y 5 DEBEN tener question + options completos.
 - Pantalla 7 title DEBE ser "¿Sabías que...?".
 - Pantalla 8 DEBE usar formato ✓ checklist.
-- TODO el contenido académico debe derivarse de la transcripción.
+- ${contentOverride ? 'TODO el contenido académico debe derivarse EXCLUSIVAMENTE del knowledgeGraph provisto.' : 'TODO el contenido académico debe derivarse de la transcripción.'}
 
 ${contentOverride ?? `Transcripción:\n${normalizeText(transcription)}`}
 ${JSON_SCHEMA}`;
