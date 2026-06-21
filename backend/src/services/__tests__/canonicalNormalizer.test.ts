@@ -75,6 +75,38 @@ describe('normalizeMathExpression — render correctness', () => {
   });
 });
 
+// ── normalizeAllSlides — integration test ─────────────────────────────────────
+
+import { normalizeAllSlides } from '../canonicalNormalizer.js';
+
+describe('normalizeAllSlides', () => {
+  it('cleans zero-coefficient terms from all slide options before storage', () => {
+    const slides: any[] = [
+      {
+        type: 'micro_challenge',
+        question: '¿Cuál es la reducción de 3a² + 5a − 8a² − 11a + a² + 6a?',
+        options: ['A. −4a² + 0a', 'B. −4a² + 6a', 'C. 0a² + 0a'],
+        correctAnswer: 'A',
+        definition: 'Sumar coeficientes solo si letras y exponentes coinciden.',
+      },
+    ];
+
+    const result = normalizeAllSlides(slides);
+    expect(result[0].options[0]).toBe('A. -4a²');     // "−4a² + 0a" → "-4a²"
+    expect(result[0].options[2]).toBe('C. 0');         // "0a² + 0a"  → "0"
+    // non-zero option unchanged
+    expect(result[0].options[1]).toBe('B. -4a² + 6a');
+  });
+
+  it('leaves non-interactive slides (no options) untouched', () => {
+    const slides: any[] = [
+      { type: 'main_concept', title: 'Álgebra', definition: 'Rama de la matemática.' },
+    ];
+    const result = normalizeAllSlides(slides);
+    expect(result[0]).toBe(slides[0]); // same reference — no copy made
+  });
+});
+
 // ── Fallback for non-polynomial expressions ───────────────────────────────────
 
 describe('normalizeMathExpression — fallback for non-polynomial input', () => {

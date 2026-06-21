@@ -22,6 +22,7 @@ import type {
 import { config } from '../config.js';
 import { classifyContent, type DetectedSkill } from './pedagogicalClassifier.js';
 import { validateTruth, buildTruthFeedback } from './truthValidator.js';
+import { normalizeAllSlides } from './canonicalNormalizer.js';
 
 const openai = new OpenAI({ apiKey: config.openai_api_key });
 
@@ -3270,6 +3271,9 @@ export function buildGeneratedSession(
   const baseXpReward = Math.round(xpReward * 0.2);
   const gemReward = Math.max(5, Math.min(40, Math.round(xpReward / 6)));
 
+  const rawSlides = (generation.summary?.slides ?? []) as import('../types.js').SummarySlide[];
+  const cleanedSummary = { ...(generation.summary ?? {}), slides: normalizeAllSlides(rawSlides) };
+
   return {
     id: `${documentId}-${Date.now()}`,
     userId,
@@ -3283,7 +3287,7 @@ export function buildGeneratedSession(
     transcription,
     questions: generation.questions,
     flashcards: generation.flashcards,
-    summary: generation.summary,
+    summary: cleanedSummary,
     metadata: {
       createdAt: new Date().toISOString(),
       processedAt: new Date().toISOString(),

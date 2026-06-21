@@ -297,6 +297,22 @@ function getRawCorrectText(slide: SummarySlide): string | null {
 
 // ── Canonical slide builder ───────────────────────────────────────────────────
 
+/**
+ * Normalizes the options text of every slide that has options.
+ * Strips zero-coefficient terms ("0a", "0x²", "+ 0"), redundant additions,
+ * and re-orders by algebraic degree.
+ *
+ * Use this to clean generated session content before storing it,
+ * so students never see expressions like "−4a² + 0a" instead of "−4a²".
+ */
+export function normalizeAllSlides(slides: SummarySlide[]): SummarySlide[] {
+  return slides.map((slide, i) => {
+    if (!Array.isArray(slide.options) || slide.options.length === 0) return slide;
+    const { normalizedSlide } = canonicalizeSlide(slide, i);
+    return normalizedSlide;
+  });
+}
+
 export function canonicalizeSlide(slide: SummarySlide, index: number): CanonicalizationResult {
   const rawOptions: string[] = Array.isArray(slide.options) ? slide.options : [];
 
