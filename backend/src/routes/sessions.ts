@@ -25,6 +25,7 @@ import { classifyContent } from '../services/pedagogicalClassifier.js';
 import { generateSkillMission } from '../services/generationService.js';
 import { buildDesafioFromMission } from '../services/desafioAdapter.js';
 import type { SessionConfig } from '../types.js';
+import { extractKnowledge, type KnowledgeGraph } from '../services/knowledgeExtractor.js';
 
 const router = express.Router();
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 50 * 1024 * 1024 } });
@@ -110,6 +111,18 @@ router.post('/generate', upload.array('documents', 10), async (req, res) => {
       index: Math.floor(i / CHUNK_SIZE),
       total: Math.ceil(transcriptWords.length / CHUNK_SIZE),
     });
+  }
+
+  // ── Knowledge extraction (incremental integration — fallback-safe) ───────────
+  let knowledgeGraph: KnowledgeGraph | null = null;
+  try {
+    knowledgeGraph = await extractKnowledge({
+      transcription,
+      subject: (configValues as any).subject ?? undefined,
+      curso,
+    });
+  } catch (err: any) {
+    console.warn('[Sessions] KnowledgeExtractor failed (non-fatal), continuing with legacy flow:', err?.message);
   }
 
   // Step 3: Classify content to decide single-mission vs multi-skill path
