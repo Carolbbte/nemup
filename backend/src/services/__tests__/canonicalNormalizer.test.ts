@@ -92,10 +92,10 @@ describe('normalizeAllSlides', () => {
     ];
 
     const result = normalizeAllSlides(slides);
-    expect(result[0].options[0]).toBe('A. -4a²');     // "−4a² + 0a" → "-4a²"
-    expect(result[0].options[2]).toBe('C. 0');         // "0a² + 0a"  → "0"
-    // non-zero option unchanged
-    expect(result[0].options[1]).toBe('B. -4a² + 6a');
+    const opts = result[0]!.options!;
+    expect(opts[0]).toBe('A. -4a²');     // "−4a² + 0a" → "-4a²"
+    expect(opts[2]).toBe('C. 0');        // "0a² + 0a"  → "0"
+    expect(opts[1]).toBe('B. -4a² + 6a'); // non-zero option unchanged
   });
 
   it('leaves non-interactive slides (no options) untouched', () => {
