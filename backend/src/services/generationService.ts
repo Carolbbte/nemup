@@ -2272,6 +2272,9 @@ export async function generateSessionContent(
     systemMsg = `Eres un Arquitecto de Aprendizaje para estudiantes chilenos de enseñanza media. Tu filosofía: DUOLINGO LOOP. Cada concepto tiene exactamente 3 slides obligatorios en este orden: (1) micro_challenge — el estudiante DESCUBRE el concepto respondiendo una pregunta, con question+options+correctAnswer; (2) main_concept — INSIGHT breve que confirma lo descubierto, máximo 25 palabras; (3) reinforcement_challenge — el estudiante APLICA el concepto en una situación nueva, con question+options+correctAnswer, title="Refuerzo". NUNCA main_concept sin micro_challenge antes. NUNCA main_concept sin reinforcement_challenge después. NUNCA dos slides pasivos consecutivos. 60%+ de slides deben ser interactivos. Después de todas las secciones: application → final_challenge (Boss Battle) → victory. JSON válido únicamente. Todo en español.`;
   }
 
+  console.log(`[Generation] source=${knowledgeGraph ? 'knowledgeGraph' : 'transcription'}`);
+  console.log(`[Generation] prompt_chars=${prompt.length} (~${Math.round(prompt.length / 4)} tokens)`);
+  console.log(`[Generation] prompt_content=${prompt.includes('KNOWLEDGE GRAPH') ? 'knowledgeGraph ✓' : 'rawTranscription ⚠️'}`);
   const base = await callOpenAIAndBuildResult(prompt, systemMsg, configValues);
 
   // ── [TEMP] RAW OPENAI RESPONSE AUDIT ─────────────────────────────────────────
@@ -2458,6 +2461,7 @@ export async function generateSkillMission(
 ): Promise<GenerationResult> {
   const contentOverride = knowledgeGraph ? buildKnowledgeBlock(knowledgeGraph) : undefined;
   const prompt = buildFocusedProceduralPrompt(transcription, curso, primarySkill, learningPath, contentOverride);
+  console.log(`[Generation] source=${knowledgeGraph ? 'knowledgeGraph' : 'transcription'} prompt_chars=${prompt.length}`);
   const systemMsg = `Eres un diseñador de sesiones de aprendizaje procedimental para estudiantes chilenos de enseñanza media. Esta misión enseña UNA SOLA habilidad: "${primarySkill.skillLabel}". PROHIBIDO incluir ejercicios evaluativos de otras habilidades. Estructura FIJA: GANCHO → MÉTODO → EJEMPLO GUIADO → COMPRENSIÓN → APLICACIÓN → ENCUENTRA EL ERROR → DESAFÍO → REFLEXIÓN → EVALUACIÓN FINAL → VICTORIA. Genera exactamente 10 pantallas en ese orden. Pantalla 6 (common_error) es INTERACTIVA: incluye question + options + correctAnswer. Verifica que todas las equivalencias matemáticas sean correctas. Nunca escribas corchetes como [instrucción] — escribe el contenido real. JSON válido únicamente. Todo en español.`;
   const base = await callOpenAIAndBuildResult(prompt, systemMsg, sessionConfig, 8000);
 
