@@ -107,6 +107,9 @@ interface SkillDefinition {
   skillLabel: string;
   defaultPriority: number;  // lower number = teach first
   patterns: { pattern: RegExp; weight: number }[];
+  /** At least one of these must match in the KG text for the skill to be valid.
+   *  Prevents cross-domain false positives (e.g. "simplificar" in algebra → fractions). */
+  domainKeywords?: RegExp;
 }
 
 /**
@@ -119,6 +122,7 @@ const SKILL_CATALOG: SkillDefinition[] = [
     skillId: 'SKILL_CLASSIFY_DECIMAL',
     skillLabel: 'Clasificar tipos de decimales',
     defaultPriority: 1,
+    domainKeywords: /decimal|peri[oó]dico|semiperi[oó]dico/i,
     patterns: [
       { pattern: /identifica[a-z]*\s+[a-z\s]{0,15}(peri[oó]dico|tipo|clase|decimal)/gi, weight: 3 },
       { pattern: /reconoce?\s+[a-z\s]{0,15}(tipo|clase|decimal)/gi, weight: 3 },
@@ -131,6 +135,7 @@ const SKILL_CATALOG: SkillDefinition[] = [
     skillId: 'SKILL_ORDER_DECIMALS',
     skillLabel: 'Ordenar decimales',
     defaultPriority: 2,
+    domainKeywords: /decimal/i,
     patterns: [
       { pattern: /orden[ae][a-z]*\s+de\s+menor\s+a\s+mayor/gi, weight: 4 },
       { pattern: /orden[ae][a-z]*\s+de\s+mayor\s+a\s+menor/gi, weight: 4 },
@@ -143,6 +148,7 @@ const SKILL_CATALOG: SkillDefinition[] = [
     skillId: 'SKILL_FRACTION_TO_DECIMAL',
     skillLabel: 'Convertir fracción a decimal',
     defaultPriority: 3,
+    domainKeywords: /fracci[oó]n/i,
     patterns: [
       { pattern: /transform[ae][a-z]*\s+a\s+decimal/gi, weight: 4 },
       { pattern: /conviert[ae][a-z]*\s+a\s+decimal/gi, weight: 4 },
@@ -155,6 +161,7 @@ const SKILL_CATALOG: SkillDefinition[] = [
     skillId: 'SKILL_DECIMAL_TO_FRACTION',
     skillLabel: 'Convertir decimal a fracción',
     defaultPriority: 4,
+    domainKeywords: /fracci[oó]n/i,
     patterns: [
       { pattern: /transform[ae][a-z]*\s+a\s+fracci[oó]n/gi, weight: 4 },
       { pattern: /conviert[ae][a-z]*\s+a\s+fracci[oó]n/gi, weight: 4 },
@@ -166,6 +173,7 @@ const SKILL_CATALOG: SkillDefinition[] = [
     skillId: 'SKILL_OPERATIONS_DECIMALS',
     skillLabel: 'Operaciones con decimales',
     defaultPriority: 5,
+    domainKeywords: /decimal/i,
     patterns: [
       { pattern: /\boperaci[oó]n[es]?\s+[a-z\s]{0,15}decimal/gi, weight: 4 },
       { pattern: /\bsuma[a-z]*\s+[a-z\s]{0,10}decimal/gi, weight: 3 },
@@ -180,6 +188,7 @@ const SKILL_CATALOG: SkillDefinition[] = [
     skillId: 'SKILL_SIMPLIFY_FRACTIONS',
     skillLabel: 'Simplificar fracciones',
     defaultPriority: 3,
+    domainKeywords: /fracci[oó]n|numerador|denominador|m[aá]ximo\s+com[uú]n\s+divisor|\bmcd\b/i,
     patterns: [
       { pattern: /simplifica[a-z]*/gi, weight: 4 },
       { pattern: /fracci[oó]n[es]?\s+irreducible/gi, weight: 3 },
@@ -190,6 +199,7 @@ const SKILL_CATALOG: SkillDefinition[] = [
     skillId: 'SKILL_OPERATIONS_FRACTIONS',
     skillLabel: 'Operaciones con fracciones',
     defaultPriority: 4,
+    domainKeywords: /fracci[oó]n/i,
     patterns: [
       { pattern: /\boperaci[oó]n[es]?\s+con\s+fracci/gi, weight: 4 },
       { pattern: /\bsuma[a-z]*\s+de\s+fracci/gi, weight: 3 },
@@ -204,6 +214,7 @@ const SKILL_CATALOG: SkillDefinition[] = [
     skillId: 'SKILL_FACTORIZATION',
     skillLabel: 'Factorización algebraica',
     defaultPriority: 3,
+    domainKeywords: /factor|factori/i,
     patterns: [
       { pattern: /factoriza[a-z]*/gi, weight: 4 },
       { pattern: /descompon[ae][a-z]*\s+en\s+factores/gi, weight: 4 },
@@ -213,6 +224,7 @@ const SKILL_CATALOG: SkillDefinition[] = [
     skillId: 'SKILL_EQUATIONS',
     skillLabel: 'Resolución de ecuaciones',
     defaultPriority: 3,
+    domainKeywords: /ecuaci[oó]n/i,
     patterns: [
       { pattern: /ecuaci[oó]n[es]*/gi, weight: 3 },
       { pattern: /despeja[a-z]*/gi, weight: 3 },
@@ -223,6 +235,7 @@ const SKILL_CATALOG: SkillDefinition[] = [
     skillId: 'SKILL_DERIVATIVES',
     skillLabel: 'Derivadas',
     defaultPriority: 3,
+    domainKeywords: /derivada|deriv[ae]/i,
     patterns: [
       { pattern: /deriv[ae][a-z]*/gi, weight: 4 },
       { pattern: /\bderivada[s]?\b/gi, weight: 3 },
@@ -232,6 +245,7 @@ const SKILL_CATALOG: SkillDefinition[] = [
     skillId: 'SKILL_INTEGRALS',
     skillLabel: 'Integrales',
     defaultPriority: 4,
+    domainKeywords: /integral/i,
     patterns: [
       { pattern: /integr[ae][a-z]*/gi, weight: 4 },
       { pattern: /\bintegral[es]?\b/gi, weight: 3 },
@@ -242,6 +256,7 @@ const SKILL_CATALOG: SkillDefinition[] = [
     skillId: 'SKILL_BALANCE_EQUATIONS',
     skillLabel: 'Balanceo de ecuaciones químicas',
     defaultPriority: 3,
+    domainKeywords: /qu[ií]mica|reacci[oó]n|balanceo|mol[eé]cula/i,
     patterns: [
       { pattern: /balance[ao][a-z]*\s+ecuaci/gi, weight: 4 },
       { pattern: /balanc[ae][a-z]*/gi, weight: 3 },
@@ -251,6 +266,7 @@ const SKILL_CATALOG: SkillDefinition[] = [
     skillId: 'SKILL_STOICHIOMETRY',
     skillLabel: 'Estequiometría',
     defaultPriority: 4,
+    domainKeywords: /estequiometr|mol[es]?\b|masa\s+molar/i,
     patterns: [
       { pattern: /estequiometr[ií][a-z]*/gi, weight: 4 },
       { pattern: /calcula[a-z]*\s+masa\s+molar/gi, weight: 4 },
@@ -310,6 +326,31 @@ function detectSkills(transcription: string): DetectedSkill[] {
 // Skill detection reuses the existing regex catalog on a synthesized text snippet
 // built from concept names, procedure steps, examples, and definitions.
 
+/**
+ * Post-detection domain validation: removes skills whose domainKeywords do not
+ * appear anywhere in the KG concepts + definitions + examples.
+ *
+ * Prevents cross-domain false positives like SKILL_SIMPLIFY_FRACTIONS firing on
+ * an algebra document that uses "simplificar" without mentioning "fracción".
+ */
+function filterSkillsByKGDomain(skills: DetectedSkill[], graph: KnowledgeGraph): DetectedSkill[] {
+  const kgText = [
+    ...graph.concepts.map(c => `${c.name} ${c.description ?? ''}`),
+    ...graph.definitions.map(d => `${d.term} ${d.definition}`),
+    ...graph.examples.map(e => e.content),
+  ].join(' ');
+
+  return skills.filter(skill => {
+    const def = SKILL_CATALOG.find(d => d.skillId === skill.skillId);
+    if (!def?.domainKeywords) return true;
+    const valid = def.domainKeywords.test(kgText);
+    if (!valid) {
+      console.log(`[KnowledgeClassifier] skill rejected (domain mismatch): ${skill.skillId} — "${def.domainKeywords.source}" not found in KG`);
+    }
+    return valid;
+  });
+}
+
 function classifyFromKnowledgeGraph(graph: KnowledgeGraph): ClassificationResult {
   const { concepts, procedures, examples, definitions, entities, relationships } = graph;
 
@@ -362,9 +403,10 @@ function classifyFromKnowledgeGraph(graph: KnowledgeGraph): ClassificationResult
     ...examples.map(e => e.content),
     ...definitions.map(d => `${d.term} ${d.definition}`),
   ].join(' ');
-  const detectedSkills = detectSkills(syntheticText);
+  const rawSkills = detectSkills(syntheticText);
+  const detectedSkills = filterSkillsByKGDomain(rawSkills, graph);
 
-  console.log(`[KnowledgeClassifier] result: ${type} (${(confidence * 100).toFixed(0)}%) | skills: ${detectedSkills.length}`);
+  console.log(`[KnowledgeClassifier] result: ${type} (${(confidence * 100).toFixed(0)}%) | skills: ${detectedSkills.length} (${rawSkills.length - detectedSkills.length} rejected by domain check)`);
 
   return { type, confidence, scores, detectedSkills };
 }
