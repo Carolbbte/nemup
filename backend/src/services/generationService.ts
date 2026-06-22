@@ -977,7 +977,12 @@ PROHIBIDO: introducir ejercicios, preguntas o contenido evaluativo de otras habi
 Si el documento tiene otras habilidades, serán cubiertas en misiones separadas. NO las incluyas aquí.
 Las pantallas 4, 7 y 9 son todas sobre "${skill}" — distintos niveles de dificultad, misma habilidad.
 
-REGLA DE CONTENIDO: ${sourceRule}
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+DOCUMENT-FIRST — LEE ANTES DE GENERAR CUALQUIER COSA:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+${sourceRule}
+• No inventes ejercicios, pasos ni ejemplos ajenos a la fuente.
+• No uses frases genéricas sin respaldo en la fuente.
 
 REGLA MATEMÁTICA: verifica que TODAS las equivalencias, resultados y respuestas sean matemáticamente correctos.
 Antes de escribir "A/B = X,Y" o "X,Y = A/B" → verifica la división. Antes de dar respuesta correcta → calcúlala.
@@ -1180,7 +1185,14 @@ function buildMemorizationPrompt(transcription: string, curso: string, contentOv
 Este documento requiere que el estudiante RECUERDE datos, definiciones, fechas o vocabulario específico.
 Tu misión: crear una sesión con técnicas de memoria (asociaciones, imágenes mentales, conexiones) que hagan los datos memorables.
 
-⚠️ REGLA CRÍTICA: ${sourceRule}
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+DOCUMENT-FIRST — LEE ANTES DE GENERAR CUALQUIER COSA:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+${sourceRule}
+• No inventes datos, asociaciones ni ejemplos ajenos a la fuente.
+• No uses frases genéricas sin respaldo en la fuente.
+• Los ejemplos de formato de este prompt son SOLO demostraciones de estructura — su contenido NUNCA debe aparecer en el output salvo que la fuente lo incluya.
+• No uses marcas comerciales (Spotify, TikTok, Netflix, etc.) salvo que aparezcan en la fuente.
 
 FILOSOFÍA: DATO → ASOCIACIÓN → RETO → APLICACIÓN → REPASO → CURIOSIDAD → VICTORIA
 Cada pantalla debe hacer que el dato se "pegue" en la memoria del estudiante.
@@ -1313,7 +1325,7 @@ EL GANCHO — pregunta que genera curiosidad sobre el dato que aprenderán.
 - title: Pregunta curiosa sobre el dato principal. DEBE terminar en "?". Max 14 palabras.
   ✅ "¿Sabes cuántos elementos tiene la tabla periódica y por qué ese número importa?"
   ✅ "¿Por qué los griegos inventaron el nombre que le damos a este concepto hoy?"
-  ⚠️ SOLO EJEMPLOS DE FORMATO — crea una pregunta sobre ESTE documento.
+  SOLO FORMATO:
 - definition: Anticipa el descubrimiento sin revelarlo. Max 20 palabras.
 - example: área temática en 3-5 palabras.
 
@@ -1331,7 +1343,7 @@ CRÍTICO: usa el campo connector para mostrar la cadena de asociación.
 - connector: "emoji1 [Ancla mental] ↓ recuerda ↓ emoji2 [El dato] ↓ conecta ↓ emoji3 [Aplicación]"
   Cada nodo: emoji + max 4 palabras. La cadena debe ser una HISTORIA que ayuda a recordar.
   ✅ Ejemplo formato (no copiar): "🏛️ Imperio Romano ↓ cayó en ↓ 📅 476 d.C. ↓ marca el fin de ↓ 🌑 Edad Antigua"
-  ⚠️ NUNCA copies este ejemplo — crea la asociación desde ESTE documento.
+  SOLO FORMATO:
 - title: "Truco para recordarlo" (max 5 palabras)
 - definition: Explica por qué esta asociación funciona (max 20 palabras).
 - example: null
@@ -1384,7 +1396,6 @@ REGLAS ABSOLUTAS:
 - Pantallas 4 y 5 DEBEN tener question + options completos.
 - Pantalla 7 title DEBE ser "¿Sabías que...?".
 - Pantalla 8 DEBE usar formato ✓ checklist.
-- ${contentOverride ? 'TODO el contenido académico debe derivarse EXCLUSIVAMENTE del knowledgeGraph provisto.' : 'TODO el contenido académico debe derivarse de la transcripción.'}
 
 ${contentOverride ?? `Transcripción:\n${normalizeText(transcription)}`}
 ${JSON_SCHEMA}`;
