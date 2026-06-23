@@ -476,7 +476,7 @@ PANTALLA "micro_challenge" — DESAFÍO DE DESCUBRIMIENTO [OBLIGATORIA — UNA P
   TIPOS DE PREGUNTA — ALTERNAR (no repetir el mismo consecutivo): IDENTIFICAR / CLASIFICAR / DETECTAR ERROR / VERDADERO-FALSO / COMPLETAR / COMPARAR.
   Prioridad: ejemplos del documento fuente → variaciones mínimas → nuevos (solo si no existen en el documento).
   SOLO FORMATO:
-  ✓ "En −6m⁴, ¿qué parte representa '−6'?" A) coeficiente B) exponente C) variable
+  ✓ "[Pregunta concreta sobre el concepto del documento]" A) [opción correcta] B) [distractor] C) [distractor]
 
   ⚠️ EJEMPLO INEQUÍVOCO (regla absoluta para preguntas de clasificación):
   Cada alternativa debe pertenecer CLARAMENTE a una sola categoría. Prohibido usar expresiones cuya clasificación sea discutible o dependa de convenciones no mencionadas en el documento.
@@ -492,9 +492,9 @@ PANTALLA "micro_challenge" — DESAFÍO DE DESCUBRIMIENTO [OBLIGATORIA — UNA P
     La respuesta correcta puede estar en A, B o C (variar posición). Alternar tipo de pregunta entre secciones.
   - correctAnswer: "A", "B" o "C"
     AUTO-VERIFICACIÓN: "[Letra] es correcta porque [razón técnica]." Si no puedes → cambia correctAnswer.
-  - correctAnswerReason: esa frase. 1 oración. Sin emojis. ✓ "B es correcta porque el coeficiente es el factor numérico." ✗ "B porque es la correcta." — PROHIBIDO.
+  - correctAnswerReason: esa frase. 1 oración. Sin emojis. ✓ "[Letra] es correcta porque [razón técnica derivada del documento]." ✗ "[Letra] porque es la correcta." — PROHIBIDO.
   - definition: por qué esa opción es correcta. Máx 120 chars. Texto plano, sin emojis ni "Acertaste".
-    ✓ "El coeficiente es el número que multiplica la parte literal: −6 en −6m⁴."
+    ✓ "[Concepto del documento]: [explicación técnica de por qué esa opción es correcta]."
     ✗ "🎯 Acertaste — Solo términos..." — PROHIBIDO
   - example: null
   - connector: null
@@ -519,9 +519,9 @@ PANTALLA "reinforcement_challenge" — DESAFÍO DE REFUERZO [OBLIGATORIA — UNA
     La respuesta correcta puede estar en A, B o C (variar posición).
   - correctAnswer: "A", "B" o "C"
     AUTO-VERIFICACIÓN: aplica el concepto del main_concept anterior a cada opción. Si hay duda → reescribe.
-  - correctAnswerReason: 1 oración citando el concepto enseñado. Sin emojis. ✓ "A es correcta porque frecuencia alta implica onda corta según v = f·λ." ✗ "A porque es la respuesta correcta." — PROHIBIDO.
+  - correctAnswerReason: 1 oración citando el concepto enseñado. Sin emojis. ✓ "[Letra] es correcta porque [razón técnica del concepto enseñado en el main_concept]." ✗ "[Letra] porque es la respuesta correcta." — PROHIBIDO.
   - definition: POR QUÉ esa respuesta aplica el concepto. Máx 120 chars. Sin emojis ni "Muy bien"/"Correcto". Conecta con main_concept anterior.
-    ✓ "La frecuencia alta comprime las ondas: longitud corta es consecuencia directa." ✗ "🎯 Correcto..." — PROHIBIDO
+    ✓ "[Consecuencia directa del concepto aplicado, derivada del main_concept anterior]." ✗ "🎯 Correcto..." — PROHIBIDO
   - example: null
   - connector: null
   - wrongAnswerHints: OBLIGATORIO — ver REGLAS PARA TODOS LOS SLIDES CON OPCIONES.
@@ -2957,7 +2957,7 @@ function buildFlowFeedback(r: PedagogicalFlowReport): string {
         lines.push(`\n✗ [REGLA 1] ${v.detail}`);
         lines.push('  CORRECCIÓN: el campo definition de micro_challenge y reinforcement_challenge es feedback POST-respuesta.');
         lines.push('  NO debe contener "Correcto", "Exacto", "Acertaste", "Bien hecho", "Lo captaste", "Perfecto", "Muy bien".');
-        lines.push('  Reescribir como explicación factual: "El coeficiente es el número que multiplica la parte literal."');
+        lines.push('  Reescribir como explicación factual derivada del documento: "[Concepto]: [explicación técnica de por qué esa opción es correcta]."');
         break;
       case 'reinforcement_without_challenge':
         lines.push(`\n✗ [REGLA 2] ${v.detail}`);
