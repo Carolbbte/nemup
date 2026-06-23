@@ -185,7 +185,7 @@ function resolveDefinitionMode(
   return isExpanded ? 'expanded' : 'compact';
 }
 
-function buildConceptualPrompt(transcription: string, curso: string, contentOverride?: string, definitionMode: DefinitionMode = 'compact'): string {
+function buildConceptualPrompt(transcription: string, curso: string, contentOverride?: string, definitionMode: DefinitionMode = 'compact', feedbackFormatExample: string = ''): string {
   const mainConceptDefinitionSpec = definitionMode === 'expanded'
     ? `- definition: ENTRE 55 Y 90 palabras. Mini-párrafo pedagógico fluido — NO usar bullets como única explicación.
     Debe incluir obligatoriamente en prosa continua:
@@ -492,10 +492,10 @@ PANTALLA "micro_challenge" — DESAFÍO DE DESCUBRIMIENTO [OBLIGATORIA — UNA P
     La respuesta correcta puede estar en A, B o C (variar posición). Alternar tipo de pregunta entre secciones.
   - correctAnswer: "A", "B" o "C"
     AUTO-VERIFICACIÓN: "[Letra] es correcta porque [razón técnica]." Si no puedes → cambia correctAnswer.
-  - correctAnswerReason: 1 oración explicando por qué esa letra es la correcta. Sin emojis. Cita la razón técnica del documento. ✗ "[Letra] porque es la correcta." — PROHIBIDO.
+  - correctAnswerReason: 1 oración explicando por qué esa letra es correcta. Sin emojis. Cita la razón técnica del documento. ✗ "[Letra] porque es la correcta." — PROHIBIDO.
   - definition: Explica POR QUÉ la respuesta correcta es correcta según el documento. Máx 120 chars. Texto plano. Sin emojis ni "Acertaste".
+    SOLO FORMATO (de este documento): ${feedbackFormatExample || '"[Nombre del concepto]: [característica específica que lo define según el documento]."'}
     ✗ PROHIBIDO: copiar o parafrasear el texto de la pregunta.
-    ✗ PROHIBIDO: frases genéricas sin razón técnica ("es la más completa", "corresponde a la definición").
     ✗ "🎯 Acertaste — Solo términos..." — PROHIBIDO
   - example: null
   - connector: null
@@ -522,8 +522,8 @@ PANTALLA "reinforcement_challenge" — DESAFÍO DE REFUERZO [OBLIGATORIA — UNA
     AUTO-VERIFICACIÓN: aplica el concepto del main_concept anterior a cada opción. Si hay duda → reescribe.
   - correctAnswerReason: 1 oración citando el concepto enseñado en el main_concept. Sin emojis. ✗ "[Letra] porque es la respuesta correcta." — PROHIBIDO.
   - definition: Explica cómo la respuesta correcta aplica el concepto del main_concept anterior. Máx 120 chars. Sin emojis ni "Muy bien"/"Correcto".
+    SOLO FORMATO (de este documento): ${feedbackFormatExample || '"[Nombre del concepto]: [cómo se aplica en la situación de la pregunta, según el documento]."'}
     ✗ PROHIBIDO: copiar o parafrasear el texto de la pregunta.
-    ✗ PROHIBIDO: frases genéricas sin referencia al concepto enseñado.
     ✗ "🎯 Correcto..." — PROHIBIDO
   - example: null
   - connector: null
@@ -2197,7 +2197,12 @@ export async function generateSessionContent(
     definitionMode = resolveDefinitionMode(knowledgeGraph, classification);
     console.log(`[DefinitionMode] mode=${definitionMode}`);
     console.log(`[DefinitionMode] concepts=${knowledgeGraph?.concepts.length ?? 0} procedures=${knowledgeGraph?.procedures.length ?? 0} conceptual=${(classification.scores.conceptual * 100).toFixed(0)}% procedural=${(classification.scores.procedural * 100).toFixed(0)}%`);
-    prompt = buildConceptualPrompt(transcription, curso, contentOverride, definitionMode);
+    const kgConcept = knowledgeGraph?.concepts[0];
+    const feedbackFormatExample = kgConcept
+      ? `"${kgConcept.name}${kgConcept.description ? ': ' + kgConcept.description.replace(/\n/g, ' ').slice(0, 80).trim() : '.'}" [SOLO FORMATO — no copies este texto]`
+      : '';
+    if (feedbackFormatExample) console.log(`[DefinitionMode] feedbackFormatExample=${feedbackFormatExample}`);
+    prompt = buildConceptualPrompt(transcription, curso, contentOverride, definitionMode, feedbackFormatExample);
     console.log(`[Generation] buildConceptualPrompt refactor — old_chars=56876 new_chars=${prompt.length} delta=${prompt.length - 56876} (${((prompt.length - 56876) / 56876 * 100).toFixed(1)}%) [REGLA-DE-ORO+DOCUMENT-FIRST]`);
     const mainConceptSystemDesc = definitionMode === 'expanded'
       ? 'main_concept — explicación pedagógica de 55-90 palabras con qué es, por qué importa, relación con la misión y ejemplo del documento; prosa fluida, NO bullets sueltos'
