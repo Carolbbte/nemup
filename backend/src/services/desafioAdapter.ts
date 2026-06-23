@@ -194,11 +194,6 @@ export function buildDesafioFromMission(slides: any[], topic: string): DesafioSe
         }
       }
 
-      const explanation = String(slide.definition ?? '');
-      console.log(`[DesafioAdapter] slide ${i} (${type}) explanation="${explanation.slice(0, 120)}"`);
-      if (Object.keys(wrongHints).length > 0) {
-        Object.entries(wrongHints).forEach(([k, v]) => console.log(`[DesafioAdapter] slide ${i} wrongHint[${k}]="${String(v).slice(0, 120)}"`));
-      }
       desafioSlides.push({
         ...base,
         type: desafioType,
@@ -206,7 +201,7 @@ export function buildDesafioFromMission(slides: any[], topic: string): DesafioSe
         question: String(slide.question),
         choices,
         correctAnswer,
-        explanation,
+        explanation: String(slide.definition ?? ''),
         ...(Object.keys(wrongHints).length > 0 ? { wrongHints } : {}),
       });
       continue;
