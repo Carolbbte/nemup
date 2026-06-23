@@ -1871,13 +1871,20 @@ async function callOpenAIAndBuildResult(
     return stripped.length >= 10 ? stripped : raw;
   };
 
+  const CORRECT_REASON_PREFIX_RE = /^[A-C]\s+es\s+correcta\s+porque\s+/i;
+  const sanitizeCorrectAnswerReason = (text: string): string =>
+    text.replace(CORRECT_REASON_PREFIX_RE, '').trim();
+
   const rawSlides = (parsed.summary?.slides || []).map((slide: any, i: number) => {
     const clean = stripTemplatePlaceholders(slide);
+    const reasonFallback = clean.type === 'micro_challenge'
+      ? sanitizeCorrectAnswerReason(clean.correctAnswerReason || '')
+      : '';
     return {
       type: VALID_SLIDE_TYPES.includes(clean.type) ? clean.type : 'concept',
       emoji: clean.emoji || '📚',
       title: clean.title || `Concepto ${i + 1}`,
-      definition: stripFeedbackPrefix(clean.definition || clean.correctAnswerReason || clean.content || '', clean.type),
+      definition: stripFeedbackPrefix(clean.definition || reasonFallback || clean.content || '', clean.type),
       example: clean.example || null,
       visualHint: clean.visualHint || undefined,
       illustrationType: VALID_ILLUSTRATION_TYPES.includes(clean.illustrationType) ? clean.illustrationType : undefined,
