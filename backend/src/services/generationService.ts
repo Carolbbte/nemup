@@ -555,14 +555,9 @@ PANTALLA "wow_fact" — SABÍAS QUE [OPCIONAL — máximo UNO en toda la misión
 PANTALLA "application" — APLICACIÓN REAL [UNA SOLA — después de TODAS las secciones]
   Conecta los conceptos nucleares aprendidos con un contexto real ESPECÍFICO Y CONCRETO.
   ✗ PROHIBIDO: frases genéricas como "esto se usa en la vida cotidiana" o "tiene muchas aplicaciones".
-  ✅ REQUERIDO: mencionar EXACTAMENTE cómo uno o más conceptos nucleares se manifiestan en ese contexto.
-  Usa aplicaciones que deriven NATURALMENTE del tema del documento:
-    Física/Ondas: radio FM, ultrasonido médico, radar, sísmica, WiFi, fibra óptica
-    Biología: diagnóstico médico, nutrición, salud genética, medicamentos
-    Química: procesos industriales, cocina, baterías, combustión
-    Matemática: ingeniería, arquitectura, finanzas, estadísticas
-    Historia: procesos sociales actuales, análisis de fuentes, conexiones con el presente
-    Lenguaje: análisis de textos reales, publicidad, argumentación, comunicación
+  ✗ PROHIBIDO: inventar o extrapolar un contexto que no aparece en la fuente (campo, industria, situación).
+  ✅ REQUERIDO: el contexto de aplicación DEBE estar presente explícitamente en el documento fuente.
+  Si la fuente no menciona ningún contexto real → usa los propios ejemplos del documento como situación de aplicación. No inventes un dominio externo.
   - title: escenario real concreto como pregunta (max 15 palabras)
     SOLO FORMATO:
     ✅ "¿Cómo detectan los médicos el corazón de un bebé antes de nacer?" [Física/Ondas — SOLO FORMATO]
@@ -648,6 +643,7 @@ VALIDACIÓN FINAL — ejecutar antes de generar JSON:
 6. ¿El final_challenge NO introduce conceptos nuevos? → Si NO → eliminar esos conceptos de la pregunta.
 7. ¿La pantalla victory lista EXACTAMENTE los conceptos nucleares enseñados (ni más ni menos)? → Si NO → corregir.
 8. ¿La application muestra un caso concreto y específico, no una descripción genérica? → Si NO → reescribir con detalles concretos.
+   ¿El contexto de la application proviene explícitamente de la fuente? Si fue inventado o extrapolado (campo/industria no mencionado en el documento) → reescribir usando los propios ejemplos del documento.
 9. ¿Toda pantalla interactiva tiene wrongAnswerHints con entrada por cada opción incorrecta? → Si NO → agregar.
 10. ¿La complejidad corresponde a ${curso}? → Si NO → ajustar lenguaje y profundidad.
 11. ¿Cada sección tiene su tríada obligatoria micro_challenge → main_concept → reinforcement_challenge en ese orden? → Si NO → agregar el reinforcement_challenge faltante.
