@@ -1877,7 +1877,7 @@ async function callOpenAIAndBuildResult(
       type: VALID_SLIDE_TYPES.includes(clean.type) ? clean.type : 'concept',
       emoji: clean.emoji || '📚',
       title: clean.title || `Concepto ${i + 1}`,
-      definition: stripFeedbackPrefix(clean.definition || clean.content || '', clean.type),
+      definition: stripFeedbackPrefix(clean.definition || clean.correctAnswerReason || clean.content || '', clean.type),
       example: clean.example || null,
       visualHint: clean.visualHint || undefined,
       illustrationType: VALID_ILLUSTRATION_TYPES.includes(clean.illustrationType) ? clean.illustrationType : undefined,
