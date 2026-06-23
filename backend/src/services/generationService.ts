@@ -20,7 +20,7 @@ import type {
   GeneratedSession,
 } from '../types.js';
 import { config } from '../config.js';
-import { classifyContent, type DetectedSkill } from './pedagogicalClassifier.js';
+import { classifyContent, type DetectedSkill, type ClassificationResult } from './pedagogicalClassifier.js';
 import { validateTruth, buildTruthFeedback } from './truthValidator.js';
 import { normalizeAllSlides } from './canonicalNormalizer.js';
 import type { KnowledgeGraph } from './knowledgeExtractor.js';
@@ -171,7 +171,44 @@ JSON SCHEMA — return ONLY this structure:
 
 // ── Prompt builders ───────────────────────────────────────────────────────────
 
-function buildConceptualPrompt(transcription: string, curso: string, contentOverride?: string): string {
+type DefinitionMode = 'compact' | 'expanded';
+
+function resolveDefinitionMode(
+  graph: KnowledgeGraph | null | undefined,
+  classification: ClassificationResult,
+): DefinitionMode {
+  if (!graph) return 'compact';
+  const isExpanded =
+    graph.concepts.length >= 4 &&
+    graph.procedures.length <= 1 &&
+    classification.scores.conceptual > classification.scores.procedural;
+  return isExpanded ? 'expanded' : 'compact';
+}
+
+function buildConceptualPrompt(transcription: string, curso: string, contentOverride?: string, definitionMode: DefinitionMode = 'compact'): string {
+  const mainConceptDefinitionSpec = definitionMode === 'expanded'
+    ? `- definition: ENTRE 55 Y 90 palabras. Mini-párrafo pedagógico fluido — NO usar bullets como única explicación.
+    Debe incluir obligatoriamente en prosa continua:
+    1. Qué es el concepto (1-2 oraciones directas)
+    2. Por qué importa en el contexto del tema
+    3. Cómo se relaciona con los otros conceptos de esta misión
+    4. Un ejemplo tomado del documento fuente
+    ✗ PROHIBIDO fragmentar en bullets sueltos sin hilo conductor.
+    ✓ CORRECTO: "Los órganos homólogos son estructuras que comparten el mismo origen evolutivo aunque cumplen funciones distintas en cada especie. Son clave para entender la evolución porque demuestran que especies diferentes descienden de un ancestro común. En esta misión conectan con el registro fósil: ambos revelan parentesco a través del tiempo. Ejemplo del documento: el ala de murciélago y la aleta de delfín tienen los mismos huesos reorganizados."`
+    : `- definition: MÁXIMO 25 palabras. UNA sola idea. Lenguaje directo, no académico.
+    Formato OBLIGATORIO — 1 o 2 líneas separadas por \\n, cada una iniciando con "* ":
+    "* [1 idea directa: qué es o qué hace, max 15 palabras]\\n* [analogía cotidiana o ejemplo concreto del documento, max 10 palabras]"
+    Analogías permitidas: ropa, música, deportes, comida, tecnología, redes sociales, videojuegos.
+    SOLO FORMATO:
+    ✅ "* Términos semejantes: misma letra, mismo exponente.\\n* Como naranjas y naranjas — no mezclas 3x con 7y." [Álgebra]
+    ❌ "* Los términos semejantes son expresiones algebraicas con la misma parte literal y el mismo exponente numérico.\\n* Como piezas idénticas de un rompecabezas.\\n* 4a + 2b − a → 3a + 2b." — 3 ideas, demasiado largo, demasiado académico.
+    REGLA DE DIVISIÓN: si necesitas más de 2 líneas para explicarlo → son DOS conceptos distintos con sus propias secciones.
+    UN solo insight por slide. Sin excepciones.`;
+
+  const limiteMainConcept = definitionMode === 'expanded'
+    ? 'EXCEPCIÓN main_concept (modo expanded): entre 55 y 90 palabras en mini-párrafo pedagógico fluido (ver especificación).'
+    : 'EXCEPCIÓN main_concept (modo compact): máximo 25 palabras en formato lista de 1-2 bullets (ver especificación).';
+
   const sourceRule = contentOverride
     ? 'TODO el contenido debe derivarse EXCLUSIVAMENTE del knowledgeGraph provisto.\nEl knowledgeGraph es la única fuente de verdad académica permitida.'
     : 'TODO el contenido (títulos, definiciones, ejemplos, preguntas, opciones, conectores) DEBE derivarse EXCLUSIVAMENTE de la transcripción.\nNO introduzcas conceptos, términos, vocabulario ni ejemplos ajenos a la transcripción.\nTrata la transcripción como la ÚNICA fuente de contenido académico permitida.';
@@ -420,17 +457,9 @@ PANTALLA "mission" — EL GANCHO [UNA SOLA — POSICIÓN 1]
 
 PANTALLA "main_concept" — INSIGHT DE CONFIRMACIÓN [OBLIGATORIA — UNA POR SECCIÓN, JUSTO DESPUÉS de micro_challenge]
   ⚡ CONFIRMACIÓN, no introducción. El estudiante ya encontró el concepto en el desafío anterior.
-  Este insight confirma y nombra lo que acaba de descubrir. Mínima carga cognitiva. Sin definiciones académicas.
+  Este insight confirma y nombra lo que acaba de descubrir. Sin definiciones académicas secas.
   - title: nombre del concepto nuclear (max 5 palabras)
-  - definition: MÁXIMO 25 palabras. UNA sola idea. Lenguaje directo, no académico.
-    Formato OBLIGATORIO — 1 o 2 líneas separadas por \n, cada una iniciando con "* ":
-    "* [1 idea directa: qué es o qué hace, max 15 palabras]\n* [analogía cotidiana o ejemplo concreto del documento, max 10 palabras]"
-    Analogías permitidas: ropa, música, deportes, comida, tecnología, redes sociales, videojuegos.
-    SOLO FORMATO:
-    ✅ "* Términos semejantes: misma letra, mismo exponente.\n* Como naranjas y naranjas — no mezclas 3x con 7y." [Álgebra]
-    ❌ "* Los términos semejantes son expresiones algebraicas con la misma parte literal y el mismo exponente numérico.\n* Como piezas idénticas de un rompecabezas.\n* 4a + 2b − a → 3a + 2b." — 3 ideas, demasiado largo, demasiado académico.
-    REGLA DE DIVISIÓN: si necesitas más de 2 líneas para explicarlo → son DOS conceptos distintos con sus propias secciones.
-    UN solo insight por slide. Sin excepciones.
+  ${mainConceptDefinitionSpec}
   - example: SITUACIÓN ESPECÍFICA que un estudiante chileno encontrará HOY. Nombre concreto o número.
     ✗ PROHIBIDO: "Esto es relevante para la vida cotidiana." — abstracto, no aporta valor.
   - connector: OPCIONAL. Usar null si no hay cadena causal real entre el concepto y su consecuencia.
@@ -599,7 +628,7 @@ PANTALLA "victory" — MISIÓN COMPLETADA [UNA SOLA — al final]
 LÍMITES DE TEXTO — aplican a CADA pantalla:
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 - definition: máximo 2 oraciones O 30 palabras — lo que sea más corto.
-  EXCEPCIÓN main_concept: máximo 25 palabras en formato lista de 1-2 bullets (ver especificación de esa pantalla).
+  ${limiteMainConcept}
 - example: máximo 20 palabras.
 - title: máximo 8 palabras.
 Prefiere frases escaneables sobre prosa conectada.
@@ -1636,6 +1665,7 @@ async function callOpenAIAndBuildResult(
   systemMsg: string,
   configValues: SessionConfig,
   maxTokens = 7000,
+  definitionMode: DefinitionMode = 'compact',
 ): Promise<Omit<GenerationResult, 'pedagogicalType' | 'primarySkill' | 'learningPath'>> {
   console.log(`[Generation] Prompt enviado a la IA (${prompt.length} chars)`);
   const response = await openai.chat.completions.create({
@@ -1696,11 +1726,14 @@ async function callOpenAIAndBuildResult(
   console.log('[Audit] main concepts:', nuclearConcepts.map((s: any) => s.title ?? '(sin título)'));
   nuclearConcepts.forEach((s: any, i: number) => {
     const defWords = (s.definition ?? '').split(/\s+/).filter(Boolean).length;
+    const minWords = definitionMode === 'expanded' ? 55 : 15;
+    const maxWords = definitionMode === 'expanded' ? 90 : 30;
     console.log(`[Audit] main_concept #${i + 1}:`);
     console.log(`  title = ${s.title ?? '(sin título)'}`);
     console.log(`  definition words = ${defWords}`);
-    if (defWords < 60) console.log(`  ⚠ definition demasiado corta (< 60 palabras) — verificar prompt`);
-    if (defWords > 120) console.log(`  ⚠ definition demasiado larga (> 120 palabras)`);
+    console.log(`  [MainConceptAudit] mode=${definitionMode} words=${defWords}`);
+    if (defWords < minWords) console.log(`  ⚠ definition demasiado corta (< ${minWords} palabras) — modo ${definitionMode}`);
+    if (defWords > maxWords) console.log(`  ⚠ definition demasiado larga (> ${maxWords} palabras) — modo ${definitionMode}`);
   });
   rawAiSlides.forEach((s: any, i: number) => {
     const inter = s.question ? ' [interactivo]' : '';
@@ -2148,6 +2181,7 @@ export async function generateSessionContent(
 
   let prompt: string;
   let systemMsg: string;
+  let definitionMode: DefinitionMode = 'compact';
 
   if (classification.type === 'PROCEDURAL' && primarySkill) {
     prompt = buildFocusedProceduralPrompt(transcription, curso, primarySkill, learningPath, contentOverride);
@@ -2157,15 +2191,21 @@ export async function generateSessionContent(
     systemMsg = `Eres un diseñador de sesiones de aprendizaje por memorización para estudiantes chilenos de enseñanza media. Tu filosofía: DATO → ASOCIACIÓN → RETO → REPASO → CURIOSIDAD → VICTORIA. Cada pantalla usa técnicas de memoria para que los datos sean inolvidables. Genera exactamente 8 pantallas en el orden indicado. JSON válido únicamente. Todo en español.`;
   } else {
     // CONCEPTUAL and MIXED → section-based pedagogical mission
-    prompt = buildConceptualPrompt(transcription, curso, contentOverride);
+    definitionMode = resolveDefinitionMode(knowledgeGraph, classification);
+    console.log(`[DefinitionMode] mode=${definitionMode}`);
+    console.log(`[DefinitionMode] concepts=${knowledgeGraph?.concepts.length ?? 0} procedures=${knowledgeGraph?.procedures.length ?? 0} conceptual=${(classification.scores.conceptual * 100).toFixed(0)}% procedural=${(classification.scores.procedural * 100).toFixed(0)}%`);
+    prompt = buildConceptualPrompt(transcription, curso, contentOverride, definitionMode);
     console.log(`[Generation] buildConceptualPrompt refactor — old_chars=56876 new_chars=${prompt.length} delta=${prompt.length - 56876} (${((prompt.length - 56876) / 56876 * 100).toFixed(1)}%) [REGLA-DE-ORO+DOCUMENT-FIRST]`);
-    systemMsg = `Eres un Arquitecto de Aprendizaje para estudiantes chilenos de enseñanza media. Tu filosofía: DUOLINGO LOOP. Cada concepto tiene exactamente 3 slides obligatorios en este orden: (1) micro_challenge — el estudiante DESCUBRE el concepto respondiendo una pregunta, con question+options+correctAnswer; (2) main_concept — INSIGHT breve que confirma lo descubierto, máximo 25 palabras; (3) reinforcement_challenge — el estudiante APLICA el concepto en una situación nueva, con question+options+correctAnswer, title="Refuerzo". NUNCA main_concept sin micro_challenge antes. NUNCA main_concept sin reinforcement_challenge después. NUNCA dos slides pasivos consecutivos. 60%+ de slides deben ser interactivos. Después de todas las secciones: application → final_challenge (Boss Battle) → victory. JSON válido únicamente. Todo en español.`;
+    const mainConceptSystemDesc = definitionMode === 'expanded'
+      ? 'main_concept — explicación pedagógica de 55-90 palabras con qué es, por qué importa, relación con la misión y ejemplo del documento; prosa fluida, NO bullets sueltos'
+      : 'main_concept — INSIGHT breve que confirma lo descubierto, máximo 25 palabras en 1-2 bullets';
+    systemMsg = `Eres un Arquitecto de Aprendizaje para estudiantes chilenos de enseñanza media. Tu filosofía: DUOLINGO LOOP. Cada concepto tiene exactamente 3 slides obligatorios en este orden: (1) micro_challenge — el estudiante DESCUBRE el concepto respondiendo una pregunta, con question+options+correctAnswer; (2) ${mainConceptSystemDesc}; (3) reinforcement_challenge — el estudiante APLICA el concepto en una situación nueva, con question+options+correctAnswer, title="Refuerzo". NUNCA main_concept sin micro_challenge antes. NUNCA main_concept sin reinforcement_challenge después. NUNCA dos slides pasivos consecutivos. 60%+ de slides deben ser interactivos. Después de todas las secciones: application → final_challenge (Boss Battle) → victory. JSON válido únicamente. Todo en español.`;
   }
 
   console.log(`[Generation] source=${knowledgeGraph ? 'knowledgeGraph' : 'transcription'}`);
   console.log(`[Generation] prompt_chars=${prompt.length} (~${Math.round(prompt.length / 4)} tokens)`);
   console.log(`[Generation] prompt_content=${prompt.includes('KNOWLEDGE GRAPH') ? 'knowledgeGraph ✓' : 'rawTranscription ⚠️'}`);
-  const base = await callOpenAIAndBuildResult(prompt, systemMsg, configValues);
+  const base = await callOpenAIAndBuildResult(prompt, systemMsg, configValues, 7000, definitionMode);
 
   // ── [TEMP] RAW OPENAI RESPONSE AUDIT ─────────────────────────────────────────
   {
@@ -2304,7 +2344,7 @@ export async function generateSessionContent(
     if (!gFlow.passesThreshold)             feedbackParts.push(buildFlowFeedback(gFlow));
     if (!gTruth.passed)                     feedbackParts.push(buildTruthFeedback(gTruth));
     const retryPrompt = `${prompt}\n\n${'━'.repeat(40)}\n${feedbackParts.join('\n\n')}\n${'━'.repeat(40)}`;
-    finalBase = await callOpenAIAndBuildResult(retryPrompt, systemMsg, configValues);
+    finalBase = await callOpenAIAndBuildResult(retryPrompt, systemMsg, configValues, 7000, definitionMode);
     console.log('[QUALITY REPORT] Regeneración completada.');
   } else {
     console.log('  action:           ACCEPT');
