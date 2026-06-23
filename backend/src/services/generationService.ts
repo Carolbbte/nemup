@@ -492,9 +492,10 @@ PANTALLA "micro_challenge" — DESAFÍO DE DESCUBRIMIENTO [OBLIGATORIA — UNA P
     La respuesta correcta puede estar en A, B o C (variar posición). Alternar tipo de pregunta entre secciones.
   - correctAnswer: "A", "B" o "C"
     AUTO-VERIFICACIÓN: "[Letra] es correcta porque [razón técnica]." Si no puedes → cambia correctAnswer.
-  - correctAnswerReason: esa frase. 1 oración. Sin emojis. ✓ "[Letra] es correcta porque [razón técnica derivada del documento]." ✗ "[Letra] porque es la correcta." — PROHIBIDO.
-  - definition: por qué esa opción es correcta. Máx 120 chars. Texto plano, sin emojis ni "Acertaste".
-    ✓ "[Concepto del documento]: [explicación técnica de por qué esa opción es correcta]."
+  - correctAnswerReason: 1 oración explicando por qué esa letra es la correcta. Sin emojis. Cita la razón técnica del documento. ✗ "[Letra] porque es la correcta." — PROHIBIDO.
+  - definition: Explica POR QUÉ la respuesta correcta es correcta según el documento. Máx 120 chars. Texto plano. Sin emojis ni "Acertaste".
+    ✗ PROHIBIDO: copiar o parafrasear el texto de la pregunta.
+    ✗ PROHIBIDO: frases genéricas sin razón técnica ("es la más completa", "corresponde a la definición").
     ✗ "🎯 Acertaste — Solo términos..." — PROHIBIDO
   - example: null
   - connector: null
@@ -519,9 +520,11 @@ PANTALLA "reinforcement_challenge" — DESAFÍO DE REFUERZO [OBLIGATORIA — UNA
     La respuesta correcta puede estar en A, B o C (variar posición).
   - correctAnswer: "A", "B" o "C"
     AUTO-VERIFICACIÓN: aplica el concepto del main_concept anterior a cada opción. Si hay duda → reescribe.
-  - correctAnswerReason: 1 oración citando el concepto enseñado. Sin emojis. ✓ "[Letra] es correcta porque [razón técnica del concepto enseñado en el main_concept]." ✗ "[Letra] porque es la respuesta correcta." — PROHIBIDO.
-  - definition: POR QUÉ esa respuesta aplica el concepto. Máx 120 chars. Sin emojis ni "Muy bien"/"Correcto". Conecta con main_concept anterior.
-    ✓ "[Consecuencia directa del concepto aplicado, derivada del main_concept anterior]." ✗ "🎯 Correcto..." — PROHIBIDO
+  - correctAnswerReason: 1 oración citando el concepto enseñado en el main_concept. Sin emojis. ✗ "[Letra] porque es la respuesta correcta." — PROHIBIDO.
+  - definition: Explica cómo la respuesta correcta aplica el concepto del main_concept anterior. Máx 120 chars. Sin emojis ni "Muy bien"/"Correcto".
+    ✗ PROHIBIDO: copiar o parafrasear el texto de la pregunta.
+    ✗ PROHIBIDO: frases genéricas sin referencia al concepto enseñado.
+    ✗ "🎯 Correcto..." — PROHIBIDO
   - example: null
   - connector: null
   - wrongAnswerHints: OBLIGATORIO — ver REGLAS PARA TODOS LOS SLIDES CON OPCIONES.
