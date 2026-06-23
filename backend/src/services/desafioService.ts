@@ -663,6 +663,13 @@ function validateSlide(slide: unknown): DesafioSlide | null {
     if (!s.question || !Array.isArray(s.choices)) return null;
   }
 
+  const explanation = typeof s.explanation === 'string' ? s.explanation : undefined;
+  const wrongHintsOut = s.wrongHints && typeof s.wrongHints === 'object' ? s.wrongHints as Record<string, string> : undefined;
+  console.log(`[DesafioService] slide type=${s.type} concept="${s.conceptName}" explanation="${(explanation ?? '').slice(0, 120)}"`);
+  if (wrongHintsOut) {
+    Object.entries(wrongHintsOut).forEach(([k, v]) => console.log(`[DesafioService] slide wrongHint[${k}]="${String(v).slice(0, 120)}"`));
+  }
+
   return {
     type,
     interactionType: itype,
@@ -674,8 +681,8 @@ function validateSlide(slide: unknown): DesafioSlide | null {
     question:      typeof s.question === 'string' ? s.question : undefined,
     choices:       Array.isArray(s.choices) ? s.choices as DesafioChoice[] : undefined,
     correctAnswer: (s.correctAnswer === 'A' || s.correctAnswer === 'B' || s.correctAnswer === 'C') ? s.correctAnswer : undefined,
-    explanation:   typeof s.explanation === 'string' ? s.explanation : undefined,
-    wrongHints:    s.wrongHints && typeof s.wrongHints === 'object' ? s.wrongHints as Record<string, string> : undefined,
+    explanation,
+    wrongHints:    wrongHintsOut,
     pairsPrompt:   typeof s.pairsPrompt === 'string' ? s.pairsPrompt : undefined,
     pairs:         Array.isArray(s.pairs) ? s.pairs as DesafioPair[] : undefined,
     pairsExplanation: typeof s.pairsExplanation === 'string' ? s.pairsExplanation : undefined,
