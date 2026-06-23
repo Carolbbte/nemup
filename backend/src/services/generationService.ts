@@ -20,7 +20,7 @@ import type {
   GeneratedSession,
 } from '../types.js';
 import { config } from '../config.js';
-import { classifyContent, type DetectedSkill, type ClassificationResult } from './pedagogicalClassifier.js';
+import { classifyContent, type DetectedSkill } from './pedagogicalClassifier.js';
 import { validateTruth, buildTruthFeedback } from './truthValidator.js';
 import { normalizeAllSlides } from './canonicalNormalizer.js';
 import type { KnowledgeGraph } from './knowledgeExtractor.js';
@@ -171,58 +171,17 @@ JSON SCHEMA — return ONLY this structure:
 
 // ── Prompt builders ───────────────────────────────────────────────────────────
 
-type DefinitionMode = 'compact' | 'expanded';
-
-function resolveDefinitionMode(
-  graph: KnowledgeGraph | null | undefined,
-  classification: ClassificationResult,
-): DefinitionMode {
-  if (!graph) return 'compact';
-  const isExpanded =
-    graph.concepts.length >= 4 &&
-    graph.procedures.length <= 1 &&
-    classification.scores.conceptual > classification.scores.procedural;
-  return isExpanded ? 'expanded' : 'compact';
-}
-
-function buildConceptualPrompt(transcription: string, curso: string, contentOverride?: string, definitionMode: DefinitionMode = 'compact', feedbackFormatExample: string = ''): string {
-  const mainConceptDefinitionSpec = definitionMode === 'expanded'
-    ? `- definition: ENTRE 55 Y 90 palabras. Mini-párrafo pedagógico fluido — NO usar bullets como única explicación.
-    Debe incluir obligatoriamente en prosa continua:
-    1. Qué es el concepto (1-2 oraciones directas)
-    2. Por qué importa en el contexto del tema
-    3. Cómo se relaciona con los otros conceptos de esta misión
-    4. Un ejemplo tomado del documento fuente
-    ✗ PROHIBIDO fragmentar en bullets sueltos sin hilo conductor.
-    ✓ CORRECTO: "Los órganos homólogos son estructuras que comparten el mismo origen evolutivo aunque cumplen funciones distintas en cada especie. Son clave para entender la evolución porque demuestran que especies diferentes descienden de un ancestro común. En esta misión conectan con el registro fósil: ambos revelan parentesco a través del tiempo. Ejemplo del documento: el ala de murciélago y la aleta de delfín tienen los mismos huesos reorganizados."`
-    : `- definition: MÁXIMO 25 palabras. UNA sola idea. Lenguaje directo, no académico.
-    Formato OBLIGATORIO — 1 o 2 líneas separadas por \\n, cada una iniciando con "* ":
-    "* [1 idea directa: qué es o qué hace, max 15 palabras]\\n* [analogía cotidiana o ejemplo concreto del documento, max 10 palabras]"
-    Analogías permitidas: ropa, música, deportes, comida, tecnología, redes sociales, videojuegos.
-    SOLO FORMATO:
-    ✅ "* Términos semejantes: misma letra, mismo exponente.\\n* Como naranjas y naranjas — no mezclas 3x con 7y." [Álgebra]
-    ❌ "* Los términos semejantes son expresiones algebraicas con la misma parte literal y el mismo exponente numérico.\\n* Como piezas idénticas de un rompecabezas.\\n* 4a + 2b − a → 3a + 2b." — 3 ideas, demasiado largo, demasiado académico.
-    REGLA DE DIVISIÓN: si necesitas más de 2 líneas para explicarlo → son DOS conceptos distintos con sus propias secciones.
-    UN solo insight por slide. Sin excepciones.`;
-
-  const limiteMainConcept = definitionMode === 'expanded'
-    ? 'EXCEPCIÓN main_concept (modo expanded): entre 55 y 90 palabras en mini-párrafo pedagógico fluido (ver especificación).'
-    : 'EXCEPCIÓN main_concept (modo compact): máximo 25 palabras en formato lista de 1-2 bullets (ver especificación).';
-
+function buildConceptualPrompt(transcription: string, curso: string, contentOverride?: string): string {
   const sourceRule = contentOverride
     ? 'TODO el contenido debe derivarse EXCLUSIVAMENTE del knowledgeGraph provisto.\nEl knowledgeGraph es la única fuente de verdad académica permitida.'
     : 'TODO el contenido (títulos, definiciones, ejemplos, preguntas, opciones, conectores) DEBE derivarse EXCLUSIVAMENTE de la transcripción.\nNO introduzcas conceptos, términos, vocabulario ni ejemplos ajenos a la transcripción.\nTrata la transcripción como la ÚNICA fuente de contenido académico permitida.';
   return `Eres un Arquitecto de Aprendizaje para estudiantes chilenos de enseñanza media (${curso}).
 Tu tarea NO es generar una secuencia fija de pantallas. Es DISEÑAR una misión pedagógicamente coherente a partir de un análisis real del contenido.
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-DOCUMENT-FIRST — LEE ANTES DE GENERAR CUALQUIER COSA:
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+⚠️ REGLA CRÍTICA DE CONTENIDO — LEE ANTES DE GENERAR CUALQUIER COSA:
 ${sourceRule}
-• No inventes conceptos, términos, ejemplos ni aplicaciones ajenos a la fuente.
-• No uses frases genéricas sin respaldo en la fuente.
-• Los ejemplos de este prompt (biología, física, ondas, álgebra...) son SOLO demostraciones de formato — su contenido NUNCA debe aparecer en el output salvo que la fuente lo incluya.
-• No uses marcas comerciales (Spotify, TikTok, Netflix, etc.) salvo que aparezcan en la fuente.
+Los ejemplos de formato en este prompt son SOLO demostraciones de estructura — su contenido temático (biología, física, química usados como ejemplo) NUNCA debe aparecer en el output salvo que también esté en la fuente provista.
+Si el contenido trata de Ondas → cada pantalla habla de ondas, frecuencia, amplitud — NUNCA de demanda, precio, fotosíntesis ni ningún otro tema.
 
 DEVUELVE SOLO JSON VÁLIDO. Sin texto adicional. Todo el contenido en español.
 
@@ -437,18 +396,27 @@ PANTALLA "mission" — EL GANCHO [UNA SOLA — POSICIÓN 1]
   - emoji: UNO o DOS emojis que representan la METÁFORA VISUAL CENTRAL de la pregunta.
     El emoji ES la imagen. La pregunta DEBE mencionar o aludir directamente a ese objeto.
     EJEMPLOS CORRECTOS (coherencia emoji ↔ pregunta):
-    ✅ 🍎🍐  + "¿Por qué no puedes sumar todas las frutas juntas?"  [Álgebra]
-    ✅ ⚖️   + "¿Cómo mantienes el equilibrio cuando cambias un lado?" [Ecuaciones]
-    ❌ 🧩   + "¿Por qué no puedes sumar las frutas?" — INCOHERENTE: la pregunta no habla de rompecabezas.
-    ❌ 🚀⭐🏆🎪 — emojis genéricos PROHIBIDOS.
-    REGLA: si la pregunta menciona un objeto → el emoji DEBE ser ese objeto. Sin metáfora obvia → usa dominio académico real (⚗️ 🧬 📐 🗺️ 📜).
+    ✅ 🍎🍐  + "¿Por qué no puedes sumar todas las frutas juntas?"       [Álgebra/Semejantes]
+    ✅ ⚖️   + "¿Cómo mantienes el equilibrio cuando cambias un lado?"    [Ecuaciones]
+    ✅ 🍕   + "¿Cómo sabes qué porciones de pizza se pueden juntar?"     [Fracciones]
+    ✅ 💧🌡  + "¿Qué le pasaría al agua si le quitaras toda la energía?"  [Física/Calor]
+    ✅ 🌱   + "¿Cómo crece una planta si no tiene boca para comer?"      [Biología]
+    ❌ 🧩   + "¿Por qué no puedes sumar todas las frutas?" — INCOHERENTE: la pregunta no habla de rompecabezas
+    ❌ 🎯   + cualquier pregunta — emoji decorativo, no representa ninguna metáfora
+    ❌ 🚀⭐🏆🎪 — emojis genéricos PROHIBIDOS como imagen principal
+    REGLA DE COHERENCIA: si la pregunta menciona un objeto (fruta, balanza, pizza, agua) → el emoji DEBE ser ese objeto.
+    Si no existe metáfora visual obvia → usa un emoji del dominio académico real (⚗️ 🧬 📐 🗺️ 📜).
 
   - title: PREGUNTA DE CURIOSIDAD INDIRECTA sobre el tema. MAX 12 palabras. DEBE terminar con "?".
     El estudiante la lee y piensa: "Quiero saber la respuesta."
     La pregunta DEBE referirse directamente al emoji/imagen mostrado — o al fenómeno académico del documento.
-    SOLO FORMATO:
+    SOLO FORMATO — crea una pregunta sobre ESTE documento, no copies estos temas:
+    ✅ "¿Por qué no puedes sumar todas las frutas juntas?" [Álgebra — con 🍎🍐]
     ✅ "¿Por qué un país rico puede volverse pobre en años?" [Historia — con 📉]
-    ❌ "Misión: Ondas y sus parámetros" — no es pregunta. ❌ "¿Qué son las ondas?" — demasiado directo.
+    ✅ "¿Cómo come una planta si no tiene boca?" [Biología — con 🌱]
+    ❌ "Misión: Ondas y sus parámetros" — no es pregunta, no crea curiosidad.
+    ❌ "¿Qué son las ondas?" — demasiado directo, no crea misterio.
+    ❌ "¿Por qué no puedes sumar todas las frutas del dibujo?" con emoji 🧩 — INCOHERENTE.
 
   - definition: UNA frase que genera anticipación sin revelar la respuesta. Max 20 palabras.
     ✅ "Al terminar esta misión, entenderás por qué esto afecta tu vida más de lo que crees."
@@ -457,9 +425,17 @@ PANTALLA "mission" — EL GANCHO [UNA SOLA — POSICIÓN 1]
 
 PANTALLA "main_concept" — INSIGHT DE CONFIRMACIÓN [OBLIGATORIA — UNA POR SECCIÓN, JUSTO DESPUÉS de micro_challenge]
   ⚡ CONFIRMACIÓN, no introducción. El estudiante ya encontró el concepto en el desafío anterior.
-  Este insight confirma y nombra lo que acaba de descubrir. Sin definiciones académicas secas.
+  Este insight confirma y nombra lo que acaba de descubrir. Mínima carga cognitiva. Sin definiciones académicas.
   - title: nombre del concepto nuclear (max 5 palabras)
-  ${mainConceptDefinitionSpec}
+  - definition: MÁXIMO 25 palabras. UNA sola idea. Lenguaje directo, no académico.
+    Formato OBLIGATORIO — 1 o 2 líneas separadas por \n, cada una iniciando con "* ":
+    "* [1 idea directa: qué es o qué hace, max 15 palabras]\n* [analogía cotidiana o ejemplo concreto del documento, max 10 palabras]"
+    Analogías permitidas: ropa, música, deportes, comida, tecnología, redes sociales, videojuegos.
+    SOLO FORMATO — escribe sobre ESTE documento:
+    ✅ "* Términos semejantes: misma letra, mismo exponente.\n* Como naranjas y naranjas — no mezclas 3x con 7y." [Álgebra]
+    ❌ "* Los términos semejantes son expresiones algebraicas con la misma parte literal y el mismo exponente numérico.\n* Como piezas idénticas de un rompecabezas.\n* 4a + 2b − a → 3a + 2b." — 3 ideas, demasiado largo, demasiado académico.
+    REGLA DE DIVISIÓN: si necesitas más de 2 líneas para explicarlo → son DOS conceptos distintos con sus propias secciones.
+    UN solo insight por slide. Sin excepciones.
   - example: SITUACIÓN ESPECÍFICA que un estudiante chileno encontrará HOY. Nombre concreto o número.
     ✗ PROHIBIDO: "Esto es relevante para la vida cotidiana." — abstracto, no aporta valor.
   - connector: OPCIONAL. Usar null si no hay cadena causal real entre el concepto y su consecuencia.
@@ -468,15 +444,30 @@ PANTALLA "main_concept" — INSIGHT DE CONFIRMACIÓN [OBLIGATORIA — UNA POR SE
     Si se incluye: "emoji1 Nodo1 ↓ verbo ↓ emoji2 Nodo2 ↓ verbo ↓ emoji3 Nodo3"
 
 PANTALLA "micro_challenge" — DESAFÍO DE DESCUBRIMIENTO [OBLIGATORIA — UNA POR SECCIÓN, JUSTO ANTES de main_concept]
+  ⚠️⚠️ OBLIGACIÓN ABSOLUTA: question + options + correctAnswer son CAMPOS OBLIGATORIOS sin excepción.
+
   ⚡ CHALLENGE FIRST: el desafío PRECEDE al insight. El estudiante descubre el concepto MEDIANTE la pregunta.
   La pregunta expone al concepto a través de un ejemplo concreto del documento.
   El main_concept que sigue CONFIRMA lo que el estudiante acaba de encontrar.
   El estudiante aprende respondiendo, no leyendo.
 
-  TIPOS DE PREGUNTA — ALTERNAR (no repetir el mismo consecutivo): IDENTIFICAR / CLASIFICAR / DETECTAR ERROR / VERDADERO-FALSO / COMPLETAR / COMPARAR.
-  Prioridad: ejemplos del documento fuente → variaciones mínimas → nuevos (solo si no existen en el documento).
-  SOLO FORMATO:
-  ✓ "[Pregunta concreta sobre el concepto del documento]" A) [opción correcta] B) [distractor] C) [distractor]
+  TIPOS DE PREGUNTA — ALTERNAR entre estos formatos (no repetir el mismo en secciones consecutivas):
+  1. IDENTIFICAR:    "En −6m⁴, ¿qué representa el número −6?"         → A) coeficiente B) exponente C) variable
+  2. CLASIFICAR:     "¿Cuál de estas es un binomio?"                  → A) 3m  B) 3m+1  C) 3m+n+2
+  3. DETECTAR ERROR: "¿Qué tiene de incorrecto: 3m + 7n = 10mn?"      → A) los coeficientes B) las letras C) el resultado
+  4. VERDADERO/FALSO:"¿Son semejantes 3x² y 3x?"                      → A) Sí, misma letra B) No, diferente exponente C) Depende
+  5. COMPLETAR:      "2m y 6m son términos ___"                        → A) semejantes B) opuestos C) independientes
+  6. COMPARAR:       "¿Cuál reducción es correcta: 3m+5m = ?"         → A) 8m B) 15m² C) 8m²
+
+  PRIORIDAD DE EJEMPLOS (obligatoria — respetar este orden):
+  1. Usar ejemplos, cifras o expresiones del documento fuente
+  2. Variaciones mínimas de esos ejemplos
+  3. Ejemplos nuevos — SOLO si no existen en el documento
+
+  SOLO FORMATO — crear preguntas sobre ESTE documento (no copiar estos temas):
+  ✓ "En −6m⁴, ¿qué parte representa '-6'?" A) el coeficiente B) el exponente C) la variable [SOLO FORMATO]
+  ✓ "¿Cuál expresión es un binomio?"  A) 5x³  B) 3m+1  C) x − z + 2 [SOLO FORMATO]
+  ✓ "¿Son semejantes −4a² y −4b²?" A) Sí, mismo coeficiente B) No, diferente letra C) Sí, mismo exponente [SOLO FORMATO]
 
   ⚠️ EJEMPLO INEQUÍVOCO (regla absoluta para preguntas de clasificación):
   Cada alternativa debe pertenecer CLARAMENTE a una sola categoría. Prohibido usar expresiones cuya clasificación sea discutible o dependa de convenciones no mencionadas en el documento.
@@ -491,16 +482,23 @@ PANTALLA "micro_challenge" — DESAFÍO DE DESCUBRIMIENTO [OBLIGATORIA — UNA P
     Máximo 8 palabras por alternativa. Sin punto final.
     La respuesta correcta puede estar en A, B o C (variar posición). Alternar tipo de pregunta entre secciones.
   - correctAnswer: "A", "B" o "C"
-    AUTO-VERIFICACIÓN: "[Letra] es correcta porque [razón técnica]." Si no puedes → cambia correctAnswer.
-  - correctAnswerReason: 1 oración explicando por qué esa letra es correcta. Sin emojis. Cita la razón técnica del documento. ✗ "[Letra] porque es la correcta." — PROHIBIDO.
-  - definition: Explica POR QUÉ la respuesta correcta es correcta según el documento. Máx 120 chars. Texto plano. Sin emojis ni "Acertaste".
-    SOLO FORMATO (de este documento): ${feedbackFormatExample || '"[Nombre del concepto]: [característica específica que lo define según el documento]."'}
-    ✗ PROHIBIDO: copiar o parafrasear el texto de la pregunta.
-    ✗ "🎯 Acertaste — Solo términos..." — PROHIBIDO
+    ⚠️ AUTO-VERIFICACIÓN OBLIGATORIA: antes de escribir la letra, completa mentalmente:
+    "[Letra] es correcta porque [razón técnica en 1 frase]."
+    Si no puedes completar esa frase sin contradicción → la opción que elegiste es incorrecta. Cambia correctAnswer.
+  - correctAnswerReason: escribe aquí la frase de auto-verificación. 1 oración. Sin emojis. Sin "Acertaste".
+    ✓ "B es correcta porque el coeficiente es el factor numérico que multiplica la parte literal."
+    ✗ "B porque es la correcta." — demasiado vago, indica que no verificaste.
+  - definition: explicación de POR QUÉ esa opción es correcta. Máximo 120 caracteres.
+    Texto plano, sin emojis, sin "Acertaste" ni "Exacto".
+    Este texto es el feedback post-respuesta Y anticipa el insight que confirma el main_concept siguiente.
+    ✓ "El coeficiente es el número que multiplica la parte literal: −6 en −6m⁴."
+    ✗ "🎯 Acertaste — Solo términos con misma letra..." — formato PROHIBIDO
   - example: null
   - connector: null
 
 PANTALLA "reinforcement_challenge" — DESAFÍO DE REFUERZO [OBLIGATORIA — UNA POR SECCIÓN, JUSTO DESPUÉS de main_concept]
+  ⚠️⚠️ OBLIGACIÓN ABSOLUTA: question + options + correctAnswer son CAMPOS OBLIGATORIOS sin excepción.
+
   🔁 DUOLINGO LOOP: este desafío CONSOLIDA lo que el estudiante acaba de confirmar en main_concept.
   Ya conoce el concepto — ahora debe APLICARLO en una situación diferente a la del micro_challenge.
   EVALÚA TRANSFERENCIA, no repetición:
@@ -519,15 +517,19 @@ PANTALLA "reinforcement_challenge" — DESAFÍO DE REFUERZO [OBLIGATORIA — UNA
     Máximo 10 palabras por alternativa. Sin punto final.
     La respuesta correcta puede estar en A, B o C (variar posición).
   - correctAnswer: "A", "B" o "C"
-    AUTO-VERIFICACIÓN: aplica el concepto del main_concept anterior a cada opción. Si hay duda → reescribe.
-  - correctAnswerReason: 1 oración citando el concepto enseñado en el main_concept. Sin emojis. ✗ "[Letra] porque es la respuesta correcta." — PROHIBIDO.
-  - definition: Explica cómo la respuesta correcta aplica el concepto del main_concept anterior. Máx 120 chars. Sin emojis ni "Muy bien"/"Correcto".
-    SOLO FORMATO (de este documento): ${feedbackFormatExample || '"[Nombre del concepto]: [cómo se aplica en la situación de la pregunta, según el documento]."'}
-    ✗ PROHIBIDO: copiar o parafrasear el texto de la pregunta.
-    ✗ "🎯 Correcto..." — PROHIBIDO
+    ⚠️ AUTO-VERIFICACIÓN OBLIGATORIA: antes de escribir la letra, aplica el concepto del main_concept anterior
+    sobre cada opción y confirma cuál es la única correcta. Si hay duda → reescribe la pregunta.
+  - correctAnswerReason: escribe en 1 oración por qué esa letra es correcta, citando el concepto enseñado. Sin emojis.
+    ✓ "A es correcta porque frecuencia alta implica longitud de onda corta según la relación v = f·λ."
+    ✗ "A porque es la respuesta correcta." — esto indica que no verificaste.
+  - definition: explica POR QUÉ esa respuesta aplica correctamente el concepto. Máximo 120 caracteres.
+    Texto plano, sin emojis, sin "Muy bien" ni "Correcto".
+    Conecta directamente con el concepto enseñado en el main_concept inmediatamente anterior.
+    ✓ "La frecuencia alta comprime las ondas: longitud de onda corta es consecuencia directa."
+    ✗ "🎯 Correcto — el refuerzo confirma lo aprendido." — formato PROHIBIDO
   - example: null
   - connector: null
-  - wrongAnswerHints: OBLIGATORIO — ver REGLAS PARA TODOS LOS SLIDES CON OPCIONES.
+  - wrongAnswerHints: OBLIGATORIO — mismas reglas que todas las pantallas interactivas.
 
 PANTALLA "comprehension" — COMPRUEBA SI ENTENDISTE [OPCIONAL — máximo UNA por sección]
   ⚠️ REGLA FUNDAMENTAL: Solo puede evaluar LO QUE LA PANTALLA main_concept INMEDIATAMENTE ANTERIOR ENSEÑÓ.
@@ -549,7 +551,7 @@ PANTALLA "key_relation" — DETECTA EL PATRÓN [OPCIONAL — máximo UNA por sec
   ✗ NO generar si el documento no describe una transformación o regla concreta.
   - connector: cadena de transformación visual (ESTE es el lugar para diagramas de cadena con ↓):
     "Situación real ↓ verbo ↓ Cambio visible ↓ verbo ↓ Resultado concreto"
-    SOLO FORMATO:
+    SOLO FORMATO — derivar de ESTE documento:
     ✅ Física: "🎵 Fuente vibra rápido ↓ genera ↓ 🌊 Frecuencia alta ↓ reduce ↓ 📏 Longitud de onda corta" [SOLO FORMATO]
     ✗ PROHIBIDO: "[ConceptoA] ↓ sube ↓ [ConceptoB]" — abstracto, no es una transformación real.
   - title: nombre corto del patrón o regla (max 6 palabras)
@@ -561,7 +563,7 @@ PANTALLA "common_error" — ERROR FRECUENTE [OPCIONAL — máximo UNA por secci�
   ✗ NO inventar errores artificiales o académicos que los adolescentes reales no cometen.
   - definition: DEBE iniciar con "❌" (max 25 palabras).
     Formato: "❌ Muchos creen que [creencia errónea específica de ESTE concepto del documento]."
-    SOLO FORMATO:
+    SOLO FORMATO — identifica el error real de ESTE documento, nunca copies estos temas:
     Física: ❌ "Muchos creen que el sonido viaja más rápido en el vacío que en materiales sólidos." [SOLO FORMATO]
     Química: ❌ "Muchos creen que hervir agua siempre la purifica de todos sus contaminantes." [SOLO FORMATO]
   - question: pide al estudiante identificar qué tiene de incorrecto (max 15 palabras).
@@ -587,11 +589,17 @@ PANTALLA "wow_fact" — SABÍAS QUE [OPCIONAL — máximo UNO en toda la misión
 PANTALLA "application" — APLICACIÓN REAL [UNA SOLA — después de TODAS las secciones]
   Conecta los conceptos nucleares aprendidos con un contexto real ESPECÍFICO Y CONCRETO.
   ✗ PROHIBIDO: frases genéricas como "esto se usa en la vida cotidiana" o "tiene muchas aplicaciones".
-  ✗ PROHIBIDO: inventar o extrapolar un contexto que no aparece en la fuente (campo, industria, situación).
-  ✅ REQUERIDO: el contexto de aplicación DEBE estar presente explícitamente en el documento fuente.
-  Si la fuente no menciona ningún contexto real → usa los propios ejemplos del documento como situación de aplicación. No inventes un dominio externo.
+  ✅ REQUERIDO: mencionar EXACTAMENTE cómo uno o más conceptos nucleares se manifiestan en ese contexto.
+  Usa aplicaciones que deriven NATURALMENTE del tema del documento:
+    Física/Ondas: radio FM, ultrasonido médico, radar, sísmica, WiFi, fibra óptica
+    Biología: diagnóstico médico, nutrición, salud genética, medicamentos
+    Química: procesos industriales, cocina, baterías, combustión
+    Matemática: ingeniería, arquitectura, finanzas, estadísticas
+    Historia: procesos sociales actuales, análisis de fuentes, conexiones con el presente
+    Lenguaje: análisis de textos reales, publicidad, argumentación, comunicación
+  ✗ PROHIBIDO: marcas comerciales (Spotify, TikTok, Netflix, etc.) salvo que aparezcan en la transcripción.
   - title: escenario real concreto como pregunta (max 15 palabras)
-    SOLO FORMATO:
+    SOLO FORMATO — crear desde ESTE documento:
     ✅ "¿Cómo detectan los médicos el corazón de un bebé antes de nacer?" [Física/Ondas — SOLO FORMATO]
   - example: caso real específico mostrando EXACTAMENTE cómo aplica el concepto nuclear (max 25 palabras).
     Mostrado ANTES de la pregunta como contexto concreto.
@@ -631,34 +639,93 @@ PANTALLA "victory" — MISIÓN COMPLETADA [UNA SOLA — al final]
 LÍMITES DE TEXTO — aplican a CADA pantalla:
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 - definition: máximo 2 oraciones O 30 palabras — lo que sea más corto.
-  ${limiteMainConcept}
+  EXCEPCIÓN main_concept: máximo 25 palabras en formato lista de 1-2 bullets (ver especificación de esa pantalla).
 - example: máximo 20 palabras.
 - title: máximo 8 palabras.
 Prefiere frases escaneables sobre prosa conectada.
 NUNCA-VACÍO: cada slide debe tener title ≥ 3 palabras y definition ≥ 10 palabras. Verificar antes de incluir.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-REGLAS PARA TODOS LOS SLIDES CON OPCIONES:
+REGLA DE FEEDBACK EMOCIONAL — todas las pantallas interactivas:
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-• Distractores = verdades parciales creíbles. ✗ "Todas las anteriores" / "Ninguna de las anteriores" / "porque sí" → PROHIBIDOS.
-• EXACTAMENTE una respuesta correcta. Si dos podrían serlo → reescribir.
-• Feedback (campo "definition"): sonido de coach. Para comprehension/common_error/application/final_challenge: inicia con 🔥 / 🚀 / ⚡ / 🎯 + por qué en max 15 palabras. Para micro_challenge y reinforcement_challenge: texto plano sin emojis (ver specs).
-  ✗ "La respuesta correcta es..." / "Correcto porque..." → PROHIBIDOS.
-• wrongAnswerHints OBLIGATORIO por cada opción incorrecta — EXACTAMENTE 2 oraciones, 20–45 palabras total:
-  ORACIÓN 1: "Elegiste [concepto real de la opción]." / "Te enfocaste en [aspecto]." / "Esta alternativa describe [concepto real]."
-  ORACIÓN 2: "La pregunta buscaba [criterio exacto]." / "Sin embargo, [distinción correcta]."
-  ✅ "B": "Elegiste una relación Estado-empresa. La pregunta buscaba interacción familia-empresa mediante compra y venta."
-  ✗ "B": "Los subsidios son del Estado." — define la correcta sin nombrar lo elegido. PROHIBIDO.
-  ✗ "Es posible, pero..." / "Aunque parece..." / datos curiosos / mensajes motivacionales → PROHIBIDOS.
+El campo "definition" en pantallas interactivas se muestra DESPUÉS de que el estudiante responde. Debe sonar como un coach, no como un libro de texto.
+OBLIGATORIO: iniciar con uno de estos emojis, luego explicar POR QUÉ en max 15 palabras:
+  🔥 Exacto — [por qué, derivado de ESTE documento]
+  🚀 Correcto — [por qué, derivado de ESTE documento]
+  ⚡ Lo captaste — [por qué, derivado de ESTE documento]
+  🎯 Acertaste — [por qué, derivado de ESTE documento]
+✗ PROHIBIDO: "La respuesta correcta es...", "Correcto porque...", "Esta opción es la correcta..."
+✅ REQUERIDO: la explicación debe también sugerir por qué el distractor principal era tentador.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+REGLA DE DISTRACTORES — todas las pantallas interactivas:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Todas las opciones incorrectas deben ser verdades parciales creíbles, no obviamente falsas.
+✗ PROHIBIDO en cualquier opción: "Todas las anteriores", "Ninguna de las anteriores", "No cambia nada", "porque sí".
+REGLA: EXACTAMENTE UNA respuesta claramente correcta por pregunta. Si dos opciones podrían ser correctas → reescribir.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+PISTAS DE RESPUESTA INCORRECTA (OBLIGATORIAS):
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Toda pantalla con opciones DEBE incluir "wrongAnswerHints". Claves = cada letra de opción incorrecta. Valor = EXACTAMENTE 2 oraciones, 20–45 palabras total.
+ESTRUCTURA OBLIGATORIA — ambas oraciones son requeridas:
+  ORACIÓN 1 — Nombra qué eligió el estudiante y por qué parecía razonable. DEBE iniciar con:
+    • "Elegiste [descripción de lo que realmente describe la opción incorrecta — su concepto real]."
+    • "Te enfocaste en [qué aspecto de la opción incorrecta atrajo la atención]."
+    • "Esta alternativa describe [el concepto real al que pertenece la opción incorrecta]."
+  ORACIÓN 2 — Contrasta con lo que la pregunta pedía. DEBE iniciar con:
+    • "La pregunta buscaba [el concepto o criterio exacto que requería la pregunta]."
+    • "Sin embargo, [distinción conceptual correcta que explica por qué esta opción no responde la pregunta]."
+PROHIBIDO — rechazar y reescribir si aparece cualquiera de estos:
+  ✗ Solo definir la respuesta correcta sin mencionar la opción incorrecta
+  ✗ "Es posible, pero..." / "Es una X, pero no..." / "No es exactamente..." / "Aunque es correcto..."
+  ✗ "A veces..." / "Aunque parece..." / "Puede dañar..." / "No es seguro ni inmediato..."
+  ✗ Datos curiosos, definiciones aisladas, o mensajes motivacionales
+  ✗ Repetir el texto de la respuesta correcta o de la pregunta
+EJEMPLO CORRECTO — pregunta: "¿Qué situación describe mejor la interacción entre familias y empresas?":
+  ✅ "B": "Elegiste una relación entre empresas y Estado. La pregunta buscaba una interacción entre familias y empresas mediante compra y venta de bienes."
+  ✗ "B": "Los subsidios son transferencias del Estado, no una compra directa." — define la correcta sin nombrar lo que el estudiante eligió. PROHIBIDO.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 LEYES ABSOLUTAS:
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 • NUNCA copiar texto literal de la transcripción.
 • NUNCA usar nodos abstractos en cadenas causales — solo acciones y situaciones visibles.
+• NUNCA usar marcas comerciales (Spotify, TikTok, Netflix, etc.) salvo que aparezcan en la transcripción.
 • CONSISTENCIA: en cada pantalla interactiva, la pregunta, la respuesta correcta y el feedback deben tratar EL MISMO concepto. Verificar: "¿Mi feedback explica exactamente por qué la respuesta correcta responde ESTA pregunta específica?" Si NO → reescribir el feedback.
 
-⛔ REGLA DE ORO: micro_challenge y reinforcement_challenge SIN question+options+correctAnswer NO son challenges — tipifícalos como main_concept o elimínalos.
+⛔ ANTI-PATRÓN CRÍTICO — RECHAZAR ANTES DE GENERAR JSON:
+Un micro_challenge o reinforcement_challenge SIN question+options+correctAnswer no es un challenge.
+Es un main_concept mal tipado. Dispara regeneración automática.
+
+❌ ESTO ESTÁ PROHIBIDO — challenge sin pregunta:
+  { "type": "micro_challenge", "title": "Checkpoint",
+    "definition": "El coeficiente es el número que multiplica la parte literal.",
+    "question": null, "options": null, "correctAnswer": null }
+  → NO ES UN CHALLENGE. Es texto informativo. El estudiante lo lee, no interactúa. INCORRECTO.
+
+✅ ESTO ES OBLIGATORIO — challenge con pregunta:
+  { "type": "micro_challenge", "title": "Checkpoint",
+    "question": "¿Cuál de estos términos tiene coeficiente 5?",
+    "options": ["A. 5x²", "B. 3x", "C. x²"],
+    "correctAnswer": "A",
+    "definition": "El 5 multiplica la parte literal x²: es el coeficiente." }
+  → EL ESTUDIANTE RESPONDE. Luego lee el insight. Así funciona el Duolingo Loop.
+
+❌ ESTO ESTÁ PROHIBIDO — reinforcement sin pregunta:
+  { "type": "reinforcement_challenge", "title": "Refuerzo",
+    "definition": "La parte numérica que multiplica a la parte literal.",
+    "question": null, "options": null, "correctAnswer": null }
+  → INCORRECTO. El refuerzo es interacción, no texto.
+
+✅ ESTO ES OBLIGATORIO — reinforcement con pregunta:
+  { "type": "reinforcement_challenge", "title": "Refuerzo",
+    "question": "En el término 3x², ¿cuál es el coeficiente?",
+    "options": ["A. 3", "B. x", "C. 2"],
+    "correctAnswer": "A",
+    "definition": "El 3 multiplica x²: siempre es el número delante de la parte literal." }
+
+REGLA DE ORO: si no tiene question+options+correctAnswer → no lo tipifiques como challenge. Cámbialo a main_concept o elimínalo.
 • DOCUMENT-FIRST: 100% del contenido académico debe derivarse de la fuente provista. Si un concepto, ejemplo o aplicación no puede trazarse a ella → eliminarlo.
 • PROGRESIÓN: la dificultad entre pantallas interactivas debe crecer. comprehension (Nivel 1 Recordar) → application (Nivel 3 Aplicar) → final_challenge (Nivel 4 Analizar).
 • NO-REPETICIÓN: Cada pantalla debe enseñar o evaluar algo DIFERENTE. Antes de escribir cada pantalla: "¿Ya mostré esta idea?" Si SÍ → usar un concepto distinto.
@@ -675,7 +742,6 @@ VALIDACIÓN FINAL — ejecutar antes de generar JSON:
 6. ¿El final_challenge NO introduce conceptos nuevos? → Si NO → eliminar esos conceptos de la pregunta.
 7. ¿La pantalla victory lista EXACTAMENTE los conceptos nucleares enseñados (ni más ni menos)? → Si NO → corregir.
 8. ¿La application muestra un caso concreto y específico, no una descripción genérica? → Si NO → reescribir con detalles concretos.
-   ¿El contexto de la application proviene explícitamente de la fuente? Si fue inventado o extrapolado (campo/industria no mencionado en el documento) → reescribir usando los propios ejemplos del documento.
 9. ¿Toda pantalla interactiva tiene wrongAnswerHints con entrada por cada opción incorrecta? → Si NO → agregar.
 10. ¿La complejidad corresponde a ${curso}? → Si NO → ajustar lenguaje y profundidad.
 11. ¿Cada sección tiene su tríada obligatoria micro_challenge → main_concept → reinforcement_challenge en ese orden? → Si NO → agregar el reinforcement_challenge faltante.
@@ -849,6 +915,20 @@ Answer all 5 checks. If ANY fails → rewrite before including:
   4. ¿Al menos 2 opciones parecen genuinamente plausibles? → Si NO → reescribir las débiles.
   5. ¿Responder requiere comprender el contenido (falla test de 2 segundos)? → Si NO → reescribir la pregunta.
 
+── REFERENCE EXAMPLE — anchor all distractor writing to this ─────
+❌ BAD — cross-domain distractors, answerable by elimination:
+  "Si muchas familias ahorran más, ¿qué pasa?"
+  A. Crece menos la economía.   B. Baja el dólar.   C. Baja la palta.   D. Cambia la tasa.
+  → A student eliminates B, C, D immediately. No economic knowledge needed.
+
+✅ GOOD — all options are plausible economic effects, student must reason:
+  "Durante varios meses las familias chilenas deciden gastar menos y ahorrar más. ¿Cuál es el efecto más probable sobre la economía?"
+  A. Menor consumo y menor crecimiento económico.
+  B. Mayor inflación por exceso de compras.
+  C. Más importaciones por aumento del gasto.
+  D. Menor ahorro disponible en los bancos.
+  → All 4 are plausible economic effects. Student must understand savings vs. consumption to choose correctly.
+
 ── DIFFICULTY ────────────────────────────────────────────────────
 difficulty "easy"   = recognize or identify one concept; definition-style questions are allowed here only.
 difficulty "medium" = apply a concept to a real situation; requires cause-effect reasoning or decision analysis.
@@ -1005,12 +1085,7 @@ PROHIBIDO: introducir ejercicios, preguntas o contenido evaluativo de otras habi
 Si el documento tiene otras habilidades, serán cubiertas en misiones separadas. NO las incluyas aquí.
 Las pantallas 4, 7 y 9 son todas sobre "${skill}" — distintos niveles de dificultad, misma habilidad.
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-DOCUMENT-FIRST — LEE ANTES DE GENERAR CUALQUIER COSA:
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-${sourceRule}
-• No inventes ejercicios, pasos ni ejemplos ajenos a la fuente.
-• No uses frases genéricas sin respaldo en la fuente.
+REGLA DE CONTENIDO: ${sourceRule}
 
 REGLA MATEMÁTICA: verifica que TODAS las equivalencias, resultados y respuestas sean matemáticamente correctos.
 Antes de escribir "A/B = X,Y" o "X,Y = A/B" → verifica la división. Antes de dar respuesta correcta → calcúlala.
@@ -1193,10 +1268,26 @@ REGLAS ABSOLUTAS — verifica ANTES de outputtar el JSON:
 10. NUNCA-VACÍO: title ≥ 3 palabras, definition ≥ 10 palabras en TODAS las pantallas.
 11. ENFOQUE: pantallas 4, 7 y 9 son todas sobre "${skill}" — distintos niveles, misma habilidad.
 12. MATEMÁTICAS: todas las respuestas correctas y equivalencias numéricas son matemáticamente correctas.
-13. WRONG-ANSWER HINTS (OBLIGATORIO): Toda pantalla con options DEBE incluir "wrongAnswerHints". Claves = letras incorrectas. Valor = EXACTAMENTE 2 frases, 20–45 palabras totales.
-    FRASE 1: "Elegiste [concepto real de la opción]." / "Te enfocaste en [aspecto]." / "Esta alternativa describe [concepto real]."
-    FRASE 2: "La pregunta buscaba [criterio exacto]." / "Sin embargo, [distinción correcta]."
-    ✅ Calidad: nombra la opción incorrecta + contrasta con lo correcto. ✗ "Es posible, pero..." / "Aunque parece..." / datos curiosos / repetir la correcta → PROHIBIDOS.
+13. WRONG-ANSWER HINTS (OBLIGATORIO): Toda pantalla con options DEBE incluir "wrongAnswerHints". Claves = letras de opciones incorrectas. Valor = EXACTAMENTE 2 frases, 20–45 palabras totales.
+    ESTRUCTURA OBLIGATORIA — ambas frases son requeridas:
+      FRASE 1: Nombra lo que el alumno eligió y por qué parecía razonable. DEBE empezar con una de:
+        • "Elegiste [descripción del concepto real que representa la opción incorrecta]."
+        • "Te enfocaste en [qué aspecto de la opción incorrecta atrajo al estudiante]."
+        • "Esta alternativa describe [el concepto real al que pertenece la opción incorrecta]."
+      FRASE 2: Contrasta con lo que la pregunta realmente buscaba. DEBE empezar con una de:
+        • "La pregunta buscaba [el concepto o criterio exacto que requería la pregunta]."
+        • "Sin embargo, [distinción conceptual correcta que explica por qué esta opción no responde la pregunta]."
+    CRITERIO DE CALIDAD — verificar los 4 antes de aceptar:
+      ✅ ¿Hace referencia al concepto de la opción incorrecta? Si NO → reescribir.
+      ✅ ¿Identifica la confusión específica del alumno? Si NO → reescribir.
+      ✅ ¿Compara el concepto equivocado con el correcto? Si NO → reescribir.
+      ✅ ¿Esta reflexión sería inútil si se mostrara para una pregunta diferente? Si NO → reescribir.
+    PROHIBIDO — rechazar y reescribir si aparecen:
+      ❌ Definir solo el concepto correcto sin nombrar la opción incorrecta
+      ❌ "Es posible, pero..." / "Es una X, pero no..." / "No es exactamente..." / "Aunque es correcto..."
+      ❌ "A veces..." / "Aunque parece..." / "Puede dañar..." / "No es seguro ni inmediato..."
+      ❌ Datos curiosos, definiciones aisladas o mensajes motivacionales
+      ❌ Repetir textualmente la respuesta correcta o el enunciado de la pregunta
 
 ${contentOverride ?? `Transcripción:\n${normalizeText(transcription)}`}
 ${JSON_SCHEMA}`;
@@ -1213,14 +1304,7 @@ function buildMemorizationPrompt(transcription: string, curso: string, contentOv
 Este documento requiere que el estudiante RECUERDE datos, definiciones, fechas o vocabulario específico.
 Tu misión: crear una sesión con técnicas de memoria (asociaciones, imágenes mentales, conexiones) que hagan los datos memorables.
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-DOCUMENT-FIRST — LEE ANTES DE GENERAR CUALQUIER COSA:
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-${sourceRule}
-• No inventes datos, asociaciones ni ejemplos ajenos a la fuente.
-• No uses frases genéricas sin respaldo en la fuente.
-• Los ejemplos de formato de este prompt son SOLO demostraciones de estructura — su contenido NUNCA debe aparecer en el output salvo que la fuente lo incluya.
-• No uses marcas comerciales (Spotify, TikTok, Netflix, etc.) salvo que aparezcan en la fuente.
+⚠️ REGLA CRÍTICA: ${sourceRule}
 
 FILOSOFÍA: DATO → ASOCIACIÓN → RETO → APLICACIÓN → REPASO → CURIOSIDAD → VICTORIA
 Cada pantalla debe hacer que el dato se "pegue" en la memoria del estudiante.
@@ -1353,7 +1437,7 @@ EL GANCHO — pregunta que genera curiosidad sobre el dato que aprenderán.
 - title: Pregunta curiosa sobre el dato principal. DEBE terminar en "?". Max 14 palabras.
   ✅ "¿Sabes cuántos elementos tiene la tabla periódica y por qué ese número importa?"
   ✅ "¿Por qué los griegos inventaron el nombre que le damos a este concepto hoy?"
-  SOLO FORMATO:
+  ⚠️ SOLO EJEMPLOS DE FORMATO — crea una pregunta sobre ESTE documento.
 - definition: Anticipa el descubrimiento sin revelarlo. Max 20 palabras.
 - example: área temática en 3-5 palabras.
 
@@ -1371,7 +1455,7 @@ CRÍTICO: usa el campo connector para mostrar la cadena de asociación.
 - connector: "emoji1 [Ancla mental] ↓ recuerda ↓ emoji2 [El dato] ↓ conecta ↓ emoji3 [Aplicación]"
   Cada nodo: emoji + max 4 palabras. La cadena debe ser una HISTORIA que ayuda a recordar.
   ✅ Ejemplo formato (no copiar): "🏛️ Imperio Romano ↓ cayó en ↓ 📅 476 d.C. ↓ marca el fin de ↓ 🌑 Edad Antigua"
-  SOLO FORMATO:
+  ⚠️ NUNCA copies este ejemplo — crea la asociación desde ESTE documento.
 - title: "Truco para recordarlo" (max 5 palabras)
 - definition: Explica por qué esta asociación funciona (max 20 palabras).
 - example: null
@@ -1424,6 +1508,7 @@ REGLAS ABSOLUTAS:
 - Pantallas 4 y 5 DEBEN tener question + options completos.
 - Pantalla 7 title DEBE ser "¿Sabías que...?".
 - Pantalla 8 DEBE usar formato ✓ checklist.
+- ${contentOverride ? 'TODO el contenido académico debe derivarse EXCLUSIVAMENTE del knowledgeGraph provisto.' : 'TODO el contenido académico debe derivarse de la transcripción.'}
 
 ${contentOverride ?? `Transcripción:\n${normalizeText(transcription)}`}
 ${JSON_SCHEMA}`;
@@ -1668,7 +1753,6 @@ async function callOpenAIAndBuildResult(
   systemMsg: string,
   configValues: SessionConfig,
   maxTokens = 7000,
-  definitionMode: DefinitionMode = 'compact',
 ): Promise<Omit<GenerationResult, 'pedagogicalType' | 'primarySkill' | 'learningPath'>> {
   console.log(`[Generation] Prompt enviado a la IA (${prompt.length} chars)`);
   const response = await openai.chat.completions.create({
@@ -1729,14 +1813,11 @@ async function callOpenAIAndBuildResult(
   console.log('[Audit] main concepts:', nuclearConcepts.map((s: any) => s.title ?? '(sin título)'));
   nuclearConcepts.forEach((s: any, i: number) => {
     const defWords = (s.definition ?? '').split(/\s+/).filter(Boolean).length;
-    const minWords = definitionMode === 'expanded' ? 55 : 15;
-    const maxWords = definitionMode === 'expanded' ? 90 : 30;
     console.log(`[Audit] main_concept #${i + 1}:`);
     console.log(`  title = ${s.title ?? '(sin título)'}`);
     console.log(`  definition words = ${defWords}`);
-    console.log(`  [MainConceptAudit] mode=${definitionMode} words=${defWords}`);
-    if (defWords < minWords) console.log(`  ⚠ definition demasiado corta (< ${minWords} palabras) — modo ${definitionMode}`);
-    if (defWords > maxWords) console.log(`  ⚠ definition demasiado larga (> ${maxWords} palabras) — modo ${definitionMode}`);
+    if (defWords < 60) console.log(`  ⚠ definition demasiado corta (< 60 palabras) — verificar prompt`);
+    if (defWords > 120) console.log(`  ⚠ definition demasiado larga (> 120 palabras)`);
   });
   rawAiSlides.forEach((s: any, i: number) => {
     const inter = s.question ? ' [interactivo]' : '';
@@ -2184,7 +2265,6 @@ export async function generateSessionContent(
 
   let prompt: string;
   let systemMsg: string;
-  let definitionMode: DefinitionMode = 'compact';
 
   if (classification.type === 'PROCEDURAL' && primarySkill) {
     prompt = buildFocusedProceduralPrompt(transcription, curso, primarySkill, learningPath, contentOverride);
@@ -2194,26 +2274,14 @@ export async function generateSessionContent(
     systemMsg = `Eres un diseñador de sesiones de aprendizaje por memorización para estudiantes chilenos de enseñanza media. Tu filosofía: DATO → ASOCIACIÓN → RETO → REPASO → CURIOSIDAD → VICTORIA. Cada pantalla usa técnicas de memoria para que los datos sean inolvidables. Genera exactamente 8 pantallas en el orden indicado. JSON válido únicamente. Todo en español.`;
   } else {
     // CONCEPTUAL and MIXED → section-based pedagogical mission
-    definitionMode = resolveDefinitionMode(knowledgeGraph, classification);
-    console.log(`[DefinitionMode] mode=${definitionMode}`);
-    console.log(`[DefinitionMode] concepts=${knowledgeGraph?.concepts.length ?? 0} procedures=${knowledgeGraph?.procedures.length ?? 0} conceptual=${(classification.scores.conceptual * 100).toFixed(0)}% procedural=${(classification.scores.procedural * 100).toFixed(0)}%`);
-    const kgConcept = knowledgeGraph?.concepts[0];
-    const feedbackFormatExample = kgConcept
-      ? `"${kgConcept.name}${kgConcept.description ? ': ' + kgConcept.description.replace(/\n/g, ' ').slice(0, 80).trim() : '.'}" [SOLO FORMATO — no copies este texto]`
-      : '';
-    if (feedbackFormatExample) console.log(`[DefinitionMode] feedbackFormatExample=${feedbackFormatExample}`);
-    prompt = buildConceptualPrompt(transcription, curso, contentOverride, definitionMode, feedbackFormatExample);
-    console.log(`[Generation] buildConceptualPrompt refactor — old_chars=56876 new_chars=${prompt.length} delta=${prompt.length - 56876} (${((prompt.length - 56876) / 56876 * 100).toFixed(1)}%) [REGLA-DE-ORO+DOCUMENT-FIRST]`);
-    const mainConceptSystemDesc = definitionMode === 'expanded'
-      ? 'main_concept — explicación pedagógica de 55-90 palabras con qué es, por qué importa, relación con la misión y ejemplo del documento; prosa fluida, NO bullets sueltos'
-      : 'main_concept — INSIGHT breve que confirma lo descubierto, máximo 25 palabras en 1-2 bullets';
-    systemMsg = `Eres un Arquitecto de Aprendizaje para estudiantes chilenos de enseñanza media. Tu filosofía: DUOLINGO LOOP. Cada concepto tiene exactamente 3 slides obligatorios en este orden: (1) micro_challenge — el estudiante DESCUBRE el concepto respondiendo una pregunta, con question+options+correctAnswer; (2) ${mainConceptSystemDesc}; (3) reinforcement_challenge — el estudiante APLICA el concepto en una situación nueva, con question+options+correctAnswer, title="Refuerzo". NUNCA main_concept sin micro_challenge antes. NUNCA main_concept sin reinforcement_challenge después. NUNCA dos slides pasivos consecutivos. 60%+ de slides deben ser interactivos. Después de todas las secciones: application → final_challenge (Boss Battle) → victory. JSON válido únicamente. Todo en español.`;
+    prompt = buildConceptualPrompt(transcription, curso, contentOverride);
+    systemMsg = `Eres un Arquitecto de Aprendizaje para estudiantes chilenos de enseñanza media. Tu filosofía: DUOLINGO LOOP. Cada concepto tiene exactamente 3 slides obligatorios en este orden: (1) micro_challenge — el estudiante DESCUBRE el concepto respondiendo una pregunta, con question+options+correctAnswer; (2) main_concept — INSIGHT breve que confirma lo descubierto, máximo 25 palabras; (3) reinforcement_challenge — el estudiante APLICA el concepto en una situación nueva, con question+options+correctAnswer, title="Refuerzo". NUNCA main_concept sin micro_challenge antes. NUNCA main_concept sin reinforcement_challenge después. NUNCA dos slides pasivos consecutivos. 60%+ de slides deben ser interactivos. Después de todas las secciones: application → final_challenge (Boss Battle) → victory. JSON válido únicamente. Todo en español.`;
   }
 
   console.log(`[Generation] source=${knowledgeGraph ? 'knowledgeGraph' : 'transcription'}`);
   console.log(`[Generation] prompt_chars=${prompt.length} (~${Math.round(prompt.length / 4)} tokens)`);
   console.log(`[Generation] prompt_content=${prompt.includes('KNOWLEDGE GRAPH') ? 'knowledgeGraph ✓' : 'rawTranscription ⚠️'}`);
-  const base = await callOpenAIAndBuildResult(prompt, systemMsg, configValues, 7000, definitionMode);
+  const base = await callOpenAIAndBuildResult(prompt, systemMsg, configValues);
 
   // ── [TEMP] RAW OPENAI RESPONSE AUDIT ─────────────────────────────────────────
   {
@@ -2352,7 +2420,7 @@ export async function generateSessionContent(
     if (!gFlow.passesThreshold)             feedbackParts.push(buildFlowFeedback(gFlow));
     if (!gTruth.passed)                     feedbackParts.push(buildTruthFeedback(gTruth));
     const retryPrompt = `${prompt}\n\n${'━'.repeat(40)}\n${feedbackParts.join('\n\n')}\n${'━'.repeat(40)}`;
-    finalBase = await callOpenAIAndBuildResult(retryPrompt, systemMsg, configValues, 7000, definitionMode);
+    finalBase = await callOpenAIAndBuildResult(retryPrompt, systemMsg, configValues);
     console.log('[QUALITY REPORT] Regeneración completada.');
   } else {
     console.log('  action:           ACCEPT');
@@ -2965,7 +3033,7 @@ function buildFlowFeedback(r: PedagogicalFlowReport): string {
         lines.push(`\n✗ [REGLA 1] ${v.detail}`);
         lines.push('  CORRECCIÓN: el campo definition de micro_challenge y reinforcement_challenge es feedback POST-respuesta.');
         lines.push('  NO debe contener "Correcto", "Exacto", "Acertaste", "Bien hecho", "Lo captaste", "Perfecto", "Muy bien".');
-        lines.push('  Reescribir como explicación factual derivada del documento: "[Concepto]: [explicación técnica de por qué esa opción es correcta]."');
+        lines.push('  Reescribir como explicación factual: "El coeficiente es el número que multiplica la parte literal."');
         break;
       case 'reinforcement_without_challenge':
         lines.push(`\n✗ [REGLA 2] ${v.detail}`);
