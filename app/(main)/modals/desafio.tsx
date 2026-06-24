@@ -1427,12 +1427,16 @@ export default function DesafioScreen() {
     switch (slideItype) {
       case 'multiple_choice': {
         const hint = !answer.correct ? slide.wrongHints?.[answer.value as string] : undefined;
-        text = hint ?? slide.explanation ?? null;
+        const raw = hint ?? slide.explanation ?? null;
+        const prefix = answer.correct ? 'Exacto. ' : 'Casi. ';
+        text = raw ? prefix + raw : null;
         break;
       }
       case 'fill_blank': {
         const hint = !answer.correct ? slide.wrongHints?.[answer.value as string] : undefined;
-        text = hint ?? slide.blankExplanation ?? null;
+        const raw = hint ?? slide.blankExplanation ?? null;
+        const prefix = answer.correct ? 'Exacto. ' : 'Casi. ';
+        text = raw ? prefix + raw : null;
         break;
       }
       case 'match_pairs':

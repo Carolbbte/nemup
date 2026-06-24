@@ -488,10 +488,10 @@ PANTALLA "micro_challenge" — DESAFÍO DE DESCUBRIMIENTO [OBLIGATORIA — UNA P
   - correctAnswerReason: escribe aquí la frase de auto-verificación. 1 oración. Sin emojis. Sin "Acertaste".
     ✓ "B es correcta porque el coeficiente es el factor numérico que multiplica la parte literal."
     ✗ "B porque es la correcta." — demasiado vago, indica que no verificaste.
-  - definition: explicación de POR QUÉ esa opción es correcta. Máximo 120 caracteres.
-    Texto plano, sin emojis, sin "Acertaste" ni "Exacto".
-    Este texto es el feedback post-respuesta Y anticipa el insight que confirma el main_concept siguiente.
-    ✓ "El coeficiente es el número que multiplica la parte literal: −6 en −6m⁴."
+  - definition: explicación conversacional de POR QUÉ esa opción es correcta. Máximo 120 caracteres.
+    Lenguaje directo como un coach, no académico. Sin prefijos emocionales ("Exacto", "Correcto", "Acertaste") — el UI los agrega.
+    ✓ "Comparten origen embrionario, aunque cada uno evolucionó para cumplir una función distinta."
+    ✗ "órganos homólogos tienen origen común pero funciones adaptadas diferentes." — demasiado académico y plano
     ✗ "🎯 Acertaste — Solo términos con misma letra..." — formato PROHIBIDO
   - example: null
   - connector: null
@@ -522,8 +522,8 @@ PANTALLA "reinforcement_challenge" — DESAFÍO DE REFUERZO [OBLIGATORIA — UNA
   - correctAnswerReason: escribe en 1 oración por qué esa letra es correcta, citando el concepto enseñado. Sin emojis.
     ✓ "A es correcta porque frecuencia alta implica longitud de onda corta según la relación v = f·λ."
     ✗ "A porque es la respuesta correcta." — esto indica que no verificaste.
-  - definition: explica POR QUÉ esa respuesta aplica correctamente el concepto. Máximo 120 caracteres.
-    Texto plano, sin emojis, sin "Muy bien" ni "Correcto".
+  - definition: explicación conversacional de POR QUÉ esa respuesta aplica correctamente el concepto. Máximo 120 caracteres.
+    Lenguaje directo como un coach, no académico. Sin prefijos emocionales ("Correcto", "Muy bien") — el UI los agrega.
     Conecta directamente con el concepto enseñado en el main_concept inmediatamente anterior.
     ✓ "La frecuencia alta comprime las ondas: longitud de onda corta es consecuencia directa."
     ✗ "🎯 Correcto — el refuerzo confirma lo aprendido." — formato PROHIBIDO
