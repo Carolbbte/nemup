@@ -640,7 +640,7 @@ export default function SessionPlayerScreen() {
           setMasteryLevel(null);
           try { setSkillPath(rawPath ? JSON.parse(rawPath) : null); } catch { setSkillPath(null); }
           // Reset ALL game state
-          setPhase('lobby');
+          setPhase('mode-select');
           setCompleted(new Set());
           setSummaryIdx(0);
           setQuizAnswers({});
@@ -2491,7 +2491,7 @@ export default function SessionPlayerScreen() {
                 setMasteryLevel(null);
                 setMasteryPct(null);
                 setEarnedXp(null);
-                setPhase('lobby');
+                setPhase('mode-select');
                 setCompleted(new Set());
                 setSummaryIdx(0);
                 setQuizAnswers({});
