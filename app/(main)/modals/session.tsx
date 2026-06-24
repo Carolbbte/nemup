@@ -718,7 +718,7 @@ export default function SessionPlayerScreen() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [session]);
 
-  const [phase, setPhase]           = useState<Phase>('lobby');
+  const [phase, setPhase]           = useState<Phase>('mode-select');
   const [completedModes, setCompleted] = useState<Set<string>>(new Set());
   const [celebSrc, setCelebSrc]     = useState<'summary' | 'quiz' | 'flashcards'>('quiz');
 
@@ -1342,7 +1342,7 @@ export default function SessionPlayerScreen() {
       <SafeAreaView style={g.page} edges={['top']}>
         <StatusBar barStyle="dark-content" backgroundColor={BG} />
         <View style={g.topBar}>
-          <Pressable onPress={() => setPhase('lobby')} style={g.iconBtn} hitSlop={10}>
+          <Pressable onPress={() => router.back()} style={g.iconBtn} hitSlop={10}>
             <ChevronLeft size={18} color={semantic.textPrimary} strokeWidth={2.5} />
           </Pressable>
           <View style={{ flex: 1 }} />
