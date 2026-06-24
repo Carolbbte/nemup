@@ -1155,6 +1155,7 @@ export default function DesafioScreen() {
   const [dynamicSlides, setDynamicSlides] = useState<DesafioSlide[]>([]);
   const [currentIdx,    setCurrentIdx]    = useState(0);
   const [loading,       setLoading]       = useState(true);
+  const [showCover,     setShowCover]     = useState(false);
 
   // Submitted answers per slide index
   const [answers,     setAnswers]     = useState<Record<number, SlideAnswer>>({});
@@ -1348,6 +1349,7 @@ export default function DesafioScreen() {
       setStreak(0);
       setBestStreak(0);
       setEnergy(3);
+      setShowCover(false);
       setLoading(true);
 
       AsyncStorage.getItem(DESAFIO_KEY).then(raw => {
@@ -1355,6 +1357,7 @@ export default function DesafioScreen() {
           try {
             const s: DesafioSession = JSON.parse(raw);
             setSession(s);
+            setShowCover(true);
             setDynamicSlides(s.slides.map(shuffleSlideChoices));
             if (s.retrySlides) {
               const init: Record<number, number> = {};
@@ -1620,6 +1623,71 @@ export default function DesafioScreen() {
             <Text style={g.backBtnText}>Volver</Text>
           </Pressable>
         </View>
+      </SafeAreaView>
+    );
+  }
+
+  // ── Desafío cover screen ───────────────────────────────────────────────────
+  if (showCover) {
+    const coverConcepts = (() => {
+      const seen = new Set<string>();
+      const names: string[] = [];
+      for (const s of session.slides) {
+        if (s.type === 'insight' && (s as any).title) {
+          const t = String((s as any).title).trim();
+          if (t && !seen.has(t)) { seen.add(t); names.push(t); }
+        }
+        if (names.length === 3) break;
+      }
+      return names;
+    })();
+    const interactive = dynamicSlides.filter(isInteractiveByType).length;
+    const estimatedMin = Math.max(5, Math.round(interactive * 0.75));
+    const estimatedXp  = interactive * 15;
+
+    return (
+      <SafeAreaView style={g.screen} edges={['top', 'bottom']}>
+        <StatusBar barStyle="dark-content" backgroundColor={palette.crema} />
+        <View style={g.topBar}>
+          <Pressable onPress={() => router.back()} style={g.iconBtn} hitSlop={10}>
+            <ChevronLeft size={18} color={semantic.textPrimary} strokeWidth={2.5} />
+          </Pressable>
+          <Text style={g.screenTitle}>⚔️ Desafío</Text>
+          <Pressable onPress={() => router.back()} style={g.iconBtn} hitSlop={10}>
+            <X size={16} color={semantic.textPrimary} strokeWidth={2.5} />
+          </Pressable>
+        </View>
+        <ScrollView contentContainerStyle={cvr.scroll} showsVerticalScrollIndicator={false}>
+          <View style={cvr.card}>
+            <View style={cvr.grad}>
+              <View style={cvr.badge}><Text style={cvr.badgeText}>⚔️ DESAFÍO</Text></View>
+              <Text style={cvr.emoji}>🎯</Text>
+              <Text style={cvr.title}>{session.topic}</Text>
+              {coverConcepts.length > 0 && (
+                <View style={cvr.learnBlock}>
+                  <Text style={cvr.learnLabel}>Qué evaluarás</Text>
+                  {coverConcepts.map((t, i) => (
+                    <View key={i} style={cvr.learnRow}>
+                      <Text style={cvr.learnBullet}>✓</Text>
+                      <Text style={cvr.learnText} numberOfLines={1}>{t}</Text>
+                    </View>
+                  ))}
+                </View>
+              )}
+              <View style={cvr.metaRow}>
+                <View style={cvr.metaChip}>
+                  <Text style={cvr.metaChipText}>⏱ {estimatedMin} min</Text>
+                </View>
+                <View style={[cvr.metaChip, cvr.metaChipXp]}>
+                  <Text style={[cvr.metaChipText, { color: palette.charcoal }]}>⚡ +{estimatedXp} XP</Text>
+                </View>
+              </View>
+            </View>
+          </View>
+        </ScrollView>
+        <Pressable style={cvr.cta} onPress={() => setShowCover(false)}>
+          <Text style={cvr.ctaText}>¡Comenzar! →</Text>
+        </Pressable>
       </SafeAreaView>
     );
   }
@@ -1938,4 +2006,26 @@ const ms = StyleSheet.create({
   },
   nemFill: { height: '100%', borderRadius: 4, backgroundColor: palette.morado },
   nemSub:  { fontSize: 12, fontWeight: '600', color: palette.grisMedio },
+});
+
+// ── Cover screen styles (mirrors session.tsx sum.mission* exactly) ────────────
+const cvr = StyleSheet.create({
+  scroll:       { flexGrow: 1, padding: 16, justifyContent: 'center' },
+  card:         { borderRadius: 28, overflow: 'hidden' },
+  grad:         { borderRadius: 28, paddingVertical: 26, paddingHorizontal: 22, alignItems: 'center', backgroundColor: palette.morado },
+  badge:        { backgroundColor: 'rgba(255,255,255,0.2)', borderRadius: 100, paddingVertical: 5, paddingHorizontal: 16, marginBottom: 14 },
+  badgeText:    { color: palette.blanco, fontSize: 11, fontWeight: '800', letterSpacing: 1.5 },
+  emoji:        { fontSize: 54, marginBottom: 10 },
+  title:        { fontSize: 22, fontWeight: '900', color: palette.blanco, textAlign: 'center', letterSpacing: -0.5, lineHeight: 30, marginBottom: 14 },
+  learnBlock:   { alignSelf: 'stretch', backgroundColor: 'rgba(255,255,255,0.12)', borderRadius: 14, padding: 12, marginBottom: 14, gap: 6 },
+  learnLabel:   { fontSize: 10, fontWeight: '800', color: 'rgba(255,255,255,0.65)', letterSpacing: 1, textTransform: 'uppercase', marginBottom: 4 },
+  learnRow:     { flexDirection: 'row', alignItems: 'flex-start', gap: 8 },
+  learnBullet:  { fontSize: 13, color: palette.limaElectrica, fontWeight: '900', lineHeight: 20 },
+  learnText:    { flex: 1, fontSize: 13, color: 'rgba(255,255,255,0.9)', fontWeight: '600', lineHeight: 20 },
+  metaRow:      { flexDirection: 'row', gap: 8 },
+  metaChip:     { backgroundColor: 'rgba(255,255,255,0.15)', borderRadius: 100, paddingVertical: 5, paddingHorizontal: 12 },
+  metaChipText: { fontSize: 12, color: palette.blanco, fontWeight: '700' },
+  metaChipXp:   { backgroundColor: palette.limaElectrica },
+  cta:          { margin: 16, borderRadius: 16, backgroundColor: palette.morado, paddingVertical: 16, alignItems: 'center' },
+  ctaText:      { fontSize: 17, fontWeight: '900', color: palette.blanco, letterSpacing: -0.3 },
 });
