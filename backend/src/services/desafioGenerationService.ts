@@ -93,11 +93,21 @@ function validateBlankSentence(s: unknown): string | undefined {
   return s.trim();
 }
 
+// Strips leading articles and truncates to max 4 words for ultra-scannable pair definitions
+function shortenPairRight(text: string): string {
+  const stripped = text.replace(/^(el|la|los|las|un|una|unos|unas)\s+/i, '').trim();
+  const words = stripped.split(/\s+/);
+  return words.slice(0, 4).join(' ');
+}
+
 function validatePairs(pairs: unknown): Array<{ left: string; right: string }> | null {
   if (!Array.isArray(pairs) || pairs.length < 3) return null;
   const result = pairs
     .slice(0, 6)
-    .map((p: any) => ({ left: String(p?.left ?? '').trim(), right: String(p?.right ?? '').trim() }))
+    .map((p: any) => ({
+      left:  String(p?.left  ?? '').trim(),
+      right: shortenPairRight(String(p?.right ?? '').trim()),
+    }))
     .filter(p => p.left.length > 0 && p.right.length > 0);
   return result.length >= 3 ? result : null;
 }
@@ -128,7 +138,7 @@ const OUTPUT_SCHEMA = `{
   "matchPairs": {
     "prompt": "Une cada concepto con su descripción",
     "pairs": [
-      { "left": "Nombre exacto del concepto", "right": "definición corta (máx 8 palabras)" }
+      { "left": "Nombre exacto del concepto", "right": "2-3 palabras clave" }
     ]
   },
   "classify": {
@@ -160,7 +170,9 @@ Tu ÚNICA tarea: asignar formatos de presentación a conceptos ya generados.
 
 RESTRICCIÓN ABSOLUTA — NO GENERES CONTENIDO NUEVO:
 - Usa SÓLO información de los campos "definition" y "microFeedback" ya provistos
-- Para match_pairs: usa el valor exacto de "name" en "left" y una frase corta (≤8 palabras) de "definition" en "right"
+- Para match_pairs: usa el valor exacto de "name" en "left" y MÁXIMO 3 PALABRAS en "right" — sin artículos (el/la/los/las), solo sustantivo + descriptor clave
+  Ejemplos válidos: "Restos en rocas", "Mismo origen evolutivo", "Distribución geográfica", "ADN y proteínas", "Fuerza por área"
+  ✗ PROHIBIDO: frases largas, verbos, artículos iniciales, puntos suspensivos
 - Para classify: usa SÓLO ejemplos ya mencionados en "definition" o "example"
 - Si no hay contenido suficiente para classify → devuelve null
 
