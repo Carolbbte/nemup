@@ -164,7 +164,8 @@ JSON SCHEMA — return ONLY this structure:
         "correctAnswerReason": string | null,
         "wrongAnswerHints": { "<letter>": string } | null,
         "feedbackCorrect": string | null,
-        "feedbackWrong": string | null
+        "feedbackWrong": string | null,
+        "blankSentence": string | null
       }
     ],
     "sourceQuotes": [string]
@@ -458,9 +459,13 @@ PANTALLA "micro_challenge" — DESAFÍO DE DESCUBRIMIENTO [OBLIGATORIA — UNA P
   2. CLASIFICAR:     "¿Cuál de estas es un binomio?"                  → A) 3m  B) 3m+1  C) 3m+n+2
   3. DETECTAR ERROR: "¿Qué tiene de incorrecto: 3m + 7n = 10mn?"      → A) los coeficientes B) las letras C) el resultado
   4. VERDADERO/FALSO:"¿Son semejantes 3x² y 3x?"                      → A) Sí, misma letra B) No, diferente exponente C) Depende
-  5. COMPLETAR:      "2m y 6m son términos ___"                        → A) semejantes B) opuestos C) independientes
-     OBLIGATORIO si usas COMPLETAR: el campo "question" DEBE contener ___ literalmente como el hueco. Sin ___ no es COMPLETAR.
+  5. COMPLETAR:      "2m y 6m son términos semejantes"                 → A) semejantes B) opuestos C) independientes
+     Si usas COMPLETAR: escribe "question" como pregunta normal Y rellena "blankSentence" con la misma idea pero usando ___ como hueco.
+     Ejemplo: question="¿Qué tipo de términos son 2m y 6m?" blankSentence="2m y 6m son términos ___ entre sí"
   6. COMPARAR:       "¿Cuál reducción es correcta: 3m+5m = ?"         → A) 8m B) 15m² C) 8m²
+
+  MANDATO DESAFÍO: exactamente UN micro_challenge de la misión DEBE usar el formato COMPLETAR con "blankSentence" completado.
+  Los demás micro_challenge dejan "blankSentence": null.
 
   PRIORIDAD DE EJEMPLOS (obligatoria — respetar este orden):
   1. Usar ejemplos, cifras o expresiones del documento fuente
@@ -1907,6 +1912,7 @@ async function callOpenAIAndBuildResult(
         ? clean.wrongAnswerHints : null,
       feedbackCorrect: clean.feedbackCorrect ? stripFeedbackPrefix(String(clean.feedbackCorrect), clean.type) : null,
       feedbackWrong: clean.feedbackWrong ? String(clean.feedbackWrong) : null,
+      blankSentence: clean.blankSentence ? String(clean.blankSentence) : null,
     };
   });
 

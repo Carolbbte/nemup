@@ -240,13 +240,13 @@ export function buildDesafioFromMission(slides: any[], topic: string): DesafioSe
         }
       }
 
-      const isBlank = String(slide.question).includes('___');
-      if (isBlank) {
+      const blankSentence = (slide as any).blankSentence ? String((slide as any).blankSentence) : null;
+      if (blankSentence) {
         desafioSlides.push({
           ...base,
           type: desafioType,
           interactionType: 'fill_blank',
-          blankSentence: String(slide.question),
+          blankSentence,
           blankChoices: choices,
           blankAnswer: correctAnswer,
           blankExplanation: String((slide as any).feedbackCorrect ?? slide.definition ?? ''),
