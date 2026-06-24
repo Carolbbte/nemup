@@ -49,7 +49,6 @@ const { height: SCREEN_H } = Dimensions.get('window');
 const SM    = SCREEN_H < 740;
 const BG    = palette.crema;
 const BRAND = palette.morado;
-const LIME  = palette.limaElectrica;
 
 // ── Types ─────────────────────────────────────────────────────────
 type UploadedFile = {
@@ -99,48 +98,6 @@ const PREPARING_LINES = [
 ] as const;
 
 
-
-// ── Confetti ──────────────────────────────────────────────────────
-const CONFETTI = [
-  { left: '10%', bg: LIME,                  size: 7,  dur: 3400, delay: 0,    zigzag:  7 },
-  { left: '30%', bg: 'rgba(91,61,245,0.6)', size: 6,  dur: 3800, delay: 500,  zigzag: -9,  radius: 3 },
-  { left: '52%', bg: '#F45BA5',             size: 7,  dur: 3200, delay: 200,  zigzag:  8,  radius: 4 },
-  { left: '70%', bg: LIME,                  size: 5,  dur: 4000, delay: 800,  zigzag: -7,  radius: 3 },
-  { left: '88%', bg: 'rgba(91,61,245,0.5)', size: 6,  dur: 3600, delay: 300,  zigzag:  6,  radius: 4 },
-] as const;
-type ConfettiItem = (typeof CONFETTI)[number];
-
-function ConfettiPiece({ item }: { item: ConfettiItem }) {
-  const ty  = useSharedValue(0);
-  const tx  = useSharedValue(0);
-  const rot = useSharedValue(0);
-  useEffect(() => {
-    ty.value = withDelay(item.delay, withRepeat(
-      withTiming(SCREEN_H + 40, { duration: item.dur, easing: Easing.linear }), -1, false,
-    ));
-    tx.value = withDelay(item.delay, withRepeat(
-      withSequence(
-        withTiming(item.zigzag,       { duration: item.dur * 0.25, easing: Easing.inOut(Easing.sin) }),
-        withTiming(-item.zigzag,      { duration: item.dur * 0.25, easing: Easing.inOut(Easing.sin) }),
-        withTiming(item.zigzag * 0.6, { duration: item.dur * 0.25, easing: Easing.inOut(Easing.sin) }),
-        withTiming(0,                 { duration: item.dur * 0.25, easing: Easing.inOut(Easing.sin) }),
-      ), -1, false,
-    ));
-    rot.value = withDelay(item.delay, withRepeat(
-      withTiming(720, { duration: item.dur, easing: Easing.linear }), -1, false,
-    ));
-  }, []);
-  const style = useAnimatedStyle(() => ({
-    transform: [{ translateX: tx.value }, { translateY: ty.value }, { rotateZ: rot.value + 'deg' }],
-  }));
-  return (
-    <Animated.View style={[{
-      position: 'absolute', top: -20, left: item.left as any,
-      width: item.size, height: item.size, backgroundColor: item.bg,
-      borderRadius: 'radius' in item ? (item as any).radius : 2,
-    }, style]} />
-  );
-}
 
 
 // ── Subtle background floating dot ────────────────────────────────
@@ -292,14 +249,6 @@ export default function UploadFlowScreen() {
   const stageOpacity    = useSharedValue(1);
   const stageScale      = useSharedValue(1);
   const progressFill    = useSharedValue(0);
-  const celebScale      = useSharedValue(0);
-  const celebPulse      = useSharedValue(1);
-  const ctaPulse        = useSharedValue(0);
-  const s2Entry1        = useSharedValue(0);
-  const s2Entry2        = useSharedValue(0);
-  const s2Entry3        = useSharedValue(0);
-  const s2Entry4        = useSharedValue(0);
-  const confettiOpacity = useSharedValue(1);
   const filesAnim       = useSharedValue(0);
   // Stage-specific animation SVs
   const docScanPhase    = useSharedValue(0);
@@ -319,28 +268,6 @@ export default function UploadFlowScreen() {
     transform: [{ scale: stageScale.value }],
   }));
   const progressFillStyle = useAnimatedStyle(() => ({ width: `${progressFill.value * 100}%` as any }));
-  const celebScaleAnim    = useAnimatedStyle(() => ({ transform: [{ scale: celebScale.value }] }));
-  const celebPulseAnim    = useAnimatedStyle(() => ({ transform: [{ scale: celebPulse.value }] }));
-  const ctaPulseAnim      = useAnimatedStyle(() => ({
-    transform: [{ scale: 1 + ctaPulse.value * 0.013 }],
-  }));
-  const s2Entry1Style = useAnimatedStyle(() => ({
-    opacity: s2Entry1.value,
-    transform: [{ translateY: (1 - s2Entry1.value) * 18 }],
-  }));
-  const s2Entry2Style = useAnimatedStyle(() => ({
-    opacity: s2Entry2.value,
-    transform: [{ translateY: (1 - s2Entry2.value) * 18 }],
-  }));
-  const s2Entry3Style = useAnimatedStyle(() => ({
-    opacity: s2Entry3.value,
-    transform: [{ translateY: (1 - s2Entry3.value) * 18 }],
-  }));
-  const s2Entry4Style = useAnimatedStyle(() => ({
-    opacity: s2Entry4.value,
-    transform: [{ translateY: (1 - s2Entry4.value) * 18 }],
-  }));
-  const confettiStyle  = useAnimatedStyle(() => ({ opacity: confettiOpacity.value }));
   const filesAnimStyle = useAnimatedStyle(() => ({
     opacity:   filesAnim.value,
     transform: [{ translateY: (1 - filesAnim.value) * 8 }],
@@ -368,34 +295,6 @@ export default function UploadFlowScreen() {
   const check3Style = useAnimatedStyle(() => ({ opacity: check3sv.value, transform: [{ scale: 0.85 + check3sv.value * 0.15 }] }));
 
   // ── Effects ────────────────────────────────────────────────────
-
-  // Screen 2: entrance animations + confetti auto-hide
-  useEffect(() => {
-    if (step !== 2) {
-      confettiOpacity.value = 1;
-      return;
-    }
-    confettiOpacity.value = 1;
-    const fadeTimer = setTimeout(() => {
-      confettiOpacity.value = withTiming(0, { duration: 600 });
-    }, 2000);
-    celebScale.value = withSpring(1, { damping: 11, stiffness: 180 });
-    celebPulse.value = withDelay(700, withRepeat(
-      withSequence(
-        withTiming(1.08, { duration: 380 }),
-        withTiming(1.00, { duration: 380 }),
-        withDelay(3200, withTiming(1.00, { duration: 0 })),
-      ), -1, false,
-    ));
-    ctaPulse.value = withRepeat(
-      withSequence(withTiming(1, { duration: 1800 }), withTiming(0, { duration: 1800 })), -1, false,
-    );
-    s2Entry1.value = withSpring(1, { damping: 16, stiffness: 170 });
-    s2Entry2.value = withDelay(150, withSpring(1, { damping: 16, stiffness: 170 }));
-    s2Entry3.value = withDelay(300, withSpring(1, { damping: 16, stiffness: 170 }));
-    s2Entry4.value = withDelay(450, withSpring(1, { damping: 16, stiffness: 170 }));
-    return () => clearTimeout(fadeTimer);
-  }, [step]);
 
   // Screen 1: stage cycling + motiv rotation + stage-stepped progress
   useEffect(() => {
@@ -664,114 +563,6 @@ export default function UploadFlowScreen() {
 
   // ══════════════════════════════════════════════════════════════
   // SCREEN 2 — Tu misión está lista
-  // ══════════════════════════════════════════════════════════════
-  if (step === 2) {
-    const s = completedSession;
-    const allTopics: string[] = s?.summary?.slides?.map((sl: any) => sl.title) ?? [];
-    const conceptCount = allTopics.length || 8;
-    const xp     = s?.xpReward         ?? 60;
-    const estMin = s?.estimatedDuration ?? 25;
-
-    return (
-      <SafeAreaView style={{ flex: 1, backgroundColor: BG }} edges={['top']}>
-        <StatusBar barStyle="dark-content" backgroundColor={BG} />
-
-        {/* Confetti — fades out after 2s */}
-        <Animated.View style={[StyleSheet.absoluteFill, confettiStyle]} pointerEvents="none">
-          {CONFETTI.map((item, i) => <ConfettiPiece key={i} item={item} />)}
-        </Animated.View>
-
-        {/* Header */}
-        <View style={sh.header}>
-          <Pressable onPress={handleBack} style={sh.iconBtn} hitSlop={10}>
-            <ArrowLeft size={16} color={semantic.textPrimary} strokeWidth={2.5} />
-          </Pressable>
-          <ShimmerProgress step={step} />
-          <Pressable onPress={handleClose} style={sh.iconBtn} hitSlop={10}>
-            <X size={16} color={semantic.textPrimary} strokeWidth={2.5} />
-          </Pressable>
-        </View>
-
-        {/* Scrollable content */}
-        <ScrollView
-          style={{ flex: 1 }}
-          contentContainerStyle={s2.scrollContent}
-          showsVerticalScrollIndicator={false}
-        >
-          {/* Hero */}
-          <Animated.View style={[s2.heroBlock, s2Entry1Style]}>
-            <Animated.View style={celebScaleAnim}>
-              <Animated.View style={celebPulseAnim}>
-                <Text style={s2.heroEmoji}>🚀</Text>
-              </Animated.View>
-            </Animated.View>
-            <Text style={s2.title}>Tu misión está lista</Text>
-            <Text style={s2.titleSub}>Generada a partir de tus apuntes</Text>
-          </Animated.View>
-
-          {/* Stats hero card */}
-          <Animated.View style={[s2.statsCard, s2Entry2Style]}>
-            <View style={s2.statItem}>
-              <Text style={s2.statEmoji}>⏱</Text>
-              <Text style={s2.statValue}>{estMin} min</Text>
-              <Text style={s2.statLabel}>estimados</Text>
-            </View>
-            <View style={s2.statDivider} />
-            <View style={s2.statItem}>
-              <Text style={s2.statEmoji}>⚡</Text>
-              <Text style={s2.statValue}>+{xp}</Text>
-              <Text style={s2.statLabel}>XP</Text>
-            </View>
-            <View style={s2.statDivider} />
-            <View style={s2.statItem}>
-              <Text style={s2.statEmoji}>🎯</Text>
-              <Text style={s2.statValue}>3</Text>
-              <Text style={s2.statLabel}>modos</Text>
-            </View>
-          </Animated.View>
-
-          {/* Concepts detected */}
-          <Animated.View style={[s2.conceptsRow, s2Entry3Style]}>
-            <View style={s2.conceptsBadge}>
-              <Text style={s2.conceptsBadgeText}>🔍 {conceptCount} conceptos clave detectados</Text>
-            </View>
-          </Animated.View>
-
-          {/* Study modes */}
-          <Animated.View style={s2Entry4Style}>
-            <Text style={s2.modesLabel}>Modos de estudio</Text>
-            <View style={s2.modesRow}>
-              {([
-                { emoji: '📚', label: 'Misión' },
-                { emoji: '🧠', label: 'Quiz' },
-                { emoji: '🃏', label: 'Tarjetas' },
-              ] as const).map(({ emoji, label }) => (
-                <View key={label} style={s2.modeCard}>
-                  <Text style={s2.modeEmoji}>{emoji}</Text>
-                  <Text style={s2.modeLabel}>{label}</Text>
-                </View>
-              ))}
-            </View>
-          </Animated.View>
-        </ScrollView>
-
-        {/* CTA — sticky bottom */}
-        <View style={[sh.bottom, { paddingBottom: insets.bottom + 12 }]}>
-          <Pressable onPress={handleStart} style={{ width: '100%' }}>
-            <Animated.View style={ctaPulseAnim}>
-              <View style={[sh.ctaBtn, { backgroundColor: LIME }]}>
-                <Text style={[sh.ctaText, { color: palette.charcoal }]}>⚡ Comenzar misión</Text>
-              </View>
-            </Animated.View>
-          </Pressable>
-          <Pressable hitSlop={12} style={{ marginTop: 10, alignItems: 'center' }}>
-            <Text style={s2.saveLink}>Guardar para después</Text>
-          </Pressable>
-        </View>
-      </SafeAreaView>
-    );
-  }
-
   // ══════════════════════════════════════════════════════════════
   // SCREEN 1 — Preparando tu entrenamiento
   // ══════════════════════════════════════════════════════════════
@@ -1172,31 +963,3 @@ const s1 = StyleSheet.create({
   errorPrimaryText: { fontSize: 16, fontWeight: '800', color: palette.blanco },
 });
 
-// ── Screen 2 ──────────────────────────────────────────────────────
-const s2 = StyleSheet.create({
-  scrollContent: { paddingHorizontal: 20, paddingTop: 8, paddingBottom: 24, gap: 14 },
-
-  heroBlock: { alignItems: 'center', gap: 6, paddingTop: SM ? 8 : 16 },
-  heroEmoji: { fontSize: SM ? 52 : 64, marginBottom: 2 },
-  title:     { fontSize: SM ? 22 : 26, fontWeight: '900', color: semantic.textPrimary, letterSpacing: -0.5, textAlign: 'center' },
-  titleSub:  { fontSize: 14, color: semantic.textSecondary, textAlign: 'center' },
-
-  statsCard:   { backgroundColor: palette.blanco, borderRadius: 20, borderWidth: 1, borderColor: palette.bordeClaro, flexDirection: 'row', paddingVertical: 14 },
-  statItem:    { flex: 1, alignItems: 'center', gap: 3, paddingVertical: 4 },
-  statEmoji:   { fontSize: 22, marginBottom: 2 },
-  statValue:   { fontSize: SM ? 17 : 20, fontWeight: '900', color: semantic.textPrimary, letterSpacing: -0.4 },
-  statLabel:   { fontSize: 11, fontWeight: '600', color: semantic.textTertiary },
-  statDivider: { width: 1, backgroundColor: palette.bordeClaro, marginVertical: 8 },
-
-  conceptsRow:       { alignItems: 'center' },
-  conceptsBadge:     { backgroundColor: 'rgba(91,61,245,0.07)', borderRadius: 999, paddingVertical: 9, paddingHorizontal: 18, borderWidth: 1, borderColor: 'rgba(91,61,245,0.15)' },
-  conceptsBadgeText: { fontSize: 14, fontWeight: '700', color: BRAND },
-
-  modesLabel: { fontSize: 13, fontWeight: '800', color: semantic.textPrimary, marginBottom: 10 },
-  modesRow:   { flexDirection: 'row', gap: 10 },
-  modeCard:   { flex: 1, backgroundColor: palette.blanco, borderRadius: 16, borderWidth: 1, borderColor: palette.bordeClaro, paddingVertical: 14, paddingHorizontal: 8, alignItems: 'center', gap: 6 },
-  modeEmoji:  { fontSize: 22 },
-  modeLabel:  { fontSize: 13, fontWeight: '700', color: semantic.textPrimary },
-
-  saveLink: { fontSize: 13, fontWeight: '500', color: semantic.textTertiary, textAlign: 'center' },
-});
