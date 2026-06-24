@@ -16,7 +16,8 @@
  *   final_challenge          → boss_loop              (interactive)
  *   main_concept             → insight                (non-interactive)
  *   key_relation             → insight                (non-interactive)
- *   process_flow             → insight                (non-interactive)
+ *   process_flow (3-5 steps) → reinforcement_challenge (order_steps interactive)
+ *   process_flow (other)     → insight                (non-interactive fallback)
  *   challenge                → instant_feedback       (non-interactive)
  *   common_error (no Q)      → instant_feedback       (non-interactive fallback)
  *   application (no Q)       → instant_feedback       (non-interactive fallback)
@@ -55,6 +56,10 @@ interface DesafioSlide {
   body?: string;
   conceptsCovered?: string[];
   examples?: { expression: string; label: string }[];
+  // order_steps
+  steps?: string[];
+  correctOrder?: number[];
+  orderPrompt?: string;
 }
 
 interface DesafioSession {
@@ -90,6 +95,41 @@ const STATIC_MAP: Partial<Record<string, DesafioSlideType>> = {
   common_error:  'instant_feedback',
   application:   'instant_feedback',
 };
+
+/** Extract ordered steps from a process_flow slide (definition → or connector ↓). */
+function parseProcessFlowSteps(slide: any): string[] {
+  const def = String(slide.definition ?? '');
+  if (def.includes('→')) {
+    const steps = def.split('→').map((t: string) => t.trim()).filter(Boolean);
+    if (steps.length >= 3 && steps.length <= 5) return steps;
+  }
+  const conn = String(slide.connector ?? '');
+  if (conn.includes('↓')) {
+    // connector format: "node ↓ verb ↓ node ↓ verb ↓ node" — nodes at even positions
+    const parts = conn.split('↓').map((t: string) => t.trim()).filter(Boolean);
+    const nodes = parts.filter((_: string, i: number) => i % 2 === 0);
+    if (nodes.length >= 3 && nodes.length <= 5) return nodes;
+  }
+  return [];
+}
+
+/** Deterministically shuffle steps and return correctOrder so the UI starts in wrong order. */
+function shuffleSteps(correctSteps: string[], seed: number): { steps: string[]; correctOrder: number[] } {
+  const n = correctSteps.length;
+  const idx = Array.from({ length: n }, (_, i) => i);
+  let s = (seed * 1664525 + 1013904223) & 0x7fffffff;
+  for (let i = n - 1; i > 0; i--) {
+    s = (s * 1664525 + 1013904223) & 0x7fffffff;
+    const j = s % (i + 1);
+    [idx[i], idx[j]] = [idx[j], idx[i]];
+  }
+  // Guarantee the shuffle is never identity (so the exercise is always meaningful)
+  if (idx.every((v, i) => v === i) && n > 1) { idx.unshift(idx.pop()!); }
+  const steps = idx.map(i => correctSteps[i]);
+  // correctOrder[pos] = which index in `steps` belongs at position `pos`
+  const correctOrder = Array.from({ length: n }, (_, pos) => idx.indexOf(pos));
+  return { steps, correctOrder };
+}
 
 function parseChoices(options: string[] | null | undefined): DesafioChoice[] {
   if (!Array.isArray(options) || options.length < 2) return [];
@@ -207,6 +247,23 @@ export function buildDesafioFromMission(slides: any[], topic: string): DesafioSe
         ...(Object.keys(wrongHints).length > 0 ? { wrongHints } : {}),
       });
       continue;
+    }
+
+    // process_flow with parseable steps → order_steps interactive
+    if (type === 'process_flow') {
+      const correctSteps = parseProcessFlowSteps(slide);
+      if (correctSteps.length >= 3) {
+        const { steps, correctOrder } = shuffleSteps(correctSteps, i);
+        desafioSlides.push({
+          ...base,
+          type: 'reinforcement_challenge',
+          interactionType: 'order_steps',
+          orderPrompt: `Ordena los pasos de "${String(slide.title || 'este proceso')}"`,
+          steps,
+          correctOrder,
+        });
+        continue;
+      }
     }
 
     // Non-interactive branch
