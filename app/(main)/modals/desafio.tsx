@@ -1436,10 +1436,13 @@ export default function DesafioScreen() {
         break;
       }
       case 'fill_blank': {
-        const hint = !answer.correct ? slide.wrongHints?.[answer.value as string] : undefined;
-        const raw = hint ?? slide.blankExplanation ?? null;
-        const prefix = answer.correct ? 'Exacto. ' : 'Casi. ';
-        text = raw ? prefix + raw : null;
+        if (answer.correct) {
+          const raw = slide.blankExplanation ?? null;
+          text = raw ? 'Exacto. ' + raw : null;
+        } else {
+          const raw = slide.wrongExplanation ?? null;
+          text = raw ? 'Casi. ' + raw : null;
+        }
         break;
       }
       case 'match_pairs':

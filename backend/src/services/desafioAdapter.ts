@@ -56,6 +56,11 @@ interface DesafioSlide {
   body?: string;
   conceptsCovered?: string[];
   examples?: { expression: string; label: string }[];
+  // fill_blank
+  blankSentence?: string;
+  blankChoices?: DesafioChoice[];
+  blankAnswer?: 'A' | 'B' | 'C';
+  blankExplanation?: string;
   // order_steps
   steps?: string[];
   correctOrder?: number[];
@@ -235,17 +240,31 @@ export function buildDesafioFromMission(slides: any[], topic: string): DesafioSe
         }
       }
 
-      desafioSlides.push({
-        ...base,
-        type: desafioType,
-        interactionType: 'multiple_choice',
-        question: String(slide.question),
-        choices,
-        correctAnswer,
-        explanation: String((slide as any).feedbackCorrect ?? slide.definition ?? ''),
-        ...((slide as any).feedbackWrong ? { wrongExplanation: String((slide as any).feedbackWrong) } : {}),
-        ...(Object.keys(wrongHints).length > 0 ? { wrongHints } : {}),
-      });
+      const isBlank = String(slide.question).includes('___');
+      if (isBlank) {
+        desafioSlides.push({
+          ...base,
+          type: desafioType,
+          interactionType: 'fill_blank',
+          blankSentence: String(slide.question),
+          blankChoices: choices,
+          blankAnswer: correctAnswer,
+          blankExplanation: String((slide as any).feedbackCorrect ?? slide.definition ?? ''),
+          ...((slide as any).feedbackWrong ? { wrongExplanation: String((slide as any).feedbackWrong) } : {}),
+        });
+      } else {
+        desafioSlides.push({
+          ...base,
+          type: desafioType,
+          interactionType: 'multiple_choice',
+          question: String(slide.question),
+          choices,
+          correctAnswer,
+          explanation: String((slide as any).feedbackCorrect ?? slide.definition ?? ''),
+          ...((slide as any).feedbackWrong ? { wrongExplanation: String((slide as any).feedbackWrong) } : {}),
+          ...(Object.keys(wrongHints).length > 0 ? { wrongHints } : {}),
+        });
+      }
       continue;
     }
 
