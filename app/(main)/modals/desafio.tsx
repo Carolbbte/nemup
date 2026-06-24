@@ -1427,6 +1427,7 @@ export default function DesafioScreen() {
     const slideItype = effectiveInteractionType(slide);
     let text: string | null = null;
     let correctOrderItems: string[] | undefined;
+    let customLabel: string | undefined;
     switch (slideItype) {
       case 'multiple_choice': {
         if (answer.correct) {
@@ -1448,9 +1449,20 @@ export default function DesafioScreen() {
         }
         break;
       }
-      case 'match_pairs':
-        text = slide.pairsExplanation ?? null;
+      case 'match_pairs': {
+        if (answer.correct) {
+          text = slide.pairsExplanation ?? null;
+        } else {
+          const matched = answer.value as Record<string, string>;
+          const wrongPair = (slide.pairs ?? []).find(p => matched[p.id] !== p.id + '_r');
+          if (wrongPair) {
+            const emotions = ['Casi.', 'Buen intento.', 'Revisemos esto.'];
+            customLabel = emotions[currentIdx % 3];
+            text = `${wrongPair.left} corresponde a ${wrongPair.right}.`;
+          }
+        }
         break;
+      }
       case 'classify':
         text = slide.classifyExplanation ?? null;
         break;
@@ -1464,7 +1476,7 @@ export default function DesafioScreen() {
         break;
       }
     }
-    return { isCorrect: answer.correct, text, correctOrderItems };
+    return { isCorrect: answer.correct, text, correctOrderItems, customLabel };
   }, [revealed, slide, answers, currentIdx]);
 
   // ── Advance to next slide ──────────────────────────────────────────────────
@@ -1827,7 +1839,7 @@ export default function DesafioScreen() {
           <Animated.View style={feedbackAnimStyle}>
             <View style={[g.feedbackPanel, slideFeedback.isCorrect ? g.feedbackPanelOk : g.feedbackPanelWrong]}>
               <Text style={[g.feedbackLabel, slideFeedback.isCorrect ? g.feedbackLabelOk : g.feedbackLabelWrong]}>
-                {slideFeedback.isCorrect ? '✓ ¡Correcto!' : '✗ Incorrecto'}
+                {slideFeedback.customLabel ?? (slideFeedback.isCorrect ? '✓ ¡Correcto!' : '✗ Incorrecto')}
               </Text>
               {slideFeedback.text != null && (
                 <Text style={[g.feedbackText, slideFeedback.isCorrect ? g.feedbackTextOk : g.feedbackTextWrong]}>
