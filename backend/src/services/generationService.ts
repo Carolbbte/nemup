@@ -459,6 +459,7 @@ PANTALLA "micro_challenge" — DESAFÍO DE DESCUBRIMIENTO [OBLIGATORIA — UNA P
   3. DETECTAR ERROR: "¿Qué tiene de incorrecto: 3m + 7n = 10mn?"      → A) los coeficientes B) las letras C) el resultado
   4. VERDADERO/FALSO:"¿Son semejantes 3x² y 3x?"                      → A) Sí, misma letra B) No, diferente exponente C) Depende
   5. COMPLETAR:      "2m y 6m son términos ___"                        → A) semejantes B) opuestos C) independientes
+     OBLIGATORIO si usas COMPLETAR: la `question` DEBE contener `___` literalmente como el hueco. Sin `___` no es COMPLETAR.
   6. COMPARAR:       "¿Cuál reducción es correcta: 3m+5m = ?"         → A) 8m B) 15m² C) 8m²
 
   PRIORIDAD DE EJEMPLOS (obligatoria — respetar este orden):
