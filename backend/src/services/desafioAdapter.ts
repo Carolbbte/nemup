@@ -153,6 +153,54 @@ function parseChoices(options: string[] | null | undefined): DesafioChoice[] {
 }
 
 /**
+ * Builds fill_blank choices using concept names from the session.
+ * Correct = current concept name; distractors = adjacent concepts (most
+ * semantically similar, thus most distracting).
+ * Position of correct answer is deterministically shuffled via seed.
+ */
+function buildFillBlankChoices(
+  correctName: string,
+  allConceptNames: string[],
+  currentConceptIdx: number,
+  seed: number,
+): { choices: DesafioChoice[]; correctAnswer: 'A' | 'B' | 'C' } | null {
+  // Prefer adjacent concepts as distractors — closest semantically
+  const distractors: string[] = [];
+  for (const offset of [-1, 1, -2, 2, -3, 3]) {
+    const idx = currentConceptIdx + offset;
+    if (idx >= 0 && idx < allConceptNames.length) {
+      const candidate = allConceptNames[idx];
+      if (candidate && candidate !== correctName && !distractors.includes(candidate)) {
+        distractors.push(candidate);
+        if (distractors.length === 2) break;
+      }
+    }
+  }
+  // Fallback: any remaining concept not yet picked
+  if (distractors.length < 2) {
+    for (const name of allConceptNames) {
+      if (name !== correctName && !distractors.includes(name)) {
+        distractors.push(name);
+        if (distractors.length === 2) break;
+      }
+    }
+  }
+  if (distractors.length < 2) return null; // not enough concepts — caller falls back to MC
+
+  // Place correct answer at a deterministic but non-obvious position
+  const correctPos = seed % 3;
+  const texts = [distractors[0], distractors[1]];
+  texts.splice(correctPos, 0, correctName);
+
+  const choices: DesafioChoice[] = texts.slice(0, 3).map((text, idx) => ({
+    letter: LETTERS[idx],
+    text,
+  }));
+
+  return { choices, correctAnswer: LETTERS[correctPos] as 'A' | 'B' | 'C' };
+}
+
+/**
  * Assigns each slide a conceptIndex and conceptName.
  *
  * The Duolingo Loop order is: micro_challenge → main_concept → reinforcement_challenge.
@@ -264,16 +312,32 @@ export function buildDesafioFromMission(
       const blankSentence = (rawBlank ? String(rawBlank) : null) ?? (questionAsBlank ?? null);
 
       if (blankSentence) {
-        desafioSlides.push({
-          ...base,
-          type: desafioType,
-          interactionType: 'fill_blank',
-          blankSentence,
-          blankChoices: choices,
-          blankAnswer: correctAnswer,
-          blankExplanation: String((slide as any).feedbackCorrect ?? slide.definition ?? ''),
-          ...((slide as any).feedbackWrong ? { wrongExplanation: String((slide as any).feedbackWrong) } : {}),
-        });
+        const fillBlank = buildFillBlankChoices(conceptName, conceptNames, conceptIndex, i);
+        if (fillBlank) {
+          desafioSlides.push({
+            ...base,
+            type: desafioType,
+            interactionType: 'fill_blank',
+            blankSentence,
+            blankChoices: fillBlank.choices,
+            blankAnswer: fillBlank.correctAnswer,
+            blankExplanation: String((slide as any).feedbackCorrect ?? slide.definition ?? ''),
+            ...((slide as any).feedbackWrong ? { wrongExplanation: String((slide as any).feedbackWrong) } : {}),
+          });
+        } else {
+          // Not enough concepts for meaningful distractors — fall back to multiple_choice
+          desafioSlides.push({
+            ...base,
+            type: desafioType,
+            interactionType: 'multiple_choice',
+            question: String(slide.question),
+            choices,
+            correctAnswer,
+            explanation: String((slide as any).feedbackCorrect ?? slide.definition ?? ''),
+            ...((slide as any).feedbackWrong ? { wrongExplanation: String((slide as any).feedbackWrong) } : {}),
+            ...(Object.keys(wrongHints).length > 0 ? { wrongHints } : {}),
+          });
+        }
       } else {
         desafioSlides.push({
           ...base,
