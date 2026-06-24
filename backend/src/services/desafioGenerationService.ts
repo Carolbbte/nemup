@@ -51,6 +51,7 @@ interface ConceptBlock {
   definition: string;
   example?: string;
   microFeedback?: string;
+  otherConceptNames: string[]; // competing concepts — used to craft a distinctive predicate
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -74,7 +75,14 @@ function extractConceptBlocks(slides: any[]): ConceptBlock[] {
       definition: String(slide.definition ?? '').trim(),
       example: slide.example ? String(slide.example).trim() : undefined,
       microFeedback: micro?.feedbackCorrect ? String(micro.feedbackCorrect).trim() : undefined,
+      otherConceptNames: [], // populated in second pass below
     });
+  }
+
+  // Second pass: give each block the names of all OTHER concepts in the session
+  const allNames = blocks.map(b => b.name);
+  for (const block of blocks) {
+    block.otherConceptNames = allNames.filter(n => n !== block.name);
   }
 
   return blocks;
@@ -114,7 +122,7 @@ function validateClassify(parsed: any): { categories: string[]; items: Array<{ t
 
 const OUTPUT_SCHEMA = `{
   "conceptFormats": [
-    { "conceptIndex": 0, "interactionType": "fill_blank", "blankSentence": "El ___ son restos en rocas sedimentarias." },
+    { "conceptIndex": 0, "interactionType": "fill_blank", "blankSentence": "La evidencia llamada ___ consiste en restos de organismos conservados en rocas sedimentarias." },
     { "conceptIndex": 1, "interactionType": "multiple_choice" }
   ],
   "matchPairs": {
@@ -151,12 +159,33 @@ export async function generateDesafioFormats(
 Tu ÚNICA tarea: asignar formatos de presentación a conceptos ya generados.
 
 RESTRICCIÓN ABSOLUTA — NO GENERES CONTENIDO NUEVO:
-- Usa SÓLO el texto exacto de los campos "definition" y "microFeedback" ya provistos
-- Para blankSentence: copia EXACTAMENTE el texto de "microFeedback" y reemplaza el nombre del concepto (campo "name") con ___
-  Ejemplo: microFeedback="los órganos homólogos tienen mismo origen" → blankSentence="los ___ tienen mismo origen"
+- Usa SÓLO información de los campos "definition" y "microFeedback" ya provistos
 - Para match_pairs: usa el valor exacto de "name" en "left" y una frase corta (≤8 palabras) de "definition" en "right"
 - Para classify: usa SÓLO ejemplos ya mencionados en "definition" o "example"
 - Si no hay contenido suficiente para classify → devuelve null
+
+PATRÓN OBLIGATORIO PARA blankSentence — ANCHOR + ___ + PREDICADO:
+Construye una NUEVA oración (no copies microFeedback directamente) siguiendo este patrón:
+
+  ANCHOR (antes del ___):
+  - Frase que introduce el blank de forma GRAMATICALMENTE NEUTRAL con CUALQUIER opción
+  - ✓ Usa: "La evidencia denominada ___", "El proceso llamado ___", "El concepto conocido como ___",
+           "La estructura de tipo ___", "El mecanismo denominado ___", "El fenómeno llamado ___"
+  - ✗ NUNCA pongas un artículo solo antes del hueco: "La ___", "El ___", "Los ___", "Las ___"
+    (revelaría género/número y el estudiante eliminaría opciones por gramática, no por conocimiento)
+
+  PREDICADO (después del ___):
+  - La característica MÁS DISTINTIVA del concepto correcto, extraída de "definition" o "microFeedback"
+  - Debe ser: ✓ claramente VERDADERA para el concepto correcto
+              ✓ claramente FALSA o IMPRECISA para cada nombre en "otherConceptNames"
+  - Si el predicado es verdadero para más de un concepto → es demasiado genérico, elige otro rasgo
+
+  Ejemplo:
+    concepto="Registro fósil", otherConceptNames=["Anatomía comparada","Biogeografía"]
+    ✗ MAL: "La evidencia llamada ___ revela cambios en los seres vivos." (verdadero para todos)
+    ✓ BIEN: "La evidencia llamada ___ consiste en restos de organismos conservados en rocas sedimentarias."
+      → "Anatomía comparada" no consiste en restos en rocas ✗
+      → "Biogeografía" no consiste en restos en rocas ✗
 
 CONCEPTOS (N=${N}):
 ${JSON.stringify(blocks, null, 2)}
