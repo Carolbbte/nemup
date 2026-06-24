@@ -247,6 +247,11 @@ export function buildDesafioFromMission(
   const conceptAssignment = buildConceptAssignment(slides);
   const desafioSlides: DesafioSlide[] = [];
 
+  // Extract mission slide fields for the Desafío cover screen
+  const missionSlide = slides.find((s: any) => s?.type === 'mission');
+  const missionEmoji = missionSlide?.emoji ? String(missionSlide.emoji) : undefined;
+  const missionTitle = missionSlide?.title ? String(missionSlide.title) : undefined;
+
   // Collect concept names in encounter order
   const conceptNames: string[] = [];
   for (const s of slides) {
@@ -439,5 +444,7 @@ export function buildDesafioFromMission(
     topic: topic || 'Desafío de Refuerzo',
     conceptCount: conceptNames.length,
     slides: desafioSlides,
+    ...(missionEmoji ? { missionEmoji } : {}),
+    ...(missionTitle ? { missionTitle } : {}),
   };
 }

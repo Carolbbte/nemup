@@ -86,4 +86,6 @@ export interface DesafioSession {
   conceptCount: number;
   slides: DesafioSlide[];
   retrySlides?: Record<string, DesafioSlide[]>; // key = String(conceptIndex)
+  missionEmoji?: string;  // emoji from the Mission's mission slide (for cover screen)
+  missionTitle?: string;  // title/question from the Mission's mission slide (for cover screen)
 }

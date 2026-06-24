@@ -1661,8 +1661,8 @@ export default function DesafioScreen() {
           <View style={cvr.card}>
             <View style={cvr.grad}>
               <View style={cvr.badge}><Text style={cvr.badgeText}>⚔️ DESAFÍO</Text></View>
-              <Text style={cvr.emoji}>🎯</Text>
-              <Text style={cvr.title}>{session.topic}</Text>
+              <Text style={cvr.emoji}>{session.missionEmoji ?? '⚔️'}</Text>
+              <Text style={cvr.title}>{session.missionTitle ?? session.topic}</Text>
               {coverConcepts.length > 0 && (
                 <View style={cvr.learnBlock}>
                   <Text style={cvr.learnLabel}>Qué evaluarás</Text>
