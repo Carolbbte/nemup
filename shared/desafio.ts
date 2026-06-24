@@ -45,6 +45,7 @@ export interface DesafioSlide {
   choices?: DesafioChoice[];
   correctAnswer?: 'A' | 'B' | 'C';
   explanation?: string;
+  wrongExplanation?: string;
   wrongHints?: Record<string, string>;
 
   // match_pairs

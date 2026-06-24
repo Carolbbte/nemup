@@ -162,7 +162,9 @@ JSON SCHEMA — return ONLY this structure:
         "options": [string] | null,
         "correctAnswer": string | null,
         "correctAnswerReason": string | null,
-        "wrongAnswerHints": { "<letter>": string } | null
+        "wrongAnswerHints": { "<letter>": string } | null,
+        "feedbackCorrect": string | null,
+        "feedbackWrong": string | null
       }
     ],
     "sourceQuotes": [string]
@@ -488,11 +490,15 @@ PANTALLA "micro_challenge" — DESAFÍO DE DESCUBRIMIENTO [OBLIGATORIA — UNA P
   - correctAnswerReason: escribe aquí la frase de auto-verificación. 1 oración. Sin emojis. Sin "Acertaste".
     ✓ "B es correcta porque el coeficiente es el factor numérico que multiplica la parte literal."
     ✗ "B porque es la correcta." — demasiado vago, indica que no verificaste.
-  - definition: explicación conversacional de POR QUÉ esa opción es correcta. Máximo 120 caracteres.
-    Lenguaje directo como un coach, no académico. Sin prefijos emocionales ("Exacto", "Correcto", "Acertaste") — el UI los agrega.
-    ✓ "Comparten origen embrionario, aunque cada uno evolucionó para cumplir una función distinta."
-    ✗ "órganos homólogos tienen origen común pero funciones adaptadas diferentes." — demasiado académico y plano
-    ✗ "🎯 Acertaste — Solo términos con misma letra..." — formato PROHIBIDO
+  - definition: igual al valor de feedbackCorrect (se usa como fallback en otros contextos).
+  - feedbackCorrect: frase breve, cálida y natural al responder CORRECTAMENTE. Máximo 100 caracteres.
+    Sin prefijos emocionales ("Exacto", "Correcto") — el UI los agrega. Estilo profesor o Duolingo.
+    ✓ "Comparten origen embrionario, aunque cada uno evolucionó para una función distinta."
+    ✗ "órganos homólogos tienen origen común pero funciones adaptadas diferentes." — plano y académico
+  - feedbackWrong: pista breve al responder INCORRECTAMENTE, sin revelar la respuesta. Máximo 100 caracteres.
+    Una frase que oriente sin dar la solución directa. Sin prefijo — el UI agrega "Casi.".
+    ✓ "Los órganos homólogos se definen por su origen, no por la función que cumplen hoy."
+    ✗ "Incorrecto. La respuesta correcta es B." — revela la respuesta, prohibido
   - example: null
   - connector: null
 
@@ -522,11 +528,15 @@ PANTALLA "reinforcement_challenge" — DESAFÍO DE REFUERZO [OBLIGATORIA — UNA
   - correctAnswerReason: escribe en 1 oración por qué esa letra es correcta, citando el concepto enseñado. Sin emojis.
     ✓ "A es correcta porque frecuencia alta implica longitud de onda corta según la relación v = f·λ."
     ✗ "A porque es la respuesta correcta." — esto indica que no verificaste.
-  - definition: explicación conversacional de POR QUÉ esa respuesta aplica correctamente el concepto. Máximo 120 caracteres.
-    Lenguaje directo como un coach, no académico. Sin prefijos emocionales ("Correcto", "Muy bien") — el UI los agrega.
-    Conecta directamente con el concepto enseñado en el main_concept inmediatamente anterior.
+  - definition: igual al valor de feedbackCorrect (se usa como fallback en otros contextos).
+  - feedbackCorrect: frase breve, cálida y natural al responder CORRECTAMENTE. Máximo 100 caracteres.
+    Sin prefijos emocionales ("Correcto", "Muy bien") — el UI los agrega. Conecta con el main_concept anterior.
     ✓ "La frecuencia alta comprime las ondas: longitud de onda corta es consecuencia directa."
     ✗ "🎯 Correcto — el refuerzo confirma lo aprendido." — formato PROHIBIDO
+  - feedbackWrong: pista breve al responder INCORRECTAMENTE, sin revelar la respuesta. Máximo 100 caracteres.
+    Una frase que recuerde el concepto clave sin decir cuál opción es correcta. Sin prefijo.
+    ✓ "Recuerda: a mayor frecuencia, las ondas se comprimen — la longitud de onda disminuye."
+    ✗ "La respuesta correcta es A porque..." — revela la respuesta, prohibido
   - example: null
   - connector: null
   - wrongAnswerHints: OBLIGATORIO — mismas reglas que todas las pantallas interactivas.
@@ -1894,6 +1904,8 @@ async function callOpenAIAndBuildResult(
       correctAnswer: clean.correctAnswer ?? null,
       wrongAnswerHints: (clean.wrongAnswerHints && typeof clean.wrongAnswerHints === 'object' && !Array.isArray(clean.wrongAnswerHints))
         ? clean.wrongAnswerHints : null,
+      feedbackCorrect: clean.feedbackCorrect ? stripFeedbackPrefix(String(clean.feedbackCorrect), clean.type) : null,
+      feedbackWrong: clean.feedbackWrong ? String(clean.feedbackWrong) : null,
     };
   });
 

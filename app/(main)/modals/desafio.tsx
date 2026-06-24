@@ -1426,10 +1426,13 @@ export default function DesafioScreen() {
     let correctOrderItems: string[] | undefined;
     switch (slideItype) {
       case 'multiple_choice': {
-        const hint = !answer.correct ? slide.wrongHints?.[answer.value as string] : undefined;
-        const raw = hint ?? slide.explanation ?? null;
-        const prefix = answer.correct ? 'Exacto. ' : 'Casi. ';
-        text = raw ? prefix + raw : null;
+        if (answer.correct) {
+          const raw = slide.explanation ?? null;
+          text = raw ? 'Exacto. ' + raw : null;
+        } else {
+          const raw = slide.wrongExplanation ?? null;
+          text = raw ? 'Casi. ' + raw : null;
+        }
         break;
       }
       case 'fill_blank': {

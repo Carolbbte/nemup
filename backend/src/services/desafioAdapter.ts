@@ -49,6 +49,7 @@ interface DesafioSlide {
   choices?: DesafioChoice[];
   correctAnswer?: 'A' | 'B' | 'C';
   explanation?: string;
+  wrongExplanation?: string;
   wrongHints?: Record<string, string>;
   title?: string;
   body?: string;
@@ -201,7 +202,8 @@ export function buildDesafioFromMission(slides: any[], topic: string): DesafioSe
         question: String(slide.question),
         choices,
         correctAnswer,
-        explanation: String(slide.definition ?? ''),
+        explanation: String((slide as any).feedbackCorrect ?? slide.definition ?? ''),
+        ...((slide as any).feedbackWrong ? { wrongExplanation: String((slide as any).feedbackWrong) } : {}),
         ...(Object.keys(wrongHints).length > 0 ? { wrongHints } : {}),
       });
       continue;
