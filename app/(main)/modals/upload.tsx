@@ -434,14 +434,15 @@ export default function UploadFlowScreen() {
   }, [step]);
 
 
-  // Auto-navigate to step 2 when session result arrives
+  // Navigate directly to session dashboard when generation completes
   useEffect(() => {
     if (sessionResult && step === 1) {
       progressFill.value = withTiming(1, { duration: 400 });
-      autoNavRef.current = setTimeout(() => setStep(2), 800);
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+      autoNavRef.current = setTimeout(() => handleStart(), 800);
       return () => { if (autoNavRef.current) clearTimeout(autoNavRef.current); };
     }
-  }, [sessionResult, step]);
+  }, [sessionResult, step]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── File helpers ───────────────────────────────────────────────
   const addFiles = (incoming: UploadedFile[]) => {
