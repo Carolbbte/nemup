@@ -24,6 +24,7 @@ import {
 import { classifyContent } from '../services/pedagogicalClassifier.js';
 import { generateSkillMission } from '../services/generationService.js';
 import { buildDesafioFromMission } from '../services/desafioAdapter.js';
+import { generateDesafioFormats } from '../services/desafioGenerationService.js';
 import type { SessionConfig } from '../types.js';
 import { extractKnowledge, type KnowledgeGraph } from '../services/knowledgeExtractor.js';
 
@@ -206,12 +207,18 @@ router.post('/generate', upload.array('documents', 10), async (req, res) => {
     applyUserRewards(userId, allMissions[0].session.baseXpReward, 0)
       .catch(err => console.warn('[Sessions] Rewards error:', err?.message));
 
-    // ── Desafío (built from Mission slides — no second AI call) ─────────────
+    // ── Desafío (Mission content + AI format diversification) ───────────────
     sendSse(res, 'progress', createProgressPayload('generating_desafio', 95, 'Preparando modo Desafío...'));
     try {
       const firstMissionSlides = (allMissions[0].session.summary as any).slides ?? [];
       const firstMissionTopic = allMissions[0].skillLabel ?? '';
-      const desafioSession = buildDesafioFromMission(firstMissionSlides, firstMissionTopic);
+      let desafioFormats;
+      try {
+        desafioFormats = await generateDesafioFormats(firstMissionSlides, firstMissionTopic);
+      } catch (fmtErr: any) {
+        console.warn('[Sessions] Desafío format generation failed (non-fatal):', fmtErr?.message);
+      }
+      const desafioSession = buildDesafioFromMission(firstMissionSlides, firstMissionTopic, desafioFormats);
       if (desafioSession.conceptCount > 0) {
         (allMissions[0].session as any).desafio = desafioSession;
         console.log(`[Sessions] Desafío construido (PROCEDURAL): ${desafioSession.conceptCount} conceptos`);
@@ -293,12 +300,18 @@ router.post('/generate', upload.array('documents', 10), async (req, res) => {
     console.log('[Sessions] Engagement OK — interactions:', engagementReport.interactionCount);
   }
 
-  // ── Desafío (built from Mission slides — no second AI call) ──────────────
+  // ── Desafío (Mission content + AI format diversification) ────────────────
   sendSse(res, 'progress', createProgressPayload('generating_desafio', 90, 'Preparando modo Desafío...'));
   try {
     const sessionSlides = session.summary.slides as any[];
     const sessionTopic = (session.summary as any).title ?? '';
-    const desafioSession = buildDesafioFromMission(sessionSlides, sessionTopic);
+    let desafioFormats;
+    try {
+      desafioFormats = await generateDesafioFormats(sessionSlides, sessionTopic);
+    } catch (fmtErr: any) {
+      console.warn('[Sessions] Desafío format generation failed (non-fatal):', fmtErr?.message);
+    }
+    const desafioSession = buildDesafioFromMission(sessionSlides, sessionTopic, desafioFormats);
     if (desafioSession.conceptCount > 0) {
       (session as any).desafio = desafioSession;
       console.log(`[Sessions] Desafío construido: ${desafioSession.conceptCount} conceptos`);

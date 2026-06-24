@@ -1,0 +1,246 @@
+/**
+ * Desafío Format Generation Service
+ *
+ * Makes a small, focused AI call AFTER Mission generation is complete.
+ * Receives concept blocks already produced by the Mission and assigns
+ * evaluation formats (fill_blank, match_pairs, classify) without
+ * generating new content.
+ *
+ * Constraints enforced via prompt:
+ *   - blankSentence = exact microFeedback text with concept name → ___
+ *   - match_pairs pairs use ONLY concept names and definition excerpts
+ *   - classify uses ONLY examples already present in the content
+ */
+
+import OpenAI from 'openai';
+import { config } from '../config.js';
+
+const openai = new OpenAI({ apiKey: config.openai_api_key });
+
+// ── Public types (consumed by desafioAdapter.ts and sessions.ts) ─────────────
+
+export interface ConceptFormatEntry {
+  interactionType: 'fill_blank' | 'multiple_choice';
+  blankSentence?: string;
+}
+
+export interface MatchPairsSpec {
+  insertAfterConceptIndex: number;
+  prompt: string;
+  pairs: Array<{ left: string; right: string }>;
+}
+
+export interface ClassifySpec {
+  insertAfterConceptIndex: number;
+  prompt: string;
+  categories: string[];
+  items: Array<{ text: string; category: string }>;
+}
+
+export interface DesafioFormatAssignment {
+  conceptFormats: Record<number, ConceptFormatEntry>;
+  matchPairs: MatchPairsSpec | null;
+  classify: ClassifySpec | null;
+}
+
+// ── Internal concept block structure ─────────────────────────────────────────
+
+interface ConceptBlock {
+  conceptIndex: number;
+  name: string;
+  definition: string;
+  example?: string;
+  microFeedback?: string;
+}
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+
+function extractConceptBlocks(slides: any[]): ConceptBlock[] {
+  const blocks: ConceptBlock[] = [];
+  let conceptIndex = 0;
+
+  for (let i = 0; i < slides.length; i++) {
+    const slide = slides[i];
+    if (slide?.type !== 'main_concept') continue;
+
+    // The micro_challenge for this concept is the one immediately before it
+    // in the Duolingo Loop order: micro → main → reinforcement
+    const preceding = slides.slice(0, i).reverse();
+    const micro = preceding.find((s: any) => s?.type === 'micro_challenge');
+
+    blocks.push({
+      conceptIndex: conceptIndex++,
+      name: String(slide.title ?? '').trim(),
+      definition: String(slide.definition ?? '').trim(),
+      example: slide.example ? String(slide.example).trim() : undefined,
+      microFeedback: micro?.feedbackCorrect ? String(micro.feedbackCorrect).trim() : undefined,
+    });
+  }
+
+  return blocks;
+}
+
+function validateBlankSentence(s: unknown): string | undefined {
+  if (typeof s !== 'string' || !s.includes('___') || s.trim().length < 10) return undefined;
+  return s.trim();
+}
+
+function validatePairs(pairs: unknown): Array<{ left: string; right: string }> | null {
+  if (!Array.isArray(pairs) || pairs.length < 3) return null;
+  const result = pairs
+    .slice(0, 6)
+    .map((p: any) => ({ left: String(p?.left ?? '').trim(), right: String(p?.right ?? '').trim() }))
+    .filter(p => p.left.length > 0 && p.right.length > 0);
+  return result.length >= 3 ? result : null;
+}
+
+function validateClassify(parsed: any): { categories: string[]; items: Array<{ text: string; category: string }> } | null {
+  const cats = Array.isArray(parsed?.categories)
+    ? parsed.categories.map(String).filter((c: string) => c.trim().length > 0)
+    : [];
+  if (cats.length < 2) return null;
+
+  const items = Array.isArray(parsed?.items)
+    ? parsed.items
+        .map((it: any) => ({ text: String(it?.text ?? '').trim(), category: String(it?.category ?? '').trim() }))
+        .filter((it: { text: string; category: string }) => it.text.length > 0 && cats.includes(it.category))
+    : [];
+  if (items.length < 3) return null;
+
+  return { categories: cats, items };
+}
+
+// ── Output schema (embedded in prompt) ───────────────────────────────────────
+
+const OUTPUT_SCHEMA = `{
+  "conceptFormats": [
+    { "conceptIndex": 0, "interactionType": "fill_blank", "blankSentence": "El ___ son restos en rocas sedimentarias." },
+    { "conceptIndex": 1, "interactionType": "multiple_choice" }
+  ],
+  "matchPairs": {
+    "prompt": "Une cada concepto con su descripción",
+    "pairs": [
+      { "left": "Nombre exacto del concepto", "right": "definición corta (máx 8 palabras)" }
+    ]
+  },
+  "classify": {
+    "prompt": "Clasifica cada elemento según su tipo",
+    "categories": ["Categoría A", "Categoría B"],
+    "items": [
+      { "text": "elemento del contenido", "category": "Categoría A" }
+    ]
+  }
+}`;
+
+// ── Main export ───────────────────────────────────────────────────────────────
+
+export async function generateDesafioFormats(
+  missionSlides: any[],
+  topic: string,
+): Promise<DesafioFormatAssignment> {
+  const blocks = extractConceptBlocks(missionSlides);
+  const N = blocks.length;
+
+  if (N === 0) return { conceptFormats: {}, matchPairs: null, classify: null };
+
+  // Insertion positions computed here — not delegated to the AI
+  const matchPairsInsertAfter = Math.ceil(N / 2) - 1;
+  const classifyInsertAfter   = Math.max(N - 2, matchPairsInsertAfter + 1);
+
+  const prompt = `Eres un adaptador de formatos de evaluación pedagógica.
+Tu ÚNICA tarea: asignar formatos de presentación a conceptos ya generados.
+
+RESTRICCIÓN ABSOLUTA — NO GENERES CONTENIDO NUEVO:
+- Usa SÓLO el texto exacto de los campos "definition" y "microFeedback" ya provistos
+- Para blankSentence: copia EXACTAMENTE el texto de "microFeedback" y reemplaza el nombre del concepto (campo "name") con ___
+  Ejemplo: microFeedback="los órganos homólogos tienen mismo origen" → blankSentence="los ___ tienen mismo origen"
+- Para match_pairs: usa el valor exacto de "name" en "left" y una frase corta (≤8 palabras) de "definition" en "right"
+- Para classify: usa SÓLO ejemplos ya mencionados en "definition" o "example"
+- Si no hay contenido suficiente para classify → devuelve null
+
+CONCEPTOS (N=${N}):
+${JSON.stringify(blocks, null, 2)}
+
+INSTRUCCIONES:
+1. Alterna fill_blank / multiple_choice por concepto, empezando con fill_blank
+2. blankSentence DEBE contener exactamente ___ (triple guion bajo)
+3. Si N ≥ 3: incluye matchPairs con ${Math.min(N, 5)} pares (uno por concepto) — prompt en español
+4. Si el contenido tiene categorías claras con ≥ 3 ejemplos específicos: incluye classify — si no, pon null
+5. matchPairs y classify son opcionales si el contenido no lo permite — pon null en ese caso
+
+Devuelve SÓLO JSON válido con esta estructura exacta:
+${OUTPUT_SCHEMA}`;
+
+  let raw = '';
+  try {
+    const response = await openai.chat.completions.create({
+      model: config.openai_model,
+      messages: [
+        {
+          role: 'system',
+          content: 'Eres un adaptador de formatos pedagógicos. Responde ÚNICAMENTE con JSON válido, sin texto adicional.',
+        },
+        { role: 'user', content: prompt },
+      ],
+      temperature: 0.1,
+      max_tokens: 2000,
+    });
+    raw = response.choices?.[0]?.message?.content ?? '';
+  } catch (err: any) {
+    console.warn('[DesafioFormats] AI call failed:', err?.message);
+    return { conceptFormats: {}, matchPairs: null, classify: null };
+  }
+
+  let parsed: any;
+  try {
+    const match = raw.match(/\{[\s\S]*\}/);
+    parsed = JSON.parse(match?.[0] ?? raw);
+  } catch {
+    console.warn('[DesafioFormats] Could not parse AI response — falling back to multiple_choice');
+    return { conceptFormats: {}, matchPairs: null, classify: null };
+  }
+
+  // ── Build conceptFormats record ───────────────────────────────────────────
+  const conceptFormats: Record<number, ConceptFormatEntry> = {};
+  for (const f of (parsed.conceptFormats ?? [])) {
+    if (typeof f?.conceptIndex !== 'number') continue;
+    const isFillBlank = f.interactionType === 'fill_blank';
+    const blankSentence = isFillBlank ? validateBlankSentence(f.blankSentence) : undefined;
+    conceptFormats[f.conceptIndex] = {
+      interactionType: isFillBlank && blankSentence ? 'fill_blank' : 'multiple_choice',
+      blankSentence,
+    };
+  }
+
+  // ── Build matchPairs ──────────────────────────────────────────────────────
+  let matchPairs: MatchPairsSpec | null = null;
+  if (N >= 3 && parsed.matchPairs) {
+    const pairs = validatePairs(parsed.matchPairs.pairs);
+    if (pairs) {
+      matchPairs = {
+        insertAfterConceptIndex: matchPairsInsertAfter,
+        prompt: String(parsed.matchPairs.prompt ?? 'Une cada concepto con su descripción'),
+        pairs,
+      };
+    }
+  }
+
+  // ── Build classify ────────────────────────────────────────────────────────
+  let classify: ClassifySpec | null = null;
+  if (parsed.classify) {
+    const validated = validateClassify(parsed.classify);
+    if (validated) {
+      classify = {
+        insertAfterConceptIndex: classifyInsertAfter,
+        prompt: String(parsed.classify.prompt ?? 'Clasifica cada elemento'),
+        categories: validated.categories,
+        items: validated.items,
+      };
+    }
+  }
+
+  const fillBlankCount = Object.values(conceptFormats).filter(f => f.interactionType === 'fill_blank').length;
+  console.log(`[DesafioFormats] fill_blank=${fillBlankCount}/${N} | matchPairs=${!!matchPairs} | classify=${!!classify}`);
+
+  return { conceptFormats, matchPairs, classify };
+}

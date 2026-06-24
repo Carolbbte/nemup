@@ -27,6 +27,7 @@
  */
 
 import { randomUUID } from 'crypto';
+import type { DesafioFormatAssignment } from './desafioGenerationService.js';
 
 // Local type mirrors — matches shared/desafio.ts exactly, avoids rootDir constraint
 type DesafioSlideType =
@@ -65,6 +66,13 @@ interface DesafioSlide {
   steps?: string[];
   correctOrder?: number[];
   orderPrompt?: string;
+  // match_pairs
+  pairsPrompt?: string;
+  pairs?: Array<{ id: string; left: string; right: string }>;
+  // classify
+  classifyPrompt?: string;
+  classifyCategories?: string[];
+  classifyItems?: Array<{ id: string; text: string; category: string }>;
 }
 
 interface DesafioSession {
@@ -179,7 +187,11 @@ function buildConceptAssignment(slides: any[]): Array<{ conceptIndex: number; co
   });
 }
 
-export function buildDesafioFromMission(slides: any[], topic: string): DesafioSession {
+export function buildDesafioFromMission(
+  slides: any[],
+  topic: string,
+  formats?: DesafioFormatAssignment,
+): DesafioSession {
   if (!Array.isArray(slides) || slides.length === 0) {
     return { id: randomUUID(), topic: topic || 'Desafío', conceptCount: 0, slides: [] };
   }
@@ -195,6 +207,10 @@ export function buildDesafioFromMission(slides: any[], topic: string): DesafioSe
       if (name) conceptNames.push(name);
     }
   }
+
+  // Track which conceptIndices have had their reinforcement_challenge processed,
+  // so we know when to inject special slides (match_pairs, classify).
+  const injectedAfter = new Set<number>();
 
   for (let i = 0; i < slides.length; i++) {
     const slide = slides[i];
@@ -240,10 +256,13 @@ export function buildDesafioFromMission(slides: any[], topic: string): DesafioSe
         }
       }
 
-      const rawBlank = (slide as any).blankSentence;
-      // Fallback: if the LLM put the ___ pattern in `question` instead of `blankSentence`, use it
+      // Determine fill_blank: check format assignment (micro_challenge only) then slide field then question fallback
+      const assignedFormat = type === 'micro_challenge' ? formats?.conceptFormats[conceptIndex] : undefined;
+      const rawBlank = (slide as any).blankSentence
+        || (assignedFormat?.interactionType === 'fill_blank' ? assignedFormat.blankSentence : null);
       const questionAsBlank = typeof slide.question === 'string' && slide.question.includes('___') ? slide.question : null;
       const blankSentence = (rawBlank ? String(rawBlank) : null) ?? (questionAsBlank ?? null);
+
       if (blankSentence) {
         desafioSlides.push({
           ...base,
@@ -268,6 +287,41 @@ export function buildDesafioFromMission(slides: any[], topic: string): DesafioSe
           ...(Object.keys(wrongHints).length > 0 ? { wrongHints } : {}),
         });
       }
+
+      // After a reinforcement_challenge, check if a special slide should be injected
+      if (type === 'reinforcement_challenge' && formats && !injectedAfter.has(conceptIndex)) {
+        injectedAfter.add(conceptIndex);
+
+        if (formats.matchPairs?.insertAfterConceptIndex === conceptIndex) {
+          const mp = formats.matchPairs;
+          desafioSlides.push({
+            conceptIndex,
+            conceptName: 'Repaso',
+            emoji: '🔗',
+            type: 'reinforcement_challenge',
+            interactionType: 'match_pairs',
+            pairsPrompt: mp.prompt,
+            pairs: mp.pairs.map((p, idx) => ({ id: `pair-${idx}`, left: p.left, right: p.right })),
+          });
+          console.log(`[DesafioAdapter] Injected match_pairs after concept ${conceptIndex}`);
+        }
+
+        if (formats.classify?.insertAfterConceptIndex === conceptIndex) {
+          const cl = formats.classify;
+          desafioSlides.push({
+            conceptIndex,
+            conceptName: 'Clasificación',
+            emoji: '🗂️',
+            type: 'reinforcement_challenge',
+            interactionType: 'classify',
+            classifyPrompt: cl.prompt,
+            classifyCategories: cl.categories,
+            classifyItems: cl.items.map((it, idx) => ({ id: `item-${idx}`, text: it.text, category: it.category })),
+          });
+          console.log(`[DesafioAdapter] Injected classify after concept ${conceptIndex}`);
+        }
+      }
+
       continue;
     }
 
@@ -308,7 +362,13 @@ export function buildDesafioFromMission(slides: any[], topic: string): DesafioSe
     });
   }
 
-  console.log(`[DesafioAdapter] Construido desde Misión — ${conceptNames.length} conceptos, ${desafioSlides.length} slides`);
+  const fillBlankCount = desafioSlides.filter(s => s.interactionType === 'fill_blank').length;
+  const matchPairsCount = desafioSlides.filter(s => s.interactionType === 'match_pairs').length;
+  const classifyCount = desafioSlides.filter(s => s.interactionType === 'classify').length;
+  console.log(
+    `[DesafioAdapter] Construido desde Misión — ${conceptNames.length} conceptos, ${desafioSlides.length} slides` +
+    ` | fill_blank=${fillBlankCount} match_pairs=${matchPairsCount} classify=${classifyCount}`,
+  );
 
   return {
     id: randomUUID(),
