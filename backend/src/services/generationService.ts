@@ -464,7 +464,10 @@ PANTALLA "micro_challenge" — DESAFÍO DE DESCUBRIMIENTO [OBLIGATORIA — UNA P
      Ejemplo: question="¿Qué tipo de términos son 2m y 6m?" blankSentence="2m y 6m son términos ___ entre sí"
   6. COMPARAR:       "¿Cuál reducción es correcta: 3m+5m = ?"         → A) 8m B) 15m² C) 8m²
 
-  MANDATO DESAFÍO: exactamente UN micro_challenge de la misión DEBE usar el formato COMPLETAR con "blankSentence" completado.
+  ⚠️ MANDATO OBLIGATORIO — COMPLETAR en Desafío:
+  Exactamente UNO de los micro_challenge DEBE ser de tipo COMPLETAR. Esto es OBLIGATORIO, no opcional.
+  Para ese slide: rellena "blankSentence" con una oración donde el concepto clave se reemplaza por ___.
+  Ejemplo real: question="¿Cómo se llaman los órganos con mismo origen pero función diferente?" blankSentence="Los órganos ___ comparten origen evolutivo pero tienen funciones distintas."
   Los demás micro_challenge dejan "blankSentence": null.
 
   PRIORIDAD DE EJEMPLOS (obligatoria — respetar este orden):
@@ -2324,6 +2327,8 @@ export async function generateSessionContent(
       if (s.question) console.log(`    question="${String(s.question).slice(0, 80)}"`);
       if (opts > 0)   console.log(`    options=${opts}`);
       if (s.correctAnswer) console.log(`    correctAnswer=${s.correctAnswer}`);
+      if (s.blankSentence != null) console.log(`    blankSentence="${String(s.blankSentence).slice(0, 100)}"`);
+      else if (s.type === 'micro_challenge') console.log(`    blankSentence=null`);
       console.log(`    content="${content}"`);
     });
 

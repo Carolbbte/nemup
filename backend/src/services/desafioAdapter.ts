@@ -240,7 +240,10 @@ export function buildDesafioFromMission(slides: any[], topic: string): DesafioSe
         }
       }
 
-      const blankSentence = (slide as any).blankSentence ? String((slide as any).blankSentence) : null;
+      const rawBlank = (slide as any).blankSentence;
+      // Fallback: if the LLM put the ___ pattern in `question` instead of `blankSentence`, use it
+      const questionAsBlank = typeof slide.question === 'string' && slide.question.includes('___') ? slide.question : null;
+      const blankSentence = (rawBlank ? String(rawBlank) : null) ?? (questionAsBlank ?? null);
       if (blankSentence) {
         desafioSlides.push({
           ...base,
