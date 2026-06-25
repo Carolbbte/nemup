@@ -1453,11 +1453,17 @@ export default function DesafioScreen() {
         if (answer.correct) {
           text = slide.pairsExplanation ?? null;
         } else {
-          const matched = answer.value as Record<string, string>;
-          const wrongPair = (slide.pairs ?? []).find(p => matched[p.id] !== p.id + '_r');
+          const emotions = ['Casi.', 'Buen intento.', 'Revisemos esto.'];
+          customLabel = emotions[currentIdx % 3];
+          // Use pairsMatched from state (always current at render time) as primary
+          // source; fall back to answer.value which may be stale from the closure
+          const matchedFromState  = pairsMatched;
+          const matchedFromAnswer = (typeof answer.value === 'object' && !Array.isArray(answer.value))
+            ? answer.value as Record<string, string>
+            : {};
+          const src = Object.keys(matchedFromState).length > 0 ? matchedFromState : matchedFromAnswer;
+          const wrongPair = (slide.pairs ?? []).find(p => src[p.id] !== p.id + '_r');
           if (wrongPair) {
-            const emotions = ['Casi.', 'Buen intento.', 'Revisemos esto.'];
-            customLabel = emotions[currentIdx % 3];
             text = `${wrongPair.left} corresponde a ${wrongPair.right}.`;
           }
         }
@@ -1477,7 +1483,7 @@ export default function DesafioScreen() {
       }
     }
     return { isCorrect: answer.correct, text, correctOrderItems, customLabel };
-  }, [revealed, slide, answers, currentIdx]);
+  }, [revealed, slide, answers, currentIdx, pairsMatched]);
 
   // ── Advance to next slide ──────────────────────────────────────────────────
   const advance = useCallback(() => {
