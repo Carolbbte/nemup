@@ -176,7 +176,12 @@ RESTRICCIÓN ABSOLUTA — NO GENERES CONTENIDO NUEVO:
 - Para match_pairs: usa el valor exacto de "name" en "left" y una VERB PHRASE de 2-5 palabras en "right" (para la tarjeta UI)
   Formato obligatorio de "right": verbo conjugado + objeto breve, sin artículos iniciales
   ✓ Ejemplos: "Comparten origen evolutivo", "Conservan restos en rocas", "Estudian ADN y proteínas", "Revelan parentesco estructural"
-  ✗ PROHIBIDO en "right": fragmentos nominales sin verbo ("Mismo origen evolutivo"), frases largas, artículos iniciales
+  ✗ PROHIBIDO en "right": fragmentos nominales sin verbo, frases largas, artículos iniciales
+  ⚠️ REGLA DE EXCLUSIVIDAD OBLIGATORIA: cada "right" debe ser verdadero para UN SOLO concepto de la lista.
+  Si la descripción aplica a más de un concepto → descártala y elige un rasgo más específico.
+  Verifica concepto por concepto: "¿Esta frase también describe a algún otro de la lista?" Si sí → reemplaza.
+  Ejemplo de error: "Tienen función distinta" aplica tanto a Órganos Homólogos como a Órganos Análogos → INVÁLIDO.
+  Ejemplo correcto: "Diferente origen evolutivo" aplica SOLO a Órganos Análogos → VÁLIDO.
 - El prompt del ejercicio debe ser "Relaciona" (corto, directo — no "Une cada concepto con su descripción")
 - Para matchPairs incluye también "pairsExplanation": DOS frases cortas naturales que forman el feedback de corrección.
   Estructura obligatoria: [Corrección puntual de 1 concepto — máx 8 palabras]. [Mini regla general — máx 8 palabras].
