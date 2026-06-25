@@ -378,9 +378,11 @@ function MatchPairsContent({
                 disabled={revealed}
               >
                 {revealed ? (
-                  <Text style={[mp.revealIcon, isCorr ? mp.iconCorrect : mp.iconWrong]}>
-                    {isCorr ? '✓' : '✗'}
-                  </Text>
+                  isCorr || isWrg ? (
+                    <Text style={[mp.revealIcon, isCorr ? mp.iconCorrect : mp.iconWrong]}>
+                      {isCorr ? '✓' : '✗'}
+                    </Text>
+                  ) : null
                 ) : (
                   <Text style={[mp.handle, isSel && mp.handleActive]}>☰</Text>
                 )}

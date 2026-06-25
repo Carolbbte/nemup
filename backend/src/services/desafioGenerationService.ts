@@ -94,17 +94,18 @@ function validateBlankSentence(s: unknown): string | undefined {
   return s.trim();
 }
 
-// Strips leading articles and truncates to max 4 words for ultra-scannable pair definitions
+// Strips leading articles and truncates to max 5 words — allows verb phrases like
+// "Comparten origen evolutivo" or "Conservan restos en rocas"
 function shortenPairRight(text: string): string {
   const stripped = text.replace(/^(el|la|los|las|un|una|unos|unas)\s+/i, '').trim();
   const words = stripped.split(/\s+/);
-  return words.slice(0, 4).join(' ');
+  return words.slice(0, 5).join(' ');
 }
 
 function validatePairs(pairs: unknown): Array<{ left: string; right: string }> | null {
   if (!Array.isArray(pairs) || pairs.length < 3) return null;
   const result = pairs
-    .slice(0, 6)
+    .slice(0, 3) // max 3 pairs — Duolingo-style: focused, low cognitive load
     .map((p: any) => ({
       left:  String(p?.left  ?? '').trim(),
       right: shortenPairRight(String(p?.right ?? '').trim()),
@@ -137,10 +138,10 @@ const OUTPUT_SCHEMA = `{
     { "conceptIndex": 1, "interactionType": "multiple_choice" }
   ],
   "matchPairs": {
-    "prompt": "Une cada concepto con su descripción",
-    "pairsExplanation": "Frase natural completa (máx 15 palabras) para el feedback de corrección.",
+    "prompt": "Relaciona",
+    "pairsExplanation": "Corrección puntual en 8 palabras. Mini regla en 8 palabras.",
     "pairs": [
-      { "left": "Nombre exacto del concepto", "right": "2-3 palabras clave" }
+      { "left": "Nombre exacto del concepto", "right": "Verb phrase 2-5 palabras" }
     ]
   },
   "classify": {
@@ -172,14 +173,16 @@ Tu ÚNICA tarea: asignar formatos de presentación a conceptos ya generados.
 
 RESTRICCIÓN ABSOLUTA — NO GENERES CONTENIDO NUEVO:
 - Usa SÓLO información de los campos "definition" y "microFeedback" ya provistos
-- Para match_pairs: usa el valor exacto de "name" en "left" y MÁXIMO 3 PALABRAS en "right" — sin artículos, solo sustantivo + descriptor (para la tarjeta UI)
-  Ejemplos de "right": "Restos en rocas", "Mismo origen evolutivo", "Distribución geográfica", "ADN y proteínas"
-  ✗ PROHIBIDO en "right": frases largas, verbos, artículos iniciales
-- Para matchPairs incluye también "pairsExplanation": una oración COMPLETA y natural (máx 15 palabras) que sonará como feedback de corrección al estudiante.
-  Debe explicar la distinción clave entre los conceptos del ejercicio, como lo haría un profesor.
-  ✓ Ejemplos: "La anatomía comparada estudia estructuras físicas para revelar el parentesco evolutivo entre especies."
-              "Cada evidencia tiene su origen: los fósiles en rocas, el ADN en laboratorio, la morfología en estructuras."
-  ✗ No uses frases como "corresponde a" ni menciones que el estudiante se equivocó.
+- Para match_pairs: usa el valor exacto de "name" en "left" y una VERB PHRASE de 2-5 palabras en "right" (para la tarjeta UI)
+  Formato obligatorio de "right": verbo conjugado + objeto breve, sin artículos iniciales
+  ✓ Ejemplos: "Comparten origen evolutivo", "Conservan restos en rocas", "Estudian ADN y proteínas", "Revelan parentesco estructural"
+  ✗ PROHIBIDO en "right": fragmentos nominales sin verbo ("Mismo origen evolutivo"), frases largas, artículos iniciales
+- El prompt del ejercicio debe ser "Relaciona" (corto, directo — no "Une cada concepto con su descripción")
+- Para matchPairs incluye también "pairsExplanation": DOS frases cortas naturales que forman el feedback de corrección.
+  Estructura obligatoria: [Corrección puntual de 1 concepto — máx 8 palabras]. [Mini regla general — máx 8 palabras].
+  ✓ Ejemplo: "Registro fósil conserva restos en rocas sedimentarias. Los fósiles revelan la historia de la vida."
+  ✓ Ejemplo: "Anatomía comparada estudia estructuras físicas similares. Las estructuras revelan ancestros comunes."
+  ✗ No digas que el estudiante se equivocó. No uses "corresponde a".
 - Para classify: usa SÓLO ejemplos ya mencionados en "definition" o "example"
 - Si no hay contenido suficiente para classify → devuelve null
 
@@ -212,7 +215,7 @@ ${JSON.stringify(blocks, null, 2)}
 INSTRUCCIONES:
 1. Alterna fill_blank / multiple_choice por concepto, empezando con fill_blank
 2. blankSentence DEBE contener exactamente ___ (triple guion bajo)
-3. Si N ≥ 3: incluye matchPairs con ${Math.min(N, 5)} pares (uno por concepto) — prompt en español
+3. Si N ≥ 3: incluye matchPairs con exactamente 3 pares (los más representativos) — prompt = "Relaciona"
 4. Si el contenido tiene categorías claras con ≥ 3 ejemplos específicos: incluye classify — si no, pon null
 5. matchPairs y classify son opcionales si el contenido no lo permite — pon null en ese caso
 
