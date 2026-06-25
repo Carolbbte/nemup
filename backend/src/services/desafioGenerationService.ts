@@ -173,15 +173,34 @@ Tu ÚNICA tarea: asignar formatos de presentación a conceptos ya generados.
 
 RESTRICCIÓN ABSOLUTA — NO GENERES CONTENIDO NUEVO:
 - Usa SÓLO información de los campos "definition" y "microFeedback" ya provistos
-- Para match_pairs: usa el valor exacto de "name" en "left" y una VERB PHRASE en "right" en 3ª PERSONA SINGULAR (2-5 palabras, sin artículos)
+- Para match_pairs: usa el valor exacto de "name" en "left" y una VERB PHRASE en "right" en 3ª PERSONA SINGULAR (2-6 palabras, sin artículos)
   El frontend ajusta automáticamente a plural cuando el concepto lo requiere.
-  ✓ Ejemplos: "conserva restos en rocas", "evidencia divergencia evolutiva", "estudia estructuras similares", "revela parentesco estructural"
-  ✗ PROHIBIDO en "right": plural (-an/-en), artículos iniciales, fragmentos nominales sin verbo
+
+  CALIDAD OBLIGATORIA DEL DESCRIPTOR (right):
+  Cada descriptor debe expresar UNO de estos tipos de contenido:
+    1. Función específica:  "conserva restos en rocas sedimentarias"
+    2. Propiedad clave:     "comparte origen pero difiere en función"
+    3. Relación causal:     "revela parentesco por similitud estructural"
+    4. Evidencia observable:"muestra cambios en capas de estratos"
+
+  Prioridad: PRECISIÓN CONCEPTUAL > brevedad > naturalidad.
+
+  ✗ DESCRIPTORS VAGOS PROHIBIDOS — evitar frases que describan relaciones entre conceptos en lugar de propiedades del concepto:
+    "tiene función similar pero diferente"  → demasiado vago
+    "se parece a otro concepto"            → comparativo sin contenido
+    "es un tipo de evidencia"              → sin especificidad
+    "pertenece a la biología"              → trivial
+
+  ✓ DESCRIPTORS PRECISOS — cada uno ancla a UN rasgo concreto e irrepetible:
+    "conserva restos en rocas sedimentarias"     → propiedad de Registro fósil
+    "comparte origen pero cumple función distinta" → propiedad de Órganos homólogos
+    "cumple función similar con origen distinto"  → propiedad de Órganos análogos
+    "muestra similitudes en etapas embrionarias" → propiedad de Embriología
+
   ⚠️ REGLA DE EXCLUSIVIDAD OBLIGATORIA: cada "right" debe ser verdadero para UN SOLO concepto de la lista.
-  Si la descripción aplica a más de un concepto → descártala y elige un rasgo más específico.
-  Verifica concepto por concepto: "¿Esta frase también describe a algún otro de la lista?" Si sí → reemplaza.
-  Ejemplo de error: "Tienen función distinta" aplica tanto a Órganos Homólogos como a Órganos Análogos → INVÁLIDO.
-  Ejemplo correcto: "Diferente origen evolutivo" aplica SOLO a Órganos Análogos → VÁLIDO.
+  Verifica: "¿Esta frase también describe a algún otro concepto de la lista?" Si sí → reemplaza con rasgo más específico.
+  Ejemplo de error: "tiene función distinta" → aplica a Homólogos Y Análogos → INVÁLIDO.
+  Ejemplo correcto: "cumple función similar con origen distinto" → SOLO aplica a Análogos → VÁLIDO.
 - El prompt del ejercicio debe ser "Relaciona" (corto, directo — no "Une cada concepto con su descripción")
 - Para matchPairs incluye también "pairsExplanation": DOS frases cortas naturales que forman el feedback de corrección.
   Estructura obligatoria: [Corrección puntual de 1 concepto — máx 8 palabras]. [Mini regla general — máx 8 palabras].
