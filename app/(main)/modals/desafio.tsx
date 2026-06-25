@@ -65,6 +65,30 @@ function effectiveInteractionType(slide: DesafioSlide): DesafioInteractionType {
   return slide.interactionType ?? 'multiple_choice';
 }
 
+/**
+ * Assembles a grammatically natural feedback sentence from a match_pairs pair.
+ * Used as fallback when pairsExplanation is not available.
+ *
+ * Rules:
+ *  - Plural verb (ends in -an/-en/-aron/-ieron): "Los [concept] [right]."
+ *  - Singular verb (ends in -a/-e/-ó):           "[concept] [right]."
+ *  - Nominal (no verb detected):                  "[concept] se relaciona con [right]."
+ */
+function assembleMatchFeedback(concept: string, right: string): string {
+  const firstWord = right.trim().split(/\s+/)[0].toLowerCase();
+  // Plural verb forms: -an, -en (present) or -aron, -ieron, -eron (past)
+  if (/([ae]n|aron|ieron|eron)$/.test(firstWord)) {
+    return `Los ${concept.toLowerCase()} ${right}.`;
+  }
+  // Singular verb forms: -a, -e (present) or -ó (past)
+  if (/[aeó]$/.test(firstWord)) {
+    return `${concept} ${right}.`;
+  }
+  // Nominal fallback
+  const rightLower = right.charAt(0).toLowerCase() + right.slice(1);
+  return `${concept} se relaciona con ${rightLower}.`;
+}
+
 function slideTypeLabel(type: DesafioSlide['type'], isRetry?: boolean, isSpaced?: boolean): string {
   if (isRetry)  return 'REPASO EXTRA';
   if (isSpaced) return 'REPASO';
@@ -1469,7 +1493,7 @@ export default function DesafioScreen() {
             const src = Object.keys(matchedFromState).length > 0 ? matchedFromState : matchedFromAnswer;
             const wrongPair = (slide.pairs ?? []).find(p => src[p.id] !== p.id + '_r');
             if (wrongPair) {
-              text = `${wrongPair.left} → ${wrongPair.right}.`;
+              text = assembleMatchFeedback(wrongPair.left, wrongPair.right);
             }
           }
         }
