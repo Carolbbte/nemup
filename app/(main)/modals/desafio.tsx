@@ -37,6 +37,7 @@ import Animated, {
   useAnimatedStyle,
   useSharedValue,
   withSequence,
+  withSpring,
   withTiming,
 } from 'react-native-reanimated';
 import type {
@@ -296,6 +297,71 @@ const fb = StyleSheet.create({
   sentenceText: { fontSize: 18, fontWeight: '700', color: palette.charcoal, lineHeight: 26 },
 });
 
+// ── Match pairs — animated left chip ─────────────────────────────────────────
+
+function MatchChipLeft({
+  pair, isSel, isCorr, isWrg, revealed, color, onPress,
+}: {
+  pair: DesafioPair; isSel: boolean; isCorr: boolean; isWrg: boolean;
+  revealed: boolean; color: string | null; onPress: () => void;
+}) {
+  const scale  = useSharedValue(1);
+  const shakeX = useSharedValue(0);
+
+  useEffect(() => {
+    scale.value = isSel
+      ? withSpring(1.02, { damping: 14, stiffness: 340 })
+      : withSpring(1,    { damping: 14, stiffness: 340 });
+  }, [isSel]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    if (!revealed) return;
+    if (isCorr) {
+      scale.value = withSequence(
+        withSpring(1.07, { damping: 9,  stiffness: 420 }),
+        withSpring(1.00, { damping: 12, stiffness: 280 }),
+      );
+    } else if (isWrg) {
+      shakeX.value = withSequence(
+        withTiming(-7, { duration: 55 }),
+        withTiming( 7, { duration: 55 }),
+        withTiming(-5, { duration: 45 }),
+        withTiming( 5, { duration: 45 }),
+        withTiming( 0, { duration: 35 }),
+      );
+    }
+  }, [revealed, isCorr, isWrg]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const animStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: scale.value }, { translateX: shakeX.value }],
+  }));
+
+  return (
+    <Pressable onPress={onPress} disabled={revealed}>
+      <Animated.View style={[
+        mp.chip,
+        isSel && mp.chipSelected,
+        !revealed && color ? { borderColor: color, borderWidth: 2, backgroundColor: color + '15' } : null,
+        revealed && isCorr && mp.chipCorrect,
+        revealed && isWrg  && mp.chipWrong,
+        animStyle,
+      ]}>
+        {revealed ? (
+          isCorr || isWrg ? (
+            <Text style={[mp.revealIcon, isCorr ? mp.iconCorrect : mp.iconWrong]}>
+              {isCorr ? '✓' : '✗'}
+            </Text>
+          ) : null
+        ) : (
+          <Text style={[mp.handle, isSel && mp.handleActive]}>☰</Text>
+        )}
+        <Text style={mp.chipText} numberOfLines={2}>{pair.left}</Text>
+        {!revealed && color && <View style={[mp.connector, { backgroundColor: color }]} />}
+      </Animated.View>
+    </Pressable>
+  );
+}
+
 // ── Match pairs content ───────────────────────────────────────────────────────
 
 function MatchPairsContent({
@@ -358,40 +424,20 @@ function MatchPairsContent({
       <Text style={mp.prompt}>{slide.pairsPrompt ?? 'Une cada elemento con su descripción'}</Text>
       <View style={mp.cols}>
 
-        {/* Left column — chips with drag handle */}
+        {/* Left column — animated chips */}
         <View style={mp.col}>
-          {pairs.map((pair) => {
-            const color  = getLeftColor(pair.id);
-            const isSel  = selectedLeft === pair.id;
-            const isCorr = revealed && isPairCorrect(pair.id);
-            const isWrg  = revealed && !!matchedMap[pair.id] && !isPairCorrect(pair.id);
-            return (
-              <Pressable
-                key={pair.id}
-                style={[
-                  mp.chip,
-                  isSel && mp.chipSelected,
-                  !revealed && color ? { borderColor: color, borderWidth: 2, backgroundColor: color + '18' } : null,
-                  revealed && isCorr && mp.chipCorrect,
-                  revealed && isWrg  && mp.chipWrong,
-                ]}
-                onPress={() => handleLeftPress(pair.id)}
-                disabled={revealed}
-              >
-                {revealed ? (
-                  isCorr || isWrg ? (
-                    <Text style={[mp.revealIcon, isCorr ? mp.iconCorrect : mp.iconWrong]}>
-                      {isCorr ? '✓' : '✗'}
-                    </Text>
-                  ) : null
-                ) : (
-                  <Text style={[mp.handle, isSel && mp.handleActive]}>☰</Text>
-                )}
-                <Text style={mp.chipText} numberOfLines={2}>{pair.left}</Text>
-                {!revealed && color && <View style={[mp.connector, { backgroundColor: color }]} />}
-              </Pressable>
-            );
-          })}
+          {pairs.map((pair) => (
+            <MatchChipLeft
+              key={pair.id}
+              pair={pair}
+              isSel={selectedLeft === pair.id}
+              isCorr={revealed && isPairCorrect(pair.id)}
+              isWrg={revealed && !!matchedMap[pair.id] && !isPairCorrect(pair.id)}
+              revealed={revealed}
+              color={getLeftColor(pair.id)}
+              onPress={() => handleLeftPress(pair.id)}
+            />
+          ))}
         </View>
 
         {/* Right column — target slots */}
@@ -423,42 +469,54 @@ function MatchPairsContent({
 }
 
 const mp = StyleSheet.create({
-  prompt: { fontSize: 16, fontWeight: '700', color: palette.charcoal, marginBottom: 16, lineHeight: 22 },
+  prompt: { fontSize: 15, fontWeight: '700', color: palette.charcoal, marginBottom: 16, lineHeight: 21 },
   cols:   { flexDirection: 'row', gap: 10 },
-  col:    { flex: 1, gap: 10 },
+  col:    { flex: 1, gap: 12 },
 
-  // Left: interactive chip with drag handle
+  // Left: game-piece chip — white, floating, rounded
   chip: {
     flexDirection: 'row', alignItems: 'center', gap: 8,
-    backgroundColor: palette.blanco, borderRadius: 22,
-    borderWidth: 2, borderColor: palette.bordeClaro,
-    paddingHorizontal: 12, paddingVertical: 14, minHeight: 58,
+    backgroundColor: palette.blanco,
+    borderRadius: 18,
+    borderWidth: 1.5, borderColor: '#E9E5FF',
+    paddingHorizontal: 12, paddingVertical: 10,
+    minHeight: 60,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.07,
+    shadowRadius: 3,
+    elevation: 2,
   },
-  chipSelected: { borderColor: palette.morado, backgroundColor: palette.moradoBg },
-  chipCorrect:  { borderColor: palette.verde,      backgroundColor: '#F0FDF7' },
-  chipWrong:    { borderColor: palette.rojoError,  backgroundColor: palette.rojoErrorBg },
+  chipSelected: { backgroundColor: '#F4F0FF', borderColor: '#6C63FF' },
+  chipCorrect:  { backgroundColor: '#F0FDF7', borderColor: palette.verde },
+  chipWrong:    { backgroundColor: palette.rojoErrorBg, borderColor: palette.rojoError },
 
-  handle:       { fontSize: 15, color: palette.grisMedio, flexShrink: 0, opacity: 0.5 },
-  handleActive: { color: palette.morado, opacity: 1 },
-  chipText:     { flex: 1, fontSize: 13, fontWeight: '600', color: palette.charcoal, lineHeight: 18 },
+  handle:       { fontSize: 12, color: palette.grisMedio, flexShrink: 0, opacity: 0.3 },
+  handleActive: { color: '#6C63FF', opacity: 0.65 },
+  chipText:     { flex: 1, fontSize: 13, fontWeight: '600', color: palette.charcoal, lineHeight: 18, textAlign: 'left' },
 
-  // Color connector pill — appears on right of left chip and left of right target
-  connector: { width: 14, height: 4, borderRadius: 2, flexShrink: 0 },
+  connector: { width: 12, height: 4, borderRadius: 2, flexShrink: 0 },
 
-  // Right: target slot — lavender background signals "receptive"
+  // Right: target slot — white, receptive
   target: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
-    backgroundColor: palette.moradoBg,
-    borderRadius: 22,
-    borderWidth: 1.5, borderColor: palette.morado + '30',
-    paddingHorizontal: 12, paddingVertical: 14, minHeight: 58,
+    backgroundColor: palette.blanco,
+    borderRadius: 18,
+    borderWidth: 1.5, borderColor: '#E9E5FF',
+    paddingHorizontal: 12, paddingVertical: 10,
+    minHeight: 60,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 1,
   },
-  targetActive: { borderColor: palette.morado + '80', borderWidth: 2 },
-  targetText:   { flex: 1, fontSize: 13, fontWeight: '700', color: palette.charcoal, lineHeight: 18, textAlign: 'center' },
+  targetActive: { borderColor: '#6C63FF', backgroundColor: '#F4F0FF' },
+  targetText:   { flex: 1, fontSize: 13, fontWeight: '600', color: palette.charcoal, lineHeight: 18, textAlign: 'center' },
 
-  revealIcon: { fontSize: 14, fontWeight: '700', flexShrink: 0 },
-  iconCorrect:{ color: palette.verde },
-  iconWrong:  { color: palette.rojoError },
+  revealIcon:  { fontSize: 13, fontWeight: '700', flexShrink: 0 },
+  iconCorrect: { color: palette.verde },
+  iconWrong:   { color: palette.rojoError },
 });
 
 // ── Classify content ──────────────────────────────────────────────────────────
