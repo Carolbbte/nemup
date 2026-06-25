@@ -173,10 +173,10 @@ Tu ÚNICA tarea: asignar formatos de presentación a conceptos ya generados.
 
 RESTRICCIÓN ABSOLUTA — NO GENERES CONTENIDO NUEVO:
 - Usa SÓLO información de los campos "definition" y "microFeedback" ya provistos
-- Para match_pairs: usa el valor exacto de "name" en "left" y una VERB PHRASE de 2-5 palabras en "right" (para la tarjeta UI)
-  Formato obligatorio de "right": verbo conjugado + objeto breve, sin artículos iniciales
-  ✓ Ejemplos: "Comparten origen evolutivo", "Conservan restos en rocas", "Estudian ADN y proteínas", "Revelan parentesco estructural"
-  ✗ PROHIBIDO en "right": fragmentos nominales sin verbo, frases largas, artículos iniciales
+- Para match_pairs: usa el valor exacto de "name" en "left" y una VERB PHRASE en "right" en 3ª PERSONA SINGULAR (2-5 palabras, sin artículos)
+  El frontend ajusta automáticamente a plural cuando el concepto lo requiere.
+  ✓ Ejemplos: "conserva restos en rocas", "evidencia divergencia evolutiva", "estudia estructuras similares", "revela parentesco estructural"
+  ✗ PROHIBIDO en "right": plural (-an/-en), artículos iniciales, fragmentos nominales sin verbo
   ⚠️ REGLA DE EXCLUSIVIDAD OBLIGATORIA: cada "right" debe ser verdadero para UN SOLO concepto de la lista.
   Si la descripción aplica a más de un concepto → descártala y elige un rasgo más específico.
   Verifica concepto por concepto: "¿Esta frase también describe a algún otro de la lista?" Si sí → reemplaza.

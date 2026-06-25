@@ -66,27 +66,60 @@ function effectiveInteractionType(slide: DesafioSlide): DesafioInteractionType {
 }
 
 /**
- * Assembles a grammatically natural feedback sentence from a match_pairs pair.
- * Used as fallback when pairsExplanation is not available.
- *
- * Rules:
- *  - Plural verb (ends in -an/-en/-aron/-ieron): "Los [concept] [right]."
- *  - Singular verb (ends in -a/-e/-ó):           "[concept] [right]."
- *  - Nominal (no verb detected):                  "[concept] se relaciona con [right]."
+ * Returns the Spanish definite article and plurality for a concept name
+ * based on the first word's ending (accent-insensitive).
+ */
+function getArticleForConcept(conceptName: string): { article: string; isPlural: boolean } {
+  const first = conceptName.trim().split(/\s+/)[0]
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '');
+  if (first.endsWith('os'))                                               return { article: 'Los', isPlural: true  };
+  if (first.endsWith('as'))                                               return { article: 'Las', isPlural: true  };
+  if (first.endsWith('es') && first.length > 3)                          return { article: 'Los', isPlural: true  };
+  if (first.endsWith('a') || first.endsWith('ia') || first.endsWith('cion') ||
+      first.endsWith('sion') || first.endsWith('dad') || first.endsWith('tad')) {
+    return { article: 'La',  isPlural: false };
+  }
+  return { article: 'El', isPlural: false };
+}
+
+/** Adjusts verb (first word) from singular↔plural for regular 3rd-person present. */
+function adjustVerbNumber(verb: string, toPlural: boolean): string {
+  const v = verb.toLowerCase();
+  if (toPlural)  {
+    if (v.endsWith('a')) return verb.slice(0, -1) + 'an';
+    if (v.endsWith('e')) return verb.slice(0, -1) + 'en';
+  } else {
+    if (v.endsWith('an')) return verb.slice(0, -2) + 'a';
+    if (v.endsWith('en')) return verb.slice(0, -2) + 'e';
+  }
+  return verb;
+}
+
+/**
+ * Assembles "[Article] [concept] [predicate]." without artificial connectors.
+ * Auto-adjusts verb number when subject plurality doesn't match the predicate.
+ * Used as fallback when pairsExplanation is absent.
  */
 function assembleMatchFeedback(concept: string, right: string): string {
-  const firstWord = right.trim().split(/\s+/)[0].toLowerCase();
-  // Plural verb forms: -an, -en (present) or -aron, -ieron, -eron (past)
-  if (/([ae]n|aron|ieron|eron)$/.test(firstWord)) {
-    return `Los ${concept.toLowerCase()} ${right}.`;
+  const { article, isPlural } = getArticleForConcept(concept);
+  const words = right.trim().split(/\s+/);
+  const firstWord = words[0];
+  const fwLower   = firstWord.toLowerCase();
+
+  const verbIsPlural   = /([ae]n|aron|ieron|eron)$/i.test(fwLower);
+  const verbIsSingular = !verbIsPlural && /[ae]$/i.test(fwLower);
+
+  let predicate = right;
+  if (isPlural && verbIsSingular) {
+    predicate = [adjustVerbNumber(firstWord, true),  ...words.slice(1)].join(' ');
+  } else if (!isPlural && verbIsPlural) {
+    predicate = [adjustVerbNumber(firstWord, false), ...words.slice(1)].join(' ');
   }
-  // Singular verb forms: -a, -e (present) or -ó (past)
-  if (/[aeó]$/.test(firstWord)) {
-    return `${concept} ${right}.`;
-  }
-  // Nominal fallback
-  const rightLower = right.charAt(0).toLowerCase() + right.slice(1);
-  return `${concept} se relaciona con ${rightLower}.`;
+
+  const conceptLower = concept.charAt(0).toLowerCase() + concept.slice(1);
+  return `${article} ${conceptLower} ${predicate}.`;
 }
 
 function slideTypeLabel(type: DesafioSlide['type'], isRetry?: boolean, isSpaced?: boolean): string {
