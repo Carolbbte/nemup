@@ -68,6 +68,7 @@ interface DesafioSlide {
   orderPrompt?: string;
   // match_pairs
   pairsPrompt?: string;
+  pairsExplanation?: string;
   pairs?: Array<{ id: string; left: string; right: string }>;
   // classify
   classifyPrompt?: string;
@@ -370,6 +371,7 @@ export function buildDesafioFromMission(
             type: 'reinforcement_challenge',
             interactionType: 'match_pairs',
             pairsPrompt: mp.prompt,
+            ...(mp.pairsExplanation ? { pairsExplanation: mp.pairsExplanation } : {}),
             pairs: mp.pairs.map((p, idx) => ({ id: `pair-${idx}`, left: p.left, right: p.right })),
           });
           console.log(`[DesafioAdapter] Injected match_pairs after concept ${conceptIndex}`);

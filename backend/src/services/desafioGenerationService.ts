@@ -28,6 +28,7 @@ export interface MatchPairsSpec {
   insertAfterConceptIndex: number;
   prompt: string;
   pairs: Array<{ left: string; right: string }>;
+  pairsExplanation?: string; // natural sentence for the wrong-answer feedback panel
 }
 
 export interface ClassifySpec {
@@ -137,6 +138,7 @@ const OUTPUT_SCHEMA = `{
   ],
   "matchPairs": {
     "prompt": "Une cada concepto con su descripción",
+    "pairsExplanation": "Frase natural completa (máx 15 palabras) para el feedback de corrección.",
     "pairs": [
       { "left": "Nombre exacto del concepto", "right": "2-3 palabras clave" }
     ]
@@ -170,9 +172,14 @@ Tu ÚNICA tarea: asignar formatos de presentación a conceptos ya generados.
 
 RESTRICCIÓN ABSOLUTA — NO GENERES CONTENIDO NUEVO:
 - Usa SÓLO información de los campos "definition" y "microFeedback" ya provistos
-- Para match_pairs: usa el valor exacto de "name" en "left" y MÁXIMO 3 PALABRAS en "right" — sin artículos (el/la/los/las), solo sustantivo + descriptor clave
-  Ejemplos válidos: "Restos en rocas", "Mismo origen evolutivo", "Distribución geográfica", "ADN y proteínas", "Fuerza por área"
-  ✗ PROHIBIDO: frases largas, verbos, artículos iniciales, puntos suspensivos
+- Para match_pairs: usa el valor exacto de "name" en "left" y MÁXIMO 3 PALABRAS en "right" — sin artículos, solo sustantivo + descriptor (para la tarjeta UI)
+  Ejemplos de "right": "Restos en rocas", "Mismo origen evolutivo", "Distribución geográfica", "ADN y proteínas"
+  ✗ PROHIBIDO en "right": frases largas, verbos, artículos iniciales
+- Para matchPairs incluye también "pairsExplanation": una oración COMPLETA y natural (máx 15 palabras) que sonará como feedback de corrección al estudiante.
+  Debe explicar la distinción clave entre los conceptos del ejercicio, como lo haría un profesor.
+  ✓ Ejemplos: "La anatomía comparada estudia estructuras físicas para revelar el parentesco evolutivo entre especies."
+              "Cada evidencia tiene su origen: los fósiles en rocas, el ADN en laboratorio, la morfología en estructuras."
+  ✗ No uses frases como "corresponde a" ni menciones que el estudiante se equivocó.
 - Para classify: usa SÓLO ejemplos ya mencionados en "definition" o "example"
 - Si no hay contenido suficiente para classify → devuelve null
 
@@ -258,10 +265,14 @@ ${OUTPUT_SCHEMA}`;
   if (N >= 3 && parsed.matchPairs) {
     const pairs = validatePairs(parsed.matchPairs.pairs);
     if (pairs) {
+      const rawExplanation = parsed.matchPairs.pairsExplanation;
       matchPairs = {
         insertAfterConceptIndex: matchPairsInsertAfter,
         prompt: String(parsed.matchPairs.prompt ?? 'Une cada concepto con su descripción'),
         pairs,
+        ...(typeof rawExplanation === 'string' && rawExplanation.trim().length > 5
+          ? { pairsExplanation: rawExplanation.trim() }
+          : {}),
       };
     }
   }

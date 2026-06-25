@@ -1455,16 +1455,20 @@ export default function DesafioScreen() {
         } else {
           const emotions = ['Casi.', 'Buen intento.', 'Revisemos esto.'];
           customLabel = emotions[currentIdx % 3];
-          // Use pairsMatched from state (always current at render time) as primary
-          // source; fall back to answer.value which may be stale from the closure
-          const matchedFromState  = pairsMatched;
-          const matchedFromAnswer = (typeof answer.value === 'object' && !Array.isArray(answer.value))
-            ? answer.value as Record<string, string>
-            : {};
-          const src = Object.keys(matchedFromState).length > 0 ? matchedFromState : matchedFromAnswer;
-          const wrongPair = (slide.pairs ?? []).find(p => src[p.id] !== p.id + '_r');
-          if (wrongPair) {
-            text = `${wrongPair.left} corresponde a ${wrongPair.right}.`;
+          if (slide.pairsExplanation) {
+            // AI-written natural sentence — use directly, no assembly needed
+            text = slide.pairsExplanation;
+          } else {
+            // Fallback: construct from wrong pair data
+            const matchedFromState  = pairsMatched;
+            const matchedFromAnswer = (typeof answer.value === 'object' && !Array.isArray(answer.value))
+              ? answer.value as Record<string, string>
+              : {};
+            const src = Object.keys(matchedFromState).length > 0 ? matchedFromState : matchedFromAnswer;
+            const wrongPair = (slide.pairs ?? []).find(p => src[p.id] !== p.id + '_r');
+            if (wrongPair) {
+              text = `${wrongPair.left} → ${wrongPair.right}.`;
+            }
           }
         }
         break;
