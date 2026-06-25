@@ -65,62 +65,6 @@ function effectiveInteractionType(slide: DesafioSlide): DesafioInteractionType {
   return slide.interactionType ?? 'multiple_choice';
 }
 
-/**
- * Returns the Spanish definite article and plurality for a concept name
- * based on the first word's ending (accent-insensitive).
- */
-function getArticleForConcept(conceptName: string): { article: string; isPlural: boolean } {
-  const first = conceptName.trim().split(/\s+/)[0]
-    .toLowerCase()
-    .normalize('NFD')
-    .replace(/[̀-ͯ]/g, '');
-  if (first.endsWith('os'))                                               return { article: 'Los', isPlural: true  };
-  if (first.endsWith('as'))                                               return { article: 'Las', isPlural: true  };
-  if (first.endsWith('es') && first.length > 3)                          return { article: 'Los', isPlural: true  };
-  if (first.endsWith('a') || first.endsWith('ia') || first.endsWith('cion') ||
-      first.endsWith('sion') || first.endsWith('dad') || first.endsWith('tad')) {
-    return { article: 'La',  isPlural: false };
-  }
-  return { article: 'El', isPlural: false };
-}
-
-/** Adjusts verb (first word) from singular↔plural for regular 3rd-person present. */
-function adjustVerbNumber(verb: string, toPlural: boolean): string {
-  const v = verb.toLowerCase();
-  if (toPlural)  {
-    if (v.endsWith('a')) return verb.slice(0, -1) + 'an';
-    if (v.endsWith('e')) return verb.slice(0, -1) + 'en';
-  } else {
-    if (v.endsWith('an')) return verb.slice(0, -2) + 'a';
-    if (v.endsWith('en')) return verb.slice(0, -2) + 'e';
-  }
-  return verb;
-}
-
-/**
- * Assembles "[Article] [concept] [predicate]." without artificial connectors.
- * Auto-adjusts verb number when subject plurality doesn't match the predicate.
- * Used as fallback when pairsExplanation is absent.
- */
-function assembleMatchFeedback(concept: string, right: string): string {
-  const { article, isPlural } = getArticleForConcept(concept);
-  const words = right.trim().split(/\s+/);
-  const firstWord = words[0];
-  const fwLower   = firstWord.toLowerCase();
-
-  const verbIsPlural   = /([ae]n|aron|ieron|eron)$/i.test(fwLower);
-  const verbIsSingular = !verbIsPlural && /[ae]$/i.test(fwLower);
-
-  let predicate = right;
-  if (isPlural && verbIsSingular) {
-    predicate = [adjustVerbNumber(firstWord, true),  ...words.slice(1)].join(' ');
-  } else if (!isPlural && verbIsPlural) {
-    predicate = [adjustVerbNumber(firstWord, false), ...words.slice(1)].join(' ');
-  }
-
-  const conceptLower = concept.charAt(0).toLowerCase() + concept.slice(1);
-  return `${article} ${conceptLower} ${predicate}.`;
-}
 
 function slideTypeLabel(type: DesafioSlide['type'], isRetry?: boolean, isSpaced?: boolean): string {
   if (isRetry)  return 'REPASO EXTRA';
@@ -1509,26 +1453,13 @@ export default function DesafioScreen() {
         break;
       }
       case 'match_pairs': {
+        // Visual diff (green/red pairs) is the pedagogy — text stays brief and generic
         if (answer.correct) {
-          text = slide.pairsExplanation ?? null;
+          customLabel = '🔥 Bien hecho';
+          text = 'Relacionaste correctamente los conceptos.';
         } else {
-          const emotions = ['Casi.', 'Buen intento.', 'Revisemos esto.'];
-          customLabel = emotions[currentIdx % 3];
-          if (slide.pairsExplanation) {
-            // AI-written natural sentence — use directly, no assembly needed
-            text = slide.pairsExplanation;
-          } else {
-            // Fallback: construct from wrong pair data
-            const matchedFromState  = pairsMatched;
-            const matchedFromAnswer = (typeof answer.value === 'object' && !Array.isArray(answer.value))
-              ? answer.value as Record<string, string>
-              : {};
-            const src = Object.keys(matchedFromState).length > 0 ? matchedFromState : matchedFromAnswer;
-            const wrongPair = (slide.pairs ?? []).find(p => src[p.id] !== p.id + '_r');
-            if (wrongPair) {
-              text = assembleMatchFeedback(wrongPair.left, wrongPair.right);
-            }
-          }
+          customLabel = '❌ Casi';
+          text = 'Te faltaron algunas conexiones.';
         }
         break;
       }
@@ -1546,7 +1477,7 @@ export default function DesafioScreen() {
       }
     }
     return { isCorrect: answer.correct, text, correctOrderItems, customLabel };
-  }, [revealed, slide, answers, currentIdx, pairsMatched]);
+  }, [revealed, slide, answers, currentIdx]);
 
   // ── Advance to next slide ──────────────────────────────────────────────────
   const advance = useCallback(() => {
