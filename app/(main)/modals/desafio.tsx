@@ -300,22 +300,30 @@ const fb = StyleSheet.create({
 // ── Match pairs — animated left chip ─────────────────────────────────────────
 
 function MatchChipLeft({
-  pair, isSel, isCorr, isWrg, revealed, color, onPress,
+  pair, isSel, evalState, color, onPress,
 }: {
-  pair: DesafioPair; isSel: boolean; isCorr: boolean; isWrg: boolean;
-  revealed: boolean; color: string | null; onPress: () => void;
+  pair: DesafioPair;
+  isSel: boolean;
+  evalState: 'idle' | 'correct' | 'wrong' | 'corrected';
+  color: string | null;
+  onPress: () => void;
 }) {
   const scale  = useSharedValue(1);
   const shakeX = useSharedValue(0);
+  const isLocked = evalState !== 'idle';
+  const isCorr   = evalState === 'correct' || evalState === 'corrected';
+  const isWrg    = evalState === 'wrong';
 
+  // Scale on selection (only when not locked)
   useEffect(() => {
+    if (isLocked) return;
     scale.value = isSel
       ? withSpring(1.02, { damping: 14, stiffness: 340 })
       : withSpring(1,    { damping: 14, stiffness: 340 });
-  }, [isSel]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [isSel, isLocked]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Animate immediately when evalState changes — no need to wait for global reveal
   useEffect(() => {
-    if (!revealed) return;
     if (isCorr) {
       scale.value = withSequence(
         withSpring(1.07, { damping: 9,  stiffness: 420 }),
@@ -330,24 +338,24 @@ function MatchChipLeft({
         withTiming( 0, { duration: 35 }),
       );
     }
-  }, [revealed, isCorr, isWrg]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [evalState]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const animStyle = useAnimatedStyle(() => ({
     transform: [{ scale: scale.value }, { translateX: shakeX.value }],
   }));
 
   return (
-    <Pressable onPress={onPress} disabled={revealed}>
+    <Pressable onPress={onPress} disabled={isLocked}>
       <Animated.View style={[
         mp.chip,
-        isSel && mp.chipSelected,
-        !revealed && color ? { borderColor: color, borderWidth: 2, backgroundColor: color + '15' } : null,
-        revealed && isCorr && mp.chipCorrect,
-        revealed && isWrg  && mp.chipWrong,
+        !isLocked && isSel && mp.chipSelected,
+        !isLocked && color ? { borderColor: color, borderWidth: 2, backgroundColor: color + '15' } : null,
+        isCorr && mp.chipCorrect,
+        isWrg  && mp.chipWrong,
         animStyle,
       ]}>
-        {revealed ? (
-          isCorr || isWrg ? (
+        {isLocked ? (
+          (isCorr || isWrg) ? (
             <Text style={[mp.revealIcon, isCorr ? mp.iconCorrect : mp.iconWrong]}>
               {isCorr ? '✓' : '✗'}
             </Text>
@@ -356,7 +364,7 @@ function MatchChipLeft({
           <Text style={[mp.handle, isSel && mp.handleActive]}>☰</Text>
         )}
         <Text style={mp.chipText} numberOfLines={2}>{pair.left}</Text>
-        {!revealed && color && <View style={[mp.connector, { backgroundColor: color }]} />}
+        {!isLocked && color && <View style={[mp.connector, { backgroundColor: color }]} />}
       </Animated.View>
     </Pressable>
   );
@@ -365,13 +373,14 @@ function MatchChipLeft({
 // ── Match pairs content ───────────────────────────────────────────────────────
 
 function MatchPairsContent({
-  slide, selectedLeft, onSelectLeft, matched, onMatch, answer,
+  slide, selectedLeft, onSelectLeft, matched, pairEvals, onPairMatchedImmediate, answer,
 }: {
   slide: DesafioSlide;
   selectedLeft: string | null;
   onSelectLeft: (id: string | null) => void;
   matched: Record<string, string>;
-  onMatch: (updated: Record<string, string>) => void;
+  pairEvals: Record<string, 'correct' | 'wrong' | 'corrected'>;
+  onPairMatchedImmediate: (leftId: string, rightId: string) => void;
   answer: SlideAnswer | undefined;
 }) {
   const revealed = !!answer;
@@ -399,23 +408,14 @@ function MatchPairsContent({
     return idx >= 0 ? PAIR_COLORS[idx % PAIR_COLORS.length] : null;
   };
 
-  const isPairCorrect = (pairId: string): boolean => matchedMap[pairId] === pairId + '_r';
-
   const handleLeftPress = (pairId: string) => {
-    if (revealed) return;
+    if (pairEvals[pairId]) return; // pair already evaluated — locked
     onSelectLeft(selectedLeft === pairId ? null : pairId);
   };
 
   const handleRightPress = (pair: DesafioPair) => {
-    if (revealed || !selectedLeft) return;
-    const rightId = pair.id + '_r';
-    const next    = { ...matched };
-    const prevLeftForRight = Object.keys(next).find(k => next[k] === rightId);
-    if (prevLeftForRight) delete next[prevLeftForRight];
-    if (next[selectedLeft]) delete next[selectedLeft];
-    next[selectedLeft] = rightId;
-    onMatch(next);
-    onSelectLeft(null);
+    if (!selectedLeft || pairEvals[selectedLeft]) return; // no selection or left is locked
+    onPairMatchedImmediate(selectedLeft, pair.id + '_r');
   };
 
   return (
@@ -431,9 +431,7 @@ function MatchPairsContent({
               key={pair.id}
               pair={pair}
               isSel={selectedLeft === pair.id}
-              isCorr={revealed && isPairCorrect(pair.id)}
-              isWrg={revealed && !!matchedMap[pair.id] && !isPairCorrect(pair.id)}
-              revealed={revealed}
+              evalState={pairEvals[pair.id] ?? 'idle'}
               color={getLeftColor(pair.id)}
               onPress={() => handleLeftPress(pair.id)}
             />
@@ -942,7 +940,7 @@ function MasteryContent({
 function SlideContent({
   slide,
   mcSelection, onMcSelect, mcBlocked,
-  pairsSelectedLeft, onPairsSelectLeft, pairsMatched, onPairsMatch,
+  pairsSelectedLeft, onPairsSelectLeft, pairsMatched, pairEvals, onPairMatchedImmediate,
   classifyAssigned, onClassifyAssign,
   stepsOrder, onStepsReorder,
   answer,
@@ -954,7 +952,8 @@ function SlideContent({
   pairsSelectedLeft: string | null;
   onPairsSelectLeft: (id: string | null) => void;
   pairsMatched: Record<string, string>;
-  onPairsMatch: (updated: Record<string, string>) => void;
+  pairEvals: Record<string, 'correct' | 'wrong' | 'corrected'>;
+  onPairMatchedImmediate: (leftId: string, rightId: string) => void;
   classifyAssigned: Record<string, string>;
   onClassifyAssign: (updated: Record<string, string>) => void;
   stepsOrder: number[];
@@ -976,7 +975,8 @@ function SlideContent({
         <MatchPairsContent
           slide={slide} selectedLeft={pairsSelectedLeft}
           onSelectLeft={onPairsSelectLeft} matched={pairsMatched}
-          onMatch={onPairsMatch} answer={answer}
+          pairEvals={pairEvals} onPairMatchedImmediate={onPairMatchedImmediate}
+          answer={answer}
         />
       );
     case 'classify':
@@ -1368,6 +1368,8 @@ export default function DesafioScreen() {
   const [mcSelection,       setMcSelection]       = useState<string | null>(null);
   const [pairsSelectedLeft, setPairsSelectedLeft] = useState<string | null>(null);
   const [pairsMatched,      setPairsMatched]      = useState<Record<string, string>>({});
+  const [pairEvals,         setPairEvals]         = useState<Record<string, 'correct' | 'wrong' | 'corrected'>>({});
+  const pairTimers = useRef<ReturnType<typeof setTimeout>[]>([]);
   const [classifyAssigned,  setClassifyAssigned]  = useState<Record<string, string>>({});
   const [stepsOrder,        setStepsOrder]        = useState<number[]>([]);
 
@@ -1443,6 +1445,9 @@ export default function DesafioScreen() {
     feedbackOpacity.value = 0;
     setPairsSelectedLeft(null);
     setPairsMatched({});
+    setPairEvals({});
+    pairTimers.current.forEach(clearTimeout);
+    pairTimers.current = [];
     setClassifyAssigned({});
     const slide = dynamicSlides[currentIdx];
     setStepsOrder(slide?.steps ? slide.steps.map((_, i) => i) : []);
@@ -1599,6 +1604,69 @@ export default function DesafioScreen() {
     revealed, slide, currentIdx, streak, session, retriesLeft,
     triggerXpFloat, triggerComboLost, showEnergyMsg, triggerSpeedBonus, triggerSuccessMsg,
   ]);
+
+  // ── match_pairs: evaluate each pair immediately on tap (no Verificar button) ──
+  const handlePairMatchedImmediate = useCallback((leftId: string, rightId: string) => {
+    const isCorrect = rightId === leftId + '_r';
+    const allPairs  = slide?.pairs ?? [];
+
+    // Update pairsMatched (handles duplicate assignments)
+    setPairsMatched(prev => {
+      const next = { ...prev };
+      const prevOwner = Object.keys(next).find(k => next[k] === rightId);
+      if (prevOwner) delete next[prevOwner];
+      if (next[leftId]) delete next[leftId];
+      next[leftId] = rightId;
+      return next;
+    });
+    setPairsSelectedLeft(null);
+
+    if (isCorrect) {
+      setPairEvals(prev => {
+        const newEvals = { ...prev, [leftId]: 'correct' as const };
+        const allDone  = allPairs.every(p => newEvals[p.id]);
+        if (allDone) {
+          const allCorrect = allPairs.every(p => newEvals[p.id] === 'correct');
+          const finalMap: Record<string, string> = {};
+          allPairs.forEach(p => { finalMap[p.id] = p.id + '_r'; });
+          const t = pairTimers.current[pairTimers.current.push(setTimeout(() => {
+            setAnswers(prevA => ({ ...prevA, [currentIdx]: { value: finalMap, correct: allCorrect } }));
+            if (allCorrect) {
+              triggerXpFloat(xpForSlide(slide!));
+              triggerSuccessMsg(allCorrect ? '🔥 ¡Dominado!' : '✨ Buen intento');
+            }
+            setShowFeedback(true);
+            pairTimers.current.push(setTimeout(() => advance(), 1500));
+          }, 700)) - 1];
+          void t; // suppress unused warning
+        }
+        return newEvals;
+      });
+    } else {
+      // Wrong: mark red → shake → auto-snap to correct after 1s
+      setPairEvals(prev => ({ ...prev, [leftId]: 'wrong' as const }));
+      showEnergyMsg('Casi — revisa las conexiones', false);
+
+      pairTimers.current.push(setTimeout(() => {
+        // Auto-snap to correct answer
+        setPairsMatched(prev => ({ ...prev, [leftId]: leftId + '_r' }));
+        setPairEvals(prev => {
+          const newEvals = { ...prev, [leftId]: 'corrected' as const };
+          const allDone  = allPairs.every(p => newEvals[p.id]);
+          if (allDone) {
+            const finalMap: Record<string, string> = {};
+            allPairs.forEach(p => { finalMap[p.id] = p.id + '_r'; });
+            pairTimers.current.push(setTimeout(() => {
+              setAnswers(prevA => ({ ...prevA, [currentIdx]: { value: finalMap, correct: false } }));
+              setShowFeedback(true);
+              pairTimers.current.push(setTimeout(() => advance(), 1500));
+            }, 600));
+          }
+          return newEvals;
+        });
+      }, 1000));
+    }
+  }, [slide, currentIdx, advance, triggerXpFloat, triggerSuccessMsg, showEnergyMsg]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── CTA press handler (non-MC types + advance after reveal) ──────────────
   const handleCta = useCallback(() => {
@@ -1852,7 +1920,8 @@ export default function DesafioScreen() {
             pairsSelectedLeft={pairsSelectedLeft}
             onPairsSelectLeft={setPairsSelectedLeft}
             pairsMatched={pairsMatched}
-            onPairsMatch={setPairsMatched}
+            pairEvals={pairEvals}
+            onPairMatchedImmediate={handlePairMatchedImmediate}
             classifyAssigned={classifyAssigned}
             onClassifyAssign={setClassifyAssigned}
             stepsOrder={stepsOrder}
@@ -1914,10 +1983,13 @@ export default function DesafioScreen() {
             </View>
           </Animated.View>
         )}
-        {/* CTA: hidden for MC until feedback shows; always visible for other types */}
-        {isImmediateMcSlide && !showFeedback ? (
+        {/* CTA: hidden for MC until feedback shows; hidden for match_pairs (auto-evaluates);
+              always visible for other types */}
+        {(isImmediateMcSlide && !showFeedback) || (itype === 'match_pairs' && !revealed) ? (
           <View style={g.ctaBtnOff}>
-            <Text style={g.ctaTextOff}>Selecciona una opción</Text>
+            <Text style={g.ctaTextOff}>
+              {itype === 'match_pairs' ? 'Relaciona todos los pares' : 'Selecciona una opción'}
+            </Text>
           </View>
         ) : ctaDisabled ? (
           <View style={g.ctaBtnOff}>
