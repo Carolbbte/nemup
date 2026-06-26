@@ -457,7 +457,7 @@ function MatchPairsContent({
                 disabled={revealed || !selectedLeft}
               >
                 {!revealed && color && <View style={[mp.connector, { backgroundColor: color }]} />}
-                <Text style={mp.targetText} numberOfLines={2}>{pair.right}</Text>
+                <Text style={mp.targetText}>{pair.right}</Text>
               </Pressable>
             );
           })}
@@ -497,14 +497,13 @@ const mp = StyleSheet.create({
 
   connector: { width: 12, height: 4, borderRadius: 2, flexShrink: 0 },
 
-  // Right: target slot — white, receptive
+  // Right: target slot — white, receptive, height driven by content
   target: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
     backgroundColor: palette.blanco,
     borderRadius: 18,
     borderWidth: 1.5, borderColor: '#E9E5FF',
-    paddingHorizontal: 12, paddingVertical: 10,
-    minHeight: 60,
+    paddingHorizontal: 12, paddingVertical: 14,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.05,
