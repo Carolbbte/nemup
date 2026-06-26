@@ -491,7 +491,7 @@ const mp = StyleSheet.create({
 
   handle:       { fontSize: 11, color: palette.grisMedio, flexShrink: 0, opacity: 0.25 },
   handleActive: { color: '#6C63FF', opacity: 0.55 },
-  chipText:     { flex: 1, fontSize: 16, fontWeight: '700', color: palette.charcoal, lineHeight: 22, textAlign: 'left' },
+  chipText:     { flex: 1, ...Typography.challengeOptionLetter, color: palette.charcoal, textAlign: 'left' },
 
   connector: { width: 12, height: 4, borderRadius: 2, flexShrink: 0 },
 
@@ -510,7 +510,7 @@ const mp = StyleSheet.create({
     elevation: 1,
   },
   targetActive: { borderColor: '#6C63FF', backgroundColor: '#F4F0FF' },
-  targetText:   { flex: 1, fontSize: 16, fontWeight: '700', color: palette.charcoal, lineHeight: 22, textAlign: 'center' },
+  targetText:   { flex: 1, ...Typography.challengeExplanation, color: palette.charcoal, textAlign: 'center' },
 
   revealIcon:  { fontSize: 15, fontWeight: '800', flexShrink: 0 },
   iconCorrect: { color: palette.verde },
