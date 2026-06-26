@@ -457,7 +457,7 @@ function MatchPairsContent({
                 disabled={revealed || !selectedLeft}
               >
                 {!revealed && color && <View style={[mp.connector, { backgroundColor: color }]} />}
-                <Text style={mp.targetText}>{pair.right}</Text>
+                <Text style={mp.targetText}>{pair.right ? pair.right.charAt(0).toUpperCase() + pair.right.slice(1) : ''}</Text>
               </Pressable>
             );
           })}
