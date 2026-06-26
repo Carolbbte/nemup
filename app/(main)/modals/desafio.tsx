@@ -467,18 +467,18 @@ function MatchPairsContent({
 }
 
 const mp = StyleSheet.create({
-  prompt: { fontSize: 15, fontWeight: '700', color: palette.charcoal, marginBottom: 16, lineHeight: 21 },
-  cols:   { flexDirection: 'row', gap: 10 },
-  col:    { flex: 1, gap: 12 },
+  prompt: { fontSize: 16, fontWeight: '700', color: palette.charcoal, marginBottom: 18, lineHeight: 22 },
+  cols:   { flexDirection: 'row', gap: 14 },
+  col:    { flex: 1, gap: 14 },
 
-  // Left: game-piece chip — white, floating, rounded
+  // Left: game-piece chip — white, floating, large tactile block
   chip: {
-    flexDirection: 'row', alignItems: 'center', gap: 8,
+    flexDirection: 'row', alignItems: 'center', gap: 10,
     backgroundColor: palette.blanco,
     borderRadius: 18,
     borderWidth: 1.5, borderColor: '#E9E5FF',
-    paddingHorizontal: 12, paddingVertical: 10,
-    minHeight: 60,
+    paddingHorizontal: 18, paddingVertical: 16,
+    minHeight: 82,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.07,
@@ -489,19 +489,20 @@ const mp = StyleSheet.create({
   chipCorrect:  { backgroundColor: '#F0FDF7', borderColor: palette.verde },
   chipWrong:    { backgroundColor: palette.rojoErrorBg, borderColor: palette.rojoError },
 
-  handle:       { fontSize: 12, color: palette.grisMedio, flexShrink: 0, opacity: 0.3 },
-  handleActive: { color: '#6C63FF', opacity: 0.65 },
-  chipText:     { flex: 1, fontSize: 13, fontWeight: '600', color: palette.charcoal, lineHeight: 18, textAlign: 'left' },
+  handle:       { fontSize: 11, color: palette.grisMedio, flexShrink: 0, opacity: 0.25 },
+  handleActive: { color: '#6C63FF', opacity: 0.55 },
+  chipText:     { flex: 1, fontSize: 16, fontWeight: '700', color: palette.charcoal, lineHeight: 22, textAlign: 'left' },
 
   connector: { width: 12, height: 4, borderRadius: 2, flexShrink: 0 },
 
   // Right: target slot — white, receptive, height driven by content
   target: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10,
     backgroundColor: palette.blanco,
     borderRadius: 18,
     borderWidth: 1.5, borderColor: '#E9E5FF',
-    paddingHorizontal: 12, paddingVertical: 14,
+    paddingHorizontal: 18, paddingVertical: 16,
+    minHeight: 82,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.05,
@@ -509,9 +510,9 @@ const mp = StyleSheet.create({
     elevation: 1,
   },
   targetActive: { borderColor: '#6C63FF', backgroundColor: '#F4F0FF' },
-  targetText:   { flex: 1, fontSize: 13, fontWeight: '600', color: palette.charcoal, lineHeight: 18, textAlign: 'center' },
+  targetText:   { flex: 1, fontSize: 16, fontWeight: '700', color: palette.charcoal, lineHeight: 22, textAlign: 'center' },
 
-  revealIcon:  { fontSize: 13, fontWeight: '700', flexShrink: 0 },
+  revealIcon:  { fontSize: 15, fontWeight: '800', flexShrink: 0 },
   iconCorrect: { color: palette.verde },
   iconWrong:   { color: palette.rojoError },
 });
