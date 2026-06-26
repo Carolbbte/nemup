@@ -94,12 +94,12 @@ function validateBlankSentence(s: unknown): string | undefined {
   return s.trim();
 }
 
-// Strips leading articles and truncates to max 5 words — allows verb phrases like
-// "Comparten origen evolutivo" or "Conservan restos en rocas"
+// Strips leading articles and truncates to max 6 words — matches prompt limit (2-6 palabras)
+// allowing precise phrases like "cumple función similar con origen distinto"
 function shortenPairRight(text: string): string {
   const stripped = text.replace(/^(el|la|los|las|un|una|unos|unas)\s+/i, '').trim();
   const words = stripped.split(/\s+/);
-  return words.slice(0, 5).join(' ');
+  return words.slice(0, 6).join(' ');
 }
 
 function validatePairs(pairs: unknown): Array<{ left: string; right: string }> | null {
