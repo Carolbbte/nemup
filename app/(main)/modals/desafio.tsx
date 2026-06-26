@@ -471,18 +471,18 @@ const mp = StyleSheet.create({
   cols:   { flexDirection: 'row', gap: 14 },
   col:    { flex: 1, gap: 14 },
 
-  // Left: game-piece chip — white, floating, large tactile block
+  // Left: game-piece chip — white, neutral, floating
   chip: {
     flexDirection: 'row', alignItems: 'center', gap: 10,
-    backgroundColor: palette.blanco,
+    backgroundColor: '#FFFFFF',
     borderRadius: 18,
-    borderWidth: 1.5, borderColor: '#E9E5FF',
+    borderWidth: 2, borderColor: '#E5E7EB',
     paddingHorizontal: 18, paddingVertical: 16,
     minHeight: 82,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.07,
-    shadowRadius: 3,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
     elevation: 2,
   },
   chipSelected: { backgroundColor: '#F4F0FF', borderColor: '#6C63FF' },
@@ -495,19 +495,19 @@ const mp = StyleSheet.create({
 
   connector: { width: 12, height: 4, borderRadius: 2, flexShrink: 0 },
 
-  // Right: target slot — white, receptive, height driven by content
+  // Right: target slot — white, neutral, receptive
   target: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10,
-    backgroundColor: palette.blanco,
+    backgroundColor: '#FFFFFF',
     borderRadius: 18,
-    borderWidth: 1.5, borderColor: '#E9E5FF',
+    borderWidth: 2, borderColor: '#E5E7EB',
     paddingHorizontal: 18, paddingVertical: 16,
     minHeight: 82,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 2,
-    elevation: 1,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+    elevation: 2,
   },
   targetActive: { borderColor: '#6C63FF', backgroundColor: '#F4F0FF' },
   targetText:   { flex: 1, ...Typography.challengeExplanation, color: palette.charcoal, textAlign: 'center' },
