@@ -314,28 +314,34 @@ function MatchChipLeft({
   const isCorr   = evalState === 'correct' || evalState === 'corrected';
   const isWrg    = evalState === 'wrong';
 
-  // Scale on selection (only when not locked)
+  // Tactile squeeze on selection (only when not locked)
   useEffect(() => {
     if (isLocked) return;
     scale.value = isSel
-      ? withSpring(1.02, { damping: 14, stiffness: 340 })
-      : withSpring(1,    { damping: 14, stiffness: 340 });
+      ? withSequence(
+          withTiming(0.97, { duration: 80 }),
+          withSpring(1, { damping: 14, stiffness: 340 }),
+        )
+      : withSpring(1, { damping: 14, stiffness: 340 });
   }, [isSel, isLocked]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Animate immediately when evalState changes — no need to wait for global reveal
+  // Per-pair evaluation animations
   useEffect(() => {
     if (isCorr) {
+      // Bounce: 1 → 1.05 → 1
       scale.value = withSequence(
-        withSpring(1.07, { damping: 9,  stiffness: 420 }),
+        withSpring(1.05, { damping: 9,  stiffness: 420 }),
         withSpring(1.00, { damping: 12, stiffness: 280 }),
       );
     } else if (isWrg) {
+      // Shake horizontal 250ms total
       shakeX.value = withSequence(
-        withTiming(-7, { duration: 55 }),
-        withTiming( 7, { duration: 55 }),
-        withTiming(-5, { duration: 45 }),
-        withTiming( 5, { duration: 45 }),
-        withTiming( 0, { duration: 35 }),
+        withTiming(-8, { duration: 50 }),
+        withTiming( 8, { duration: 50 }),
+        withTiming(-6, { duration: 50 }),
+        withTiming( 6, { duration: 50 }),
+        withTiming(-3, { duration: 30 }),
+        withTiming( 0, { duration: 20 }),
       );
     }
   }, [evalState]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -420,9 +426,9 @@ function MatchPairsContent({
   };
 
   return (
-    <View style={c.root}>
-      <Text style={c.typeLabel}>{slideTypeLabel(slide.type, slide.isRetry, slide.isSpacedRepetition)}</Text>
-      <Text style={mp.prompt}>{slide.pairsPrompt ?? 'Une cada elemento con su descripción'}</Text>
+    <View style={[c.root, { backgroundColor: '#FAFAF7' }]}>
+      <Text style={mp.badgeLabel}>🧠 {slideTypeLabel(slide.type, slide.isRetry, slide.isSpacedRepetition)}</Text>
+      <Text style={mp.prompt}>{slide.pairsPrompt ?? 'Relaciona'}</Text>
       {/* Row-based layout: each row pairs one left chip with one right target.
           alignItems:'stretch' makes both cards share the same height per row. */}
       <View style={mp.rows}>
@@ -462,55 +468,62 @@ function MatchPairsContent({
 }
 
 const mp = StyleSheet.create({
-  prompt:  { fontSize: 16, fontWeight: '700', color: palette.charcoal, marginBottom: 18, lineHeight: 22 },
-  rows:    { gap: 14 },
-  pairRow: { flexDirection: 'row', gap: 14, alignItems: 'stretch' },
+  // ── Layout ────────────────────────────────────────────────────────────────
+  prompt:     { fontFamily: 'Nunito', fontSize: 22, fontWeight: '800', color: '#1A1A22', marginBottom: 20, lineHeight: 28 },
+  badgeLabel: { fontFamily: 'Nunito', fontSize: 14, fontWeight: '800', color: '#5B3DF5', letterSpacing: 1.5, marginBottom: 18 },
+  rows:       { gap: 18 },
+  pairRow:    { flexDirection: 'row', gap: 14, alignItems: 'stretch' },
 
-  // Left: game-piece chip — white, neutral, floating
+  // ── Left column — concept chip (purple soft, no border) ───────────────────
   chip: {
     flexDirection: 'row', alignItems: 'center', gap: 10,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 18,
-    borderWidth: 2, borderColor: '#E5E7EB',
-    paddingHorizontal: 18, paddingVertical: 16,
+    backgroundColor: '#F7F4FF',
+    borderRadius: 20, borderWidth: 0,
+    paddingHorizontal: 20, paddingVertical: 22,
     minHeight: 82,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.08,
-    shadowRadius: 8,
+    shadowRadius: 10,
     elevation: 2,
   },
-  chipSelected: { backgroundColor: '#F4F0FF', borderColor: '#6C63FF' },
-  chipCorrect:  { backgroundColor: '#F0FDF7', borderColor: palette.verde },
-  chipWrong:    { backgroundColor: palette.rojoErrorBg, borderColor: palette.rojoError },
+  chipSelected: {
+    backgroundColor: '#EEE8FF',
+    borderWidth: 3, borderColor: '#5B3DF5',
+    shadowColor: '#5B3DF5', shadowOpacity: 0.16, shadowRadius: 12, elevation: 4,
+  },
+  chipCorrect: { backgroundColor: '#EAFBF3', borderWidth: 3, borderColor: '#25C281' },
+  chipWrong:   { backgroundColor: '#FFF2F2', borderWidth: 3, borderColor: '#FF6B6B' },
 
-  handle:       { fontSize: 11, color: palette.grisMedio, flexShrink: 0, opacity: 0.25 },
-  handleActive: { color: '#6C63FF', opacity: 0.55 },
-  chipText:     { flex: 1, ...Typography.challengeExplanation, color: palette.charcoal, textAlign: 'left' },
+  handle:       { fontSize: 11, color: '#6B6779', flexShrink: 0, opacity: 0.25 },
+  handleActive: { color: '#5B3DF5', opacity: 0.6 },
+  chipText:     { flex: 1, fontFamily: 'Nunito', fontSize: 22, fontWeight: '800', color: '#1A1A22', lineHeight: 28, textAlign: 'left' },
 
   connector: { width: 12, height: 4, borderRadius: 2, flexShrink: 0 },
 
-  // Right: target slot — white, neutral, receptive, stretches to match left chip height
+  // ── Right column — description target (white + light border) ─────────────
   target: {
     flex: 1,
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10,
     backgroundColor: '#FFFFFF',
-    borderRadius: 18,
-    borderWidth: 2, borderColor: '#E5E7EB',
-    paddingHorizontal: 18, paddingVertical: 16,
+    borderRadius: 20, borderWidth: 2, borderColor: '#ECE8FF',
+    paddingHorizontal: 20, paddingVertical: 22,
     minHeight: 82,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 8,
-    elevation: 2,
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.04,
+    shadowRadius: 4,
+    elevation: 1,
   },
-  targetActive: { borderColor: '#6C63FF', backgroundColor: '#F4F0FF' },
-  targetText:   { flex: 1, ...Typography.challengeExplanation, color: palette.charcoal, textAlign: 'center' },
+  targetActive: { backgroundColor: '#EEE8FF', borderWidth: 3, borderColor: '#5B3DF5' },
+  targetText:   { flex: 1, fontFamily: 'Nunito', fontSize: 18, fontWeight: '700', color: '#1A1A22', lineHeight: 26, textAlign: 'center' },
 
-  revealIcon:  { fontSize: 15, fontWeight: '800', flexShrink: 0 },
-  iconCorrect: { color: palette.verde },
-  iconWrong:   { color: palette.rojoError },
+  // ── Status hint (bottom) ──────────────────────────────────────────────────
+  statusText: { fontFamily: 'Nunito', fontSize: 18, fontWeight: '800', color: '#6B6779', textAlign: 'center' },
+
+  revealIcon:  { fontSize: 20, fontWeight: '800', flexShrink: 0 },
+  iconCorrect: { color: '#25C281' },
+  iconWrong:   { color: '#FF6B6B' },
 });
 
 // ── Classify content ──────────────────────────────────────────────────────────
@@ -1538,6 +1551,17 @@ export default function DesafioScreen() {
     return { isCorrect: answer.correct, text, correctOrderItems, customLabel };
   }, [revealed, slide, answers, currentIdx]);
 
+  // ── Dynamic status text for match_pairs ───────────────────────────────────
+  const matchPairsStatusText = useMemo(() => {
+    if (itype !== 'match_pairs' || !slide?.pairs) return '';
+    const total     = slide.pairs.length;
+    const done      = Object.values(pairEvals).filter(v => v === 'correct' || v === 'corrected').length;
+    const remaining = total - done;
+    if (remaining === 0) return '¡Perfecto! +XP 🚀';
+    if (remaining === 1) return '¡Te falta uno! 🔥';
+    return 'Conecta los conceptos ⚡';
+  }, [itype, slide, pairEvals]);
+
   // ── Advance to next slide ──────────────────────────────────────────────────
   const advance = useCallback(() => {
     if (currentIdx >= dynamicSlides.length - 1) { router.back(); return; }
@@ -1983,9 +2007,9 @@ export default function DesafioScreen() {
         {/* CTA: hidden for MC until feedback shows; hidden for match_pairs (auto-evaluates);
               always visible for other types */}
         {(isImmediateMcSlide && !showFeedback) || (itype === 'match_pairs' && !revealed) ? (
-          <View style={g.ctaBtnOff}>
-            <Text style={g.ctaTextOff}>
-              {itype === 'match_pairs' ? 'Relaciona todos los pares' : 'Selecciona una opción'}
+          <View style={itype === 'match_pairs' ? { paddingVertical: 14, alignItems: 'center' } : g.ctaBtnOff}>
+            <Text style={itype === 'match_pairs' ? mp.statusText : g.ctaTextOff}>
+              {itype === 'match_pairs' ? matchPairsStatusText : 'Selecciona una opción'}
             </Text>
           </View>
         ) : ctaDisabled ? (
