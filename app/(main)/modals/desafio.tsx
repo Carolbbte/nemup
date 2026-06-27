@@ -474,13 +474,13 @@ const mp = StyleSheet.create({
   rows:       { gap: 18 },
   pairRow:    { flexDirection: 'row', gap: 14, alignItems: 'stretch' },
 
-  // ── Left column — concept chip (purple soft, no border) ───────────────────
+  // ── Left column — concept chip (purple soft) ──────────────────────────────
   chip: {
-    flexDirection: 'row', alignItems: 'center', gap: 10,
-    backgroundColor: '#F7F4FF',
-    borderRadius: 20, borderWidth: 0,
-    paddingHorizontal: 20, paddingVertical: 22,
-    minHeight: 82,
+    flexDirection: 'row', alignItems: 'center', gap: 8,
+    backgroundColor: '#F7F3FF',
+    borderRadius: 24, borderWidth: 2, borderColor: '#E6DFFF',
+    paddingHorizontal: 18, paddingVertical: 18,
+    minHeight: 96, maxHeight: 120,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.08,
@@ -488,41 +488,41 @@ const mp = StyleSheet.create({
     elevation: 2,
   },
   chipSelected: {
-    backgroundColor: '#EEE8FF',
-    borderWidth: 3, borderColor: '#5B3DF5',
-    shadowColor: '#5B3DF5', shadowOpacity: 0.16, shadowRadius: 12, elevation: 4,
+    backgroundColor: '#EFE9FF',
+    borderWidth: 2.5, borderColor: '#5B3DF5',
+    shadowColor: '#5B3DF5', shadowOpacity: 0.18, shadowRadius: 10, elevation: 4,
   },
-  chipCorrect: { backgroundColor: '#EAFBF3', borderWidth: 3, borderColor: '#25C281' },
+  chipCorrect: { backgroundColor: '#EAFBF2', borderWidth: 3, borderColor: '#27C383' },
   chipWrong:   { backgroundColor: '#FFF2F2', borderWidth: 3, borderColor: '#FF6B6B' },
 
-  handle:       { fontSize: 11, color: '#6B6779', flexShrink: 0, opacity: 0.25 },
+  handle:       { fontSize: 18, color: '#B8B3C7', flexShrink: 0, opacity: 0.35 },
   handleActive: { color: '#5B3DF5', opacity: 0.6 },
-  chipText:     { flex: 1, fontFamily: 'Nunito', fontSize: 18, fontWeight: '700', color: '#1A1A22', lineHeight: 24, textAlign: 'left' },
+  chipText:     { flex: 1, fontFamily: 'Nunito', fontSize: 22, fontWeight: '700', color: '#1A1A22', lineHeight: 28, textAlign: 'left' },
 
   connector: { width: 12, height: 4, borderRadius: 2, flexShrink: 0 },
 
-  // ── Right column — description target (white + light border) ─────────────
+  // ── Right column — description target ────────────────────────────────────
   target: {
     flex: 1,
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10,
     backgroundColor: '#FFFFFF',
-    borderRadius: 20, borderWidth: 2, borderColor: '#ECE8FF',
-    paddingHorizontal: 20, paddingVertical: 22,
-    minHeight: 82,
+    borderRadius: 24, borderWidth: 2, borderColor: '#ECE8FF',
+    paddingHorizontal: 18, paddingVertical: 18,
+    minHeight: 96, maxHeight: 120,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.04,
     shadowRadius: 4,
     elevation: 1,
   },
-  targetActive: { backgroundColor: '#EEE8FF', borderWidth: 3, borderColor: '#5B3DF5' },
-  targetText:   { flex: 1, fontFamily: 'Nunito', fontSize: 18, fontWeight: '700', color: '#1A1A22', lineHeight: 26, textAlign: 'center' },
+  targetActive: { backgroundColor: '#EEE8FF', borderWidth: 2.5, borderColor: '#5B3DF5' },
+  targetText:   { flex: 1, fontFamily: 'Nunito', fontSize: 20, fontWeight: '600', color: '#6B6779', lineHeight: 26, textAlign: 'center' },
 
   // ── Status hint (bottom) ──────────────────────────────────────────────────
   statusText: { fontFamily: 'Nunito', fontSize: 18, fontWeight: '800', color: '#6B6779', textAlign: 'center' },
 
-  revealIcon:  { fontSize: 20, fontWeight: '800', flexShrink: 0 },
-  iconCorrect: { color: '#25C281' },
+  revealIcon:  { fontSize: 22, fontWeight: '800', flexShrink: 0 },
+  iconCorrect: { color: '#C4F852' },
   iconWrong:   { color: '#FF6B6B' },
 });
 
