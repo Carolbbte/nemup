@@ -497,7 +497,7 @@ const mp = StyleSheet.create({
 
   handle:       { fontSize: 11, color: '#6B6779', flexShrink: 0, opacity: 0.25 },
   handleActive: { color: '#5B3DF5', opacity: 0.6 },
-  chipText:     { flex: 1, fontFamily: 'Nunito', fontSize: 22, fontWeight: '800', color: '#1A1A22', lineHeight: 28, textAlign: 'left' },
+  chipText:     { flex: 1, fontFamily: 'Nunito', fontSize: 18, fontWeight: '800', color: '#1A1A22', lineHeight: 24, textAlign: 'left' },
 
   connector: { width: 12, height: 4, borderRadius: 2, flexShrink: 0 },
 
