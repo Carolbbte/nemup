@@ -345,9 +345,10 @@ function MatchChipLeft({
   }));
 
   return (
-    <Pressable onPress={onPress} disabled={isLocked}>
+    <Pressable onPress={onPress} disabled={isLocked} style={{ flex: 1 }}>
       <Animated.View style={[
         mp.chip,
+        { flex: 1 },
         !isLocked && isSel && mp.chipSelected,
         !isLocked && color ? { borderColor: color, borderWidth: 2, backgroundColor: color + '15' } : null,
         isCorr && mp.chipCorrect,
@@ -422,54 +423,48 @@ function MatchPairsContent({
     <View style={c.root}>
       <Text style={c.typeLabel}>{slideTypeLabel(slide.type, slide.isRetry, slide.isSpacedRepetition)}</Text>
       <Text style={mp.prompt}>{slide.pairsPrompt ?? 'Une cada elemento con su descripción'}</Text>
-      <View style={mp.cols}>
-
-        {/* Left column — animated chips */}
-        <View style={mp.col}>
-          {pairs.map((pair) => (
-            <MatchChipLeft
-              key={pair.id}
-              pair={pair}
-              isSel={selectedLeft === pair.id}
-              evalState={pairEvals[pair.id] ?? 'idle'}
-              color={getLeftColor(pair.id)}
-              onPress={() => handleLeftPress(pair.id)}
-            />
-          ))}
-        </View>
-
-        {/* Right column — target slots */}
-        <View style={mp.col}>
-          {shuffledRight.map((pair) => {
-            const color       = getRightColor(pair.id);
-            const hasSelected = !!selectedLeft && !revealed;
-            return (
+      {/* Row-based layout: each row pairs one left chip with one right target.
+          alignItems:'stretch' makes both cards share the same height per row. */}
+      <View style={mp.rows}>
+        {pairs.map((leftPair, idx) => {
+          const rightPair   = shuffledRight[idx];
+          const rightColor  = getRightColor(rightPair.id);
+          const hasSelected = !!selectedLeft && !revealed;
+          return (
+            <View key={leftPair.id} style={mp.pairRow}>
+              <MatchChipLeft
+                pair={leftPair}
+                isSel={selectedLeft === leftPair.id}
+                evalState={pairEvals[leftPair.id] ?? 'idle'}
+                color={getLeftColor(leftPair.id)}
+                onPress={() => handleLeftPress(leftPair.id)}
+              />
               <Pressable
-                key={pair.id + '_r'}
                 style={[
                   mp.target,
                   hasSelected && mp.targetActive,
-                  !revealed && color ? { borderColor: color, borderWidth: 2 } : null,
+                  !revealed && rightColor ? { borderColor: rightColor, borderWidth: 2 } : null,
                 ]}
-                onPress={() => handleRightPress(pair)}
+                onPress={() => handleRightPress(rightPair)}
                 disabled={revealed || !selectedLeft}
               >
-                {!revealed && color && <View style={[mp.connector, { backgroundColor: color }]} />}
-                <Text style={mp.targetText}>{pair.right ? pair.right.charAt(0).toUpperCase() + pair.right.slice(1) : ''}</Text>
+                {!revealed && rightColor && <View style={[mp.connector, { backgroundColor: rightColor }]} />}
+                <Text style={mp.targetText}>
+                  {rightPair.right ? rightPair.right.charAt(0).toUpperCase() + rightPair.right.slice(1) : ''}
+                </Text>
               </Pressable>
-            );
-          })}
-        </View>
-
+            </View>
+          );
+        })}
       </View>
     </View>
   );
 }
 
 const mp = StyleSheet.create({
-  prompt: { fontSize: 16, fontWeight: '700', color: palette.charcoal, marginBottom: 18, lineHeight: 22 },
-  cols:   { flexDirection: 'row', gap: 14 },
-  col:    { flex: 1, gap: 14 },
+  prompt:  { fontSize: 16, fontWeight: '700', color: palette.charcoal, marginBottom: 18, lineHeight: 22 },
+  rows:    { gap: 14 },
+  pairRow: { flexDirection: 'row', gap: 14, alignItems: 'stretch' },
 
   // Left: game-piece chip — white, neutral, floating
   chip: {
@@ -495,8 +490,9 @@ const mp = StyleSheet.create({
 
   connector: { width: 12, height: 4, borderRadius: 2, flexShrink: 0 },
 
-  // Right: target slot — white, neutral, receptive
+  // Right: target slot — white, neutral, receptive, stretches to match left chip height
   target: {
+    flex: 1,
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10,
     backgroundColor: '#FFFFFF',
     borderRadius: 18,
