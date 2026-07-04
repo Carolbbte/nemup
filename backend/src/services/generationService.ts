@@ -1768,13 +1768,17 @@ const VALID_ILLUSTRATION_TYPES: IllustrationType[] = ['educational', 'diagram', 
 const INTERACTIVE_SLIDE_TYPES = ['comprehension', 'mini_quiz', 'final_challenge', 'decide'];
 
 // Prints the full text of a prompt to the log in chunks, since log drivers
-// (e.g. Railway) can truncate very long single lines.
+// (e.g. Railway) can truncate very long single lines. Newlines are flattened
+// first — otherwise each embedded '\n' becomes its own log event on platforms
+// that split stdout by line, which can burst past a per-second log rate limit
+// and cause chunks (including the closing marker) to be silently dropped.
 function logFullText(label: string, text: string) {
+  const flat = text.replace(/\r?\n/g, ' ⏎ ');
   const CHUNK = 3500;
-  const total = Math.max(1, Math.ceil(text.length / CHUNK));
-  console.log(`\n[${label}] ── INICIO (${text.length} chars, ${total} partes) ──`);
+  const total = Math.max(1, Math.ceil(flat.length / CHUNK));
+  console.log(`[${label}] ── INICIO (${text.length} chars, ${total} partes) ──`);
   for (let i = 0; i < total; i++) {
-    console.log(`[${label}][${i + 1}/${total}] ${text.slice(i * CHUNK, (i + 1) * CHUNK)}`);
+    console.log(`[${label}][${i + 1}/${total}] ${flat.slice(i * CHUNK, (i + 1) * CHUNK)}`);
   }
   console.log(`[${label}] ── FIN ──\n`);
 }
