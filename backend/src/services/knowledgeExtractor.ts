@@ -20,6 +20,7 @@
 
 import OpenAI from 'openai';
 import { config } from '../config.js';
+import { withOpenAIRetry } from './openaiRetry.js';
 
 const openai = new OpenAI({ apiKey: config.openai_api_key });
 
@@ -310,13 +311,13 @@ export async function extractKnowledge(
 ): Promise<KnowledgeGraph> {
   console.log('[KnowledgeExtractor] start');
 
-  const response = await openai.chat.completions.create({
+  const response = await withOpenAIRetry(() => openai.chat.completions.create({
     model:           config.openai_model,
     response_format: { type: 'json_object' },
     messages:        buildMessages(input),
     temperature:     0.1,
     max_tokens:      4096,
-  });
+  }), 'KnowledgeExtractor');
 
   const raw = response.choices[0]?.message?.content;
   if (!raw) throw new Error('[KnowledgeExtractor] empty response from model');

@@ -16,6 +16,7 @@
 import OpenAI from 'openai';
 import pdfParse from 'pdf-parse';
 import { config } from '../config.js';
+import { withOpenAIRetry } from './openaiRetry.js';
 
 const openai = new OpenAI({ apiKey: config.openai_api_key });
 
@@ -152,7 +153,7 @@ async function callVisionOcr(
   contentPart: VisionContentPart,
   prompt: string,
 ): Promise<string> {
-  const response = await openai.chat.completions.create({
+  const response = await withOpenAIRetry(() => openai.chat.completions.create({
     model: config.openai_model,
     messages: [
       {
@@ -164,7 +165,7 @@ async function callVisionOcr(
       },
     ],
     max_tokens: 4000,
-  });
+  }), 'VisionOCR');
   return response.choices?.[0]?.message?.content ?? '';
 }
 

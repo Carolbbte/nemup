@@ -14,6 +14,7 @@
 
 import OpenAI from 'openai';
 import { config } from '../config.js';
+import { withOpenAIRetry } from './openaiRetry.js';
 
 const openai = new OpenAI({ apiKey: config.openai_api_key });
 
@@ -248,7 +249,7 @@ ${OUTPUT_SCHEMA}`;
 
   let raw = '';
   try {
-    const response = await openai.chat.completions.create({
+    const response = await withOpenAIRetry(() => openai.chat.completions.create({
       model: config.openai_model,
       messages: [
         {
@@ -259,7 +260,7 @@ ${OUTPUT_SCHEMA}`;
       ],
       temperature: 0.1,
       max_tokens: 2000,
-    });
+    }), 'DesafioFormats');
     raw = response.choices?.[0]?.message?.content ?? '';
   } catch (err: any) {
     console.warn('[DesafioFormats] AI call failed:', err?.message);

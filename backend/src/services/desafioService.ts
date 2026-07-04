@@ -16,6 +16,7 @@
 import OpenAI from 'openai';
 import { randomUUID } from 'crypto';
 import { config } from '../config.js';
+import { withOpenAIRetry } from './openaiRetry.js';
 
 // ── Local type definitions (mirrors shared/desafio.ts — no cross-root import) ─
 
@@ -803,12 +804,12 @@ export async function generateDesafioContent(
   // Attempt 1 — full adaptive prompt with KB
   try {
     const prompt = buildDesafioPrompt(kb, curso);
-    const completion = await openai.chat.completions.create({
+    const completion = await withOpenAIRetry(() => openai.chat.completions.create({
       model: 'gpt-4o',
       messages: [{ role: 'user', content: prompt }],
       temperature: 0.7,
       max_tokens: 16000,
-    });
+    }), 'Desafio-Full');
     const raw = completion.choices[0]?.message?.content ?? '';
     const finishReason = completion.choices[0]?.finish_reason;
     if (!raw) throw new Error(`Empty AI response (finish_reason: ${finishReason})`);
@@ -831,12 +832,12 @@ export async function generateDesafioContent(
 
   // Attempt 2 — simplified prompt (MC only)
   const simplePrompt = buildSimpleDesafioPrompt(kb, curso);
-  const completion = await openai.chat.completions.create({
+  const completion = await withOpenAIRetry(() => openai.chat.completions.create({
     model: 'gpt-4o',
     messages: [{ role: 'user', content: simplePrompt }],
     temperature: 0.4,
     max_tokens: 6000,
-  });
+  }), 'Desafio-Simple');
   const raw = completion.choices[0]?.message?.content ?? '';
   const { topic: responseTopic, slides, retrySlides } = parseDesafioJson(raw);
   const conceptCount = slides.filter(s => s.type === 'insight').length;

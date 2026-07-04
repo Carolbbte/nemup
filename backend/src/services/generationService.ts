@@ -24,6 +24,7 @@ import { classifyContent, type DetectedSkill } from './pedagogicalClassifier.js'
 import { validateTruth, buildTruthFeedback } from './truthValidator.js';
 import { normalizeAllSlides } from './canonicalNormalizer.js';
 import type { KnowledgeGraph } from './knowledgeExtractor.js';
+import { withOpenAIRetry } from './openaiRetry.js';
 
 const openai = new OpenAI({ apiKey: config.openai_api_key });
 
@@ -1774,17 +1775,24 @@ async function callOpenAIAndBuildResult(
   maxTokens = 7000,
 ): Promise<Omit<GenerationResult, 'pedagogicalType' | 'primarySkill' | 'learningPath'>> {
   console.log(`[Generation] Prompt enviado a la IA (${prompt.length} chars)`);
-  const response = await openai.chat.completions.create({
-    model: config.openai_model,
-    messages: [
-      { role: 'system', content: systemMsg },
-      { role: 'user', content: prompt },
-    ],
-    temperature: 0.25,
-    max_tokens: maxTokens,
-  });
+  const raw = await withOpenAIRetry(async () => {
+    const stream = await openai.chat.completions.create({
+      model: config.openai_model,
+      messages: [
+        { role: 'system', content: systemMsg },
+        { role: 'user', content: prompt },
+      ],
+      temperature: 0.25,
+      max_tokens: maxTokens,
+      stream: true,
+    });
+    let acc = '';
+    for await (const chunk of stream) {
+      acc += chunk.choices?.[0]?.delta?.content ?? '';
+    }
+    return acc;
+  }, 'Generation');
 
-  const raw = response.choices?.[0]?.message?.content ?? '';
   const resultText = normalizeText(raw);
   let parsed: any;
   try {
