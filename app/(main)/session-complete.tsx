@@ -13,7 +13,7 @@ export default function SessionCompleteScreen() {
     <SafeAreaView style={s.page} edges={['top', 'bottom']}>
       <View style={s.content}>
         <View style={s.iconCircle}>
-          <Flame size={36} color={palette.limaElectrica} strokeWidth={2} />
+          <Flame size={36} color={palette.verdeXP} strokeWidth={2} />
         </View>
         <Text style={s.title}>¡Día completo!</Text>
         <Text style={s.sub}>Resumen del día — en desarrollo</Text>
@@ -51,6 +51,6 @@ const s = StyleSheet.create({
   statVal:    { fontSize: 22, fontWeight: '900', color: semantic.textPrimary, marginBottom: 4 },
   statLbl:    { fontSize: 11, fontWeight: '600', color: semantic.textTertiary },
   bottom:     { paddingHorizontal: 20, paddingBottom: 24 },
-  cta:        { height: 54, borderRadius: 28, alignItems: 'center', justifyContent: 'center', backgroundColor: palette.morado },
+  cta:        { height: 54, borderRadius: 28, alignItems: 'center', justifyContent: 'center', backgroundColor: palette.azul },
   ctaTxt:     { fontSize: 16, fontWeight: '800', color: palette.blanco },
 });

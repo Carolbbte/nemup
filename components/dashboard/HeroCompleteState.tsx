@@ -1,62 +1,59 @@
-import type { DailyMode } from '@/contexts/DailySessionContext';
-import { ArrowRight } from 'lucide-react-native';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
-import ModeRow from './ModeRow';
+import { Plus } from 'lucide-react-native';
+import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
+import { palette, paletteExtras } from '@/theme/colors';
 
-const BRAND = '#5B3DF5';
-const INK   = '#1A1A22';
-const MUTED = '#6B6779';
-const LABEL = '#9A95A6';
-
-const MODES: DailyMode[] = ['mision', 'quiz', 'tarjetas'];
+const BRAND = palette.azul;
+const INK   = palette.charcoal;
+const MUTED = palette.grisMedio;
+const LABEL = palette.grisClaro;
+const LIME  = palette.verdeXP;
 
 type Props = {
   streak: number;
-  streakAdvancedToday: boolean;
-  onViewSummary: () => void;
+  onNewSession: () => void;
 };
 
-export default function HeroCompleteState({ streak, streakAdvancedToday, onViewSummary }: Props) {
+export default function HeroCompleteState({ streak, onNewSession }: Props) {
   return (
-    <View style={s.wrap}>
-      <View style={s.headerRow}>
-        <Text style={s.stateLabel}>DÍA COMPLETO</Text>
-        <Text style={s.counter}>3 de 3</Text>
+    <View style={s.row}>
+      <View style={s.left}>
+        <Text style={s.stateLabel}>DÍA COMPLETO ✓</Text>
+        <Text style={s.title}>¡Lo lograste!</Text>
+        <Text style={s.body}>Completaste tu sesión de hoy. Tu racha sigue viva.</Text>
+
+        {streak > 0 && (
+          <View style={s.streakBadge}>
+            <Text style={s.streakTxt}>🔥 {streak} días de racha</Text>
+          </View>
+        )}
+
+        <Pressable onPress={onNewSession} style={s.cta}>
+          <Plus size={15} color={BRAND} strokeWidth={2.5} />
+          <Text style={s.ctaTxt}>Generar nueva sesión</Text>
+        </Pressable>
       </View>
 
-      <Text style={s.title}>¡Sesión del día lista!</Text>
-
-      {/* Full progress bar */}
-      <View style={s.bar}>
-        {[0, 1, 2].map(i => <View key={i} style={[s.zone, { backgroundColor: BRAND }]} />)}
-      </View>
-
-      <View style={s.modes}>
-        {MODES.map(m => <ModeRow key={m} mode={m} status="done" />)}
-      </View>
-
-      <Pressable onPress={onViewSummary} style={s.cta}>
-        <Text style={s.ctaTxt}>Ver resumen del día</Text>
-        <ArrowRight size={16} color="white" strokeWidth={2.5} />
-      </Pressable>
-
-      {streakAdvancedToday && streak > 0 && (
-        <Text style={s.streakLine}>Tu racha avanzó a {streak} días</Text>
-      )}
+      <Image
+        source={require('@/assets/images/metaAlcanzada.png')}
+        style={s.mascot}
+        resizeMode="contain"
+      />
     </View>
   );
 }
 
 const s = StyleSheet.create({
-  wrap:       { paddingTop: 4 },
-  headerRow:  { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 },
-  stateLabel: { fontSize: 10, fontWeight: '600', color: LABEL, letterSpacing: 1.4, textTransform: 'uppercase' },
-  counter:    { fontSize: 11, fontWeight: '500', color: MUTED },
-  title:      { fontSize: 17, fontWeight: '700', color: INK, marginBottom: 14 },
-  bar:        { flexDirection: 'row', gap: 4, height: 6, marginBottom: 16 },
-  zone:       { flex: 1, borderRadius: 3 },
-  modes:      { borderTopWidth: 0.5, borderTopColor: '#ECEAE3', paddingTop: 4, marginBottom: 18 },
-  cta:        { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: BRAND, paddingVertical: 13, borderRadius: 28 },
-  ctaTxt:     { fontSize: 15, fontWeight: '700', color: 'white' },
-  streakLine: { fontSize: 12, color: MUTED, textAlign: 'center', marginTop: 12 },
+  row:      { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  left:     { width: '55%', paddingRight: 12 },
+  mascot:   { width: '45%', height: 210, alignSelf: 'flex-end' },
+
+  stateLabel: { fontFamily: 'Nunito', fontSize: 10, fontWeight: '800', color: LABEL, letterSpacing: 1.4, textTransform: 'uppercase', marginBottom: 6 },
+  title:    { fontFamily: 'Nunito', fontSize: 26, fontWeight: '900', color: INK, letterSpacing: -0.5, marginBottom: 4 },
+  body:     { fontFamily: 'Nunito', fontSize: 13, fontWeight: '500', color: MUTED, lineHeight: 19, marginBottom: 14 },
+
+  streakBadge: { alignSelf: 'flex-start', backgroundColor: palette.verdeXP + '2E', borderRadius: 20, paddingVertical: 5, paddingHorizontal: 12, borderWidth: 1, borderColor: palette.verdeXP + '66', marginBottom: 16 },
+  streakTxt:   { fontFamily: 'Nunito', fontSize: 13, fontWeight: '800', color: paletteExtras.verdeOscuro },
+
+  cta:      { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: palette.blanco, paddingVertical: 11, paddingHorizontal: 18, borderRadius: 28, alignSelf: 'flex-start', borderWidth: 1.5, borderColor: BRAND },
+  ctaTxt:   { fontFamily: 'Nunito', fontSize: 13, fontWeight: '800', color: BRAND },
 });

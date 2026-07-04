@@ -29,7 +29,7 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { ChevronLeft, X } from 'lucide-react-native';
-import { palette, semantic } from '@/theme/colors';
+import { palette, paletteExtras, semantic } from '@/theme/colors';
 import { Typography } from '@/theme/typography';
 import UnifiedProgressBar from '@/components/UnifiedProgressBar';
 import Animated, {
@@ -48,8 +48,8 @@ import type {
 } from '@/shared/desafio';
 
 const DESAFIO_KEY  = 'nemup_desafio_session';
-const PAIR_COLORS  = ['#5B3DF5', '#1D9E75', '#0891b2'] as const;
-const CAT_COLORS   = ['#5B3DF5', '#1D9E75', '#FF7A2B', '#0891b2'] as const;
+const PAIR_COLORS  = [palette.azul, palette.verde, paletteExtras.cianFuerte] as const;
+const CAT_COLORS   = [palette.azul, palette.verde, palette.naranja, paletteExtras.cianFuerte] as const;
 
 // ── Type helpers ──────────────────────────────────────────────────────────────
 
@@ -206,17 +206,17 @@ const o = StyleSheet.create({
     borderWidth: 1.5, borderColor: palette.bordeClaro,
     paddingHorizontal: 14, paddingVertical: 14, marginBottom: 10,
   },
-  optionSelected: { borderColor: palette.morado },
-  optionCorrect:  { borderColor: palette.verde, backgroundColor: '#F0FDF7' },
+  optionSelected: { borderColor: palette.azul },
+  optionCorrect:  { borderColor: palette.verde, backgroundColor: paletteExtras.verdeSuaveBg },
   optionWrong:    { borderColor: palette.rojoError, backgroundColor: palette.rojoErrorBg },
   letterBubble: {
     width: 32, height: 32, borderRadius: 16,
-    backgroundColor: palette.moradoBg, justifyContent: 'center', alignItems: 'center',
+    backgroundColor: palette.azulClaro, justifyContent: 'center', alignItems: 'center',
   },
-  letterSelected: { backgroundColor: palette.morado },
+  letterSelected: { backgroundColor: palette.azul },
   letterCorrect:  { backgroundColor: palette.verde },
   letterWrong:    { backgroundColor: palette.rojoError },
-  letterText:      { ...Typography.challengeOptionLetter, color: palette.morado },
+  letterText:      { ...Typography.challengeOptionLetter, color: palette.azul },
   letterTextLight: { color: palette.blanco },
   optionText:        { flex: 1, ...Typography.challengeOption, color: palette.charcoal },
   optionTextCorrect: { color: palette.verde },
@@ -290,9 +290,9 @@ function FillBlankContent({
 
 const fb = StyleSheet.create({
   sentenceBox: {
-    backgroundColor: palette.moradoBg, borderRadius: 12,
+    backgroundColor: palette.azulClaro, borderRadius: 12,
     paddingHorizontal: 16, paddingVertical: 14, marginBottom: 20,
-    borderWidth: 1, borderColor: palette.morado + '33',
+    borderWidth: 1, borderColor: palette.azul + '33',
   },
   sentenceText: { fontSize: 18, fontWeight: '700', color: palette.charcoal, lineHeight: 26 },
 });
@@ -361,16 +361,12 @@ function MatchChipLeft({
         isWrg  && mp.chipWrong,
         animStyle,
       ]}>
-        {isLocked ? (
-          (isCorr || isWrg) ? (
-            <Text style={[mp.revealIcon, isCorr ? mp.iconCorrect : mp.iconWrong]}>
-              {isCorr ? '✓' : '✗'}
-            </Text>
-          ) : null
-        ) : (
-          <Text style={[mp.handle, isSel && mp.handleActive]}>☰</Text>
-        )}
-        <Text style={mp.chipText} numberOfLines={2}>{pair.left}</Text>
+        {isLocked && (isCorr || isWrg) ? (
+          <Text style={[mp.revealIcon, isCorr ? mp.iconCorrect : mp.iconWrong]}>
+            {isCorr ? '✓' : '✗'}
+          </Text>
+        ) : null}
+        <Text style={mp.chipText} numberOfLines={3}>{pair.left}</Text>
         {!isLocked && color && <View style={[mp.connector, { backgroundColor: color }]} />}
       </Animated.View>
     </Pressable>
@@ -426,9 +422,9 @@ function MatchPairsContent({
   };
 
   return (
-    <View style={[c.root, { backgroundColor: '#FAFAF7' }]}>
+    <View style={[c.root, { backgroundColor: palette.crema }]}>
       <Text style={mp.badgeLabel}>🧠 {slideTypeLabel(slide.type, slide.isRetry, slide.isSpacedRepetition)}</Text>
-      <Text style={mp.prompt}>{slide.pairsPrompt ?? 'Relaciona'}</Text>
+      <Text style={mp.prompt}>Conecta conceptos ⚡</Text>
       {/* Row-based layout: each row pairs one left chip with one right target.
           alignItems:'stretch' makes both cards share the same height per row. */}
       <View style={mp.rows}>
@@ -469,16 +465,16 @@ function MatchPairsContent({
 
 const mp = StyleSheet.create({
   // ── Layout ────────────────────────────────────────────────────────────────
-  prompt:     { fontFamily: 'Nunito', fontSize: 22, fontWeight: '800', color: '#1A1A22', marginBottom: 20, lineHeight: 28 },
-  badgeLabel: { fontFamily: 'Nunito', fontSize: 14, fontWeight: '800', color: '#5B3DF5', letterSpacing: 1.5, marginBottom: 18 },
+  prompt:     { fontFamily: 'Nunito', fontSize: 22, fontWeight: '800', color: palette.charcoal, marginBottom: 20, lineHeight: 28 },
+  badgeLabel: { fontFamily: 'Nunito', fontSize: 14, fontWeight: '800', color: palette.azul, letterSpacing: 1.5, marginBottom: 18 },
   rows:       { gap: 18 },
   pairRow:    { flexDirection: 'row', gap: 14, alignItems: 'stretch' },
 
   // ── Left column — concept chip (purple soft) ──────────────────────────────
   chip: {
     flexDirection: 'row', alignItems: 'center', gap: 8,
-    backgroundColor: '#F7F3FF',
-    borderRadius: 24, borderWidth: 2, borderColor: '#E6DFFF',
+    backgroundColor: paletteExtras.moradoSuaveBg3,
+    borderRadius: 24, borderWidth: 2, borderColor: paletteExtras.moradoBorde,
     paddingHorizontal: 18, paddingVertical: 18,
     minHeight: 96, maxHeight: 120,
     shadowColor: '#000',
@@ -488,16 +484,16 @@ const mp = StyleSheet.create({
     elevation: 2,
   },
   chipSelected: {
-    backgroundColor: '#EFE9FF',
-    borderWidth: 2.5, borderColor: '#5B3DF5',
-    shadowColor: '#5B3DF5', shadowOpacity: 0.18, shadowRadius: 10, elevation: 4,
+    backgroundColor: paletteExtras.moradoChipBg,
+    borderWidth: 2.5, borderColor: palette.azul,
+    shadowColor: palette.azul, shadowOpacity: 0.18, shadowRadius: 10, elevation: 4,
   },
-  chipCorrect: { backgroundColor: '#EAFBF2', borderWidth: 3, borderColor: '#27C383' },
-  chipWrong:   { backgroundColor: '#FFF2F2', borderWidth: 3, borderColor: '#FF6B6B' },
+  chipCorrect: { backgroundColor: paletteExtras.verdeChipBg, borderWidth: 3, borderColor: paletteExtras.verdeChipBorde },
+  chipWrong:   { backgroundColor: paletteExtras.rojoChipBg, borderWidth: 3, borderColor: paletteExtras.rojoChipBorde },
 
-  handle:       { fontSize: 18, color: '#B8B3C7', flexShrink: 0, opacity: 0.35 },
-  handleActive: { color: '#5B3DF5', opacity: 0.6 },
-  chipText:     { flex: 1, fontFamily: 'Nunito', fontSize: 22, fontWeight: '700', color: '#1A1A22', lineHeight: 28, textAlign: 'left' },
+  handle:       { fontSize: 18, color: paletteExtras.grisHandle, flexShrink: 0, opacity: 0.35 },
+  handleActive: { color: palette.azul, opacity: 0.6 },
+  chipText:     { flex: 1, fontFamily: 'Nunito', fontSize: 16, fontWeight: '600', color: palette.charcoal, lineHeight: 21, textAlign: 'left' },
 
   connector: { width: 12, height: 4, borderRadius: 2, flexShrink: 0 },
 
@@ -505,8 +501,8 @@ const mp = StyleSheet.create({
   target: {
     flex: 1,
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 24, borderWidth: 2, borderColor: '#ECE8FF',
+    backgroundColor: palette.blanco,
+    borderRadius: 24, borderWidth: 2, borderColor: paletteExtras.moradoTargetBorde,
     paddingHorizontal: 18, paddingVertical: 18,
     minHeight: 96, maxHeight: 120,
     shadowColor: '#000',
@@ -515,15 +511,15 @@ const mp = StyleSheet.create({
     shadowRadius: 4,
     elevation: 1,
   },
-  targetActive: { backgroundColor: '#EEE8FF', borderWidth: 2.5, borderColor: '#5B3DF5' },
-  targetText:   { flex: 1, fontFamily: 'Nunito', fontSize: 20, fontWeight: '600', color: '#6B6779', lineHeight: 26, textAlign: 'center' },
+  targetActive: { backgroundColor: paletteExtras.moradoTargetActivoBg, borderWidth: 2.5, borderColor: palette.azul },
+  targetText:   { flex: 1, fontFamily: 'Nunito', fontSize: 16, fontWeight: '600', color: palette.grisMedio, lineHeight: 21, textAlign: 'center' },
 
   // ── Status hint (bottom) ──────────────────────────────────────────────────
-  statusText: { fontFamily: 'Nunito', fontSize: 18, fontWeight: '800', color: '#6B6779', textAlign: 'center' },
+  statusText: { fontFamily: 'Nunito', fontSize: 18, fontWeight: '800', color: palette.grisMedio, textAlign: 'center' },
 
   revealIcon:  { fontSize: 22, fontWeight: '800', flexShrink: 0 },
-  iconCorrect: { color: '#C4F852' },
-  iconWrong:   { color: '#FF6B6B' },
+  iconCorrect: { color: palette.verdeXP },
+  iconWrong:   { color: paletteExtras.rojoChipBorde },
 });
 
 // ── Classify content ──────────────────────────────────────────────────────────
@@ -599,7 +595,7 @@ const cl = StyleSheet.create({
     borderWidth: 1.5, borderColor: palette.bordeClaro,
     paddingHorizontal: 14, paddingVertical: 12, marginBottom: 10,
   },
-  itemCorrect: { borderColor: palette.verde, backgroundColor: '#F0FDF7' },
+  itemCorrect: { borderColor: palette.verde, backgroundColor: paletteExtras.verdeSuaveBg },
   itemWrong:   { borderColor: palette.rojoError, backgroundColor: palette.rojoErrorBg },
   itemText:    { fontSize: 15, fontWeight: '600', color: palette.charcoal, marginBottom: 10 },
   catRow:      { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
@@ -681,24 +677,24 @@ const os = StyleSheet.create({
     borderWidth: 1.5, borderColor: palette.bordeClaro,
     paddingHorizontal: 12, paddingVertical: 12, marginBottom: 8,
   },
-  stepCorrect: { borderColor: palette.verde, backgroundColor: '#F0FDF7' },
+  stepCorrect: { borderColor: palette.verde, backgroundColor: paletteExtras.verdeSuaveBg },
   stepWrong:   { borderColor: palette.rojoError, backgroundColor: palette.rojoErrorBg },
   stepNum: {
     width: 28, height: 28, borderRadius: 14,
-    backgroundColor: palette.moradoBg, justifyContent: 'center', alignItems: 'center', flexShrink: 0,
+    backgroundColor: palette.azulClaro, justifyContent: 'center', alignItems: 'center', flexShrink: 0,
   },
-  stepNumText: { fontSize: 13, fontWeight: '700', color: palette.morado },
+  stepNumText: { fontSize: 13, fontWeight: '700', color: palette.azul },
   iconCorrect: { color: palette.verde },
   iconWrong:   { color: palette.rojoError },
   stepText: { flex: 1, fontSize: 14, color: palette.charcoal, lineHeight: 20 },
   upBtn:    { padding: 4 },
-  upBtnText:{ fontSize: 18, fontWeight: '700', color: palette.morado },
+  upBtnText:{ fontSize: 18, fontWeight: '700', color: palette.azul },
   correctOrderBox: {
     marginTop: 12, padding: 14, borderRadius: 12,
-    backgroundColor: '#F0FDF7', borderWidth: 1, borderColor: palette.verde + '44',
+    backgroundColor: paletteExtras.verdeSuaveBg, borderWidth: 1, borderColor: palette.verde + '44',
   },
   correctOrderTitle: { fontSize: 11, fontWeight: '700', color: palette.verde, marginBottom: 6, letterSpacing: 1 },
-  correctOrderItem:  { fontSize: 13, color: '#166534', lineHeight: 20 },
+  correctOrderItem:  { fontSize: 13, color: paletteExtras.verdeTextoOscuro, lineHeight: 20 },
 });
 
 // ── Informational content (insight, instant_feedback, mastery_screen) ─────────
@@ -1012,7 +1008,7 @@ function SlideContent({
 
 const c = StyleSheet.create({
   root:      { paddingHorizontal: 20, paddingTop: 8, paddingBottom: 24 },
-  typeLabel: { ...Typography.challengeSectionLabel, color: palette.morado, marginBottom: 16 },
+  typeLabel: { ...Typography.challengeSectionLabel, color: palette.azul, marginBottom: 16 },
   emoji:    { fontSize: 48, textAlign: 'center', marginBottom: 16 },
   question: { ...Typography.challengeQuestion, color: palette.charcoal, marginBottom: 24 },
   subLabel: { fontSize: 13, fontWeight: '600', color: palette.grisMedio, marginBottom: 12 },
@@ -1025,9 +1021,9 @@ const c = StyleSheet.create({
 
   explanationBox: {
     marginTop: 16, padding: 14, borderRadius: 12,
-    backgroundColor: '#F0FDF7', borderWidth: 1, borderColor: palette.verde + '44',
+    backgroundColor: paletteExtras.verdeSuaveBg, borderWidth: 1, borderColor: palette.verde + '44',
   },
-  explanationText: { ...Typography.challengeExplanation, color: '#166534' },
+  explanationText: { ...Typography.challengeExplanation, color: paletteExtras.verdeTextoOscuro },
 
   insightTitle: { fontSize: 22, fontWeight: '800', color: palette.charcoal, lineHeight: 30, marginBottom: 16 },
   masteryTitle: {
@@ -1037,8 +1033,8 @@ const c = StyleSheet.create({
   body: { fontSize: 16, color: palette.grisMedio, lineHeight: 24 },
 
   conceptsWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 24 },
-  conceptChip:  { paddingHorizontal: 12, paddingVertical: 6, backgroundColor: palette.moradoBg, borderRadius: 20 },
-  conceptChipText: { fontSize: 13, fontWeight: '600', color: palette.morado },
+  conceptChip:  { paddingHorizontal: 12, paddingVertical: 6, backgroundColor: palette.azulClaro, borderRadius: 20 },
+  conceptChipText: { fontSize: 13, fontWeight: '600', color: palette.azul },
 
   examplesRow: {
     flexDirection: 'row' as const,
@@ -1061,7 +1057,7 @@ const c = StyleSheet.create({
     fontFamily: 'Nunito',
     fontWeight: '800' as const,
     fontSize: 17,
-    color: palette.morado,
+    color: palette.azul,
     marginBottom: 6,
     textAlign: 'center' as const,
   },
@@ -1094,13 +1090,13 @@ const ins = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'flex-start',
     gap: 10,
-    backgroundColor: '#F5F2FF',
+    backgroundColor: paletteExtras.moradoSuaveBg4,
     borderRadius: 16,
     padding: 14,
   },
   blockIcon: {
     fontSize: 13,
-    color: palette.morado,
+    color: palette.azul,
     lineHeight: 22,
     marginTop: 1,
     flexShrink: 0,
@@ -1123,9 +1119,9 @@ const ins = StyleSheet.create({
     backgroundColor: palette.blanco,
     borderRadius: 16,
     borderWidth: 1.5,
-    borderColor: palette.morado + '33',
+    borderColor: palette.azul + '33',
     padding: 18,
-    shadowColor: palette.morado,
+    shadowColor: palette.azul,
     shadowOpacity: 0.08,
     shadowOffset: { width: 0, height: 3 },
     shadowRadius: 10,
@@ -1134,7 +1130,7 @@ const ins = StyleSheet.create({
   exampleTag: {
     fontSize: 11,
     fontWeight: '700',
-    color: palette.morado,
+    color: palette.azul,
     letterSpacing: 1,
     textTransform: 'uppercase' as const,
     marginBottom: 10,
@@ -1148,7 +1144,7 @@ const ins = StyleSheet.create({
   smartFocusText: {
     fontSize: 18,
     fontWeight: '800',
-    color: palette.morado,
+    color: palette.azul,
     lineHeight: 28,
   },
   focusBadgeRow: {
@@ -1156,7 +1152,7 @@ const ins = StyleSheet.create({
     marginTop: 10,
   },
   focusBadge: {
-    backgroundColor: palette.morado + '18',
+    backgroundColor: palette.azul + '18',
     borderRadius: 20,
     paddingHorizontal: 10,
     paddingVertical: 3,
@@ -1164,7 +1160,7 @@ const ins = StyleSheet.create({
   focusBadgeText: {
     fontSize: 11,
     fontWeight: '700' as const,
-    color: palette.morado,
+    color: palette.azul,
     letterSpacing: 0.5,
     textTransform: 'uppercase' as const,
   },
@@ -2042,7 +2038,7 @@ const g = StyleSheet.create({
 
   // ── Bottom — matches session.tsx g.bottom / g.ctaBtn / g.ctaText ─────────
   bottom:      { paddingHorizontal: 20, paddingTop: 12, borderTopWidth: 1, borderTopColor: palette.bordeClaro, backgroundColor: palette.crema },
-  ctaBtn:      { paddingVertical: 20, borderRadius: 28, alignItems: 'center', justifyContent: 'center', backgroundColor: palette.morado },
+  ctaBtn:      { paddingVertical: 20, borderRadius: 28, alignItems: 'center', justifyContent: 'center', backgroundColor: palette.azul },
   ctaText:     { ...Typography.challengeCTA, color: palette.blanco },
   ctaBtnOff:   { paddingVertical: 17, borderRadius: 18, alignItems: 'center', backgroundColor: palette.crema },
   ctaTextOff:  { ...Typography.challengeCTA, color: palette.grisMedio },
@@ -2050,9 +2046,9 @@ const g = StyleSheet.create({
   // ── XP float badge ───────────────────────────────────────────────────────
   xpBadge: {
     position: 'absolute', top: -44, alignSelf: 'center',
-    backgroundColor: palette.morado, borderRadius: 100,
+    backgroundColor: palette.azul, borderRadius: 100,
     paddingHorizontal: 16, paddingVertical: 7,
-    shadowColor: palette.morado, shadowOpacity: 0.35,
+    shadowColor: palette.azul, shadowOpacity: 0.35,
     shadowOffset: { width: 0, height: 4 }, shadowRadius: 8, elevation: 8,
   },
   xpBadgeText: { ...Typography.challengeFloatingXP, color: palette.blanco },
@@ -2065,7 +2061,7 @@ const g = StyleSheet.create({
   statValue:    { ...Typography.challengeXP, color: semantic.textPrimary },
   statValueDim: { ...Typography.challengeStreak, color: palette.grisMedio },
   streakRow:    { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  streakText:   { ...Typography.challengeStreak, color: '#F97316' },
+  streakText:   { ...Typography.challengeStreak, color: paletteExtras.naranjaFuerte },
   comboLostText:{ fontSize: 11, fontWeight: '700', color: palette.rojoError },
 
   // ── Energy ────────────────────────────────────────────────────────────────
@@ -2074,9 +2070,9 @@ const g = StyleSheet.create({
   energyBrainLost:   { opacity: 0.2 },
   successMsgBadge: {
     position: 'absolute', bottom: -24, alignSelf: 'center',
-    backgroundColor: palette.morado, borderRadius: 100,
+    backgroundColor: palette.azul, borderRadius: 100,
     paddingHorizontal: 20, paddingVertical: 8,
-    shadowColor: palette.morado, shadowOpacity: 0.3,
+    shadowColor: palette.azul, shadowOpacity: 0.3,
     shadowOffset: { width: 0, height: 3 }, shadowRadius: 8, elevation: 7,
     zIndex: 10,
   },
@@ -2084,13 +2080,13 @@ const g = StyleSheet.create({
 
   speedBadge: {
     position: 'absolute', top: -80, alignSelf: 'center',
-    backgroundColor: '#FEFCE8', borderRadius: 100,
-    borderWidth: 1, borderColor: '#FCD34D',
+    backgroundColor: paletteExtras.amarilloSuaveBg, borderRadius: 100,
+    borderWidth: 1, borderColor: paletteExtras.amarilloBorde,
     paddingHorizontal: 14, paddingVertical: 6,
-    shadowColor: '#F59E0B', shadowOpacity: 0.25,
+    shadowColor: paletteExtras.ambarFuerte, shadowOpacity: 0.25,
     shadowOffset: { width: 0, height: 2 }, shadowRadius: 6, elevation: 6,
   },
-  speedBadgeText: { ...Typography.challengeMicroCelebration, color: '#92400E' },
+  speedBadgeText: { ...Typography.challengeMicroCelebration, color: paletteExtras.ambarTextoOscuro },
 
   energyMsgBadge: {
     alignSelf: 'center',
@@ -2098,21 +2094,21 @@ const g = StyleSheet.create({
     marginBottom: 8,
     shadowOpacity: 0.15, shadowOffset: { width: 0, height: 3 }, shadowRadius: 6, elevation: 6,
   },
-  energyMsgBadgeWarn:{ backgroundColor: '#FFF7ED', borderWidth: 1, borderColor: '#FB923C', shadowColor: '#F97316' },
-  energyMsgBadgeOk:  { backgroundColor: '#F0FDF4', borderWidth: 1, borderColor: palette.verde, shadowColor: palette.verde },
+  energyMsgBadgeWarn:{ backgroundColor: paletteExtras.ambarSuaveBg, borderWidth: 1, borderColor: paletteExtras.naranjaClaro, shadowColor: paletteExtras.naranjaFuerte },
+  energyMsgBadgeOk:  { backgroundColor: paletteExtras.verdeSuaveBg2, borderWidth: 1, borderColor: palette.verde, shadowColor: palette.verde },
   energyMsgText:     { fontSize: 13, fontWeight: '700', textAlign: 'center' as const },
-  energyMsgTextWarn: { color: '#9A3412' },
-  energyMsgTextOk:   { color: '#166534' },
+  energyMsgTextWarn: { color: paletteExtras.naranjaTextoOscuro },
+  energyMsgTextOk:   { color: paletteExtras.verdeTextoOscuro },
 
   // ── Feedback panel ────────────────────────────────────────────────────────
   feedbackPanel:          { borderRadius: 14, paddingHorizontal: 16, paddingVertical: 14, marginBottom: 12, borderWidth: 1 },
-  feedbackPanelOk:        { backgroundColor: '#F0FDF7', borderColor: palette.verde + '44' },
+  feedbackPanelOk:        { backgroundColor: paletteExtras.verdeSuaveBg, borderColor: palette.verde + '44' },
   feedbackPanelWrong:     { backgroundColor: palette.rojoErrorBg, borderColor: palette.rojoError + '44' },
   feedbackLabel:          { ...Typography.challengeSectionLabel, marginBottom: 4 },
   feedbackLabelOk:        { color: palette.verde },
   feedbackLabelWrong:     { color: palette.rojoError },
   feedbackText:           { ...Typography.challengeExplanation },
-  feedbackTextOk:         { color: '#166534' },
+  feedbackTextOk:         { color: paletteExtras.verdeTextoOscuro },
   feedbackTextWrong:      { color: palette.rojoErrorDark },
   feedbackOrderTitle:     { fontSize: 11, fontWeight: '700', marginTop: 8, marginBottom: 4, letterSpacing: 1 },
   feedbackOrderTitleWrong:{ color: palette.rojoError },
@@ -2123,7 +2119,7 @@ const g = StyleSheet.create({
   centered:    { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 32 },
   loadingText: { fontSize: 16, color: palette.grisMedio },
   errorText:   { fontSize: 16, color: palette.charcoal, textAlign: 'center', marginBottom: 24 },
-  backBtn:     { backgroundColor: palette.morado, borderRadius: 12, paddingHorizontal: 24, paddingVertical: 12 },
+  backBtn:     { backgroundColor: palette.azul, borderRadius: 12, paddingHorizontal: 24, paddingVertical: 12 },
   backBtnText: { fontSize: 15, fontWeight: '700', color: palette.blanco },
 });
 
@@ -2136,9 +2132,9 @@ const ms = StyleSheet.create({
   heading: { fontSize: 22, fontWeight: '800', color: palette.charcoal, textAlign: 'center', lineHeight: 30, marginBottom: 24 },
 
   xpHero: {
-    backgroundColor: palette.morado, borderRadius: 24,
+    backgroundColor: palette.azul, borderRadius: 24,
     paddingHorizontal: 32, paddingVertical: 14, marginBottom: 24,
-    shadowColor: palette.morado, shadowOpacity: 0.35,
+    shadowColor: palette.azul, shadowOpacity: 0.35,
     shadowOffset: { width: 0, height: 4 }, shadowRadius: 12, elevation: 8,
   },
   xpHeroText: { ...Typography.challengeRewardXP, color: palette.blanco },
@@ -2157,16 +2153,16 @@ const ms = StyleSheet.create({
   sectionTitle: { fontSize: 13, fontWeight: '700', color: palette.charcoal, marginBottom: 10 },
 
   chips:    { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  chip:     { backgroundColor: palette.moradoBg, borderRadius: 20, paddingHorizontal: 12, paddingVertical: 6 },
-  chipText: { ...Typography.challengeConceptChip, color: palette.morado },
+  chip:     { backgroundColor: palette.azulClaro, borderRadius: 20, paddingHorizontal: 12, paddingVertical: 6 },
+  chipText: { ...Typography.challengeConceptChip, color: palette.azul },
 
   nemHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 },
-  nemPct:    { fontSize: 13, fontWeight: '700', color: palette.morado },
+  nemPct:    { fontSize: 13, fontWeight: '700', color: palette.azul },
   nemTrack: {
     width: '100%', height: 8, borderRadius: 4,
-    backgroundColor: palette.moradoBg, marginBottom: 8, overflow: 'hidden',
+    backgroundColor: palette.azulClaro, marginBottom: 8, overflow: 'hidden',
   },
-  nemFill: { height: '100%', borderRadius: 4, backgroundColor: palette.morado },
+  nemFill: { height: '100%', borderRadius: 4, backgroundColor: palette.azul },
   nemSub:  { fontSize: 12, fontWeight: '600', color: palette.grisMedio },
 });
 
@@ -2174,7 +2170,7 @@ const ms = StyleSheet.create({
 const cvr = StyleSheet.create({
   scroll:       { flexGrow: 1, padding: 16, justifyContent: 'center' },
   card:         { borderRadius: 28, overflow: 'hidden' },
-  grad:         { borderRadius: 28, paddingVertical: 26, paddingHorizontal: 22, alignItems: 'center', backgroundColor: palette.morado },
+  grad:         { borderRadius: 28, paddingVertical: 26, paddingHorizontal: 22, alignItems: 'center', backgroundColor: palette.azul },
   badge:        { backgroundColor: 'rgba(255,255,255,0.2)', borderRadius: 100, paddingVertical: 5, paddingHorizontal: 16, marginBottom: 14 },
   badgeText:    { color: palette.blanco, fontSize: 11, fontWeight: '800', letterSpacing: 1.5 },
   emoji:        { fontSize: 54, marginBottom: 10 },
@@ -2182,12 +2178,12 @@ const cvr = StyleSheet.create({
   learnBlock:   { alignSelf: 'stretch', backgroundColor: 'rgba(255,255,255,0.12)', borderRadius: 14, padding: 12, marginBottom: 14, gap: 6 },
   learnLabel:   { fontSize: 10, fontWeight: '800', color: 'rgba(255,255,255,0.65)', letterSpacing: 1, textTransform: 'uppercase', marginBottom: 4 },
   learnRow:     { flexDirection: 'row', alignItems: 'flex-start', gap: 8 },
-  learnBullet:  { fontSize: 13, color: palette.limaElectrica, fontWeight: '900', lineHeight: 20 },
+  learnBullet:  { fontSize: 13, color: palette.verdeXP, fontWeight: '900', lineHeight: 20 },
   learnText:    { flex: 1, fontSize: 13, color: 'rgba(255,255,255,0.9)', fontWeight: '600', lineHeight: 20 },
   metaRow:      { flexDirection: 'row', gap: 8 },
   metaChip:     { backgroundColor: 'rgba(255,255,255,0.15)', borderRadius: 100, paddingVertical: 5, paddingHorizontal: 12 },
   metaChipText: { fontSize: 12, color: palette.blanco, fontWeight: '700' },
-  metaChipXp:   { backgroundColor: palette.limaElectrica },
-  cta:          { margin: 16, borderRadius: 16, backgroundColor: palette.morado, paddingVertical: 16, alignItems: 'center' },
+  metaChipXp:   { backgroundColor: palette.verdeXP },
+  cta:          { margin: 16, borderRadius: 16, backgroundColor: palette.azul, paddingVertical: 16, alignItems: 'center' },
   ctaText:      { fontSize: 17, fontWeight: '900', color: palette.blanco, letterSpacing: -0.3 },
 });

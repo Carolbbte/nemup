@@ -12,7 +12,7 @@ const SM = H < 740;
 const BG   = palette.crema;
 const DARK = semantic.textPrimary;
 const MED  = semantic.textSecondary;
-const PRIM = palette.morado;
+const PRIM = palette.azul;
 
 const XP_REQUIRED = 200;
 const BENEFITS = ['Misiones personalizadas', 'Quizzes ilimitados', 'Repasos inteligentes'];
@@ -115,7 +115,7 @@ const s = StyleSheet.create({
   xpValue:  { fontSize: SM ? 16 : 18, fontWeight: '900', color: DARK },
 
   progressRow:  { paddingHorizontal: 24, marginTop: 8 },
-  progressBg:   { height: 8, backgroundColor: palette.moradoBg, borderRadius: 4, marginBottom: 4 },
+  progressBg:   { height: 8, backgroundColor: palette.azulClaro, borderRadius: 4, marginBottom: 4 },
   progressLabel:{ fontSize: 11, color: MED, fontWeight: '600', textAlign: 'right' },
 
   benefitsTitle: { fontSize: 11, fontWeight: '800', color: MED, letterSpacing: 0.5, paddingHorizontal: 24, marginTop: SM ? 8 : 10, marginBottom: 8 },

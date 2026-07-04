@@ -4,11 +4,11 @@ import { Image } from 'expo-image';
 import { Pressable, StatusBar, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-const BTN_COLOR    = palette.morado;
-const LINK_COLOR   = palette.morado;
+const BTN_COLOR    = palette.azul;
+const LINK_COLOR   = palette.azul;
 const BODY_COLOR   = palette.grisMedio;
-const DOT_ACTIVE   = palette.morado;
-const DOT_INACTIVE = palette.moradoBg;
+const DOT_ACTIVE   = palette.azul;
+const DOT_INACTIVE = palette.azulClaro;
 
 function StepIndicator() {
   return (

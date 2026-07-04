@@ -8,8 +8,8 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 
-const BRAND        = palette.morado;
-const TRACK        = palette.moradoBg;
+const BRAND        = palette.azul;
+const TRACK        = palette.azulClaro;
 const TRACK_ACTIVE = palette.bordeClaro;
 
 type Mode = 'mision' | 'quiz' | 'tarjetas';

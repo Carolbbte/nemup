@@ -19,7 +19,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 // ── Tokens ────────────────────────────────────────────────────
 const BG    = palette.crema;
-const PRIM  = palette.morado;
+const PRIM  = palette.azul;
 const DARK  = semantic.textPrimary;
 const BODY  = semantic.textSecondary;
 const WHITE = palette.blanco;
@@ -46,7 +46,7 @@ const doc = StyleSheet.create({
     position: 'absolute',
     top: 0, left: 0,
     width: 42, height: 50,
-    backgroundColor: palette.moradoBg,
+    backgroundColor: palette.azulClaro,
     borderRadius: 10,
     transform: [{ rotate: '-6deg' }],
   },
@@ -122,7 +122,7 @@ const mi = StyleSheet.create({
     width: 13, height: 13, borderRadius: 3,
     backgroundColor: PRIM, alignItems: 'center', justifyContent: 'center',
   },
-  line: { flex: 1, height: 3, borderRadius: 2, backgroundColor: palette.moradoBg },
+  line: { flex: 1, height: 3, borderRadius: 2, backgroundColor: palette.azulClaro },
 });
 
 // ── Step 4: XP badge ──────────────────────────────────────────
@@ -154,7 +154,7 @@ function CarIcon({ animStyle }: { animStyle: object }) {
 const car = StyleSheet.create({
   bubble: {
     width: 58, height: 50, borderRadius: 13,
-    backgroundColor: palette.moradoBg, alignItems: 'center', justifyContent: 'center',
+    backgroundColor: palette.azulClaro, alignItems: 'center', justifyContent: 'center',
   },
 });
 

@@ -10,7 +10,7 @@ Una aplicación móvil educativa tipo Duolingo, enfocada en ayudar a estudiantes
    - Pantalla de bienvenida con presentación de la app
    - Características principales destacadas
    - CTA para comenzar
-
+     adb devices
 2. **Name & Curso** 👤
    - Ingreso de nombre del usuario
    - Selección del nivel (7º Básico - 4º Medio)

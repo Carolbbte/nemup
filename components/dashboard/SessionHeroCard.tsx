@@ -1,19 +1,26 @@
 import { useDailySession } from '@/contexts/DailySessionContext';
-import { useRouter } from 'expo-router';
 import { StyleSheet, View } from 'react-native';
+import { palette, paletteExtras } from '@/theme/colors';
 import HeroCompleteState from './HeroCompleteState';
 import HeroEmptyState from './HeroEmptyState';
 import HeroInProgressState from './HeroInProgressState';
 import HeroReadyState from './HeroReadyState';
 
-type Props = {
-  hasSession: boolean;   // whether a session has been uploaded today
-  onNavigate: () => void; // → /modals/session
-  onUpload: () => void;   // → /modals/upload
+export type SessionInfo = {
+  subject: string;
+  topic: string;
+  xpReward: number;
+  estimatedDuration: number;
 };
 
-export default function SessionHeroCard({ hasSession, onNavigate, onUpload }: Props) {
-  const router = useRouter();
+type Props = {
+  hasSession: boolean;          // whether a session has been uploaded today
+  session: SessionInfo | null;  // info of today's session (subject, topic, xp, duration)
+  onNavigate: () => void;       // → /modals/session
+  onUpload: () => void;         // → /modals/upload
+};
+
+export default function SessionHeroCard({ hasSession, session, onNavigate, onUpload }: Props) {
   const { dailySession, getNextPendingMode, isFullyComplete } = useDailySession();
 
   const { completedModes, streak } = dailySession;
@@ -26,29 +33,25 @@ export default function SessionHeroCard({ hasSession, onNavigate, onUpload }: Pr
   const isInProgress = hasSession && !isFullyComplete && completedCount > 0;
   const isReady      = hasSession && !isFullyComplete && completedCount === 0;
 
-  // Whether streak advanced today: streak > 0 and lastCompleteDate === today
-  const today = (() => {
-    const d = new Date();
-    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-  })();
-  const streakAdvancedToday = dailySession.lastCompleteDate === today && streak > 0;
-
   const renderContent = () => {
     if (isEmpty) {
       return (
-        <HeroEmptyState
-          onUpload={onUpload}
-          onHowItWorks={() => router.push('/onboarding/how-it-works' as any)}
-        />
+        <HeroEmptyState onUpload={onUpload} />
       );
     }
     if (isReady) {
-      return <HeroReadyState onStart={onNavigate} />;
+      return (
+        <HeroReadyState
+          session={session}
+          nextMode={nextMode}
+          onStart={onNavigate}
+        />
+      );
     }
     if (isInProgress && nextMode) {
       return (
         <HeroInProgressState
-          completedModes={completedModes}
+          session={session}
           nextMode={nextMode}
           completedCount={completedCount}
           onContinue={onNavigate}
@@ -59,17 +62,18 @@ export default function SessionHeroCard({ hasSession, onNavigate, onUpload }: Pr
       return (
         <HeroCompleteState
           streak={streak}
-          streakAdvancedToday={streakAdvancedToday}
-          onViewSummary={() => router.push('/session-complete' as any)}
+          onNewSession={onUpload}
         />
       );
     }
     // Fallback — shouldn't happen, but guard
-    return <HeroEmptyState onUpload={onUpload} onHowItWorks={() => router.push('/onboarding/how-it-works' as any)} />;
+    return <HeroEmptyState onUpload={onUpload} />;
   };
 
   return (
     <View style={s.card}>
+      {/* Decorations */}
+      <View style={s.glow} pointerEvents="none" />
       {renderContent()}
     </View>
   );
@@ -77,11 +81,22 @@ export default function SessionHeroCard({ hasSession, onNavigate, onUpload }: Pr
 
 const s = StyleSheet.create({
   card: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
+    backgroundColor: paletteExtras.moradoCardBg,
+    borderRadius: 24,
     padding: 16,
-    borderWidth: 0.5,
-    borderColor: '#E8E5DC',
+    borderWidth: 1,
+    borderColor: paletteExtras.moradoBorde,
     marginBottom: 10,
+    overflow: 'hidden',
+    position: 'relative',
+  },
+  glow: {
+    position: 'absolute',
+    top: -50,
+    right: -40,
+    width: 160,
+    height: 160,
+    borderRadius: 80,
+    backgroundColor: palette.verdeXP + '1A',
   },
 });

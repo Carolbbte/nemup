@@ -21,7 +21,7 @@ import {
 const BG   = palette.crema;
 const DARK = semantic.textPrimary;
 const MED  = semantic.textSecondary;
-const PRIM = palette.morado;
+const PRIM = palette.azul;
 
 // ── Data ──────────────────────────────────────────────────────
 type Level = { level: number; course: string; fraction: number };
@@ -537,7 +537,7 @@ const s = StyleSheet.create({
   },
   cpOuterActive: {
     borderColor: PRIM,
-    backgroundColor: 'rgba(91,61,245,0.14)',
+    backgroundColor: 'rgba(22,119,242,0.14)',
   },
   cpDot:       { width: CP_DOT * 2, height: CP_DOT * 2, borderRadius: CP_DOT, backgroundColor: palette.bordeClaro },
   cpDotActive: { backgroundColor: PRIM },

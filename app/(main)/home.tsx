@@ -1,7 +1,9 @@
 import { DASHBOARD_REDESIGN, DESAFIO_MODE, SHOW_GEMS } from '@/config/features';
 import DashboardHeader from '@/components/dashboard/DashboardHeader';
-import NEMGoalCard from '@/components/dashboard/NEMGoalCard';
+import ProgressStartCard from '@/components/dashboard/ProgressStartCard';
+import UnlocksCard from '@/components/dashboard/UnlocksCard';
 import SessionHeroCard from '@/components/dashboard/SessionHeroCard';
+import SessionProgressCard from '@/components/dashboard/SessionProgressCard';
 import StatsStrip from '@/components/dashboard/StatsStrip';
 import UploadApuntesButton from '@/components/dashboard/UploadApuntesButton';
 import { useDailySession } from '@/contexts/DailySessionContext';
@@ -26,7 +28,7 @@ import Animated, {
   withSpring,
   withTiming,
 } from 'react-native-reanimated';
-import { palette, semantic } from '@/theme/colors';
+import { palette, paletteExtras, semantic } from '@/theme/colors';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useOnboarding } from '@/contexts/OnboardingContext';
@@ -41,15 +43,15 @@ import {
 const { height: SCREEN_H } = Dimensions.get('window');
 const SM    = SCREEN_H < 740;
 const BG    = palette.crema;
-const BRAND = palette.morado;
-const LIME  = palette.limaElectrica;
+const BRAND = palette.azul;
+const LIME  = palette.verdeXP;
 
 // ── NEM ─────────────────────────────────────────────────────────
 const NEM_GOAL = 6.5;
 
 // ── Gamification (only shown values) ─────────────────────────────
 const LEVEL      = 12;
-const CURRENT_XP = 2480;
+const CURRENT_XP = 0;
 const GEM_COUNT  = 340;
 const LEAGUE_POS: number = 3;
 
@@ -66,7 +68,7 @@ const IDENTITY_MSGS = [
 const SUBJECT_META: Record<string, { name: string; emoji: string; color: string }> = {
   math:      { name: 'Matemáticas', emoji: '🔢', color: BRAND },
   spanish:   { name: 'Lengua',      emoji: '📖', color: palette.tealTarjetas },
-  english:   { name: 'Inglés',      emoji: '🌍', color: '#2563EB' },
+  english:   { name: 'Inglés',      emoji: '🌍', color: paletteExtras.azul },
   science:   { name: 'Ciencias',    emoji: '🔬', color: palette.tealTarjetas },
   history:   { name: 'Historia',    emoji: '📜', color: palette.naranja },
   biology:   { name: 'Biología',    emoji: '🧬', color: palette.tealTarjetas },
@@ -188,6 +190,12 @@ export default function HomeScreen() {
     return () => clearInterval(t);
   }, []);
 
+  // Same computation SessionHeroCard uses internally, replicated here so the dashboard
+  // can decide whether to show the extra "in progress" sections below the hero card.
+  const completedCount = Object.values(dailySession.completedModes).filter(Boolean).length;
+  const isFullyComplete = (['mision', 'quiz', 'tarjetas'] as const).every(m => dailySession.completedModes[m]);
+  const isInProgress = lastSession !== null && !isFullyComplete && completedCount > 0;
+
   const missionsDone = lastSession ? 1 : 0;
   const dailyTasks = [
     { label: 'Practica la materia de mayor impacto', done: lastSession !== null },
@@ -223,7 +231,7 @@ export default function HomeScreen() {
     const firstName = name.split(' ')[0];
     return (
       <SafeAreaView style={nd.page} edges={['top']}>
-        <StatusBar barStyle="dark-content" backgroundColor="#FAFAF7" />
+        <StatusBar barStyle="dark-content" backgroundColor={palette.crema} />
         <ScrollView
           style={{ flex: 1 }}
           contentContainerStyle={[nd.content, { paddingBottom: insets.bottom + 110 }]}
@@ -232,24 +240,43 @@ export default function HomeScreen() {
           <DashboardHeader
             userName={firstName}
             level={LEVEL}
+            xp={CURRENT_XP}
             streakDays={dailySession.streak}
             hasNotification={false}
-          />
-          <SessionHeroCard
-            hasSession={lastSession !== null}
-            onNavigate={() => router.push('/modals/session' as any)}
-            onUpload={() => router.push('/modals/upload' as any)}
+            isFirstTime={lastSession === null}
           />
           <StatsStrip
+            streakDays={dailySession.streak}
             xp={CURRENT_XP}
-            leagueName="Oro"
-            leagueRank={LEAGUE_POS}
-            sessionsCompleted={23}
+            sessionsCompleted={0}
           />
-          <NEMGoalCard
-            currentNEM={state.data.nemCurrent}
-            targetNEM={state.data.goal}
-          />
+          {lastSession === null ? (
+            <View style={nd.emptyHeroWrap}>
+              <SessionHeroCard
+                hasSession={false}
+                session={null}
+                onNavigate={() => router.push('/modals/session' as any)}
+                onUpload={() => router.push('/modals/upload' as any)}
+              />
+              <UnlocksCard />
+              <ProgressStartCard onPress={() => router.push('/modals/upload' as any)} />
+            </View>
+          ) : (
+            <>
+              <SessionHeroCard
+                hasSession={true}
+                session={lastSession}
+                onNavigate={() => router.push('/modals/session' as any)}
+                onUpload={() => router.push('/modals/upload' as any)}
+              />
+              {isInProgress && (
+                <>
+                  <UnlocksCard />
+                  <SessionProgressCard completedCount={completedCount} totalXp={lastSession?.xpReward ?? 0} />
+                </>
+              )}
+            </>
+          )}
           {lastSession !== null && (
             <UploadApuntesButton onPress={() => router.push('/modals/upload' as any)} />
           )}
@@ -265,7 +292,7 @@ export default function HomeScreen() {
                 <Text style={nd.desafioTitle}>Desafío disponible</Text>
                 <Text style={nd.desafioSub}>Pon a prueba lo que aprendiste</Text>
               </View>
-              <ChevronRight size={18} color={palette.morado} strokeWidth={2.2} />
+              <ChevronRight size={18} color={palette.azul} strokeWidth={2.2} />
             </Pressable>
           )}
         </ScrollView>
@@ -510,7 +537,7 @@ const s = StyleSheet.create({
   streakText:   { fontSize: 12, fontWeight: '700', color: palette.naranja },
   greeting:     { fontSize: SM ? 22 : 25, fontWeight: '800', color: semantic.textPrimary, marginBottom: 5, letterSpacing: -0.3 },
   identityWrap: { alignSelf: 'flex-start', backgroundColor: 'rgba(196,248,82,0.12)', borderRadius: 10, paddingHorizontal: 9, paddingVertical: 4, borderWidth: 1, borderColor: 'rgba(196,248,82,0.28)' },
-  identityText: { fontSize: 12, fontWeight: '700', color: '#2D6A00' },
+  identityText: { fontSize: 12, fontWeight: '700', color: paletteExtras.verdeOscuro },
   avatarWrap:       { alignItems: 'center', gap: 4 },
   avatar:           { width: 44, height: 44, borderRadius: 22, backgroundColor: BRAND, justifyContent: 'center', alignItems: 'center', borderWidth: 2, borderColor: LIME },
   avatarLetter:     { fontSize: 18, fontWeight: '800', color: palette.blanco },
@@ -533,14 +560,14 @@ const s = StyleSheet.create({
   nemStatValue:  { fontSize: 12, fontWeight: '800', color: palette.blanco, letterSpacing: -0.2 },
   nemStatLabel:  { fontSize: 10, color: 'rgba(255,255,255,0.5)', fontWeight: '500' },
   // ── Continue card (primary CTA) ──────────────────────────────
-  continueCard:    { backgroundColor: palette.blanco, borderRadius: 20, flexDirection: 'row', overflow: 'hidden', borderWidth: 1, borderColor: 'rgba(91,61,245,0.25)', alignItems: 'stretch' },
+  continueCard:    { backgroundColor: palette.blanco, borderRadius: 20, flexDirection: 'row', overflow: 'hidden', borderWidth: 1, borderColor: 'rgba(22,119,242,0.25)', alignItems: 'stretch' },
   continueStripe:  { width: 7 },
   continueBody:    { flex: 1, paddingVertical: SM ? 10 : 12, paddingHorizontal: SM ? 10 : 12, gap: 3 },
   continueTag:     { fontSize: 10, fontWeight: '900', color: BRAND, letterSpacing: 0.6, marginBottom: 3 },
   continueSubject: { fontSize: 11, fontWeight: '800', color: BRAND, opacity: 0.7, textTransform: 'uppercase', letterSpacing: 0.5 },
   continueTopic:   { fontSize: 15, fontWeight: '800', color: semantic.textPrimary, letterSpacing: -0.2 },
   continueImpactRow: { backgroundColor: 'rgba(196,248,82,0.12)', borderRadius: 7, paddingVertical: 3, paddingHorizontal: 8, alignSelf: 'flex-start', borderWidth: 1, borderColor: 'rgba(196,248,82,0.28)' },
-  continueImpact:  { fontSize: 11, fontWeight: '700', color: '#4C8A00' },
+  continueImpact:  { fontSize: 11, fontWeight: '700', color: paletteExtras.verdeMedio },
   continueMeta:    { flexDirection: 'row', alignItems: 'center', gap: 4 },
   continueMetaTxt: { fontSize: 11, color: semantic.textTertiary, fontWeight: '500' },
   continueMetaDot: { fontSize: 11, color: semantic.textTertiary },
@@ -582,17 +609,17 @@ const s = StyleSheet.create({
 
   // ── Misión de hoy ─────────────────────────────────────────────
   missionBadge:     { backgroundColor: 'rgba(196,248,82,0.12)', borderRadius: 100, paddingVertical: 4, paddingHorizontal: 10, borderWidth: 1, borderColor: 'rgba(196,248,82,0.28)' },
-  missionBadgeText: { fontSize: 11, fontWeight: '800', color: '#2D6A00' },
+  missionBadgeText: { fontSize: 11, fontWeight: '800', color: paletteExtras.verdeOscuro },
   taskList:         { gap: 8 },
   taskRow:          { flexDirection: 'row', alignItems: 'center', gap: 10 },
   taskDoneBox:      { width: 22, height: 22, borderRadius: 7, alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
   taskDoneMark:     { fontSize: 11, color: palette.blanco, fontWeight: '900' },
-  taskTodoBox:      { width: 22, height: 22, borderRadius: 7, borderWidth: 1.5, borderColor: 'rgba(91,61,245,0.28)', alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
-  taskTodoNum:      { fontSize: 11, fontWeight: '800', color: 'rgba(91,61,245,0.45)' },
+  taskTodoBox:      { width: 22, height: 22, borderRadius: 7, borderWidth: 1.5, borderColor: 'rgba(22,119,242,0.28)', alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
+  taskTodoNum:      { fontSize: 11, fontWeight: '800', color: 'rgba(22,119,242,0.45)' },
   taskLabel:        { flex: 1, fontSize: 13, fontWeight: '600', color: semantic.textPrimary },
   taskLabelDone:    { color: semantic.textTertiary, textDecorationLine: 'line-through' as const },
   missionFooter:    { backgroundColor: 'rgba(196,248,82,0.1)', borderRadius: 10, paddingVertical: 8, paddingHorizontal: 12, alignItems: 'center' as const, marginTop: 12, borderWidth: 1, borderColor: 'rgba(196,248,82,0.28)' },
-  missionFooterText:{ fontSize: 12, fontWeight: '700', color: '#2D6A00' },
+  missionFooterText:{ fontSize: 12, fontWeight: '700', color: paletteExtras.verdeOscuro },
 
   // ── Progreso compacto (banda) ─────────────────────────────────
   bandCard:  { backgroundColor: palette.blanco, borderRadius: 16, borderWidth: 1, borderColor: palette.bordeClaro, flexDirection: 'row', alignItems: 'center', paddingVertical: 14, paddingHorizontal: 16 },
@@ -608,8 +635,9 @@ const s = StyleSheet.create({
 
 // ── New dashboard styles ──────────────────────────────────────────
 const nd = StyleSheet.create({
-  page:    { flex: 1, backgroundColor: '#FAFAF7' },
-  content: { paddingHorizontal: 20, paddingTop: 14 },
+  page:    { flex: 1, backgroundColor: palette.crema },
+  content: { paddingHorizontal: 20, paddingTop: 14, flexGrow: 1 },
+  emptyHeroWrap:  { flex: 1, justifyContent: 'center' },
   desafioCard: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -626,11 +654,11 @@ const nd = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 12,
-    backgroundColor: palette.moradoBg,
+    backgroundColor: palette.azulClaro,
     justifyContent: 'center',
     alignItems: 'center',
   },
   desafioEmoji:  { fontSize: 22 },
-  desafioTitle:  { fontSize: 15, fontWeight: '700', color: palette.charcoal },
-  desafioSub:    { fontSize: 13, color: '#6B7280', marginTop: 2 },
+  desafioTitle:  { fontFamily: 'Nunito', fontSize: 15, fontWeight: '700', color: palette.charcoal },
+  desafioSub:    { fontFamily: 'Nunito', fontSize: 13, color: paletteExtras.grisTexto, marginTop: 2 },
 });

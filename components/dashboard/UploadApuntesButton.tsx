@@ -1,8 +1,8 @@
 import { Upload } from 'lucide-react-native';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { palette } from '@/theme/colors';
 
-const BRAND = '#5B3DF5';
-const MUTED = '#6B6779';
+const BRAND = palette.azul;
 
 type Props = {
   onPress: () => void;
@@ -20,5 +20,5 @@ export default function UploadApuntesButton({ onPress }: Props) {
 const s = StyleSheet.create({
   btn:     { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingVertical: 12, borderRadius: 28, borderWidth: 1.5, borderColor: BRAND, marginBottom: 12 },
   pressed: { opacity: 0.65 },
-  txt:     { fontSize: 14, fontWeight: '600', color: BRAND },
+  txt:     { fontFamily: 'Nunito', fontSize: 14, fontWeight: '600', color: BRAND },
 });

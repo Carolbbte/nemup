@@ -52,7 +52,7 @@ export default function GoalTypeScreen() {
       {/* Body */}
       <View style={styles.body}>
         <View style={{ alignItems: 'center', marginBottom: 12, marginTop: 16 }}>
-          <Lightbulb size={48} color={palette.morado} strokeWidth={1.5} />
+          <Lightbulb size={48} color={palette.azul} strokeWidth={1.5} />
         </View>
         <Text style={styles.title}>¿Por qué estudias?</Text>
         <Text style={styles.subtitle}>Selecciona tu motivación principal</Text>
@@ -70,7 +70,7 @@ export default function GoalTypeScreen() {
             >
               {(() => {
                 const GoalIcon = GOAL_TYPE_ICON[reason.id] ?? ClipboardList;
-                return <GoalIcon size={24} color={state.data.goalType === reason.id ? palette.morado : semantic.textSecondary} strokeWidth={1.8} />;
+                return <GoalIcon size={24} color={state.data.goalType === reason.id ? palette.azul : semantic.textSecondary} strokeWidth={1.8} />;
               })()}
               <View style={styles.reasonContent}>
                 <Text style={styles.reasonTitle}>{reason.title}</Text>
@@ -153,10 +153,10 @@ const styles = StyleSheet.create({
     borderRadius: 2,
   },
   dotActive: {
-    backgroundColor: palette.morado,
+    backgroundColor: palette.azul,
   },
   dotDone: {
-    backgroundColor: palette.morado,
+    backgroundColor: palette.azul,
   },
   body: {
     flex: 1,
@@ -196,8 +196,8 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   reasonCardActive: {
-    borderColor: palette.morado,
-    backgroundColor: palette.moradoBg,
+    borderColor: palette.azul,
+    backgroundColor: palette.azulClaro,
   },
   reasonEmoji: {
     fontSize: 24,
@@ -227,8 +227,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   reasonRadioActive: {
-    borderColor: palette.morado,
-    backgroundColor: palette.morado,
+    borderColor: palette.azul,
+    backgroundColor: palette.azul,
   },
   radioDot: {
     width: 8,
@@ -243,7 +243,7 @@ const styles = StyleSheet.create({
   },
   continueBtn: {
     width: '100%',
-    backgroundColor: palette.morado,
+    backgroundColor: palette.azul,
     paddingVertical: 14,
     borderRadius: 14,
     flexDirection: 'row',

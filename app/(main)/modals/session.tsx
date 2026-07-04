@@ -4,7 +4,7 @@ import UnifiedProgressBar from '@/components/UnifiedProgressBar';
 import { useDailySession } from '@/contexts/DailySessionContext';
 import type { DailyMode } from '@/contexts/DailySessionContext';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { palette, semantic } from '@/theme/colors';
+import { palette, paletteExtras, semantic } from '@/theme/colors';
 import * as Haptics from 'expo-haptics';
 import { useFocusEffect, useRouter } from 'expo-router';
 import {
@@ -48,9 +48,9 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 const { width: SCREEN_W, height: SCREEN_H } = Dimensions.get('window');
 const SM    = SCREEN_H < 740;
 const BG    = palette.crema;
-const BRAND = palette.morado;
-const NEON  = palette.morado;
-const LIME  = palette.limaElectrica;
+const BRAND = palette.azul;
+const NEON  = palette.azul;
+const LIME  = palette.verdeXP;
 
 // ── Types ─────────────────────────────────────────────────────────
 type Option  = { id: string; text: string };
@@ -191,17 +191,17 @@ function formatMissionTime(ms: number): string {
 // ── Confetti ──────────────────────────────────────────────────────
 const CONFETTI_DATA = [
   { left: '8%',  bg: LIME,      size: 9,  dur: 2800, delay: 0,    zig: 8 },
-  { left: '18%', bg: '#FF5B9F', size: 7,  dur: 3100, delay: 300,  zig: -10, r: 4 },
-  { left: '30%', bg: '#5BC8FF', size: 10, dur: 2600, delay: 700,  zig: 12 },
+  { left: '18%', bg: palette.rosaQuiz, size: 7,  dur: 3100, delay: 300,  zig: -10, r: 4 },
+  { left: '30%', bg: paletteExtras.cieloAzul, size: 10, dur: 2600, delay: 700,  zig: 12 },
   { left: '42%', bg: LIME,      size: 6,  dur: 3500, delay: 150,  zig: -8, r: 3 },
-  { left: '55%', bg: '#FFB547', size: 9,  dur: 2900, delay: 500,  zig: 6 },
+  { left: '55%', bg: palette.ambar, size: 9,  dur: 2900, delay: 500,  zig: 6 },
   { left: '66%', bg: NEON,      size: 7,  dur: 3200, delay: 900,  zig: -12, r: 4 },
-  { left: '76%', bg: '#FF5B9F', size: 8,  dur: 2700, delay: 250,  zig: 10, r: 4 },
+  { left: '76%', bg: palette.rosaQuiz, size: 8,  dur: 2700, delay: 250,  zig: 10, r: 4 },
   { left: '86%', bg: LIME,      size: 6,  dur: 3400, delay: 600,  zig: -6, r: 3 },
-  { left: '22%', bg: '#5BC8FF', size: 8,  dur: 3000, delay: 400,  zig: 8, r: 4 },
-  { left: '48%', bg: '#FFB547', size: 7,  dur: 2500, delay: 800,  zig: -10 },
+  { left: '22%', bg: paletteExtras.cieloAzul, size: 8,  dur: 3000, delay: 400,  zig: 8, r: 4 },
+  { left: '48%', bg: palette.ambar, size: 7,  dur: 2500, delay: 800,  zig: -10 },
   { left: '90%', bg: LIME,      size: 9,  dur: 3300, delay: 100,  zig: 6 },
-  { left: '60%', bg: '#5BC8FF', size: 6,  dur: 2800, delay: 1100, zig: -8, r: 3 },
+  { left: '60%', bg: paletteExtras.cieloAzul, size: 6,  dur: 2800, delay: 1100, zig: -8, r: 3 },
 ] as const;
 type CItem = (typeof CONFETTI_DATA)[number];
 
@@ -308,7 +308,7 @@ const fcd = StyleSheet.create({
     borderWidth: 1, borderColor: palette.bordeClaro,
   },
   front:     { backgroundColor: palette.blanco },
-  back:      { backgroundColor: '#F0EDFF' },
+  back:      { backgroundColor: paletteExtras.moradoSuaveBg },
   label:     { fontSize: 10, fontWeight: '800', color: semantic.textTertiary, letterSpacing: 1.5, marginBottom: 24 },
   frontText: { fontSize: SM ? 26 : 32, fontWeight: '900', color: semantic.textPrimary, textAlign: 'center', letterSpacing: -0.5, lineHeight: SM ? 34 : 42 },
   backText:  { fontSize: SM ? 15 : 17, color: semantic.textPrimary, textAlign: 'center', lineHeight: SM ? 24 : 28, fontWeight: '500' },
@@ -318,10 +318,10 @@ const fcd = StyleSheet.create({
 
 // ── Summary slide style config (for kp-type cards) ───────────────
 const SLIDE_STYLE: Record<string, { accent: string; bg: string; label: string }> = {
-  key_fact:  { accent: '#5B3DF5', bg: 'rgba(91,61,245,0.08)',  label: '💡 Dato clave' },
-  important: { accent: '#FF7A2B', bg: 'rgba(255,122,43,0.08)', label: '🔥 Importante' },
-  remember:  { accent: '#00C2A8', bg: 'rgba(0,194,168,0.08)',  label: '🎯 Recuerda' },
-  curiosity: { accent: '#FFB547', bg: 'rgba(255,181,71,0.08)', label: '✨ Curiosidad' },
+  key_fact:  { accent: palette.azul, bg: 'rgba(22,119,242,0.08)',  label: '💡 Dato clave' },
+  important: { accent: palette.naranja, bg: 'rgba(255,122,43,0.08)', label: '🔥 Importante' },
+  remember:  { accent: palette.tealTarjetas, bg: 'rgba(0,194,168,0.08)',  label: '🎯 Recuerda' },
+  curiosity: { accent: palette.ambar, bg: 'rgba(255,181,71,0.08)', label: '✨ Curiosidad' },
 };
 
 // ── Summary slide builder ─────────────────────────────────────────
@@ -1326,7 +1326,7 @@ export default function SessionPlayerScreen() {
   // MODE SELECT — Screen 2
   // ══════════════════════════════════════════════════════════════
   if (phase === 'mode-select') {
-    const QUIZ_COLOR = '#3B82F6';
+    const QUIZ_COLOR = paletteExtras.azulQuiz;
     const QUIZ_BG    = 'rgba(59,130,246,0.08)';
     const TEAL_COLOR = palette.tealTarjetas;
     const TEAL_BG    = 'rgba(0,194,168,0.08)';
@@ -1651,7 +1651,7 @@ export default function SessionPlayerScreen() {
                             {showGreen ? '✓' : showRed ? '✗' : LETTERS[i]}
                           </Text>
                         </View>
-                        <Text style={[sum.quizOptText, showGreen && { color: BRAND, fontWeight: '700' }, showRed && { color: '#991B1B', fontWeight: '700' }]}>
+                        <Text style={[sum.quizOptText, showGreen && { color: BRAND, fontWeight: '700' }, showRed && { color: palette.rojoErrorDark, fontWeight: '700' }]}>
                           {opt.text}
                         </Text>
                       </Pressable>
@@ -1874,7 +1874,7 @@ export default function SessionPlayerScreen() {
                                       {showGreen ? '✓' : showRed ? '✗' : letter}
                                     </Text>
                                   </View>
-                                  <Text style={[sum.quizOptText, showGreen && { color: BRAND, fontWeight: '700' }, showRed && { color: '#991B1B', fontWeight: '700' }]}>{opt}</Text>
+                                  <Text style={[sum.quizOptText, showGreen && { color: BRAND, fontWeight: '700' }, showRed && { color: palette.rojoErrorDark, fontWeight: '700' }]}>{opt}</Text>
                                 </View>
                               </Pressable>
                             </Animated.View>
@@ -1919,7 +1919,7 @@ export default function SessionPlayerScreen() {
                                     {showGreen ? '✓' : showRed ? '✗' : letter}
                                   </Text>
                                 </View>
-                                <Text style={[sum.quizOptText, showGreen && { color: BRAND, fontWeight: '700' }, showRed && { color: '#991B1B', fontWeight: '700' }]}>{opt}</Text>
+                                <Text style={[sum.quizOptText, showGreen && { color: BRAND, fontWeight: '700' }, showRed && { color: palette.rojoErrorDark, fontWeight: '700' }]}>{opt}</Text>
                               </Pressable>
                             </Animated.View>
                           );
@@ -1934,7 +1934,7 @@ export default function SessionPlayerScreen() {
                 const answered = quizAnswers[summaryIdx];
                 return (
                   <View style={sum.microCard}>
-                    <View style={[sum.microHeader, { backgroundColor: '#1E1B4B' }]}>
+                    <View style={[sum.microHeader, { backgroundColor: paletteExtras.indigoOscuro }]}>
                       <Text style={sum.microLabel}>🔁 REFUERZO</Text>
                       <Text style={sum.microSubtitle}>Aplica lo que aprendiste</Text>
                     </View>
@@ -1964,7 +1964,7 @@ export default function SessionPlayerScreen() {
                                       {showGreen ? '✓' : showRed ? '✗' : letter}
                                     </Text>
                                   </View>
-                                  <Text style={[sum.quizOptText, showGreen && { color: BRAND, fontWeight: '700' }, showRed && { color: '#991B1B', fontWeight: '700' }]}>{opt}</Text>
+                                  <Text style={[sum.quizOptText, showGreen && { color: BRAND, fontWeight: '700' }, showRed && { color: palette.rojoErrorDark, fontWeight: '700' }]}>{opt}</Text>
                                 </View>
                               </Pressable>
                             </Animated.View>
@@ -2039,7 +2039,7 @@ export default function SessionPlayerScreen() {
                                 {showGreen ? '✓' : showRed ? '✗' : letter}
                               </Text>
                             </View>
-                            <Text style={[sum.quizOptText, showGreen && { color: BRAND, fontWeight: '700' }, showRed && { color: '#991B1B', fontWeight: '700' }]}>{opt}</Text>
+                            <Text style={[sum.quizOptText, showGreen && { color: BRAND, fontWeight: '700' }, showRed && { color: palette.rojoErrorDark, fontWeight: '700' }]}>{opt}</Text>
                           </View>
                         </Pressable>
                       </Animated.View>
@@ -2109,7 +2109,7 @@ export default function SessionPlayerScreen() {
                                   {showGreen ? '✓' : showRed ? '✗' : letter}
                                 </Text>
                               </View>
-                              <Text style={[sum.quizOptText, showGreen && { color: BRAND, fontWeight: '700' }, showRed && { color: '#991B1B', fontWeight: '700' }]}>{opt}</Text>
+                              <Text style={[sum.quizOptText, showGreen && { color: BRAND, fontWeight: '700' }, showRed && { color: palette.rojoErrorDark, fontWeight: '700' }]}>{opt}</Text>
                             </Pressable>
                           </Animated.View>
                         );
@@ -2168,7 +2168,7 @@ export default function SessionPlayerScreen() {
                                   {showGreen ? '✓' : showRed ? '✗' : letter}
                                 </Text>
                               </View>
-                              <Text style={[sum.quizOptText, showGreen && { color: BRAND, fontWeight: '700' }, showRed && { color: '#991B1B', fontWeight: '700' }]}>{opt}</Text>
+                              <Text style={[sum.quizOptText, showGreen && { color: BRAND, fontWeight: '700' }, showRed && { color: palette.rojoErrorDark, fontWeight: '700' }]}>{opt}</Text>
                             </Pressable>
                           </Animated.View>
                         );
@@ -2242,7 +2242,7 @@ export default function SessionPlayerScreen() {
                                   {showGreen ? '✓' : showRed ? '✗' : letter}
                                 </Text>
                               </View>
-                              <Text style={[sum.quizOptText, showGreen && { color: BRAND, fontWeight: '700' }, showRed && { color: '#991B1B', fontWeight: '700' }]}>{opt}</Text>
+                              <Text style={[sum.quizOptText, showGreen && { color: BRAND, fontWeight: '700' }, showRed && { color: palette.rojoErrorDark, fontWeight: '700' }]}>{opt}</Text>
                             </View>
                           </Pressable>
                         </Animated.View>
@@ -2253,7 +2253,7 @@ export default function SessionPlayerScreen() {
               </View>
             ) : slide?.type === 'decide' ? (
               <View style={sum.quizCard}>
-                <Text style={[sum.quizLabel, { color: '#FF7A2B' }]}>🤔 DECIDE</Text>
+                <Text style={[sum.quizLabel, { color: palette.naranja }]}>🤔 DECIDE</Text>
                 <Text style={sum.quizQuestion}>{slide.question ?? slide.title}</Text>
                 <View key={`options-${summaryIdx}-${quizAnswers[summaryIdx] ?? 'none'}`} style={{ gap: 8, marginTop: 14 }}>
                   {slide.options?.map((opt, i) => {
@@ -2280,7 +2280,7 @@ export default function SessionPlayerScreen() {
                                 {showGreen ? '✓' : showRed ? '✗' : letter}
                               </Text>
                             </View>
-                            <Text style={[sum.quizOptText, showGreen && { color: BRAND, fontWeight: '700' }, showRed && { color: '#991B1B', fontWeight: '700' }]}>{opt}</Text>
+                            <Text style={[sum.quizOptText, showGreen && { color: BRAND, fontWeight: '700' }, showRed && { color: palette.rojoErrorDark, fontWeight: '700' }]}>{opt}</Text>
                           </View>
                         </Pressable>
                       </Animated.View>
@@ -2380,7 +2380,7 @@ export default function SessionPlayerScreen() {
                               {showGreen ? '✓' : showRed ? '✗' : letter}
                             </Text>
                           </View>
-                          <Text style={[sum.quizOptText, showGreen && { color: BRAND, fontWeight: '700' }, showRed && { color: '#991B1B', fontWeight: '700' }]}>{opt}</Text>
+                          <Text style={[sum.quizOptText, showGreen && { color: BRAND, fontWeight: '700' }, showRed && { color: palette.rojoErrorDark, fontWeight: '700' }]}>{opt}</Text>
                         </Pressable>
                       </Animated.View>
                     );
@@ -2422,13 +2422,13 @@ export default function SessionPlayerScreen() {
             ) : slide?.type === 'victory' ? ((() => {
               // Labels per spec: Dominado / Buen dominio / Vas avanzando / Necesita más práctica
               const masteryConfig = masteryLevel === 'mastered'
-                ? { bg: 'rgba(5,150,105,0.12)', border: 'rgba(5,150,105,0.3)', color: '#065F46', label: '🏆 Dominado', sub: `${masteryPct ?? 100}% correcto` }
+                ? { bg: 'rgba(5,150,105,0.12)', border: 'rgba(5,150,105,0.3)', color: paletteExtras.esmeraldaOscuro, label: '🏆 Dominado', sub: `${masteryPct ?? 100}% correcto` }
                 : masteryLevel === 'good_mastery'
-                ? { bg: 'rgba(59,130,246,0.10)', border: 'rgba(59,130,246,0.3)', color: '#1E40AF', label: '📈 Buen dominio', sub: `${masteryPct ?? 0}% correcto` }
+                ? { bg: 'rgba(59,130,246,0.10)', border: 'rgba(59,130,246,0.3)', color: paletteExtras.azulQuizOscuro, label: '📈 Buen dominio', sub: `${masteryPct ?? 0}% correcto` }
                 : masteryLevel === 'in_progress'
-                ? { bg: 'rgba(245,158,11,0.10)', border: 'rgba(245,158,11,0.3)', color: '#92400E', label: '🔄 Vas avanzando', sub: `${masteryPct ?? 0}% correcto` }
+                ? { bg: 'rgba(245,158,11,0.10)', border: 'rgba(245,158,11,0.3)', color: paletteExtras.ambarTextoOscuro, label: '🔄 Vas avanzando', sub: `${masteryPct ?? 0}% correcto` }
                 : masteryLevel === 'needs_practice'
-                ? { bg: 'rgba(239,68,68,0.08)', border: 'rgba(239,68,68,0.2)', color: '#991B1B', label: '💪 Necesita más práctica', sub: `${masteryPct ?? 0}% correcto` }
+                ? { bg: 'rgba(239,68,68,0.08)', border: 'rgba(239,68,68,0.2)', color: palette.rojoErrorDark, label: '💪 Necesita más práctica', sub: `${masteryPct ?? 0}% correcto` }
                 : null;
 
               // Reflection — based on slides actually ANSWERED wrong (not unanswered)
@@ -2681,7 +2681,7 @@ export default function SessionPlayerScreen() {
                           <Text style={sum.victoryStatLbl}>conceptos</Text>
                         </View>
                         <View style={sum.victoryStat}>
-                          <Text style={[sum.victoryStatVal, { color: '#059669' }]}>{vCorrect}/{vInterTotal}</Text>
+                          <Text style={[sum.victoryStatVal, { color: paletteExtras.esmeralda }]}>{vCorrect}/{vInterTotal}</Text>
                           <Text style={sum.victoryStatLbl}>correctas</Text>
                         </View>
                         <View style={sum.victoryStat}>
@@ -2690,7 +2690,7 @@ export default function SessionPlayerScreen() {
                         </View>
                         {SHOW_GEMS && (
                           <View style={sum.victoryStat}>
-                            <Text style={[sum.victoryStatVal, { color: '#FF7A2B' }]}>+{(masteryPct ?? 0) >= 70 ? Math.round((session.gemReward ?? 10) * (masteryPct ?? 0) / 100) : 0}</Text>
+                            <Text style={[sum.victoryStatVal, { color: palette.naranja }]}>+{(masteryPct ?? 0) >= 70 ? Math.round((session.gemReward ?? 10) * (masteryPct ?? 0) / 100) : 0}</Text>
                             <Text style={sum.victoryStatLbl}>💎</Text>
                           </View>
                         )}
@@ -2789,7 +2789,7 @@ export default function SessionPlayerScreen() {
                                 {showGreen ? '✓' : showRed ? '✗' : letter}
                               </Text>
                             </View>
-                            <Text style={[sum.quizOptText, showGreen && { color: BRAND, fontWeight: '700' }, showRed && { color: '#991B1B', fontWeight: '700' }]}>{opt}</Text>
+                            <Text style={[sum.quizOptText, showGreen && { color: BRAND, fontWeight: '700' }, showRed && { color: palette.rojoErrorDark, fontWeight: '700' }]}>{opt}</Text>
                           </Pressable>
                         </Animated.View>
                       );
@@ -2831,7 +2831,7 @@ export default function SessionPlayerScreen() {
                 <Text style={sum.kpTitle}>Contenido no disponible</Text>
               </View>
             ) : (
-              <View style={[sum.kpCard, { backgroundColor: SLIDE_STYLE[slide?.type ?? '']?.bg ?? 'rgba(91,61,245,0.08)', borderLeftColor: SLIDE_STYLE[slide?.type ?? '']?.accent ?? BRAND }]}>
+              <View style={[sum.kpCard, { backgroundColor: SLIDE_STYLE[slide?.type ?? '']?.bg ?? 'rgba(22,119,242,0.08)', borderLeftColor: SLIDE_STYLE[slide?.type ?? '']?.accent ?? BRAND }]}>
                 <Text style={sum.kpEmoji}>{slide?.emoji}</Text>
                 <Text style={[sum.kpLabel, { color: SLIDE_STYLE[slide?.type ?? '']?.accent ?? BRAND }]}>{SLIDE_STYLE[slide?.type ?? '']?.label}</Text>
                 <Text style={sum.kpTitle}>{slide?.title}</Text>
@@ -3367,7 +3367,7 @@ export default function SessionPlayerScreen() {
         return (
           <ModeCompletionScreen
             mode="tarjetas"
-            iconNode={<Layers size={44} color="#059669" strokeWidth={1.5} />}
+            iconNode={<Layers size={44} color={paletteExtras.esmeralda} strokeWidth={1.5} />}
             screenTitle="🗂️ Tarjetas"
             title="Tarjetas completas"
             tiles={[
@@ -3457,8 +3457,8 @@ export default function SessionPlayerScreen() {
           {cardFlipped ? (
             <View style={[fcs.srsRow, { paddingBottom: insets.bottom + 12 }]}>
               {[
-                { label: '❌\nNo lo sabía', response: 'unknown' as const, colors: ['#DC2626', '#B91C1C'] as [string,string] },
-                { label: '🤔\nLo dudé',     response: 'doubt'   as const, colors: [palette.ambar, '#D97706'] as [string,string] },
+                { label: '❌\nNo lo sabía', response: 'unknown' as const, colors: [palette.rojoError, paletteExtras.rojoGradienteFin] as [string,string] },
+                { label: '🤔\nLo dudé',     response: 'doubt'   as const, colors: [palette.ambar, paletteExtras.ambarIntermedio] as [string,string] },
                 { label: '✅\nLo sabía',    response: 'knew'    as const, colors: [BRAND, NEON] as [string,string] },
               ].map(({ label, response, colors }) => (
                 <Pressable key={label} onPress={() => handleCardNext(response)} style={{ flex: 1 }}>
@@ -3635,7 +3635,7 @@ const g = StyleSheet.create({
 
 // ── Lobby ──────────────────────────────────────────────────────────
 const lob = StyleSheet.create({
-  progressPill:     { backgroundColor: palette.moradoBg, borderRadius: 100, paddingVertical: 5, paddingHorizontal: 12 },
+  progressPill:     { backgroundColor: palette.azulClaro, borderRadius: 100, paddingVertical: 5, paddingHorizontal: 12 },
   progressPillText: { fontSize: SM ? 11 : 12, fontWeight: '700', color: BRAND },
 
   titleBlock: { marginBottom: 16 },
@@ -3700,7 +3700,7 @@ const mds = StyleSheet.create({
   desafioCardTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 4 },
   desafioEmoji:   { fontSize: SM ? 34 : 40 },
   desafioXpBadge: { backgroundColor: 'rgba(255,255,255,0.12)', borderRadius: 100, paddingVertical: 3, paddingHorizontal: 10 },
-  desafioXpText:  { color: palette.limaElectrica, fontSize: 11, fontWeight: '900', letterSpacing: 0.8 },
+  desafioXpText:  { color: palette.verdeXP, fontSize: 11, fontWeight: '900', letterSpacing: 0.8 },
   desafioTitle:   { fontSize: SM ? 20 : 24, fontWeight: '900', color: palette.blanco, marginBottom: 3, marginTop: 4 },
   desafioDesc:    { fontSize: 13, color: 'rgba(255,255,255,0.7)', marginBottom: 12 },
   desafioFoot:    { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 8 },
@@ -3743,7 +3743,7 @@ const sum = StyleSheet.create({
   exampleText:  { fontSize: SM ? 13 : 14, color: semantic.textPrimary, lineHeight: SM ? 20 : 22, fontWeight: '600' },
 
   // Wow fact card — lavender WOW moment
-  wowCard:      { backgroundColor: 'rgba(91,61,245,0.07)', borderRadius: 28, padding: SM ? 24 : 30, alignItems: 'center' },
+  wowCard:      { backgroundColor: 'rgba(22,119,242,0.07)', borderRadius: 28, padding: SM ? 24 : 30, alignItems: 'center' },
   wowEmoji:     { fontSize: SM ? 56 : 68, marginBottom: 12 },
   wowLabel:     { fontSize: 11, fontWeight: '900', color: BRAND, letterSpacing: 1.5, marginBottom: 8, textTransform: 'uppercase' },
   wowHook:      { fontSize: SM ? 17 : 20, fontWeight: '900', color: semantic.textPrimary, textAlign: 'center', letterSpacing: -0.4, lineHeight: SM ? 24 : 28, marginBottom: 12 },
@@ -3756,7 +3756,7 @@ const sum = StyleSheet.create({
   quizLabel:         { fontSize: 10, fontWeight: '900', color: BRAND, letterSpacing: 1.5, marginBottom: 10, textTransform: 'uppercase' },
   quizQuestion:      { fontSize: SM ? 16 : 18, fontWeight: '800', color: semantic.textPrimary, lineHeight: SM ? 24 : 27, letterSpacing: -0.2 },
   quizOption:        { flexDirection: 'row', alignItems: 'center', gap: 10, padding: 12, borderRadius: 14, borderWidth: 2, borderColor: palette.bordeClaro, backgroundColor: palette.blanco },
-  quizOptCorrect:    { borderColor: BRAND, borderWidth: 2, backgroundColor: 'rgba(91,61,245,0.05)' },
+  quizOptCorrect:    { borderColor: BRAND, borderWidth: 2, backgroundColor: 'rgba(22,119,242,0.05)' },
   quizOptWrong:      { borderColor: palette.bordeMedio, backgroundColor: 'rgba(0,0,0,0.02)' },
   quizLetter:        { width: 28, height: 28, borderRadius: 8, backgroundColor: palette.crema, alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
   quizLetterGreen:   { backgroundColor: BRAND },
@@ -3764,7 +3764,7 @@ const sum = StyleSheet.create({
   quizLetterText:    { fontSize: 12, fontWeight: '800', color: semantic.textPrimary },
   quizOptText:       { flex: 1, fontSize: SM ? 13 : 14, color: semantic.textPrimary, fontWeight: '600', lineHeight: 20 },
   quizFeedback:      { marginTop: 12, borderRadius: 14, padding: 12 },
-  quizFeedbackOk:    { backgroundColor: 'rgba(91,61,245,0.07)', borderWidth: 1.5, borderColor: 'rgba(91,61,245,0.2)' },
+  quizFeedbackOk:    { backgroundColor: 'rgba(22,119,242,0.07)', borderWidth: 1.5, borderColor: 'rgba(22,119,242,0.2)' },
   quizFeedbackErr:   { backgroundColor: 'rgba(0,0,0,0.03)', borderWidth: 1, borderColor: palette.bordeClaro },
   quizFeedbackHeader:{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 },
   quizFeedbackTitle: { fontSize: 13, fontWeight: '800', color: semantic.textPrimary },
@@ -3773,7 +3773,7 @@ const sum = StyleSheet.create({
   quizFeedbackText:  { fontSize: 12, color: semantic.textSecondary, lineHeight: 19 },
 
   // Prediction card
-  predCard:     { backgroundColor: '#F0EDFF', borderRadius: 28, padding: SM ? 22 : 28, alignItems: 'center' },
+  predCard:     { backgroundColor: paletteExtras.moradoSuaveBg, borderRadius: 28, padding: SM ? 22 : 28, alignItems: 'center' },
   predIcon:     { fontSize: SM ? 52 : 64, marginBottom: 12 },
   predLabel:    { fontSize: 10, fontWeight: '900', color: BRAND, letterSpacing: 1.5, marginBottom: 14, textTransform: 'uppercase' },
   predPrompt:   { fontSize: SM ? 18 : 21, fontWeight: '900', color: semantic.textPrimary, textAlign: 'center', lineHeight: SM ? 26 : 30, letterSpacing: -0.4, marginBottom: 20 },
@@ -3789,9 +3789,9 @@ const sum = StyleSheet.create({
 
   // Example / Scenario card
   scenarioCard:  { backgroundColor: palette.blanco, borderRadius: 28, overflow: 'hidden' },
-  scenarioBand:  { backgroundColor: '#FFF7ED', flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: SM ? 16 : 20, paddingVertical: SM ? 12 : 14, borderBottomWidth: 1, borderBottomColor: 'rgba(255,122,43,0.12)' },
+  scenarioBand:  { backgroundColor: paletteExtras.ambarSuaveBg, flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: SM ? 16 : 20, paddingVertical: SM ? 12 : 14, borderBottomWidth: 1, borderBottomColor: 'rgba(255,122,43,0.12)' },
   scenarioEmoji: { fontSize: SM ? 26 : 30 },
-  scenarioLabel: { fontSize: 10, fontWeight: '900', color: '#FF7A2B', letterSpacing: 1.2, textTransform: 'uppercase' },
+  scenarioLabel: { fontSize: 10, fontWeight: '900', color: palette.naranja, letterSpacing: 1.2, textTransform: 'uppercase' },
   scenarioBody:  { padding: SM ? 16 : 20 },
   scenarioTitle: { fontSize: SM ? 16 : 18, fontWeight: '900', color: semantic.textPrimary, marginBottom: 8, letterSpacing: -0.3 },
   scenarioDef:   { fontSize: SM ? 13 : 14, color: semantic.textPrimary, lineHeight: SM ? 20 : 22, fontWeight: '500', marginBottom: 10 },
@@ -3818,16 +3818,16 @@ const sum = StyleSheet.create({
 
   // Main concept card
   mainCard:         { backgroundColor: palette.blanco, borderRadius: 28, overflow: 'hidden' },
-  mainCardHeader:   { backgroundColor: 'rgba(91,61,245,0.07)', paddingHorizontal: SM ? 18 : 22, paddingVertical: SM ? 10 : 12 },
+  mainCardHeader:   { backgroundColor: 'rgba(22,119,242,0.07)', paddingHorizontal: SM ? 18 : 22, paddingVertical: SM ? 10 : 12 },
   mainCardLabel:    { fontSize: 10, fontWeight: '900', color: BRAND, letterSpacing: 1.5, textTransform: 'uppercase' },
   mainCardBody:     { paddingHorizontal: SM ? 18 : 22, paddingVertical: SM ? 14 : 18 },
   mainCardEmoji:    { fontSize: SM ? 36 : 44, marginBottom: 10 },
   mainCardTitle:    { fontSize: SM ? 20 : 24, fontWeight: '900', color: semantic.textPrimary, letterSpacing: -0.4, lineHeight: SM ? 26 : 30, marginBottom: 8 },
   mainCardDef:      { fontSize: SM ? 14 : 15, color: semantic.textPrimary, lineHeight: SM ? 21 : 24, fontWeight: '500' },
-  workedExBox:      { backgroundColor: 'rgba(91,61,245,0.05)', borderRadius: 14, borderWidth: 1.5, borderColor: 'rgba(91,61,245,0.15)', padding: SM ? 14 : 16, marginBottom: SM ? 10 : 12 },
+  workedExBox:      { backgroundColor: 'rgba(22,119,242,0.05)', borderRadius: 14, borderWidth: 1.5, borderColor: 'rgba(22,119,242,0.15)', padding: SM ? 14 : 16, marginBottom: SM ? 10 : 12 },
   workedExText:     { fontSize: SM ? 18 : 22, fontWeight: '800', color: BRAND, textAlign: 'center', letterSpacing: -0.3, lineHeight: SM ? 26 : 30 },
   mainCardExplain:  { fontSize: SM ? 13 : 14, color: semantic.textSecondary, lineHeight: SM ? 20 : 22, fontWeight: '500', fontStyle: 'italic' },
-  conceptCard:      { marginTop: SM ? 14 : 16, backgroundColor: 'rgba(91,61,245,0.07)', borderRadius: 14, padding: SM ? 12 : 14, borderWidth: 1, borderColor: 'rgba(91,61,245,0.22)' },
+  conceptCard:      { marginTop: SM ? 14 : 16, backgroundColor: 'rgba(22,119,242,0.07)', borderRadius: 14, padding: SM ? 12 : 14, borderWidth: 1, borderColor: 'rgba(22,119,242,0.22)' },
   conceptCardLabel: { fontSize: 10, fontWeight: '800', color: BRAND, letterSpacing: 0.8, marginBottom: 6, textTransform: 'uppercase' },
   conceptCardText:  { fontSize: SM ? 16 : 18, fontWeight: '600', color: semantic.textPrimary, lineHeight: SM ? 24 : 28 },
   insightList:      { gap: SM ? 10 : 12, marginTop: 4 },
@@ -3838,35 +3838,35 @@ const sum = StyleSheet.create({
   insightLine:      { flex: 1, fontSize: SM ? 15 : 17, fontWeight: '500' as const, color: semantic.textSecondary, lineHeight: SM ? 22 : 26 },
   insightLineMain:  { fontSize: SM ? 20 : 23, fontWeight: '800' as const, color: semantic.textPrimary, lineHeight: SM ? 28 : 34, letterSpacing: -0.3 },
   insightFallback:  { fontSize: SM ? 18 : 20, fontWeight: '700' as const, color: semantic.textPrimary, lineHeight: SM ? 26 : 32 },
-  comprehensionCtx: { backgroundColor: 'rgba(91,61,245,0.05)', borderRadius: 12, padding: SM ? 10 : 12, marginBottom: 10, borderWidth: 1, borderColor: 'rgba(91,61,245,0.1)' },
+  comprehensionCtx: { backgroundColor: 'rgba(22,119,242,0.05)', borderRadius: 12, padding: SM ? 10 : 12, marginBottom: 10, borderWidth: 1, borderColor: 'rgba(22,119,242,0.1)' },
   comprehensionCtxText: { fontSize: SM ? 16 : 18, fontWeight: '800', color: BRAND, textAlign: 'center', letterSpacing: -0.2 },
 
   // Step-by-step renderer (main_concept procedural)
   stepsContainer: { gap: 8, marginTop: 4 },
-  stepRow:        { flexDirection: 'row', alignItems: 'flex-start', gap: 10, backgroundColor: 'rgba(91,61,245,0.05)', borderRadius: 12, padding: 10, borderLeftWidth: 3, borderLeftColor: BRAND },
+  stepRow:        { flexDirection: 'row', alignItems: 'flex-start', gap: 10, backgroundColor: 'rgba(22,119,242,0.05)', borderRadius: 12, padding: 10, borderLeftWidth: 3, borderLeftColor: BRAND },
   stepRowProblem: { backgroundColor: 'rgba(0,0,0,0.04)', borderLeftColor: '#888' },
-  stepRowResult:  { backgroundColor: 'rgba(5,150,105,0.08)', borderLeftColor: '#059669' },
+  stepRowResult:  { backgroundColor: 'rgba(5,150,105,0.08)', borderLeftColor: paletteExtras.esmeralda },
   stepBadge:      { backgroundColor: BRAND, borderRadius: 8, paddingHorizontal: 8, paddingVertical: 3, minWidth: 54, alignItems: 'center' },
   stepBadgeProblem: { backgroundColor: '#888' },
-  stepBadgeResult:{ backgroundColor: '#059669' },
+  stepBadgeResult:{ backgroundColor: paletteExtras.esmeralda },
   stepBadgeText:  { fontSize: 10, fontWeight: '900', color: palette.blanco, letterSpacing: 0.5 },
   stepContent:    { flex: 1, fontSize: SM ? 13 : 14, color: semantic.textPrimary, lineHeight: 20, fontWeight: '500' },
-  stepContentResult: { color: '#065F46', fontWeight: '700' },
+  stepContentResult: { color: paletteExtras.esmeraldaOscuro, fontWeight: '700' },
 
   // Key relation card (now "Regla fácil")
   relationCard:       { backgroundColor: palette.blanco, borderRadius: 28, padding: SM ? 20 : 24 },
   ruleLabel:          { fontSize: 10, fontWeight: '900', color: BRAND, letterSpacing: 1.5, marginBottom: 14, textTransform: 'uppercase' },
-  ruleBox:            { backgroundColor: 'rgba(91,61,245,0.06)', borderRadius: 16, borderLeftWidth: 4, borderLeftColor: BRAND, padding: SM ? 14 : 16, marginBottom: SM ? 10 : 12 },
+  ruleBox:            { backgroundColor: 'rgba(22,119,242,0.06)', borderRadius: 16, borderLeftWidth: 4, borderLeftColor: BRAND, padding: SM ? 14 : 16, marginBottom: SM ? 10 : 12 },
   ruleText:           { fontSize: SM ? 16 : 18, fontWeight: '800', color: semantic.textPrimary, lineHeight: SM ? 24 : 27, letterSpacing: -0.3 },
   // legacy — kept to avoid crashes if referenced elsewhere
-  relationLabel:      { fontSize: 10, fontWeight: '900', color: '#00C2A8', letterSpacing: 1.5, marginBottom: 16, textTransform: 'uppercase' },
+  relationLabel:      { fontSize: 10, fontWeight: '900', color: palette.tealTarjetas, letterSpacing: 1.5, marginBottom: 16, textTransform: 'uppercase' },
   relationRow:        { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 12, flexWrap: 'wrap' },
-  relationChipA:      { flex: 1, backgroundColor: 'rgba(91,61,245,0.08)', borderRadius: 12, paddingVertical: 8, paddingHorizontal: 12, borderWidth: 1, borderColor: 'rgba(91,61,245,0.15)' },
+  relationChipA:      { flex: 1, backgroundColor: 'rgba(22,119,242,0.08)', borderRadius: 12, paddingVertical: 8, paddingHorizontal: 12, borderWidth: 1, borderColor: 'rgba(22,119,242,0.15)' },
   relationChipB:      { flex: 1, backgroundColor: 'rgba(124,90,255,0.08)', borderRadius: 12, paddingVertical: 8, paddingHorizontal: 12, borderWidth: 1, borderColor: 'rgba(124,90,255,0.15)' },
   relationChipText:   { fontSize: SM ? 13 : 14, fontWeight: '800', color: BRAND, letterSpacing: -0.2, textAlign: 'center' },
-  relationArrow:      { width: 32, height: 32, borderRadius: 16, backgroundColor: 'rgba(0,194,168,0.1)', alignItems: 'center', justifyContent: 'center', borderWidth: 1.5, borderColor: '#00C2A8', flexShrink: 0 },
-  relationArrowText:  { fontSize: 14, color: '#00C2A8', fontWeight: '900' },
-  relationConnector:  { fontSize: SM ? 11 : 12, fontWeight: '700', color: '#00C2A8', textAlign: 'center', marginBottom: 10, fontStyle: 'italic' },
+  relationArrow:      { width: 32, height: 32, borderRadius: 16, backgroundColor: 'rgba(0,194,168,0.1)', alignItems: 'center', justifyContent: 'center', borderWidth: 1.5, borderColor: palette.tealTarjetas, flexShrink: 0 },
+  relationArrowText:  { fontSize: 14, color: palette.tealTarjetas, fontWeight: '900' },
+  relationConnector:  { fontSize: SM ? 11 : 12, fontWeight: '700', color: palette.tealTarjetas, textAlign: 'center', marginBottom: 10, fontStyle: 'italic' },
   relationDef:        { fontSize: SM ? 13 : 14, color: semantic.textPrimary, lineHeight: SM ? 20 : 22, fontWeight: '500', paddingTop: 12, borderTopWidth: 1, borderTopColor: palette.bordeClaro },
 
   // Process flow card
@@ -3882,29 +3882,29 @@ const sum = StyleSheet.create({
 
   // Application card — storytelling format, morado themed
   appCard:        { backgroundColor: palette.blanco, borderRadius: 28, overflow: 'hidden' },
-  appBand:        { backgroundColor: 'rgba(91,61,245,0.05)', flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: SM ? 16 : 20, paddingVertical: SM ? 10 : 12, borderBottomWidth: 1, borderBottomColor: 'rgba(91,61,245,0.08)' },
+  appBand:        { backgroundColor: 'rgba(22,119,242,0.05)', flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: SM ? 16 : 20, paddingVertical: SM ? 10 : 12, borderBottomWidth: 1, borderBottomColor: 'rgba(22,119,242,0.08)' },
   appEmoji:       { fontSize: SM ? 24 : 28 },
   appLabel:       { fontSize: 10, fontWeight: '900', color: BRAND, letterSpacing: 1.2, textTransform: 'uppercase' },
   appBody:        { padding: SM ? 14 : 18 },
   appTitle:       { fontSize: SM ? 15 : 17, fontWeight: '900', color: semantic.textPrimary, marginBottom: 6, letterSpacing: -0.3 },
   appSit:          { fontSize: SM ? 12 : 13, color: semantic.textSecondary, lineHeight: SM ? 19 : 21, fontWeight: '500', marginBottom: 6, marginTop: 4 },
-  appScenarioBox:  { backgroundColor: 'rgba(91,61,245,0.06)', borderRadius: 14, borderLeftWidth: 3, borderLeftColor: BRAND, padding: SM ? 12 : 14, marginBottom: 8 },
+  appScenarioBox:  { backgroundColor: 'rgba(22,119,242,0.06)', borderRadius: 14, borderLeftWidth: 3, borderLeftColor: BRAND, padding: SM ? 12 : 14, marginBottom: 8 },
   appScenarioLabel:{ fontSize: 9, fontWeight: '900', color: BRAND, letterSpacing: 1.2, marginBottom: 5, textTransform: 'uppercase' },
   appScenarioText: { fontSize: SM ? 14 : 16, color: semantic.textPrimary, lineHeight: SM ? 22 : 25, fontWeight: '700' },
-  appAnswerBox:    { backgroundColor: 'rgba(91,61,245,0.06)', borderRadius: 12, padding: SM ? 10 : 12, borderLeftWidth: 3, borderLeftColor: BRAND },
+  appAnswerBox:    { backgroundColor: 'rgba(22,119,242,0.06)', borderRadius: 12, padding: SM ? 10 : 12, borderLeftWidth: 3, borderLeftColor: BRAND },
   appAnswerLabel:  { fontSize: 9, fontWeight: '800', color: BRAND, letterSpacing: 1, marginBottom: 4, textTransform: 'uppercase' },
   appAnswerText:   { fontSize: SM ? 13 : 14, color: semantic.textPrimary, lineHeight: SM ? 20 : 22, fontWeight: '600' },
 
   // Common error card — morado dominant, subtle amber for wrong
-  errorCard:        { backgroundColor: palette.blanco, borderRadius: 28, overflow: 'hidden', borderWidth: 1, borderColor: 'rgba(91,61,245,0.12)' },
-  errorHeader:      { backgroundColor: 'rgba(91,61,245,0.05)', flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: SM ? 16 : 20, paddingVertical: SM ? 12 : 14, borderBottomWidth: 1, borderBottomColor: 'rgba(91,61,245,0.08)' },
+  errorCard:        { backgroundColor: palette.blanco, borderRadius: 28, overflow: 'hidden', borderWidth: 1, borderColor: 'rgba(22,119,242,0.12)' },
+  errorHeader:      { backgroundColor: 'rgba(22,119,242,0.05)', flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: SM ? 16 : 20, paddingVertical: SM ? 12 : 14, borderBottomWidth: 1, borderBottomColor: 'rgba(22,119,242,0.08)' },
   errorIcon:        { fontSize: SM ? 22 : 26 },
   errorHeaderLabel: { fontSize: 11, fontWeight: '900', color: BRAND, letterSpacing: 1.5, textTransform: 'uppercase' },
   errorBody:        { padding: SM ? 14 : 18, gap: 10 },
-  errorWrongBox:    { backgroundColor: 'rgba(245,158,11,0.07)', borderRadius: 12, padding: SM ? 10 : 12, borderLeftWidth: 3, borderLeftColor: '#F59E0B' },
-  errorWrongLabel:  { fontSize: 10, fontWeight: '900', color: '#92400E', letterSpacing: 0.5, marginBottom: 5, textTransform: 'uppercase' },
+  errorWrongBox:    { backgroundColor: 'rgba(245,158,11,0.07)', borderRadius: 12, padding: SM ? 10 : 12, borderLeftWidth: 3, borderLeftColor: paletteExtras.ambarFuerte },
+  errorWrongLabel:  { fontSize: 10, fontWeight: '900', color: paletteExtras.ambarTextoOscuro, letterSpacing: 0.5, marginBottom: 5, textTransform: 'uppercase' },
   errorWrongText:   { fontSize: SM ? 13 : 14, color: semantic.textPrimary, lineHeight: SM ? 20 : 22, fontWeight: '500' },
-  errorRightBox:    { backgroundColor: 'rgba(91,61,245,0.06)', borderRadius: 12, padding: SM ? 10 : 12, borderLeftWidth: 3, borderLeftColor: BRAND },
+  errorRightBox:    { backgroundColor: 'rgba(22,119,242,0.06)', borderRadius: 12, padding: SM ? 10 : 12, borderLeftWidth: 3, borderLeftColor: BRAND },
   errorRightLabel:  { fontSize: 10, fontWeight: '900', color: BRAND, letterSpacing: 0.5, marginBottom: 5, textTransform: 'uppercase' },
   errorRightText:   { fontSize: SM ? 13 : 14, color: semantic.textPrimary, lineHeight: SM ? 20 : 22, fontWeight: '600' },
 
@@ -3917,13 +3917,13 @@ const sum = StyleSheet.create({
 
   // Micro challenge card — compact action card after main_concept
   microCard:     { backgroundColor: palette.blanco, borderRadius: 28, overflow: 'hidden' },
-  microHeader:   { backgroundColor: 'rgba(91,61,245,0.1)', paddingVertical: SM ? 12 : 14, paddingHorizontal: SM ? 14 : 18, alignItems: 'center', borderBottomWidth: 1, borderBottomColor: 'rgba(91,61,245,0.15)' },
+  microHeader:   { backgroundColor: 'rgba(22,119,242,0.1)', paddingVertical: SM ? 12 : 14, paddingHorizontal: SM ? 14 : 18, alignItems: 'center', borderBottomWidth: 1, borderBottomColor: 'rgba(22,119,242,0.15)' },
   microLabel:    { fontSize: 11, fontWeight: '900', color: BRAND, letterSpacing: 1.5, textTransform: 'uppercase', marginBottom: 2 },
   microSubtitle: { fontSize: SM ? 11 : 12, color: semantic.textSecondary, fontWeight: '500' },
 
   // Mission feedback bar (Duolingo-style bottom panel)
   mFeedbackBar:  { paddingHorizontal: 20, paddingTop: SM ? 16 : 20, gap: 12 },
-  mFeedbackBarOk:{ backgroundColor: 'rgba(91,61,245,0.08)', borderTopWidth: 2, borderTopColor: 'rgba(91,61,245,0.2)' },
+  mFeedbackBarOk:{ backgroundColor: 'rgba(22,119,242,0.08)', borderTopWidth: 2, borderTopColor: 'rgba(22,119,242,0.2)' },
   mFeedbackBarErr:{ backgroundColor: 'rgba(239,68,68,0.05)', borderTopWidth: 2, borderTopColor: 'rgba(239,68,68,0.18)' },
   mFbContent:    { gap: 4 },
   mFbRow:        { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 2 },
@@ -3932,11 +3932,11 @@ const sum = StyleSheet.create({
   mFbExpl:       { fontSize: SM ? 13 : 14, color: semantic.textSecondary, lineHeight: SM ? 19 : 22, fontWeight: '500', marginTop: 2 },
   mFbCorrect:    { fontSize: SM ? 13 : 14, fontWeight: '700', color: BRAND, marginTop: 4 },
   mStreakBadge:  { backgroundColor: 'rgba(255,144,0,0.12)', borderRadius: 100, paddingVertical: 3, paddingHorizontal: 10, borderWidth: 1, borderColor: 'rgba(255,144,0,0.3)' },
-  mStreakText:   { fontSize: 12, fontWeight: '800', color: '#E07000' },
+  mStreakText:   { fontSize: 12, fontWeight: '800', color: paletteExtras.naranjaOscuro },
   mXpChip:       { alignSelf: 'flex-start', backgroundColor: BRAND, borderRadius: 100, paddingVertical: 4, paddingHorizontal: 14, marginTop: 6 },
   mXpText:       { fontSize: 13, fontWeight: '900', color: LIME, letterSpacing: 0.3 },
   mContinueBtn:  { height: 52, borderRadius: 28, alignItems: 'center', justifyContent: 'center', backgroundColor: BRAND },
-  mContinueBtnErr:{ backgroundColor: '#991B1B' },
+  mContinueBtnErr:{ backgroundColor: palette.rojoErrorDark },
   mContinueBtnText:{ fontSize: 16, fontWeight: '800', color: palette.blanco, letterSpacing: 0.2 },
 
   // Mini Reto Final card
@@ -3960,13 +3960,13 @@ const sum = StyleSheet.create({
   patternHeader:       { backgroundColor: BRAND, paddingVertical: SM ? 10 : 12, paddingHorizontal: SM ? 16 : 18, alignItems: 'center' },
   patternLabel:        { fontSize: 11, fontWeight: '900', color: palette.blanco, letterSpacing: 1.5, textTransform: 'uppercase' },
   patternBody:         { padding: SM ? 16 : 20, gap: 0, alignItems: 'stretch' },
-  patternNode:         { backgroundColor: 'rgba(91,61,245,0.06)', borderRadius: 14, borderWidth: 1.5, borderColor: 'rgba(91,61,245,0.25)', paddingVertical: SM ? 10 : 12, paddingHorizontal: SM ? 14 : 16 },
+  patternNode:         { backgroundColor: 'rgba(22,119,242,0.06)', borderRadius: 14, borderWidth: 1.5, borderColor: 'rgba(22,119,242,0.25)', paddingVertical: SM ? 10 : 12, paddingHorizontal: SM ? 14 : 16 },
   patternNodeFinal:    { backgroundColor: BRAND, borderColor: BRAND },
   patternNodeText:     { fontSize: SM ? 15 : 17, fontWeight: '800', color: BRAND, textAlign: 'center', lineHeight: SM ? 22 : 25, letterSpacing: -0.2 },
   patternNodeTextFinal:{ color: palette.blanco },
   patternArrowRow:     { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: SM ? 6 : 8, gap: 8 },
-  patternArrowGlyph:   { fontSize: SM ? 18 : 22, color: '#7C5CF6', fontWeight: '900' },
-  patternArrowLabel:   { fontSize: SM ? 11 : 12, fontWeight: '700', color: '#7C5CF6', fontStyle: 'italic' },
+  patternArrowGlyph:   { fontSize: SM ? 18 : 22, color: paletteExtras.violetaPattern, fontWeight: '900' },
+  patternArrowLabel:   { fontSize: SM ? 11 : 12, fontWeight: '700', color: paletteExtras.violetaPattern, fontStyle: 'italic' },
 
   // Quiz Transition card
   qtCard:      { backgroundColor: palette.blanco, borderRadius: 28, padding: SM ? 22 : 28, alignItems: 'center' },
@@ -3975,7 +3975,7 @@ const sum = StyleSheet.create({
   qtSub:       { fontSize: SM ? 13 : 15, color: semantic.textSecondary, textAlign: 'center', lineHeight: SM ? 20 : 22, fontWeight: '500', marginBottom: 20 },
   qtChecklist: { alignSelf: 'stretch', backgroundColor: palette.crema, borderRadius: 16, padding: SM ? 14 : 18, gap: 10, borderWidth: 1, borderColor: palette.bordeClaro },
   qtCheckRow:  { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  qtCheckIcon: { fontSize: SM ? 15 : 17, color: '#059669', fontWeight: '900', width: 22, textAlign: 'center' },
+  qtCheckIcon: { fontSize: SM ? 15 : 17, color: paletteExtras.esmeralda, fontWeight: '900', width: 22, textAlign: 'center' },
   qtCheckText: { fontSize: SM ? 13 : 15, fontWeight: '600', color: semantic.textPrimary, flex: 1 },
 
   // Victory card
@@ -3995,7 +3995,7 @@ const sum = StyleSheet.create({
   masteryBadgeText: { fontSize: 13, fontWeight: '800', letterSpacing: 0.3 },
   masteryBadgeSub:  { fontSize: 11, fontWeight: '600', marginTop: 2, opacity: 0.8 },
   reflectionBlock:  { backgroundColor: 'rgba(245,158,11,0.08)', borderRadius: 12, borderWidth: 1, borderColor: 'rgba(245,158,11,0.25)', paddingVertical: 10, paddingHorizontal: 14, marginTop: 8, marginBottom: 4, alignSelf: 'stretch' },
-  reflectionText:   { fontSize: 12, color: '#92400E', fontWeight: '600', lineHeight: 18 },
+  reflectionText:   { fontSize: 12, color: paletteExtras.ambarTextoOscuro, fontWeight: '600', lineHeight: 18 },
   noInteractionBlock: { width: '100%', backgroundColor: 'rgba(0,0,0,0.04)', borderRadius: 14, padding: 14, borderWidth: 1, borderColor: palette.bordeClaro, alignItems: 'center', gap: 12 },
   noInteractionText:  { fontSize: 13, color: semantic.textTertiary, fontWeight: '500', textAlign: 'center', lineHeight: 19 },
   noInteractionStats: { flexDirection: 'row', gap: 16, justifyContent: 'center' },
@@ -4003,7 +4003,7 @@ const sum = StyleSheet.create({
   // Skill dominance chip + mission progress
   missionProgress:    { fontSize: 11, fontWeight: '700', color: semantic.textTertiary, letterSpacing: 0.5, textTransform: 'uppercase', marginBottom: 6 },
   skillDominatedChip: { backgroundColor: 'rgba(5,150,105,0.10)', borderRadius: 20, paddingHorizontal: 14, paddingVertical: 5, borderWidth: 1.5, borderColor: 'rgba(5,150,105,0.3)', marginBottom: 10 },
-  skillDominatedText: { fontSize: 12, fontWeight: '800', color: '#065F46', letterSpacing: 0.2 },
+  skillDominatedText: { fontSize: 12, fontWeight: '800', color: paletteExtras.esmeraldaOscuro, letterSpacing: 0.2 },
 
   // Next mission button — skill transition
   nextMissionWrapper: { width: '100%', marginBottom: 12 },
@@ -4019,19 +4019,19 @@ const sum = StyleSheet.create({
   upcomingRowCurrent:   { opacity: 1 },
   upcomingDot:          { fontSize: 13, fontWeight: '800', color: semantic.textTertiary, width: 20, textAlign: 'center' },
   upcomingLabel:        { flex: 1, fontSize: 13, fontWeight: '600', color: semantic.textTertiary },
-  upcomingLabelDone:    { color: '#059669', fontWeight: '700' },
+  upcomingLabelDone:    { color: paletteExtras.esmeralda, fontWeight: '700' },
   upcomingLabelCurrent: { color: semantic.textPrimary, fontWeight: '800' },
 
   // Chain diagram (key_relation)
   chainContainer:   { gap: 0, alignItems: 'stretch', marginVertical: 10 },
-  chainNode:        { backgroundColor: '#F5F3FF', borderRadius: 14, borderWidth: 1.5, borderColor: 'rgba(91,61,245,0.28)', paddingVertical: SM ? 9 : 11, paddingHorizontal: 16 },
+  chainNode:        { backgroundColor: paletteExtras.moradoSuaveBg2, borderRadius: 14, borderWidth: 1.5, borderColor: 'rgba(22,119,242,0.28)', paddingVertical: SM ? 9 : 11, paddingHorizontal: 16 },
   chainNodeText:    { fontSize: SM ? 14 : 16, fontWeight: '800', color: BRAND, textAlign: 'center' },
   chainLink:        { alignItems: 'center', paddingVertical: 2 },
-  chainLinkArrow:   { fontSize: SM ? 16 : 18, color: '#00C2A8', fontWeight: '900', lineHeight: SM ? 18 : 20 },
-  chainLinkText:    { fontSize: SM ? 11 : 12, fontWeight: '700', color: '#00C2A8', fontStyle: 'italic', lineHeight: SM ? 14 : 16 },
+  chainLinkArrow:   { fontSize: SM ? 16 : 18, color: palette.tealTarjetas, fontWeight: '900', lineHeight: SM ? 18 : 20 },
+  chainLinkText:    { fontSize: SM ? 11 : 12, fontWeight: '700', color: palette.tealTarjetas, fontStyle: 'italic', lineHeight: SM ? 14 : 16 },
 
   // Challenge reflection card
-  challengeRefCard:    { backgroundColor: '#F5F3FF', borderRadius: 28, padding: SM ? 26 : 32, alignItems: 'center' },
+  challengeRefCard:    { backgroundColor: paletteExtras.moradoSuaveBg2, borderRadius: 28, padding: SM ? 26 : 32, alignItems: 'center' },
   challengeRefEmoji:   { fontSize: SM ? 52 : 64, marginBottom: 14 },
   challengeRefLabel:   { fontSize: 10, fontWeight: '900', color: NEON, letterSpacing: 1.5, marginBottom: 14, textTransform: 'uppercase' },
   challengeRefQ:       { fontSize: SM ? 17 : 21, fontWeight: '800', color: semantic.textPrimary, textAlign: 'center', lineHeight: SM ? 25 : 30, letterSpacing: -0.3, marginBottom: 16 },
@@ -4041,22 +4041,22 @@ const sum = StyleSheet.create({
 
   // Order sequence card
   orderCard:        { backgroundColor: palette.blanco, borderRadius: 28, padding: SM ? 16 : 20 },
-  orderLabel:       { fontSize: 10, fontWeight: '900', color: '#7C5AFF', letterSpacing: 1.5, marginBottom: 8, textTransform: 'uppercase' },
+  orderLabel:       { fontSize: 10, fontWeight: '900', color: paletteExtras.moradoVioleta, letterSpacing: 1.5, marginBottom: 8, textTransform: 'uppercase' },
   orderTitle:       { fontSize: SM ? 15 : 17, fontWeight: '800', color: semantic.textPrimary, lineHeight: SM ? 22 : 25, letterSpacing: -0.2, marginBottom: 6 },
   orderHint:        { fontSize: SM ? 12 : 13, color: semantic.textTertiary, fontWeight: '600', marginBottom: 14 },
   orderItems:       { gap: 8, alignSelf: 'stretch' },
   orderItem:        { flexDirection: 'row', alignItems: 'center', gap: 10, padding: SM ? 10 : 12, borderRadius: 14, borderWidth: 2, borderColor: palette.bordeClaro, backgroundColor: palette.crema },
-  orderItemSelected:{ borderColor: BRAND, backgroundColor: 'rgba(91,61,245,0.06)' },
-  orderItemCorrect: { borderColor: '#059669', backgroundColor: 'rgba(5,150,105,0.07)' },
+  orderItemSelected:{ borderColor: BRAND, backgroundColor: 'rgba(22,119,242,0.06)' },
+  orderItemCorrect: { borderColor: paletteExtras.esmeralda, backgroundColor: 'rgba(5,150,105,0.07)' },
   orderNum:         { width: 28, height: 28, borderRadius: 8, backgroundColor: palette.bordeMedio, alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
   orderNumSelected: { backgroundColor: BRAND },
-  orderNumCorrect:  { backgroundColor: '#059669' },
+  orderNumCorrect:  { backgroundColor: paletteExtras.esmeralda },
   orderNumTxt:      { fontSize: 13, fontWeight: '900', color: palette.blanco },
   orderNumTxtMuted: { fontSize: 13, fontWeight: '700', color: semantic.textTertiary },
   orderItemTxt:     { flex: 1, fontSize: SM ? 13 : 14, color: semantic.textPrimary, fontWeight: '600', lineHeight: 19 },
   orderItemTxtSelected: { color: semantic.textPrimary, fontWeight: '700' },
   orderSuccessRow:  { marginTop: 12, backgroundColor: 'rgba(5,150,105,0.08)', borderRadius: 10, paddingVertical: 8, paddingHorizontal: 12, borderWidth: 1, borderColor: 'rgba(5,150,105,0.2)', alignSelf: 'stretch', alignItems: 'center' },
-  orderSuccessTxt:  { fontSize: 13, fontWeight: '800', color: '#065F46' },
+  orderSuccessTxt:  { fontSize: 13, fontWeight: '800', color: paletteExtras.esmeraldaOscuro },
 });
 
 // ── Quiz ───────────────────────────────────────────────────────────
@@ -4069,7 +4069,7 @@ const qz = StyleSheet.create({
 
   // Lives dots — displayed inside streak chip
   heartDot:       { width: 7, height: 7, borderRadius: 3.5, backgroundColor: 'rgba(0,0,0,0.12)' },
-  heartDotActive: { backgroundColor: '#FF4D6D' },
+  heartDotActive: { backgroundColor: paletteExtras.rosaFuerte },
 
   // Animated progress bar (replaces PillBar)
   progressTrack: { flex: 1, height: 8, borderRadius: 4, backgroundColor: 'rgba(0,0,0,0.09)', overflow: 'hidden' },
@@ -4081,7 +4081,7 @@ const qz = StyleSheet.create({
   comboLabel:       { fontSize: 11, fontWeight: '800', color: semantic.textPrimary },
   comboBlocks:      { flexDirection: 'row', gap: 4 },
   comboBlock:       { width: 24, height: 8, borderRadius: 4, backgroundColor: palette.bordeMedio },
-  comboBlockFilled: { backgroundColor: '#FF7A2B' },
+  comboBlockFilled: { backgroundColor: palette.naranja },
 
   motivMsg: { fontSize: 11, fontWeight: '700', color: semantic.textTertiary, paddingHorizontal: 16, paddingBottom: 6, textAlign: 'center' },
 
@@ -4090,22 +4090,22 @@ const qz = StyleSheet.create({
   // Question card — reduced padding ~22% vs original
   questionCard: { backgroundColor: palette.blanco, borderRadius: 20, paddingHorizontal: SM ? 13 : 15, paddingVertical: SM ? 11 : 12, marginBottom: 8 },
   questionMeta: { flexDirection: 'row', alignItems: 'center', marginBottom: 7 },
-  questionChip: { fontSize: 10, fontWeight: '800', color: BRAND, letterSpacing: 0.4, backgroundColor: 'rgba(91,61,245,0.08)', paddingVertical: 3, paddingHorizontal: 8, borderRadius: 100 },
+  questionChip: { fontSize: 10, fontWeight: '800', color: BRAND, letterSpacing: 0.4, backgroundColor: 'rgba(22,119,242,0.08)', paddingVertical: 3, paddingHorizontal: 8, borderRadius: 100 },
   questionText: { fontSize: SM ? 15 : 17, fontWeight: '800', color: semantic.textPrimary, lineHeight: SM ? 22 : 25, letterSpacing: -0.2 },
 
   option:           { flexDirection: 'row', alignItems: 'center', gap: 10, padding: 12, borderRadius: 16, borderWidth: 2, borderColor: palette.bordeClaro, backgroundColor: palette.blanco },
-  optCorrect:       { borderColor: BRAND, borderWidth: 2.5, backgroundColor: 'rgba(91,61,245,0.05)' },
-  optWrong:         { borderColor: '#DC2626', borderWidth: 2, backgroundColor: 'rgba(220,38,38,0.04)' },
+  optCorrect:       { borderColor: BRAND, borderWidth: 2.5, backgroundColor: 'rgba(22,119,242,0.05)' },
+  optWrong:         { borderColor: palette.rojoError, borderWidth: 2, backgroundColor: 'rgba(220,38,38,0.04)' },
   optLetter:        { width: 30, height: 30, borderRadius: 9, backgroundColor: palette.crema, alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
   optLetterCorrect: { backgroundColor: BRAND },
-  optLetterRed:     { backgroundColor: '#DC2626' },
+  optLetterRed:     { backgroundColor: palette.rojoError },
   optLetterText:    { fontSize: 13, fontWeight: '800', color: semantic.textPrimary },
   optText:          { flex: 1, fontSize: 14, color: semantic.textPrimary, fontWeight: '600', lineHeight: 20 },
 
   // Feedback — compact (max 2 visible lines)
   feedback:      { borderRadius: 14, paddingVertical: 8, paddingHorizontal: 13, marginBottom: 8 },
-  feedbackOk:    { borderLeftWidth: 3, borderLeftColor: BRAND, backgroundColor: 'rgba(91,61,245,0.05)' },
-  feedbackFail:  { borderLeftWidth: 3, borderLeftColor: '#DC2626', backgroundColor: 'rgba(220,38,38,0.04)' },
+  feedbackOk:    { borderLeftWidth: 3, borderLeftColor: BRAND, backgroundColor: 'rgba(22,119,242,0.05)' },
+  feedbackFail:  { borderLeftWidth: 3, borderLeftColor: palette.rojoError, backgroundColor: 'rgba(220,38,38,0.04)' },
   feedbackHeader:{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 },
   feedbackTitle: { fontSize: 13, fontWeight: '900', color: semantic.textPrimary },
   feedbackXP:    { backgroundColor: BRAND, borderRadius: 100, paddingVertical: 2, paddingHorizontal: 9 },

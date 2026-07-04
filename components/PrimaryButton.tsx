@@ -1,7 +1,7 @@
 import { palette, semantic } from '@/theme/colors';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
-const PRIMARY  = palette.morado;
+const PRIMARY  = palette.azul;
 const DISABLED = palette.grisClaro;
 
 type Props = {

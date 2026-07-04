@@ -16,8 +16,8 @@ import Animated, {
 } from 'react-native-reanimated';
 
 const BG = palette.charcoal;
-const NEON = palette.morado;
-const LIME = palette.limaElectrica;
+const NEON = palette.azul;
+const LIME = palette.verdeXP;
 const GLASS = 'rgba(255,255,255,0.06)';
 const GLASS_BORDER = 'rgba(255,255,255,0.12)';
 const TOTAL_STEPS = 4;
@@ -29,7 +29,7 @@ type LucideIcon = React.ComponentType<{ size?: number; color?: string; strokeWid
 
 const TIME_ICONS: LucideIcon[] = [Zap, Target, Flame, Gem];
 const TIME_ICON_COLORS: string[] = [
-  palette.morado,
+  palette.azul,
   palette.rosaQuiz,
   palette.naranja,
   palette.tealTarjetas,
@@ -229,7 +229,7 @@ export default function CommitmentScreen() {
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: BG },
-  orb1: { position: 'absolute', width: 200, height: 200, borderRadius: 100, backgroundColor: 'rgba(91,61,245,0.1)', top: -50, right: -50 },
+  orb1: { position: 'absolute', width: 200, height: 200, borderRadius: 100, backgroundColor: 'rgba(22,119,242,0.1)', top: -50, right: -50 },
   orb2: { position: 'absolute', width: 180, height: 180, borderRadius: 90, backgroundColor: 'rgba(196,248,82,0.05)', bottom: 60, left: -60 },
 
   topBar: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, paddingTop: 8, paddingBottom: 14, gap: 12 },
@@ -261,7 +261,7 @@ const styles = StyleSheet.create({
     gap: 14, overflow: 'hidden',
   },
   timeCardActive: { borderColor: NEON },
-  timeCardActiveBg: { backgroundColor: 'rgba(91,61,245,0.28)' },
+  timeCardActiveBg: { backgroundColor: 'rgba(22,119,242,0.28)' },
   timeCardPressed: { opacity: 0.85 },
   timeIconCircle: { width: 42, height: 42, borderRadius: 13, alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
   timeIconEmoji: { fontSize: 20 },

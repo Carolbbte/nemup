@@ -14,7 +14,7 @@ import Animated, {
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import UnifiedProgressBar from '@/components/UnifiedProgressBar';
 
-const BRAND = palette.morado;
+const BRAND = palette.azul;
 
 const ALL_MODES: DailyMode[] = ['mision', 'quiz', 'tarjetas'];
 

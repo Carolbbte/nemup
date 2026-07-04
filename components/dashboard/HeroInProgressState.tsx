@@ -1,66 +1,96 @@
 import type { DailyMode } from '@/contexts/DailySessionContext';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
-import ModeRow, { type ModeStatus } from './ModeRow';
+import { LinearGradient } from 'expo-linear-gradient';
+import { ChevronRight, Play } from 'lucide-react-native';
+import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
+import type { SessionInfo } from './SessionHeroCard';
+import { palette } from '@/theme/colors';
 
-const BRAND = '#5B3DF5';
-const INK   = '#1A1A22';
-const MUTED = '#6B6779';
-const LABEL = '#9A95A6';
-const TRACK = '#F0EDE5';
-
-const MODES: DailyMode[]                     = ['mision', 'quiz', 'tarjetas'];
-const MODE_LABELS: Record<DailyMode, string> = { mision: 'Misión', quiz: 'Quiz', tarjetas: 'Tarjetas', desafio: 'Desafío' };
+const BRAND = palette.azul;
+const INK   = palette.charcoal;
+const MUTED = palette.grisMedio;
+const TRACK = palette.azulClaro;
 
 type Props = {
-  completedModes: Record<DailyMode, boolean>;
+  session: SessionInfo | null;
   nextMode: DailyMode;
   completedCount: number;
   onContinue: () => void;
 };
 
-export default function HeroInProgressState({ completedModes, nextMode, completedCount, onContinue }: Props) {
-  const getStatus = (mode: DailyMode): ModeStatus => {
-    if (completedModes[mode]) return 'done';
-    if (mode === nextMode)    return 'next';
-    return 'pending';
-  };
+export default function HeroInProgressState({ session, completedCount, onContinue }: Props) {
+  const subject  = session?.subject ?? 'Tu sesión';
+  const topic    = session?.topic ?? 'Continúa donde quedaste';
+  const duration = session?.estimatedDuration ?? 0;
+  const xp       = session?.xpReward ?? 0;
+
+  const pct = Math.round((completedCount / 3) * 100);
 
   return (
-    <View style={s.wrap}>
-      <View style={s.headerRow}>
-        <Text style={s.stateLabel}>SESIÓN EN CURSO</Text>
-        <Text style={s.counter}>{completedCount} de 3</Text>
+    <View>
+      <View style={s.missionPill}>
+        <Text style={s.missionPillTxt}>TU MISIÓN DE HOY</Text>
       </View>
 
-      <Text style={s.title}>Continúa tu día</Text>
+      <View style={s.topRow}>
+        <View style={s.textCol}>
+          <Text style={s.subject} numberOfLines={2}>{subject}</Text>
+          <Text style={s.topic} numberOfLines={2}>{topic}</Text>
+          <Text style={s.meta}>🕐 {duration} min  ·  ⚡ +{xp} XP</Text>
+        </View>
 
-      {/* 3-zone progress bar — first [completedCount] filled */}
-      <View style={s.bar}>
-        {[0, 1, 2].map(i => (
-          <View key={i} style={[s.zone, { backgroundColor: i < completedCount ? BRAND : TRACK }]} />
-        ))}
+        <Image
+          source={require('@/assets/images/tuPuedes.png')}
+          style={s.mascot}
+          resizeMode="contain"
+        />
       </View>
 
-      <View style={s.modes}>
-        {MODES.map(m => <ModeRow key={m} mode={m} status={getStatus(m)} />)}
+      <Text style={s.progressLabel}>Tu progreso</Text>
+      <View style={s.progressRow}>
+        <View style={s.trackBg}>
+          <View style={[s.trackFill, { width: `${pct}%` }]} />
+        </View>
+        <Text style={s.pct}>{pct}%</Text>
       </View>
 
-      <Pressable onPress={onContinue} style={s.cta}>
-        <Text style={s.ctaTxt}>Continuar con {MODE_LABELS[nextMode]}</Text>
+      <Pressable onPress={onContinue} style={s.ctaWrap}>
+        <LinearGradient
+          colors={[palette.azul, palette.cyanBrillante, palette.verdeBrillante]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 0 }}
+          style={s.cta}
+        >
+          <View style={s.playCircle}>
+            <Play size={12} color="white" fill="white" strokeWidth={2} />
+          </View>
+          <Text style={s.ctaTxt}>Continuar sesión</Text>
+          <ChevronRight size={18} color="white" strokeWidth={2.5} />
+        </LinearGradient>
       </Pressable>
     </View>
   );
 }
 
 const s = StyleSheet.create({
-  wrap:       { paddingTop: 4 },
-  headerRow:  { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 },
-  stateLabel: { fontSize: 10, fontWeight: '600', color: LABEL, letterSpacing: 1.4, textTransform: 'uppercase' },
-  counter:    { fontSize: 11, fontWeight: '500', color: MUTED },
-  title:      { fontSize: 17, fontWeight: '700', color: INK, marginBottom: 14 },
-  bar:        { flexDirection: 'row', gap: 4, height: 6, marginBottom: 16 },
-  zone:       { flex: 1, borderRadius: 3 },
-  modes:      { borderTopWidth: 0.5, borderTopColor: '#ECEAE3', paddingTop: 4, marginBottom: 18 },
-  cta:        { backgroundColor: BRAND, paddingVertical: 13, borderRadius: 28, alignItems: 'center' },
-  ctaTxt:     { fontSize: 15, fontWeight: '700', color: 'white' },
+  missionPill:    { alignSelf: 'flex-start', backgroundColor: palette.azulClaro, borderRadius: 8, paddingVertical: 5, paddingHorizontal: 10, marginBottom: 10 },
+  missionPillTxt: { fontFamily: 'Nunito', fontSize: 10, fontWeight: '800', color: BRAND, letterSpacing: 0.8, textTransform: 'uppercase' },
+
+  topRow:  { flexDirection: 'row', alignItems: 'center', marginBottom: 14 },
+  textCol: { flex: 1, paddingRight: 8 },
+  mascot:  { width: 110, height: 120 },
+
+  subject: { fontFamily: 'Nunito', fontSize: 26, lineHeight: 30, fontWeight: '800', color: INK, letterSpacing: -0.4, flexShrink: 1 },
+  topic:   { fontFamily: 'Nunito', fontSize: 13, fontWeight: '500', color: MUTED, marginTop: 3, flexShrink: 1 },
+  meta:    { fontFamily: 'Nunito', fontSize: 12, fontWeight: '600', color: INK, marginTop: 8 },
+
+  progressLabel: { fontFamily: 'Nunito', fontSize: 12, fontWeight: '700', color: INK, marginBottom: 6 },
+  progressRow:   { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 14 },
+  trackBg:       { flex: 1, height: 8, borderRadius: 4, backgroundColor: TRACK, overflow: 'hidden' },
+  trackFill:     { height: '100%', borderRadius: 4, backgroundColor: BRAND },
+  pct:           { fontFamily: 'Nunito', fontSize: 13, fontWeight: '800', color: BRAND, minWidth: 34, textAlign: 'right' },
+
+  ctaWrap: { borderRadius: 30, overflow: 'hidden' },
+  cta:     { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10, paddingVertical: 14 },
+  playCircle: { width: 22, height: 22, borderRadius: 11, backgroundColor: 'rgba(255,255,255,0.25)', justifyContent: 'center', alignItems: 'center' },
+  ctaTxt:  { fontFamily: 'Nunito', fontSize: 15, fontWeight: '800', color: 'white' },
 });

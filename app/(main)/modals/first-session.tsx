@@ -1,5 +1,5 @@
 import { SHOW_GEMS } from '@/config/features';
-import { palette, semantic } from '@/theme/colors';
+import { palette, paletteExtras, semantic } from '@/theme/colors';
 import { getDemoSession, type DemoQuestion, type DemoSession } from '@/constants/demoSessions';
 import { useOnboarding } from '@/contexts/OnboardingContext';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -22,8 +22,8 @@ const { height: SCREEN_H } = Dimensions.get('window');
 const SM = SCREEN_H < 740;
 
 const BG    = palette.crema;
-const BRAND = palette.morado;
-const LIME  = palette.limaElectrica;
+const BRAND = palette.azul;
+const LIME  = palette.verdeXP;
 
 const COMPLETED_KEY = 'nemup_first_session_completed';
 const PROGRESS_KEY  = 'nemup_first_session_progress';
@@ -79,7 +79,7 @@ function PillBar({ filled, total, color }: { filled: number; total: number; colo
 }
 
 // ─── Burst confetti (correct answer) ─────────────────────────────────────────
-const BURST_COLORS = [LIME, palette.morado, '#FF5B9F', '#5BC8FF', '#FFB547', '#00C2A8'];
+const BURST_COLORS = [LIME, palette.azul, palette.rosaQuiz, paletteExtras.cieloAzul, palette.ambar, palette.tealTarjetas];
 const BURST_ANGLES = [0, 55, 110, 165, 220, 275, 30, 85, 140, 195, 250, 305];
 
 function BurstParticle({ i }: { i: number }) {
@@ -116,14 +116,14 @@ function ConfettiBurst({ count = 10 }: { count?: number }) {
 
 // ─── Falling confetti (result screen) ────────────────────────────────────────
 const FALL_CONF = [
-  { left: '4%',   color: LIME,          size: 9,  dur: 1800, delay: 0   },
-  { left: '16%',  color: '#FF5B9F',     size: 7,  dur: 2200, delay: 180 },
-  { left: '28%',  color: '#5BC8FF',     size: 10, dur: 2000, delay: 80  },
-  { left: '42%',  color: LIME,          size: 6,  dur: 2400, delay: 320 },
-  { left: '55%',  color: palette.morado,  size: 8,  dur: 1900, delay: 120 },
-  { left: '67%',  color: '#FFB547',     size: 7,  dur: 2300, delay: 260 },
-  { left: '79%',  color: '#FF5B9F',     size: 9,  dur: 2100, delay: 400 },
-  { left: '91%',  color: '#5BC8FF',     size: 6,  dur: 2500, delay: 50  },
+  { left: '4%',   color: LIME,               size: 9,  dur: 1800, delay: 0   },
+  { left: '16%',  color: palette.rosaQuiz,       size: 7,  dur: 2200, delay: 180 },
+  { left: '28%',  color: paletteExtras.cieloAzul, size: 10, dur: 2000, delay: 80  },
+  { left: '42%',  color: LIME,               size: 6,  dur: 2400, delay: 320 },
+  { left: '55%',  color: palette.azul,         size: 8,  dur: 1900, delay: 120 },
+  { left: '67%',  color: palette.ambar,          size: 7,  dur: 2300, delay: 260 },
+  { left: '79%',  color: palette.rosaQuiz,       size: 9,  dur: 2100, delay: 400 },
+  { left: '91%',  color: paletteExtras.cieloAzul, size: 6,  dur: 2500, delay: 50  },
 ] as const;
 
 function FallingPiece({ c }: { c: typeof FALL_CONF[number] }) {
@@ -185,8 +185,8 @@ function QuizOption({ opt, selected, revealed, isCorrectOpt, onPress }: {
     ? (isCorrectOpt ? BRAND : isWrong ? palette.bordeMedio : palette.bordeClaro)
     : (selected ? BRAND : palette.bordeClaro);
   const bgColor     = revealed
-    ? (isCorrectOpt ? 'rgba(91,61,245,0.04)' : palette.blanco)
-    : (selected ? palette.moradoBg : palette.blanco);
+    ? (isCorrectOpt ? 'rgba(22,119,242,0.04)' : palette.blanco)
+    : (selected ? palette.azulClaro : palette.blanco);
   const letterBg    = revealed
     ? (isCorrectOpt ? BRAND : isWrong ? palette.bordeMedio : palette.crema)
     : (selected ? BRAND : palette.crema);
@@ -304,7 +304,7 @@ export default function FirstSessionScreen() {
   if (phase === 'loading') {
     return (
       <View style={{ flex: 1, backgroundColor: BG, alignItems: 'center', justifyContent: 'center' }}>
-        <Loader size={40} color={palette.morado} strokeWidth={1.8} />
+        <Loader size={40} color={palette.azul} strokeWidth={1.8} />
       </View>
     );
   }
@@ -319,12 +319,12 @@ export default function FirstSessionScreen() {
           showsVerticalScrollIndicator={false}
         >
           <View style={styles.introEmojiWrap}>
-            <SubjectIcon subject={session.subjectName} size={SM ? 72 : 88} color={palette.morado} />
+            <SubjectIcon subject={session.subjectName} size={SM ? 72 : 88} color={palette.azul} />
           </View>
 
           <Text style={styles.introTitle}>
             Entrena con{' '}
-            <Text style={{ color: palette.morado }}>{session.subjectName}</Text>
+            <Text style={{ color: palette.azul }}>{session.subjectName}</Text>
             {' '}— siente cómo funciona NemUp.
           </Text>
 
@@ -359,8 +359,8 @@ export default function FirstSessionScreen() {
     const accuracy = Math.round((correctCount / session.questions.length) * 100);
     return (
       <View style={{ flex: 1 }}>
-        <StatusBar barStyle="light-content" backgroundColor={palette.morado} />
-        <View style={{ flex: 1, backgroundColor: palette.morado }}>
+        <StatusBar barStyle="light-content" backgroundColor={palette.azul} />
+        <View style={{ flex: 1, backgroundColor: palette.azul }}>
           {FALL_CONF.map((c, i) => <FallingPiece key={i} c={c} />)}
           <SafeAreaView style={[styles.resultSafe, { paddingBottom: insets.bottom + 20 }]}>
             <View style={styles.trophyWrap}>
@@ -478,7 +478,7 @@ export default function FirstSessionScreen() {
           {revealed && question?.explanation ? (
             <View style={[styles.feedbackCallout, {
               borderLeftColor: isCorrect ? BRAND : palette.bordeMedio,
-              backgroundColor: isCorrect ? 'rgba(91,61,245,0.04)' : palette.crema,
+              backgroundColor: isCorrect ? 'rgba(22,119,242,0.04)' : palette.crema,
             }]}>
               <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
                 <Text style={styles.feedbackTitle}>
@@ -547,7 +547,7 @@ const styles = StyleSheet.create({
   // Quiz content
   quizScroll:    { paddingHorizontal: 16, paddingTop: 6 },
   questionCard:  { backgroundColor: palette.blanco, borderRadius: 20, padding: SM ? 14 : 16, marginBottom: 10 },
-  questionChip:  { fontSize: 10, fontWeight: '800', color: palette.morado, letterSpacing: 0.4, backgroundColor: 'rgba(91,61,245,0.08)', paddingVertical: 3, paddingHorizontal: 8, borderRadius: 100 },
+  questionChip:  { fontSize: 10, fontWeight: '800', color: palette.azul, letterSpacing: 0.4, backgroundColor: 'rgba(22,119,242,0.08)', paddingVertical: 3, paddingHorizontal: 8, borderRadius: 100 },
   questionText:  { fontSize: SM ? 16 : 18, fontWeight: '800', color: semantic.textPrimary, lineHeight: SM ? 24 : 27, letterSpacing: -0.2 },
 
   // Options

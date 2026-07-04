@@ -1,3 +1,5 @@
+import { paletteExtras } from '@/theme/colors';
+
 export interface OnboardingData {
   name: string;
   curso: string;
@@ -30,11 +32,11 @@ export const ONBOARDING_STEPS = [
 export const CURSOS = ['1º Medio', '2º Medio', '3º Medio', '4º Medio'];
 
 export const VEHICLES = [
-  { nivel: 1, name: 'City Car Sport',      nemMin: 0,   nemMax: 499,  color: '#E2E8F0' },
-  { nivel: 2, name: 'Hatchback Deportivo', nemMin: 500, nemMax: 649,  color: '#A8C4E0' },
-  { nivel: 3, name: 'Deportivo Premium',   nemMin: 650, nemMax: 749,  color: '#F59E0B' },
-  { nivel: 4, name: 'Superdeportivo',      nemMin: 750, nemMax: 849,  color: '#EF4444' },
-  { nivel: 5, name: 'Hypercar Elite',      nemMin: 850, nemMax: 1000, color: '#8B5CF6' },
+  { nivel: 1, name: 'City Car Sport',      nemMin: 0,   nemMax: 499,  color: paletteExtras.vehiculoGris },
+  { nivel: 2, name: 'Hatchback Deportivo', nemMin: 500, nemMax: 649,  color: paletteExtras.vehiculoAzul },
+  { nivel: 3, name: 'Deportivo Premium',   nemMin: 650, nemMax: 749,  color: paletteExtras.ambarFuerte },
+  { nivel: 4, name: 'Superdeportivo',      nemMin: 750, nemMax: 849,  color: paletteExtras.rojoMedio },
+  { nivel: 5, name: 'Hypercar Elite',      nemMin: 850, nemMax: 1000, color: paletteExtras.vehiculoVioleta },
 ];
 
 export function getVehicleForNem(nem: number) {

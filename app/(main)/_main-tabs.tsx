@@ -5,30 +5,26 @@ import { Tabs, useRouter } from 'expo-router';
 import { useEffect, useRef } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { BookOpen, Bot, Home, Trophy, User } from 'lucide-react-native';
+import { Home, Target, User } from 'lucide-react-native';
 
 const FIRST_SESSION_KEY = 'nemup_first_session_completed';
-const BRAND = palette.morado;
+const BRAND = palette.azul;
 
-type TabName = 'home' | 'ramos' | 'tutor' | 'liga' | 'perfil';
+type TabName = 'home' | 'misiones' | 'perfil';
 
 const TAB_ICONS: Record<TabName, React.ComponentType<{ size?: number; color?: string; strokeWidth?: number }>> = {
-  home:   Home,
-  ramos:  BookOpen,
-  tutor:  Bot,
-  liga:   Trophy,
-  perfil: User,
+  home:     Home,
+  misiones: Target,
+  perfil:   User,
 };
 
 const TAB_LABELS: Record<string, string> = {
-  home:   'Inicio',
-  ramos:  'Ramos',
-  tutor:  'Tutor',
-  liga:   'Liga',
-  perfil: 'Perfil',
+  home:     'Inicio',
+  misiones: 'Misiones',
+  perfil:   'Perfil',
 };
 
-const VISIBLE  = new Set(['home', 'ramos', 'tutor', 'liga', 'perfil']);
+const VISIBLE  = new Set(['home', 'misiones', 'perfil']);
 const HIDE_BAR = new Set(['modals/first-session', 'modals/upload', 'modals/session', 'modals/desafio', 'session-complete']);
 
 // ── Floating tab bar ─────────────────────────────────────────────
@@ -116,7 +112,7 @@ const tabStyles = StyleSheet.create({
     alignItems: 'center',
   },
   iconWrapActive: {
-    backgroundColor: palette.moradoBg,
+    backgroundColor: palette.azulClaro,
   },
   label: {
     fontSize: 10,
@@ -151,9 +147,7 @@ export default function MainTabs() {
       screenOptions={{ headerShown: false }}
     >
       <Tabs.Screen name="home" />
-      <Tabs.Screen name="ramos" />
-      <Tabs.Screen name="tutor" />
-      <Tabs.Screen name="liga" />
+      <Tabs.Screen name="misiones" />
       <Tabs.Screen name="perfil" />
       <Tabs.Screen name="modals/upload"        options={{ href: null }} />
       <Tabs.Screen name="modals/session"       options={{ href: null }} />

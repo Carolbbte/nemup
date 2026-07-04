@@ -1,12 +1,13 @@
 import type { DailyMode } from '@/contexts/DailySessionContext';
 import { Brain, Check, Layers, Target } from 'lucide-react-native';
 import { StyleSheet, Text, View } from 'react-native';
+import { palette, paletteExtras } from '@/theme/colors';
 
-const BRAND  = '#5B3DF5';
-const INK    = '#1A1A22';
-const MUTED  = '#6B6779';
-const LABEL  = '#9A95A6';
-const GREEN  = '#1D9E75';
+const BRAND  = palette.azul;
+const INK    = palette.charcoal;
+const MUTED  = palette.grisMedio;
+const LABEL  = palette.grisClaro;
+const GREEN  = palette.verde;
 
 type IconComponent = React.ComponentType<{ size?: number; color?: string; strokeWidth?: number }>;
 
@@ -17,10 +18,10 @@ const MODE_CONFIG: Record<DailyMode, {
   iconColor: string;
   Icon: IconComponent;
 }> = {
-  mision:   { label: 'Misión',   desc: 'Aprende los conceptos clave',    iconBg: '#ECE9FF', iconColor: BRAND,     Icon: Target },
-  quiz:     { label: 'Quiz',     desc: 'Responde preguntas de práctica', iconBg: '#FFEBF2', iconColor: '#D4537E', Icon: Brain  },
-  tarjetas: { label: 'Tarjetas', desc: 'Repasa con flashcards',          iconBg: '#DCF5F1', iconColor: '#0F6E56', Icon: Layers },
-  desafio:  { label: 'Desafío',  desc: 'Pon a prueba lo aprendido',      iconBg: '#ECE9FF', iconColor: BRAND,     Icon: Target },
+  mision:   { label: 'Misión',   desc: 'Aprende los conceptos clave',    iconBg: palette.azulClaro,      iconColor: BRAND,                    Icon: Target },
+  quiz:     { label: 'Quiz',     desc: 'Responde preguntas de práctica', iconBg: palette.rosaQuizBg,    iconColor: palette.rosaQuizIcon,     Icon: Brain  },
+  tarjetas: { label: 'Tarjetas', desc: 'Repasa con flashcards',          iconBg: palette.tealTarjetasBg, iconColor: palette.tealTarjetasIcon, Icon: Layers },
+  desafio:  { label: 'Desafío',  desc: 'Pon a prueba lo aprendido',      iconBg: palette.azulClaro,      iconColor: BRAND,                    Icon: Target },
 };
 
 export type ModeStatus = 'pending' | 'next' | 'done';
@@ -38,7 +39,7 @@ export default function ModeRow({ mode, status }: Props) {
 
   return (
     <View style={s.row}>
-      <View style={[s.iconBox, { backgroundColor: done ? '#F5F4F0' : cfg.iconBg }]}>
+      <View style={[s.iconBox, { backgroundColor: done ? paletteExtras.grisFondoDone : cfg.iconBg }]}>
         <Icon size={18} color={done ? LABEL : cfg.iconColor} strokeWidth={1.8} />
       </View>
       <View style={s.text}>
@@ -60,11 +61,11 @@ const s = StyleSheet.create({
   row:           { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 9 },
   iconBox:       { width: 36, height: 36, borderRadius: 10, justifyContent: 'center', alignItems: 'center', flexShrink: 0 },
   text:          { flex: 1 },
-  label:         { fontSize: 14, fontWeight: '600', color: INK, marginBottom: 1 },
+  label:         { fontFamily: 'Nunito', fontSize: 14, fontWeight: '600', color: INK, marginBottom: 1 },
   labelDone:     { color: LABEL, textDecorationLine: 'line-through' as const },
-  desc:          { fontSize: 11, color: MUTED },
+  desc:          { fontFamily: 'Nunito', fontSize: 11, color: MUTED },
   descDone:      { color: LABEL },
-  circlePending: { width: 20, height: 20, borderRadius: 10, borderWidth: 1.5, borderColor: '#D6D2C8', flexShrink: 0 },
+  circlePending: { width: 20, height: 20, borderRadius: 10, borderWidth: 1.5, borderColor: palette.bordeMedio, flexShrink: 0 },
   circleNext:    { borderWidth: 2, borderColor: BRAND },
   circleDone:    { width: 20, height: 20, borderRadius: 10, backgroundColor: GREEN, justifyContent: 'center', alignItems: 'center', flexShrink: 0 },
 });

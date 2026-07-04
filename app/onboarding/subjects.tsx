@@ -66,7 +66,7 @@ export default function SubjectsScreen() {
       {/* Body */}
       <View style={styles.body}>
         <View style={{ alignItems: 'center', marginTop: 16, marginBottom: 12 }}>
-          <BookOpen size={48} color={palette.morado} strokeWidth={1.5} />
+          <BookOpen size={48} color={palette.azul} strokeWidth={1.5} />
         </View>
         <Text style={styles.title}>¿Qué ramos estudias?</Text>
         <Text style={styles.subtitle}>Selecciona tus asignaturas</Text>
@@ -83,7 +83,7 @@ export default function SubjectsScreen() {
                 style={[styles.subjectCard, active && styles.subjectCardActive]}
               >
                 <View style={[styles.subjectEmoji, active && styles.subjectEmojiActive]}>
-                  <SubIcon size={14} color={active ? palette.morado : semantic.textSecondary} strokeWidth={2} />
+                  <SubIcon size={14} color={active ? palette.azul : semantic.textSecondary} strokeWidth={2} />
                 </View>
                 <Text style={styles.subjectName}>{subject.name}</Text>
                 {active && (
@@ -170,10 +170,10 @@ const styles = StyleSheet.create({
     borderRadius: 2,
   },
   dotActive: {
-    backgroundColor: palette.morado,
+    backgroundColor: palette.azul,
   },
   dotDone: {
-    backgroundColor: palette.morado,
+    backgroundColor: palette.azul,
   },
   body: {
     flex: 1,
@@ -216,8 +216,8 @@ const styles = StyleSheet.create({
     position: 'relative',
   },
   subjectCardActive: {
-    borderColor: palette.morado,
-    backgroundColor: palette.moradoBg,
+    borderColor: palette.azul,
+    backgroundColor: palette.azulClaro,
   },
   subjectEmoji: {
     width: 28,
@@ -246,7 +246,7 @@ const styles = StyleSheet.create({
     width: 16,
     height: 16,
     borderRadius: 50,
-    backgroundColor: palette.morado,
+    backgroundColor: palette.azul,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -268,7 +268,7 @@ const styles = StyleSheet.create({
     color: semantic.textSecondary,
   },
   counterBold: {
-    color: palette.morado,
+    color: palette.azul,
     fontWeight: '700',
   },
   bottom: {
@@ -278,7 +278,7 @@ const styles = StyleSheet.create({
   },
   continueBtn: {
     width: '100%',
-    backgroundColor: palette.morado,
+    backgroundColor: palette.azul,
     paddingVertical: 14,
     borderRadius: 14,
     flexDirection: 'row',

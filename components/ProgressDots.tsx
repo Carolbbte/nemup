@@ -1,8 +1,8 @@
 import { palette } from '@/theme/colors';
 import { StyleSheet, View } from 'react-native';
 
-const ACTIVE_COLOR   = palette.morado;
-const INACTIVE_COLOR = palette.moradoBg;
+const ACTIVE_COLOR   = palette.azul;
+const INACTIVE_COLOR = palette.azulClaro;
 const TOTAL          = 7;
 
 type Props = { current: number };

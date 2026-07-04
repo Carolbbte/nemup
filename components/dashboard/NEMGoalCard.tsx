@@ -1,10 +1,11 @@
 import { StyleSheet, Text, View } from 'react-native';
+import { palette, paletteExtras } from '@/theme/colors';
 
-const BRAND = '#5B3DF5';
-const INK   = '#1A1A22';
-const MUTED = '#6B6779';
-const LABEL = '#9A95A6';
-const TRACK = '#F0EDE5';
+const BRAND = palette.azul;
+const INK   = palette.charcoal;
+const MUTED = palette.grisMedio;
+const LABEL = palette.grisClaro;
+const TRACK = paletteExtras.trackClaro;
 
 type Props = {
   currentNEM: number;  // 0–1000 (NEM × 100)
@@ -31,7 +32,7 @@ export default function NEMGoalCard({ currentNEM, targetNEM }: Props) {
 }
 
 const s = StyleSheet.create({
-  card:   { backgroundColor: '#FFFFFF', borderRadius: 12, padding: 14, borderWidth: 0.5, borderColor: '#E8E5DC', marginBottom: 14 },
+  card:   { backgroundColor: palette.blanco, borderRadius: 12, padding: 14, borderWidth: 0.5, borderColor: palette.bordeClaro, marginBottom: 14 },
   topRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 },
   label:  { fontSize: 11, fontWeight: '500', color: LABEL, letterSpacing: 1.2, textTransform: 'uppercase' },
   range:  { fontSize: 11, color: MUTED },

@@ -21,7 +21,7 @@ import {
 const BG   = palette.crema;
 const DARK = semantic.textPrimary;
 const MED  = semantic.textSecondary;
-const PRIM = palette.morado;
+const PRIM = palette.azul;
 const GOLD = palette.ambar;
 
 // ── NEM scale: display 5.0–7.0 ↔ stored ×100 (500–700) ──────
@@ -549,7 +549,7 @@ const s = StyleSheet.create({
     position: 'absolute',
     width: CP_R * 2, height: CP_R * 2, borderRadius: CP_R,
     borderWidth: 2.5, borderColor: PRIM,
-    backgroundColor: 'rgba(91,61,245,0.18)',
+    backgroundColor: 'rgba(22,119,242,0.18)',
     zIndex: 8,
   },
 

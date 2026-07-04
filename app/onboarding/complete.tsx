@@ -15,7 +15,7 @@ const SM = H < 740;
 const BG   = palette.crema;
 const DARK = semantic.textPrimary;
 const MED  = semantic.textSecondary;
-const PRIM = palette.morado;
+const PRIM = palette.azul;
 
 export default function CompleteScreen() {
   const { state, completeOnboarding, prevStep } = useOnboarding();
@@ -98,10 +98,10 @@ const s = StyleSheet.create({
     flexDirection: 'row', alignItems: 'center', gap: 14,
     marginHorizontal: 24, marginBottom: 8,
     backgroundColor: palette.blanco, borderRadius: 16,
-    borderWidth: 1.5, borderColor: palette.moradoBg,
+    borderWidth: 1.5, borderColor: palette.azulClaro,
     padding: 14,
   },
-  uploadIconWrap: { width: 44, height: 44, borderRadius: 12, backgroundColor: palette.moradoBg, alignItems: 'center', justifyContent: 'center' },
+  uploadIconWrap: { width: 44, height: 44, borderRadius: 12, backgroundColor: palette.azulClaro, alignItems: 'center', justifyContent: 'center' },
   uploadTitle:    { fontSize: 14, fontWeight: '700', color: DARK, marginBottom: 2 },
   uploadDesc:     { fontSize: 12, color: MED },
 

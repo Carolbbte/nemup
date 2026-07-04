@@ -13,7 +13,7 @@ const SM = H < 740;
 const BG     = palette.crema;
 const DARK   = semantic.textPrimary;
 const MED    = semantic.textSecondary;
-const PRIM   = palette.morado;
+const PRIM   = palette.azul;
 const BORDER = palette.bordeClaro;
 
 const AVATAR_SIZE = SM ? 110 : 130;
@@ -115,7 +115,7 @@ const s = StyleSheet.create({
     backgroundColor: palette.blanco, borderWidth: 1.5, borderColor: BORDER,
     borderRadius: 16, paddingHorizontal: 16,
   },
-  inputFocused: { borderColor: PRIM, backgroundColor: palette.moradoBg },
+  inputFocused: { borderColor: PRIM, backgroundColor: palette.azulClaro },
   input:        { flex: 1, fontSize: 16, fontWeight: '500', color: DARK },
 
   bottomRow: {
