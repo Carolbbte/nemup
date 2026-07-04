@@ -1767,6 +1767,18 @@ const VALID_SLIDE_TYPES: SummarySlideType[] = [
 const VALID_ILLUSTRATION_TYPES: IllustrationType[] = ['educational', 'diagram', 'concept', 'timeline', 'map', 'process', 'comparison'];
 const INTERACTIVE_SLIDE_TYPES = ['comprehension', 'mini_quiz', 'final_challenge', 'decide'];
 
+// Prints the full text of a prompt to the log in chunks, since log drivers
+// (e.g. Railway) can truncate very long single lines.
+function logFullText(label: string, text: string) {
+  const CHUNK = 3500;
+  const total = Math.max(1, Math.ceil(text.length / CHUNK));
+  console.log(`\n[${label}] ── INICIO (${text.length} chars, ${total} partes) ──`);
+  for (let i = 0; i < total; i++) {
+    console.log(`[${label}][${i + 1}/${total}] ${text.slice(i * CHUNK, (i + 1) * CHUNK)}`);
+  }
+  console.log(`[${label}] ── FIN ──\n`);
+}
+
 // Calls OpenAI with the given prompt and builds the parsed GenerationResult (without skill metadata).
 async function callOpenAIAndBuildResult(
   prompt: string,
@@ -2318,6 +2330,8 @@ export async function generateSessionContent(
   console.log(`[Generation] source=${knowledgeGraph ? 'knowledgeGraph' : 'transcription'}`);
   console.log(`[Generation] prompt_chars=${prompt.length} (~${Math.round(prompt.length / 4)} tokens)`);
   console.log(`[Generation] prompt_content=${prompt.includes('KNOWLEDGE GRAPH') ? 'knowledgeGraph ✓' : 'rawTranscription ⚠️'}`);
+  logFullText('PromptAudit-System', systemMsg);
+  logFullText('PromptAudit-User', prompt);
   const base = await callOpenAIAndBuildResult(prompt, systemMsg, configValues);
 
   // ── [TEMP] RAW OPENAI RESPONSE AUDIT ─────────────────────────────────────────
@@ -2508,6 +2522,8 @@ export async function generateSkillMission(
   const prompt = buildFocusedProceduralPrompt(transcription, curso, primarySkill, learningPath, contentOverride);
   console.log(`[Generation] source=${knowledgeGraph ? 'knowledgeGraph' : 'transcription'} prompt_chars=${prompt.length}`);
   const systemMsg = `Eres un diseñador de sesiones de aprendizaje procedimental para estudiantes chilenos de enseñanza media. Esta misión enseña UNA SOLA habilidad: "${primarySkill.skillLabel}". PROHIBIDO incluir ejercicios evaluativos de otras habilidades. Estructura FIJA: GANCHO → MÉTODO → EJEMPLO GUIADO → COMPRENSIÓN → APLICACIÓN → ENCUENTRA EL ERROR → DESAFÍO → REFLEXIÓN → EVALUACIÓN FINAL → VICTORIA. Genera exactamente 10 pantallas en ese orden. Pantalla 6 (common_error) es INTERACTIVA: incluye question + options + correctAnswer. Verifica que todas las equivalencias matemáticas sean correctas. Nunca escribas corchetes como [instrucción] — escribe el contenido real. JSON válido únicamente. Todo en español.`;
+  logFullText('PromptAudit-SkillMission-System', systemMsg);
+  logFullText('PromptAudit-SkillMission-User', prompt);
   const base = await callOpenAIAndBuildResult(prompt, systemMsg, sessionConfig, 8000);
 
   // Validate skill focus
