@@ -15,14 +15,12 @@ import {
   ClipboardCheck,
   Clock,
   FileText,
-  Flag,
   FolderOpen,
   ImageIcon,
   Layers,
-  PenLine,
+  Loader2,
   Plus,
   ShieldCheck,
-  Sparkles,
   Target,
   Timer,
   Trash2,
@@ -73,31 +71,13 @@ const SESSION_ITEMS = [
   { Icon: Layers,         label: 'Tarjetas', desc: 'Repasa con tarjetas interactivas',           bg: paletteExtras.verdeChipBg,      color: palette.verdeXP },
 ];
 
-// Coarse 4-step tracker shown at the top of Screen 1 (bucketed from GEN_SCRIPT below).
-const PROGRESS_STAGES = [
-  { key: 'analizando',   label: 'Analizando',   sub: 'Tu material' },
-  { key: 'entendiendo',  label: 'Entendiendo',  sub: 'Los conceptos' },
-  { key: 'construyendo', label: 'Construyendo', sub: 'Tu sesión' },
-  { key: 'listo',        label: '¡Listo!',      sub: 'A aprender' },
-] as const;
-
-// Scripted narrative for the "Ahora estamos" card + progress bar. Advances every 3s
-// (see the effect in the component) up to the second-to-last entry; the last entry
-// ("¡Ya casi está!") holds until the backend actually confirms completion.
-const GEN_SCRIPT = [
-  { emoji: '📄', title: 'Analizando tu material',              desc: 'Revisando apuntes, imágenes y estructura del documento.',        to: 10 },
-  { emoji: '🔎', title: 'Identificando los temas principales',  desc: 'Buscando las ideas más importantes para que estudies sólo lo necesario.', to: 20 },
-  { emoji: '🧠', title: 'Detectando conceptos clave',           desc: 'Encontrando relaciones entre conceptos y palabras importantes.', to: 30 },
-  { emoji: '🎯', title: 'Midiendo tu nivel de dificultad',      desc: 'Ajustando el contenido para que no sea ni muy fácil ni demasiado difícil.', to: 40 },
-  { emoji: '📚', title: 'Organizando la información',           desc: 'Agrupando el contenido para crear una sesión con sentido.',      to: 50 },
-  { emoji: '✨', title: 'Creando tu misión',                    desc: 'Diseñando una explicación paso a paso sólo para ti.',            to: 60 },
-  { emoji: '❓', title: 'Escribiendo preguntas inteligentes',    desc: 'Preparando preguntas que realmente te ayuden a aprender.',       to: 70 },
-  { emoji: '🃏', title: 'Generando tarjetas de estudio',        desc: 'Seleccionando los conceptos ideales para memorizar.',            to: 80 },
-  { emoji: '🚀', title: 'Personalizando tu entrenamiento',      desc: 'Ajustando duración, dificultad y ritmo de estudio.',             to: 90 },
-  { emoji: '✅', title: 'Revisando la calidad',                 desc: 'Verificando que todo tenga sentido antes de entregártelo.',      to: 97 },
-  { emoji: '🎉', title: '¡Ya casi está!',                       desc: 'Dándole los últimos retoques a tu misión.',                      to: 97 },
-] as const;
-
+// Real backend job status → copy shown on Screen 1. No invented percentages or fake
+// stage narrative — these are the only two in-flight states GET /sessions/:jobId reports
+// (see pollJobStatus). 'completed'/'failed' are handled separately (navigate away / error overlay).
+const JOB_STATUS_COPY: Record<'pending' | 'processing', { title: string; desc: string }> = {
+  pending:    { title: 'En cola…',              desc: 'Tu solicitud está esperando su turno para empezar a procesarse.' },
+  processing: { title: 'Generando tu sesión…',  desc: 'Estamos analizando tu material y construyendo tu misión, paso a paso.' },
+};
 
 
 // ── Subtle background floating dot ────────────────────────────────
@@ -181,31 +161,21 @@ const fti = StyleSheet.create({
   doc:     { width: 38, height: 38, borderRadius: 10, backgroundColor: paletteExtras.azulBg, alignItems: 'center', justifyContent: 'center' },
 });
 
-// ── Stage tracker (4-step, driven by real generation progress) ────
-const STAGE_ICONS = [Sparkles, Brain, PenLine, Flag] as const;
-
-function StageTracker({ activeIndex, compact }: { activeIndex: number; compact?: boolean }) {
+// ── Indeterminate spinner — real state, no invented percentage ────
+// A continuously-rotating loader icon. Used while jobStatus is 'pending'/'processing';
+// deliberately has no notion of "how far along" generation is, since the backend doesn't
+// report that granularity and a previous scripted/fake progress bar was discarded for
+// credibility reasons.
+function Spinner({ size = 22, color = BRAND }: { size?: number; color?: string }) {
+  const rotation = useSharedValue(0);
+  useEffect(() => {
+    rotation.value = withRepeat(withTiming(360, { duration: 900, easing: Easing.linear }), -1, false);
+  }, []);
+  const animStyle = useAnimatedStyle(() => ({ transform: [{ rotate: `${rotation.value}deg` }] }));
   return (
-    <View style={s1.trackerRow}>
-      {PROGRESS_STAGES.map((stageItem, i) => {
-        const Icon = STAGE_ICONS[i];
-        const reached = i <= activeIndex;
-        return (
-          <View key={stageItem.key} style={s1.trackerFragment}>
-            {i > 0 && <View style={[s1.trackerLine, reached && s1.trackerLineActive]} />}
-            <View style={s1.trackerItem}>
-              <View style={[s1.trackerIcon, compact && s1.trackerIconCompact, reached && s1.trackerIconActive]}>
-                <Icon size={compact ? 14 : 20} color={reached ? 'white' : palette.grisClaro} strokeWidth={2} />
-              </View>
-              <Text style={[s1.trackerLabel, i === activeIndex && s1.trackerLabelActive]} numberOfLines={1}>
-                {stageItem.label}
-              </Text>
-              {compact && <Text style={s1.trackerSub} numberOfLines={1}>{stageItem.sub}</Text>}
-            </View>
-          </View>
-        );
-      })}
-    </View>
+    <Animated.View style={animStyle}>
+      <Loader2 size={size} color={color} strokeWidth={2.5} />
+    </Animated.View>
   );
 }
 
@@ -251,11 +221,11 @@ export default function UploadFlowScreen() {
   const [uploadError, setUploadError]         = useState('');
   const [generationError, setGenerationError] = useState<string | null>(null);
   const [sessionResult, setSessionResult]     = useState<any | null>(null);
-  const [displayPct, setDisplayPct]           = useState(0);
   const [recentExpanded, setRecentExpanded]   = useState(false);
   const [recentFiles, setRecentFiles]         = useState<UploadedFile[]>([]);
-  // Scripted progress narrative (see GEN_SCRIPT) — advances every 3s while generating
-  const [scriptIdx, setScriptIdx]             = useState(0);
+  // Real backend status while a v2 (async/queue) job is in flight — null while on the v1
+  // (SSE) path, which has no intermediate status of its own besides "generating".
+  const [jobStatus, setJobStatus]             = useState<'pending' | 'processing' | null>(null);
 
   useEffect(() => {
     AsyncStorage.getItem('nemup_recent_files').then(raw => {
@@ -269,7 +239,59 @@ export default function UploadFlowScreen() {
   const generationStartedRef = useRef(false);
   const autoNavRef           = useRef<ReturnType<typeof setTimeout> | null>(null);
   const stepRef              = useRef(0);
+  const pollIntervalRef      = useRef<ReturnType<typeof setInterval> | null>(null);
+  const pollTimeoutRef       = useRef<ReturnType<typeof setTimeout> | null>(null);
   stepRef.current = step;
+
+  // Stops the v2 polling loop and its 90s safety timeout — called on completion, failure,
+  // retry, unmount, or when a v1 (SSE) request is detected (no polling needed there).
+  const stopPolling = useCallback(() => {
+    if (pollIntervalRef.current) { clearInterval(pollIntervalRef.current); pollIntervalRef.current = null; }
+    if (pollTimeoutRef.current)  { clearTimeout(pollTimeoutRef.current);   pollTimeoutRef.current = null; }
+  }, []);
+
+  // Polls GET /sessions/:jobId every 2s until 'completed' or 'failed'. Safety timeout at
+  // ~90s prevents an infinite spinner if the job silently stalls.
+  const pollJobStatus = useCallback((jobId: string) => {
+    stopPolling();
+
+    const poll = async () => {
+      try {
+        const res = await fetch(`${getBackendBaseUrl()}/sessions/${jobId}`);
+        const data = await res.json();
+
+        if (data.status === 'completed') {
+          stopPolling();
+          const session = data.session;
+          // Normalize to the same envelope shape the v1 'complete' SSE event sends, so
+          // downstream code (handleStart, the "navigate on complete" effect) doesn't need
+          // to know which engine produced the session.
+          setSessionResult({
+            pathId: null,
+            totalMissions: 1,
+            missions: [{ missionIndex: 0, skillId: null, skillLabel: null, sessionId: session?.id, session }],
+            sessionId: session?.id,
+            session,
+          });
+        } else if (data.status === 'failed') {
+          stopPolling();
+          setGenerationError(data.error ?? 'No se pudo generar la sesión.');
+        } else if (data.status === 'pending' || data.status === 'processing') {
+          setJobStatus(data.status);
+        }
+      } catch {
+        // Transient network hiccup mid-poll — keep trying; the safety timeout below
+        // will eventually catch a connection that's truly dead.
+      }
+    };
+
+    poll();
+    pollIntervalRef.current = setInterval(poll, 2000);
+    pollTimeoutRef.current = setTimeout(() => {
+      stopPolling();
+      setGenerationError('Esto está tardando más de lo esperado. Intenta nuevamente.');
+    }, 90000);
+  }, [stopPolling]);
 
   // Reset to fresh state whenever the screen refocuses after a non-fresh visit — this
   // modal is a one-shot flow, so re-entering it (e.g. from the dashboard's "subir nuevos
@@ -279,22 +301,22 @@ export default function UploadFlowScreen() {
     useCallback(() => {
       if (stepRef.current !== 0) {
         xhrRef.current?.abort();
+        stopPolling();
         generationStartedRef.current = false;
         setStep(0);
         setSelectedFiles([]);
         setUploadError('');
         setGenerationError(null);
         setSessionResult(null);
+        setJobStatus(null);
       }
-    }, [])
+    }, [stopPolling])
   );
 
   // ── Shared values (ALL unconditional) ─────────────────────────
-  const progressFill    = useSharedValue(0);
   const filesAnim       = useSharedValue(0);
 
   // ── Animated styles (ALL unconditional) ───────────────────────
-  const progressFillStyle = useAnimatedStyle(() => ({ width: `${progressFill.value * 100}%` as any }));
   const filesAnimStyle = useAnimatedStyle(() => ({
     opacity:   filesAnim.value,
     transform: [{ translateY: (1 - filesAnim.value) * 8 }],
@@ -302,27 +324,9 @@ export default function UploadFlowScreen() {
 
   // ── Effects ────────────────────────────────────────────────────
 
-  // Screen 1: scripted narrative — advances one GEN_SCRIPT entry every 3s, capped at the
-  // last entry (which holds until the backend actually confirms completion; see the
-  // "sessionResult" effect below, which takes the bar the rest of the way to 100%).
-  useEffect(() => {
-    if (step !== 1) return;
-    setScriptIdx(0);
-    const interval = setInterval(() => {
-      setScriptIdx(prev => Math.min(prev + 1, GEN_SCRIPT.length - 1));
-    }, 3000);
-    return () => clearInterval(interval);
-  }, [step]);
-
-  useEffect(() => {
-    if (step !== 1) return;
-    progressFill.value = withTiming(GEN_SCRIPT[scriptIdx].to / 100, { duration: 2800, easing: Easing.out(Easing.cubic) });
-  }, [step, scriptIdx]);
-
   // Navigate directly to session dashboard when generation completes
   useEffect(() => {
     if (sessionResult && step === 1) {
-      progressFill.value = withTiming(1, { duration: 400 });
       // eslint-disable-next-line react-hooks/exhaustive-deps
       autoNavRef.current = setTimeout(() => handleStart(), 800);
       return () => { if (autoNavRef.current) clearTimeout(autoNavRef.current); };
@@ -391,12 +395,16 @@ export default function UploadFlowScreen() {
     }
   };
 
-  // Uses XMLHttpRequest (not fetch) so we can read the SSE response incrementally via
-  // onprogress — fetch's response.text() only resolves once the whole stream ends, which
-  // would make every event (and the progress bar) arrive in one burst at the very end.
+  // Uses XMLHttpRequest (not fetch) so we can inspect the response as soon as headers
+  // arrive and branch accordingly — the backend can answer in two different contracts
+  // depending on USE_GENERATION_V2 server-side, and the client auto-detects which one it
+  // got instead of needing its own copy of that flag:
+  //   - v1 (legacy, flag off): text/event-stream, incremental SSE events ending in 'complete'.
+  //   - v2 (flag on): 202 + { jobId } immediately, then poll GET /sessions/:jobId.
   const startGeneration = useCallback(() => {
     if (selectedFiles.length === 0) return;
     setGenerationError(null);
+    setJobStatus(null);
 
     const curso = onboardingDataRef.current.curso || '1º Medio';
     const primary = selectedFiles[0];
@@ -412,29 +420,55 @@ export default function UploadFlowScreen() {
       formData.append('documents', { uri: f.uri, type: f.mimeType, name: f.name } as any)
     );
 
-    // The progress narrative shown to the user is fully scripted (see GEN_SCRIPT) — we only
-    // need the backend to tell us when it's truly done or if it failed.
     const handleSseEvent = (event: string, payload: any) => {
-      if (event === 'complete') {
-        setSessionResult(payload);
-      }
+      if (event === 'complete') setSessionResult(payload);
       if (event === 'error') setGenerationError(payload?.message ?? 'Error inesperado.');
     };
 
     const xhr = new XMLHttpRequest();
     let buffer = '';
     let readOffset = 0;
+    let mode: 'v1-sse' | 'v2-async' | null = null;
 
     xhr.open('POST', `${getBackendBaseUrl()}/sessions/generate`);
-    xhr.setRequestHeader('Accept', 'text/event-stream');
 
+    xhr.onreadystatechange = () => {
+      if (mode || xhr.readyState < xhr.HEADERS_RECEIVED) return;
+      const contentType = xhr.getResponseHeader('Content-Type') ?? '';
+      mode = xhr.status === 202 || contentType.includes('application/json') ? 'v2-async' : 'v1-sse';
+    };
+
+    // v1 only: fetch's response.text() only resolves once the whole stream ends, which
+    // would make every SSE event arrive in one burst at the very end — onprogress reads
+    // it incrementally instead. v2's body is a small one-shot JSON blob, read in onload.
     xhr.onprogress = () => {
+      if (mode !== 'v1-sse') return;
       const chunk = xhr.responseText.slice(readOffset);
       readOffset = xhr.responseText.length;
       buffer = parseSseEvents(buffer + chunk, handleSseEvent);
     };
 
     xhr.onload = () => {
+      if (mode === 'v2-async') {
+        if (xhr.status !== 202) {
+          try {
+            const body = JSON.parse(xhr.responseText);
+            setGenerationError(body?.message ?? 'No se pudo iniciar la generación.');
+          } catch {
+            setGenerationError('No se pudo iniciar la generación.');
+          }
+          return;
+        }
+        try {
+          const { jobId } = JSON.parse(xhr.responseText);
+          pollJobStatus(jobId);
+        } catch {
+          setGenerationError('Respuesta inválida del servidor.');
+        }
+        return;
+      }
+
+      // v1 (SSE) path
       if (xhr.status < 200 || xhr.status >= 300) {
         setGenerationError('No se pudo generar la sesión.');
         return;
@@ -446,8 +480,8 @@ export default function UploadFlowScreen() {
     xhr.onerror = () => setGenerationError('Error de red. Intenta nuevamente.');
 
     xhr.send(formData);
-    xhrRef.current = { abort: () => xhr.abort() };
-  }, [selectedFiles]);
+    xhrRef.current = { abort: () => { xhr.abort(); stopPolling(); } };
+  }, [selectedFiles, pollJobStatus, stopPolling]);
 
   useEffect(() => {
     if (step !== 1) { generationStartedRef.current = false; return; }
@@ -463,16 +497,6 @@ export default function UploadFlowScreen() {
   useEffect(() => {
     filesAnim.value = hasFiles ? withTiming(1, { duration: 260 }) : 0;
   }, [hasFiles]);
-
-  // Smooth percentage counter — reads shared value every 80ms
-  useEffect(() => {
-    if (step !== 1) return;
-    setDisplayPct(0);
-    const interval = setInterval(() => {
-      setDisplayPct(Math.round(progressFill.value * 100));
-    }, 80);
-    return () => clearInterval(interval);
-  }, [step]);
 
   const handleContinue = async () => {
     if (!hasFiles) { setUploadError('Selecciona al menos un archivo para continuar.'); return; }
@@ -522,9 +546,9 @@ export default function UploadFlowScreen() {
   // ══════════════════════════════════════════════════════════════
   if (step === 1) {
     const firstName = onboardingDataRef.current.name?.split(' ')[0] || 'Estudiante';
-    const currentScript = GEN_SCRIPT[scriptIdx];
-    // Bucket the 11 scripted steps into the 4 coarse tracker steps; real completion always wins.
-    const trackerIdx = sessionResult ? 3 : scriptIdx <= 0 ? 0 : scriptIdx <= 2 ? 1 : 2;
+    // jobStatus is only set on the v2 (async/queue) path; v1 (SSE) has no intermediate
+    // status of its own, so 'processing' copy is the honest default while it's in flight.
+    const statusCopy = JOB_STATUS_COPY[jobStatus === 'pending' ? 'pending' : 'processing'];
 
     return (
       <SafeAreaView style={{ flex: 1, backgroundColor: BG }} edges={['top']}>
@@ -545,8 +569,6 @@ export default function UploadFlowScreen() {
           contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 6, paddingBottom: insets.bottom + 40 }}
           showsVerticalScrollIndicator={false}
         >
-          <StageTracker activeIndex={trackerIdx} />
-
           {/* Greeting + mascot, side by side */}
           <View style={s1.heroRow}>
             <View style={s1.heroTextCol}>
@@ -570,30 +592,16 @@ export default function UploadFlowScreen() {
             </View>
           </View>
 
-          {/* Ahora estamos: card (incluye la barra de progreso) */}
+          {/* Ahora estamos: estado real del backend + spinner indeterminado (sin % inventado) */}
           <View style={s1.nowCard}>
             <View style={s1.nowCardTop}>
               <View style={s1.nowIconWrap}>
-                <Text style={s1.nowIconEmoji}>{currentScript.emoji}</Text>
+                <Spinner size={20} />
               </View>
               <View style={{ flex: 1 }}>
-                <Text style={s1.nowValue}>{currentScript.title}</Text>
-                <Text style={s1.nowDesc}>{currentScript.desc}</Text>
+                <Text style={s1.nowValue}>{statusCopy.title}</Text>
+                <Text style={s1.nowDesc}>{statusCopy.desc}</Text>
               </View>
-            </View>
-
-            <View style={s1.progressGroup}>
-              <View style={s1.progressTrack}>
-                <Animated.View style={[s1.progressFillWrap, progressFillStyle]}>
-                  <LinearGradient
-                    colors={[palette.azul, palette.verdeXP]}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 0 }}
-                    style={{ flex: 1, borderRadius: 99 }}
-                  />
-                </Animated.View>
-              </View>
-              <Text style={s1.progressPct}>{displayPct}%</Text>
             </View>
           </View>
 
@@ -614,7 +622,7 @@ export default function UploadFlowScreen() {
           {/* Info pill */}
           <View style={s1.infoPill}>
             <Text style={s1.infoPillEmoji}>💡</Text>
-            <Text style={s1.infoPillText}>Esto puede tomar entre 20 y 30 segundos.</Text>
+            <Text style={s1.infoPillText}>Esto puede tomar hasta un minuto.</Text>
           </View>
         </ScrollView>
 
@@ -970,19 +978,6 @@ const s0 = StyleSheet.create({
 
 // ── Screen 1 ──────────────────────────────────────────────────────
 const s1 = StyleSheet.create({
-  // Stage tracker (big + compact variants)
-  trackerRow:        { flexDirection: 'row', alignItems: 'flex-start', marginBottom: 18, marginTop: 4 },
-  trackerFragment:   { flex: 1, flexDirection: 'row', alignItems: 'center' },
-  trackerLine:       { flex: 1, height: 2, backgroundColor: palette.bordeMedio, marginBottom: 24 },
-  trackerLineActive: { backgroundColor: BRAND },
-  trackerItem:       { alignItems: 'center', gap: 4 },
-  trackerIcon:       { width: 44, height: 44, borderRadius: 22, backgroundColor: palette.azulClaro, alignItems: 'center', justifyContent: 'center' },
-  trackerIconCompact:{ width: 32, height: 32, borderRadius: 16 },
-  trackerIconActive: { backgroundColor: BRAND },
-  trackerLabel:      { fontSize: 11, fontWeight: '600', color: semantic.textTertiary },
-  trackerLabelActive:{ color: BRAND, fontWeight: '800' },
-  trackerSub:        { fontSize: 9, color: semantic.textTertiary },
-
   // Greeting + mascot — side by side to use horizontal space better
   heroRow:     { flexDirection: 'row', alignItems: 'center', marginBottom: 16 },
   heroTextCol: { flex: 1, paddingRight: 8 },
@@ -1016,11 +1011,6 @@ const s1 = StyleSheet.create({
   infoPill:     { flexDirection: 'row', alignItems: 'center', gap: 8, alignSelf: 'center', backgroundColor: palette.azulClaro, borderRadius: 20, paddingVertical: 8, paddingHorizontal: 14, marginBottom: 20 },
   infoPillEmoji:{ fontSize: 14 },
   infoPillText: { fontSize: 12, fontWeight: '600', color: BRAND },
-
-  progressGroup:    { width: '100%', alignItems: 'flex-end', gap: 6 },
-  progressTrack:    { width: '100%', height: 8, backgroundColor: palette.bordeClaro, borderRadius: 99, overflow: 'hidden' },
-  progressFillWrap: { height: '100%', borderRadius: 99, overflow: 'hidden', minWidth: 8 },
-  progressPct:      { fontSize: 12, fontWeight: '800', color: BRAND },
 
   errorBackdrop:    { backgroundColor: 'rgba(11,11,26,0.6)', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 24, zIndex: 100 },
   errorModal:       { backgroundColor: palette.blanco, borderRadius: 28, padding: 28, alignItems: 'center', gap: 10, width: '100%' },
