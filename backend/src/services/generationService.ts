@@ -25,6 +25,7 @@ import { validateTruth, buildTruthFeedback } from './truthValidator.js';
 import { normalizeAllSlides } from './canonicalNormalizer.js';
 import type { KnowledgeGraph } from './knowledgeExtractor.js';
 import { withOpenAIRetry } from './openaiRetry.js';
+import { recordUsage } from './usageTracking.js';
 
 const openai = new OpenAI({ apiKey: config.openai_api_key });
 
@@ -85,7 +86,7 @@ function buildKnowledgeBlock(graph: KnowledgeGraph): string {
 // Fisher-Yates shuffle — used to randomize quiz option positions after generation.
 // AI models have a strong prior toward placing the correct answer first and writing
 // it longer, so prompt rules alone cannot fix position/length bias reliably.
-function shuffleArray<T>(arr: T[]): T[] {
+export function shuffleArray<T>(arr: T[]): T[] {
   const out = [...arr];
   for (let i = out.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1));
@@ -1801,11 +1802,15 @@ async function callOpenAIAndBuildResult(
       temperature: 0.25,
       max_tokens: maxTokens,
       stream: true,
+      stream_options: { include_usage: true }, // only way to get token usage on a streamed response — arrives on the final chunk
     });
     let acc = '';
+    let usage: OpenAI.CompletionUsage | undefined;
     for await (const chunk of stream) {
       acc += chunk.choices?.[0]?.delta?.content ?? '';
+      if (chunk.usage) usage = chunk.usage;
     }
+    recordUsage('Generation-V1', usage);
     return acc;
   }, 'Generation');
 
@@ -2448,10 +2453,15 @@ export async function generateSessionContent(
   console.log(`  pedagogicalFlowScore: ${gFlow.pedagogicalFlowScore}/100`);
   console.log(`  passes:               ${gFlow.passesThreshold ? 'YES' : 'NO'}`);
 
-  // ── Truth Validation — gatekeeper between quality check and regeneration ──────
+  // ── Truth Validation — kept as a quality SIGNAL only, never as a regeneration gate ──
   const gTruth = await validateTruth((base.summary?.slides ?? []) as SummarySlide[], transcription, knowledgeGraph);
 
-  const needsRegeneration =
+  // NOTE: this used to gate a second (paid) AI call via callOpenAIAndBuildResult(retryPrompt, ...)
+  // when quality/engagement/flow/truth checks failed. That regeneration path is intentionally
+  // removed — all these validators now run for logging/observability only, never to trigger
+  // another AI call. `wouldHaveRegenerated` exists purely so the log line below is honest about
+  // what the old gate would have decided.
+  const wouldHaveRegenerated =
     qualityScore < 0.65 ||
     gMicroChallenge.hasPassive ||
     !gEngagement.passesThreshold ||
@@ -2459,8 +2469,7 @@ export async function generateSessionContent(
     !gFlow.passesThreshold ||
     !gTruth.passed;
 
-  let finalBase = base;
-  if (needsRegeneration) {
+  if (wouldHaveRegenerated) {
     const reasons: string[] = [];
     if (qualityScore < 0.65)              reasons.push('quality');
     if (gMicroChallenge.hasPassive)       reasons.push('micro_challenge pasivos');
@@ -2468,20 +2477,12 @@ export async function generateSessionContent(
     if (!gInteractiveLoops.passesThreshold) reasons.push(`interactive_loops (${gInteractiveLoops.completeLoops}/${gInteractiveLoops.totalConcepts} loops completos)`);
     if (!gFlow.passesThreshold)             reasons.push(`pedagogical_flow (score=${gFlow.pedagogicalFlowScore}, violations=${gFlow.violations.map(v => v.type).join(',')})`);
     if (!gTruth.passed)                     reasons.push(`truth (score=${gTruth.score.toFixed(2)}, failures=${gTruth.failures.length})`);
-    console.log(`  action:           REGENERATE (${reasons.join(', ')})`);
-
-    const feedbackParts: string[] = [buildQualityFeedback(gUnknown.unknownConcepts, gSemantic.overallOverlap)];
-    if (gMicroChallenge.hasPassive)         feedbackParts.push(buildMicroChallengeFeedback(gMicroChallenge.passiveSlides));
-    if (!gEngagement.passesThreshold)       feedbackParts.push(buildEngagementFeedback(gEngagement));
-    if (!gInteractiveLoops.passesThreshold) feedbackParts.push(buildInteractiveLoopsFeedback(gInteractiveLoops));
-    if (!gFlow.passesThreshold)             feedbackParts.push(buildFlowFeedback(gFlow));
-    if (!gTruth.passed)                     feedbackParts.push(buildTruthFeedback(gTruth));
-    const retryPrompt = `${prompt}\n\n${'━'.repeat(40)}\n${feedbackParts.join('\n\n')}\n${'━'.repeat(40)}`;
-    finalBase = await callOpenAIAndBuildResult(retryPrompt, systemMsg, configValues);
-    console.log('[QUALITY REPORT] Regeneración completada.');
+    console.warn(`  action:           ACCEPT (sin regenerar) — habría regenerado por: ${reasons.join(', ')}`);
   } else {
     console.log('  action:           ACCEPT');
   }
+
+  const finalBase = base;
   // ─────────────────────────────────────────────────────────────────────────────
 
   // ── Post-AI audit: Tipo A candidates vs actual nuclear concepts ────────────
@@ -3341,11 +3342,25 @@ export interface GroundingValidationResult {
   missingQuotes: string[];
 }
 
+// Aggressive normalization used ONLY for grounding quote comparison — lowercase,
+// strip accents, strip punctuation, collapse whitespace. Deliberately separate
+// from normalizeText(), which is also used to clean up raw OpenAI JSON responses
+// before JSON.parse — stripping punctuation there would corrupt the JSON syntax.
+function normalizeForComparison(text: string): string {
+  return text
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '') // strip accents/diacritics
+    .toLowerCase()
+    .replace(/[^\w\s]/g, ' ') // strip punctuation
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
 export function validateGrounding(
   result: GenerationResult,
   transcription: string
 ): GroundingValidationResult {
-  const normalized = normalizeText(transcription).toLowerCase();
+  const normalized = normalizeForComparison(transcription);
   const allQuotes = [
     ...result.questions.map((q) => q.sourceQuote),
     ...result.flashcards.map((f) => f.sourceQuote),
@@ -3357,7 +3372,7 @@ export function validateGrounding(
   }
 
   const matchedCount = allQuotes.reduce((count, quote) => {
-    const normalizedQuote = normalizeText(quote).toLowerCase();
+    const normalizedQuote = normalizeForComparison(quote);
     if (normalized.includes(normalizedQuote)) return count + 1;
     const words = normalizedQuote.split(/\s+/).filter((w) => w.length > 3);
     const matchedWords = words.filter((w) => normalized.includes(w)).length;
@@ -3366,7 +3381,7 @@ export function validateGrounding(
 
   const score = matchedCount / allQuotes.length;
   const missingQuotes = allQuotes.filter((quote) => {
-    const normalizedQuote = normalizeText(quote).toLowerCase();
+    const normalizedQuote = normalizeForComparison(quote);
     if (normalized.includes(normalizedQuote)) return false;
     const words = normalizedQuote.split(/\s+/).filter((w) => w.length > 3);
     const matchedWords = words.filter((w) => normalized.includes(w)).length;

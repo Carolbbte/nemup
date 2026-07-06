@@ -21,6 +21,7 @@
 import OpenAI from 'openai';
 import { config } from '../config.js';
 import { withOpenAIRetry } from './openaiRetry.js';
+import { recordUsage } from './usageTracking.js';
 
 const openai = new OpenAI({ apiKey: config.openai_api_key });
 
@@ -318,6 +319,7 @@ export async function extractKnowledge(
     temperature:     0.1,
     max_tokens:      4096,
   }), 'KnowledgeExtractor');
+  recordUsage('KnowledgeExtractor-V1', response.usage);
 
   const raw = response.choices[0]?.message?.content;
   if (!raw) throw new Error('[KnowledgeExtractor] empty response from model');

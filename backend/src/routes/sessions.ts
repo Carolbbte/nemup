@@ -1,14 +1,29 @@
 /**
- * Sessions route for generating study sessions with SSE progress.
+ * Sessions route for generating study sessions.
+ *
+ * POST /generate branches on config.use_generation_v2 (env var
+ * USE_GENERATION_V2, default false — no redeploy needed to toggle):
+ *   - v1 (default): legacy synchronous SSE flow, unchanged from before the
+ *     v2 migration — generateSessionContent/generateSkillMission run inline
+ *     in the request, streaming progress events, ending in a 'complete' event.
+ *   - v2 (flag on): uploads to Storage, records a 'pending' job, enqueues it
+ *     on the 'generation' BullMQ queue, and responds 202 {jobId} immediately.
+ *     The actual generation (generateSessionV2) runs in
+ *     workers/generationWorker.ts.
+ *
+ * GET /:jobId exists regardless of the flag — only the v2 branch produces
+ * jobs for it to poll, but it doesn't interfere with v1.
  */
 
 import express from 'express';
 import multer from 'multer';
 import { randomUUID } from 'crypto';
+import { config } from '../config.js';
 import { uploadFileToStorage } from '../services/firebaseAdmin.js';
 import { transcribeDocumentFromBuffer } from '../services/transcriptionService.js';
 import {
   generateSessionContent,
+  generateSkillMission,
   validateGrounding,
   buildGeneratedSession,
   validateSessionEngagement,
@@ -19,17 +34,21 @@ import {
   saveDocumentMetadata,
   saveGeneratedSession,
   saveSkillPath,
+  getGeneratedSession,
   applyUserRewards,
 } from '../repository/sessionRepository.js';
 import { classifyContent } from '../services/pedagogicalClassifier.js';
-import { generateSkillMission } from '../services/generationService.js';
 import { buildDesafioFromMission } from '../services/desafioAdapter.js';
 import { generateDesafioFormats } from '../services/desafioGenerationService.js';
-import type { SessionConfig } from '../types.js';
 import { extractKnowledge, type KnowledgeGraph } from '../services/knowledgeExtractor.js';
+import { enqueueGenerationJob } from '../queue/generationQueue.js';
+import { getGenerationJobStatus, setGenerationJobStatus } from '../queue/generationJobStatus.js';
+import type { SessionConfig } from '../types.js';
 
 const router = express.Router();
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 50 * 1024 * 1024 } });
+
+// ── v1 (legacy SSE) helpers ───────────────────────────────────────────────────
 
 function sendSse(res: express.Response, event: string, data: unknown) {
   res.write(`event: ${event}\n`);
@@ -46,6 +65,15 @@ function createProgressPayload(stage: string, progress: number, message: string)
 }
 
 router.post('/generate', upload.array('documents', 10), async (req, res) => {
+  if (config.use_generation_v2) {
+    return handleGenerateV2(req, res);
+  }
+  return handleGenerateV1(req, res);
+});
+
+// ── v1 — legacy synchronous SSE pipeline (unchanged behavior) ────────────────
+
+async function handleGenerateV1(req: express.Request, res: express.Response) {
   res.setHeader('Content-Type', 'text/event-stream');
   res.setHeader('Cache-Control', 'no-cache');
   res.setHeader('Connection', 'keep-alive');
@@ -328,6 +356,86 @@ router.post('/generate', upload.array('documents', 10), async (req, res) => {
   sendSse(res, 'progress', createProgressPayload('done', 100, 'Sesión lista.'));
   sendSse(res, 'complete', { pathId: null, totalMissions: 1, missions: [{ missionIndex: 0, skillId: null, skillLabel: null, sessionId, session }], sessionId, session });
   return res.end();
+}
+
+// ── v2 — async queue-backed pipeline (behind USE_GENERATION_V2) ──────────────
+
+async function handleGenerateV2(req: express.Request, res: express.Response) {
+  const files = (req as express.Request & { files?: Express.Multer.File[] }).files as Express.Multer.File[] | undefined;
+  if (!files || files.length === 0) {
+    return res.status(400).json({ code: 'UPLOAD_FAILED', message: 'No se recibió ningún archivo.' });
+  }
+  // Use first file as the primary document reference — same convention as v1.
+  const file = files[0];
+
+  const configJson = req.body.config;
+  if (!configJson) {
+    return res.status(400).json({ code: 'UNKNOWN_ERROR', message: 'Falta la configuración de la sesión.' });
+  }
+
+  const configValues = typeof configJson === 'string' ? JSON.parse(configJson) : configJson;
+  const sessionConfig = configValues as SessionConfig;
+  const curso = configValues.curso || '1º Medio';
+  const userId = req.body.userId ?? 'anonymous';
+
+  const documentId = randomUUID();
+  const sessionId = randomUUID();
+
+  try {
+    // Upload must be awaited (not fire-and-forget like v1) — the worker needs
+    // a real storagePath to download from once it picks up the job.
+    const storagePath = await uploadFileToStorage(userId, documentId, file.buffer, file.mimetype, file.originalname);
+
+    await saveDocumentMetadata(userId, documentId, {
+      type: 'document',
+      fileName: file.originalname,
+      mimeType: file.mimetype,
+      fileSizeBytes: file.size,
+      storagePath,
+    });
+
+    await setGenerationJobStatus(documentId, 'pending', { userId, sessionId, fileName: file.originalname });
+
+    await enqueueGenerationJob({
+      documentId,
+      sessionId,
+      userId,
+      storagePath,
+      mimeType: file.mimetype,
+      fileName: file.originalname,
+      config: sessionConfig,
+      curso,
+    });
+
+    console.log(`[Sessions] documentId=${documentId} enqueued — jobId=${documentId}`);
+    return res.status(202).json({ jobId: documentId });
+  } catch (err: any) {
+    console.error('[Sessions] Failed to enqueue generation job:', err?.message);
+    return res.status(500).json({ code: 'ENQUEUE_FAILED', message: 'No se pudo iniciar la generación.' });
+  }
+}
+
+// ── Job status polling (v2 only, but always registered) ──────────────────────
+// Returns { status: 'pending' | 'processing' | 'failed' } while the job is in
+// flight, or { status: 'completed', session } once the worker has finished.
+router.get('/:jobId', async (req, res) => {
+  const { jobId } = req.params;
+
+  const job = await getGenerationJobStatus(jobId);
+  if (!job) {
+    return res.status(404).json({ code: 'NOT_FOUND', message: 'No existe un job con ese id.' });
+  }
+
+  if (job.status !== 'completed') {
+    return res.status(200).json({ status: job.status, ...(job.error ? { error: job.error } : {}) });
+  }
+
+  const session = await getGeneratedSession(job.userId, job.sessionId);
+  if (!session) {
+    return res.status(500).json({ status: 'failed', code: 'SESSION_MISSING', message: 'El job se marcó completo pero no se encontró la sesión.' });
+  }
+
+  return res.status(200).json({ status: 'completed', session });
 });
 
 // ── Performance-based reward endpoint ────────────────────────────────────────

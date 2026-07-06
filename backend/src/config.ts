@@ -16,6 +16,9 @@ export interface Config {
   openai_model: string;
   firebase_service_account_json: string;
   firebase_storage_bucket: string;
+  redis_url: string;
+  /** Feature flag: routes/sessions.ts POST /generate uses the async v2 (queue) pipeline when true, the legacy sync SSE v1 pipeline when false. Togglable via env var, no redeploy needed. */
+  use_generation_v2: boolean;
 }
 
 export function loadConfig(): Config {
@@ -26,6 +29,8 @@ export function loadConfig(): Config {
     openai_model: process.env.OPENAI_MODEL ?? process.env.CLAUDE_MODEL ?? 'gpt-4.1-mini',
     firebase_service_account_json: process.env.FIREBASE_SERVICE_ACCOUNT_JSON ?? '',
     firebase_storage_bucket: process.env.FIREBASE_STORAGE_BUCKET ?? '',
+    redis_url: process.env.REDIS_URL ?? 'redis://localhost:6379',
+    use_generation_v2: process.env.USE_GENERATION_V2 === 'true',
   };
 
   // Validation
