@@ -33,6 +33,7 @@ type DesafioSlideType =
   | 'discovery_challenge'
   | 'instant_feedback'
   | 'insight'
+  | 'worked_example'
   | 'reinforcement_challenge'
   | 'spaced_repetition'
   | 'boss_loop'
@@ -79,6 +80,10 @@ interface DesafioSlide {
   body?: string;
   conceptsCovered?: string[];
   examples?: Array<{ expression: string; label: string }>;
+  // worked_example only — see shared/desafio.ts for the full contract.
+  statement?: string;
+  steps?: string[];
+  answer?: string;
 }
 
 export interface DesafioSession {
@@ -313,30 +318,23 @@ function buildMultipleChoiceSlideFor(
 }
 
 /**
- * Builds one 'insight' slide (existing, non-interactive Desafío slide type —
- * no new slide type introduced, so the frontend renders it exactly like any
- * other insight card) per worked example. Reuses `examples` to show the
- * statement/answer pair and `body` for the explanatory steps. When a worked
- * example failed safety validation (`steps: null`), the body falls back to
- * a bare statement → answer line with no fabricated path — this is the
- * "B-mínima" fallback from the spec, applied per example, not as an all-or-nothing switch.
+ * Builds one 'worked_example' slide per worked example — its own slide type
+ * (not a reuse of 'insight'), so the frontend can render `statement`/`steps`/
+ * `answer` as an actual step-by-step resolution instead of two mini cards
+ * both mislabeled "ejemplo práctico". `steps` is omitted (undefined) when the
+ * example failed safety validation upstream (`WorkedExampleResult.steps ===
+ * null`) — the frontend then shows only statement → answer, no fabricated path.
  */
 function buildWorkedExampleSlide(result: WorkedExampleResult, seed: number): DesafioSlide {
-  const body = result.steps
-    ? result.steps.map((step, i) => `${i + 1}. ${step}`).join('\n')
-    : `${result.statement} → ${result.answer}`;
-
   return {
-    type: 'insight',
+    type: 'worked_example',
     conceptIndex: seed,
     conceptName: 'Ejemplo resuelto',
-    emoji: '📐',
+    emoji: '🧮',
     title: 'Así se resuelve',
-    body,
-    examples: [
-      { expression: result.statement, label: 'Enunciado' },
-      { expression: result.answer, label: 'Respuesta' },
-    ],
+    statement: result.statement,
+    answer: result.answer,
+    ...(result.steps ? { steps: result.steps } : {}),
   };
 }
 
@@ -352,9 +350,12 @@ function buildWorkedExampleSlide(result: WorkedExampleResult, seed: number): Des
  *
  * `workedExampleResults` (procedural mode) is optional and defaults to `[]`,
  * which reproduces the exact conceptual-only slide sequence from before this
- * existed — when non-empty, one 'insight' slide per worked example is
- * inserted right before the boss_loop, so the student sees "así se resuelve"
- * immediately before the culminating application challenge.
+ * existed — when non-empty, one 'worked_example' slide per worked example is
+ * inserted after the first third of the concept sequence (there's no data
+ * linking a worked example to a specific concept, so this is a deliberate
+ * "early, not late" placement rather than a per-concept association): the
+ * student sees "así se resuelve" before most of the practice, not after all
+ * of it.
  */
 export function buildDesafio(
   ko: KnowledgeObject,
@@ -369,6 +370,7 @@ export function buildDesafio(
   const conceptNames = ko.concepts.map((c) => c.name);
   const matchPairsInsertAfter = Math.ceil(N / 2) - 1;
   const classifyInsertAfter = Math.max(N - 2, matchPairsInsertAfter + 1);
+  const workedExampleInsertAfter = Math.floor((N - 1) / 3);
   const matchPairs = buildMatchPairs(ko);
   const classify = buildClassify(ko);
 
@@ -391,6 +393,10 @@ export function buildDesafio(
 
     if (discovery) slides.push(discovery);
     if (reinforcement) slides.push(reinforcement);
+
+    if (workedExampleInsertAfter === i) {
+      workedExampleResults.forEach((result) => slides.push(buildWorkedExampleSlide(result, i)));
+    }
 
     if (matchPairs && matchPairsInsertAfter === i) {
       slides.push({
@@ -417,11 +423,6 @@ export function buildDesafio(
       });
     }
   });
-
-  // Procedural mode: show "así se resuelve" for every worked example right
-  // before the culminating application challenge (boss_loop). No-op when
-  // workedExampleResults is empty — identical slide sequence to before.
-  workedExampleResults.forEach((result) => slides.push(buildWorkedExampleSlide(result, N)));
 
   const bossConcept = ko.concepts.reduce((max, c) => (c.difficulty > max.difficulty ? c : max));
   const bossDistractor = distractors[bossConcept.id];

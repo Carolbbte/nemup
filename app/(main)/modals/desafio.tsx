@@ -74,6 +74,7 @@ function slideTypeLabel(type: DesafioSlide['type'], isRetry?: boolean, isSpaced?
     case 'discovery_challenge':     return 'DESCUBRIR';
     case 'instant_feedback':        return 'CONEXIÓN';
     case 'insight':                 return 'CONCEPTO';
+    case 'worked_example':          return 'EJEMPLO RESUELTO';
     case 'reinforcement_challenge': return 'REFUERZO';
     case 'spaced_repetition':       return 'REPASO';
     case 'boss_loop':               return '⚔️ DESAFÍO FINAL';
@@ -867,6 +868,118 @@ function InsightContent({ slide }: { slide: DesafioSlide }) {
   );
 }
 
+// ── Worked example content — solved-exercise walkthrough ──────────────────────
+//
+// Renders a worked_example slide: the problem statement (labeled "Problema",
+// not the generic "Ejemplo práctico" tag used for insight examples), the
+// explanatory steps in order (only present when the backend's safety check
+// validated the model's derivation against the material's own answer — see
+// procedural.ts's reconcileWorkedExample), and the final answer highlighted
+// and labeled distinctly from the problem.
+
+function WorkedExampleContent({ slide }: { slide: DesafioSlide }) {
+  const steps = slide.steps ?? [];
+
+  return (
+    <View style={c.root}>
+      <Text style={c.typeLabel}>{slideTypeLabel(slide.type)}</Text>
+      <Text style={we.emoji}>{slideEmoji(slide)}</Text>
+      <Text style={we.title}>{slide.title ?? 'Así se resuelve'}</Text>
+
+      <View style={we.statementCard}>
+        <Text style={we.statementTag}>Problema</Text>
+        <Text style={we.statementText}>{slide.statement}</Text>
+      </View>
+
+      {steps.length > 0 && (
+        <View style={we.stepsContainer}>
+          {steps.map((step, i) => (
+            <View key={i} style={we.stepRow}>
+              <View style={we.stepNum}>
+                <Text style={we.stepNumText}>{i + 1}</Text>
+              </View>
+              <Text style={we.stepText}>{step}</Text>
+            </View>
+          ))}
+        </View>
+      )}
+
+      <View style={we.answerCard}>
+        <Text style={we.answerTag}>{steps.length > 0 ? 'Se reduce a' : 'Resultado'}</Text>
+        <Text style={we.answerText}>{slide.answer}</Text>
+      </View>
+    </View>
+  );
+}
+
+const we = StyleSheet.create({
+  emoji: { fontSize: 48, textAlign: 'center', marginBottom: 14 },
+  title: {
+    fontSize: 24,
+    fontWeight: '800',
+    color: palette.charcoal,
+    lineHeight: 30,
+    textAlign: 'center',
+    marginBottom: 20,
+  },
+  statementCard: {
+    backgroundColor: palette.blanco,
+    borderRadius: 16,
+    borderWidth: 1.5,
+    borderColor: palette.bordeClaro,
+    padding: 16,
+    marginBottom: 20,
+  },
+  statementTag: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: palette.grisMedio,
+    letterSpacing: 1,
+    textTransform: 'uppercase' as const,
+    marginBottom: 8,
+  },
+  statementText: { fontSize: 17, fontWeight: '700', color: palette.charcoal, lineHeight: 24 },
+
+  stepsContainer: { gap: 8, marginBottom: 20 },
+  stepRow: {
+    flexDirection: 'row' as const,
+    alignItems: 'flex-start' as const,
+    gap: 10,
+    backgroundColor: palette.azulClaro,
+    borderRadius: 12,
+    padding: 12,
+  },
+  stepNum: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: palette.azul,
+    justifyContent: 'center' as const,
+    alignItems: 'center' as const,
+    flexShrink: 0,
+    marginTop: 1,
+  },
+  stepNumText: { fontSize: 12, fontWeight: '700', color: palette.blanco },
+  stepText: { flex: 1, fontSize: 15, color: palette.charcoal, lineHeight: 21 },
+
+  answerCard: {
+    backgroundColor: paletteExtras.verdeSuaveBg,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: palette.verde + '44',
+    padding: 16,
+  },
+  answerTag: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: palette.verde,
+    letterSpacing: 1,
+    textTransform: 'uppercase' as const,
+    marginBottom: 8,
+  },
+  answerText: { fontSize: 20, fontWeight: '800', color: paletteExtras.verdeTextoOscuro, lineHeight: 26 },
+});
+
 // ── Mastery / completion reward summary ──────────────────────────────────────
 
 function MasteryContent({
@@ -968,6 +1081,7 @@ function SlideContent({
 }) {
   if (!isInteractiveByType(slide)) {
     if (slide.type === 'insight') return <InsightContent slide={slide} />;
+    if (slide.type === 'worked_example') return <WorkedExampleContent slide={slide} />;
     return <InformationalContent slide={slide} />;
   }
 
@@ -1203,6 +1317,7 @@ function slideEmoji(slide: DesafioSlide): string {
   switch (slide.type) {
     case 'discovery_challenge':     return ['🔎', '🧠', '⚔️'][idx % 3];
     case 'insight':                 return ['💡', '🧩', '🗺️'][idx % 3];
+    case 'worked_example':          return '🧮';
     case 'reinforcement_challenge': return ['🎯', '🔥'][idx % 2];
     case 'spaced_repetition':       return '📝';
     default:                        return displayEmoji(slide.emoji) ?? '📚';

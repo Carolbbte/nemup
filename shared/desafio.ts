@@ -9,6 +9,7 @@ export type DesafioSlideType =
   | 'discovery_challenge'
   | 'instant_feedback'
   | 'insight'
+  | 'worked_example'
   | 'reinforcement_challenge'
   | 'spaced_repetition'
   | 'boss_loop'
@@ -71,13 +72,22 @@ export interface DesafioSlide {
   correctOrder?: number[];
   orderExplanation?: string;
 
-  // non-interactive (instant_feedback, insight, mastery_screen)
+  // non-interactive (instant_feedback, insight, worked_example, mastery_screen)
   title?: string;
   body?: string;
   conceptsCovered?: string[];
 
   // insight only — concrete examples to show as mini cards
   examples?: { expression: string; label: string }[];
+
+  // worked_example only — a solved exercise from the source material.
+  // `statement` and `answer` are copied verbatim from the material and never
+  // computed by the model; `steps` (reusing the order_steps field, but here
+  // as a plain ordered explanation, not a reorder exercise) is null-safe —
+  // may be omitted/empty when the model's derivation didn't validate against
+  // `answer`, in which case only statement/answer are shown, no steps.
+  statement?: string;
+  answer?: string;
 }
 
 export interface DesafioSession {

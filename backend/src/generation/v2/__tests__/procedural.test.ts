@@ -117,30 +117,32 @@ describe('buildDesafio — procedural slide insertion', () => {
     expect(workedSlides).toHaveLength(0);
   });
 
-  it('inserts one insight slide per worked example, right before boss_loop', () => {
+  it('inserts one worked_example slide per worked example, carrying statement/steps/answer, before the first third mark', () => {
+    const steps = ['Agrupa términos en m', 'Agrupa términos en n'];
     const desafio = buildDesafio(ko, distractors, [
-      { statement: EXAMPLE.statement, answer: EXAMPLE.answer, steps: ['Paso 1', 'Paso 2'] },
+      { statement: EXAMPLE.statement, answer: EXAMPLE.answer, steps },
     ]);
 
-    const workedIdx = desafio.slides.findIndex((s) => s.conceptName === 'Ejemplo resuelto');
+    const workedIdx = desafio.slides.findIndex((s) => s.type === 'worked_example');
     const bossIdx = desafio.slides.findIndex((s) => s.type === 'boss_loop');
 
     expect(workedIdx).toBeGreaterThanOrEqual(0);
     expect(bossIdx).toBeGreaterThan(workedIdx);
-    expect(desafio.slides[workedIdx].type).toBe('insight');
-    expect(desafio.slides[workedIdx].body).toContain('Paso 1');
-    expect(desafio.slides[workedIdx].examples).toEqual([
-      { expression: EXAMPLE.statement, label: 'Enunciado' },
-      { expression: EXAMPLE.answer, label: 'Respuesta' },
-    ]);
+
+    const workedSlide = desafio.slides[workedIdx];
+    expect(workedSlide.statement).toBe(EXAMPLE.statement);
+    expect(workedSlide.answer).toBe(EXAMPLE.answer);
+    expect(workedSlide.steps).toEqual(steps);
   });
 
-  it('falls back to a bare statement → answer body when steps is null (B-mínima)', () => {
+  it('omits steps (undefined) when validation failed (B-mínima) — never fabricates a path', () => {
     const desafio = buildDesafio(ko, distractors, [
       { statement: EXAMPLE.statement, answer: EXAMPLE.answer, steps: null },
     ]);
 
-    const workedSlide = desafio.slides.find((s) => s.conceptName === 'Ejemplo resuelto');
-    expect(workedSlide?.body).toBe(`${EXAMPLE.statement} → ${EXAMPLE.answer}`);
+    const workedSlide = desafio.slides.find((s) => s.type === 'worked_example');
+    expect(workedSlide?.statement).toBe(EXAMPLE.statement);
+    expect(workedSlide?.answer).toBe(EXAMPLE.answer);
+    expect(workedSlide?.steps).toBeUndefined();
   });
 });
