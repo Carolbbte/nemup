@@ -4,6 +4,7 @@ import { buildGeneratedSession, validateGrounding, type GenerationResult } from 
 import type { GeneratedSession, SessionConfig } from '../../types.js';
 import { buildKnowledgeObject } from './comprehension.js';
 import { generateDistractors } from './distractors.js';
+import { buildWorkedExampleSteps } from './procedural.js';
 import { buildFlashcards, buildQuestions, buildDesafio, buildSummarySlides } from './assemble.js';
 
 /**
@@ -31,6 +32,21 @@ export async function generateSessionV2(
 ): Promise<GeneratedSession> {
   const ko = await buildKnowledgeObject(transcription, curso);
   const distractors = await generateDistractors(ko.concepts, ko.concepts.length);
+
+  // Procedural mode trigger: SOLELY whether the material gave us solved
+  // exercises to explain (statement + answer both present) — deliberately
+  // independent of classifyContent's CONCEPTUAL/PROCEDURAL label below, which
+  // stays a metadata-only signal. A guide the Audit calls "conceptual" still
+  // gets worked-example slides if it happens to include solved exercises.
+  const isProceduralMode = ko.workedExamples.length >= 1;
+  const workedExampleResults = isProceduralMode
+    ? await buildWorkedExampleSteps(ko.workedExamples)
+    : [];
+  console.log(
+    isProceduralMode
+      ? `[v2] Modo procedimental activado — ${ko.workedExamples.length} ejemplo(s) resuelto(s) detectado(s).`
+      : '[v2] Modo conceptual — sin ejemplos resueltos detectados en el material.',
+  );
 
   const classification = classifyContent(transcription);
   const wordCount = transcription.split(/\s+/).filter(Boolean).length;
@@ -65,7 +81,7 @@ export async function generateSessionV2(
   // `desafio` is not part of the typed `GeneratedSession` interface today —
   // this mirrors the exact same runtime shape the legacy path already
   // produces in routes/sessions.ts (`(session as any).desafio = ...`).
-  (session as any).desafio = buildDesafio(ko, distractors);
+  (session as any).desafio = buildDesafio(ko, distractors, workedExampleResults);
 
   return session;
 }

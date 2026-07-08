@@ -72,6 +72,22 @@ const knowledgeConceptSchema: JsonSchema = {
   },
 };
 
+const workedExampleSchema: JsonSchema = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['statement', 'answer'],
+  properties: {
+    statement: {
+      type: 'string',
+      description: 'LITERAL exercise statement, copied word-for-word from the material.',
+    },
+    answer: {
+      type: 'string',
+      description: 'LITERAL correct answer, copied word-for-word from the material — never computed by the model.',
+    },
+  },
+};
+
 const knowledgeCategorySchema: JsonSchema = {
   type: 'object',
   additionalProperties: false,
@@ -92,7 +108,7 @@ const knowledgeCategorySchema: JsonSchema = {
 const knowledgeObjectJsonSchema: JsonSchema = {
   type: 'object',
   additionalProperties: false,
-  required: ['topic', 'subject', 'concepts', 'categories'],
+  required: ['topic', 'subject', 'concepts', 'categories', 'workedExamples'],
   properties: {
     topic: {
       type: 'string',
@@ -111,6 +127,11 @@ const knowledgeObjectJsonSchema: JsonSchema = {
       type: 'array',
       items: knowledgeCategorySchema,
       description: "Classification categories for \"classify\" exercises. Empty if the content doesn't support classification.",
+    },
+    workedExamples: {
+      type: 'array',
+      items: workedExampleSchema,
+      description: 'Exercises from the material that already provide both a statement and its answer. Empty if none.',
     },
   },
 };

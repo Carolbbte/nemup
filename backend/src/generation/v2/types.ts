@@ -43,6 +43,20 @@ export interface KnowledgeConcept {
   sourceQuote: string;
 }
 
+/**
+ * An exercise the source material already solves — both the statement and
+ * its correct answer are copied LITERALLY from the material, never computed
+ * or invented. This is the safety anchor for the procedural mode: the engine
+ * only ever explains the path to an answer that was already given, never
+ * derives a new one.
+ */
+export interface WorkedExample {
+  /** LITERAL exercise statement, copied word-for-word from the material. */
+  statement: string;
+  /** LITERAL correct answer, copied word-for-word from the material — never computed by the model. */
+  answer: string;
+}
+
 /** A classification bucket used by "classify" exercises, grouping concept names by a shared trait. */
 export interface KnowledgeCategory {
   /** Name of the category. */
@@ -65,4 +79,11 @@ export interface KnowledgeObject {
   concepts: KnowledgeConcept[];
   /** Classification categories for "classify" exercises. Empty if the content doesn't support classification. */
   categories: KnowledgeCategory[];
+  /**
+   * Exercises from the material that already provide both a statement and
+   * its answer — the trigger for procedural mode (see generation/v2/procedural.ts).
+   * Empty when the material has no solved exercises, in which case the engine
+   * stays on the conceptual path unchanged.
+   */
+  workedExamples: WorkedExample[];
 }

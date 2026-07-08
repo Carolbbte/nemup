@@ -42,6 +42,12 @@ INSTRUCCIONES:
      palabras distintas, no se puede encontrar textual en el material).
    ✓ LITERAL (válido): sourceQuote="La mitocondria es la organela que produce energía celular mediante
      la respiración." (copiado exacto, carácter por carácter, del material).
+10. workedExamples: extrae SOLO los ejercicios del material que tengan A LA VEZ enunciado Y respuesta
+    explícita ya escrita en el texto (ejercicios resueltos, no propuestos). Copia AMBOS literalmente,
+    palabra por palabra — mismo criterio que sourceQuote, nunca los recalcules ni los corrijas.
+    Si un ejercicio solo tiene enunciado sin respuesta visible en el material, NO lo incluyas.
+    Si el material no contiene ningún ejercicio resuelto, devuelve workedExamples: [].
+    Ejemplo del material real: statement="2m − 5n + 6m − m + 11n", answer="7m + 6n".
 
 Usa el material como única fuente. No agregues conceptos que no estén en él.`;
 }
@@ -81,7 +87,7 @@ export async function buildKnowledgeObject(
         { role: 'user', content: userPrompt },
       ],
       temperature: 0.2,
-      max_tokens: 3500, // bumped from 3000 to fit the new sourceQuote field (up to 6 concepts × ~30-word quote)
+      max_tokens: 4200, // bumped from 3500 to fit workedExamples (statement+answer pairs, up to a handful per document)
       response_format: knowledgeObjectSchema,
     });
     recordUsage('Comprehension', response.usage);

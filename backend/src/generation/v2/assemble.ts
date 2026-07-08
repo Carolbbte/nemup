@@ -22,6 +22,7 @@ import { shuffleArray } from '../../services/generationService.js';
 import type { Flashcard, MultipleChoiceQuestion, DifficultyLevel, SummarySlide } from '../../types.js';
 import type { KnowledgeConcept, KnowledgeObject } from './types.js';
 import type { DistractorSet } from './distractors.js';
+import type { WorkedExampleResult } from './procedural.js';
 
 // ── Desafío local type mirror — matches shared/desafio.ts field-for-field ───
 // (same rootDir-avoidance duplication desafioAdapter.ts already uses)
@@ -77,6 +78,7 @@ interface DesafioSlide {
   title?: string;
   body?: string;
   conceptsCovered?: string[];
+  examples?: Array<{ expression: string; label: string }>;
 }
 
 export interface DesafioSession {
@@ -311,6 +313,34 @@ function buildMultipleChoiceSlideFor(
 }
 
 /**
+ * Builds one 'insight' slide (existing, non-interactive Desafío slide type —
+ * no new slide type introduced, so the frontend renders it exactly like any
+ * other insight card) per worked example. Reuses `examples` to show the
+ * statement/answer pair and `body` for the explanatory steps. When a worked
+ * example failed safety validation (`steps: null`), the body falls back to
+ * a bare statement → answer line with no fabricated path — this is the
+ * "B-mínima" fallback from the spec, applied per example, not as an all-or-nothing switch.
+ */
+function buildWorkedExampleSlide(result: WorkedExampleResult, seed: number): DesafioSlide {
+  const body = result.steps
+    ? result.steps.map((step, i) => `${i + 1}. ${step}`).join('\n')
+    : `${result.statement} → ${result.answer}`;
+
+  return {
+    type: 'insight',
+    conceptIndex: seed,
+    conceptName: 'Ejemplo resuelto',
+    emoji: '📐',
+    title: 'Así se resuelve',
+    body,
+    examples: [
+      { expression: result.statement, label: 'Enunciado' },
+      { expression: result.answer, label: 'Respuesta' },
+    ],
+  };
+}
+
+/**
  * Assembles the full Desafío slide sequence directly from KnowledgeObject +
  * distractors — no intermediate "Mission slides" pass. Per concept: a
  * discovery_challenge + reinforcement_challenge pair, alternating which one
@@ -319,10 +349,17 @@ function buildMultipleChoiceSlideFor(
  * match_pairs/classify are injected at the same relative positions as the
  * legacy system (ported from desafioGenerationService.ts): after the
  * ceil(N/2)-1'th and max(N-2, ...)'th concepts respectively.
+ *
+ * `workedExampleResults` (procedural mode) is optional and defaults to `[]`,
+ * which reproduces the exact conceptual-only slide sequence from before this
+ * existed — when non-empty, one 'insight' slide per worked example is
+ * inserted right before the boss_loop, so the student sees "así se resuelve"
+ * immediately before the culminating application challenge.
  */
 export function buildDesafio(
   ko: KnowledgeObject,
   distractors: Record<string, DistractorSet>,
+  workedExampleResults: WorkedExampleResult[] = [],
 ): DesafioSession {
   const N = ko.concepts.length;
   if (N === 0) {
@@ -380,6 +417,11 @@ export function buildDesafio(
       });
     }
   });
+
+  // Procedural mode: show "así se resuelve" for every worked example right
+  // before the culminating application challenge (boss_loop). No-op when
+  // workedExampleResults is empty — identical slide sequence to before.
+  workedExampleResults.forEach((result) => slides.push(buildWorkedExampleSlide(result, N)));
 
   const bossConcept = ko.concepts.reduce((max, c) => (c.difficulty > max.difficulty ? c : max));
   const bossDistractor = distractors[bossConcept.id];
