@@ -91,6 +91,58 @@ function getSubjectEmoji(subject: string) {
   return SUBJECT_EMOJI.find(([key]) => k.includes(key))?.[1] ?? '📚';
 }
 
+// Last-resort safety net for the Mission slide renderer. Extensive static
+// analysis (manual read + full-file regex + AST scan of every `.emoji`
+// property/optional/bracket/destructure access) found no remaining unguarded
+// read, yet a "Cannot read property 'emoji' of undefined" render crash was
+// still reported from a fresh v2 session. Rather than leave the whole
+// Mission screen dead on an unreproduced edge case, this boundary contains
+// the crash to the single broken slide, logs the exact slide/index that
+// caused it (so the real trigger can be identified from the next report),
+// and lets the student skip past it instead of losing the session.
+class SlideErrorBoundary extends React.Component<
+  { children: React.ReactNode; slideIndex: number; slide: unknown; onSkip: () => void; isLast: boolean },
+  { hasError: boolean }
+> {
+  state = { hasError: false };
+  static getDerivedStateFromError() {
+    return { hasError: true };
+  }
+  componentDidCatch(error: Error, info: { componentStack?: string }) {
+    console.error(
+      '[Session] Slide render crashed — diagnostic dump for next investigation:\n' +
+      JSON.stringify({
+        index: this.props.slideIndex,
+        slide: this.props.slide,
+        message: error.message,
+        stack: error.stack,
+        componentStack: info?.componentStack,
+      }, null, 2)
+    );
+  }
+  render() {
+    if (this.state.hasError) {
+      return (
+        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', padding: 24, gap: 16 }}>
+          <Text style={{ fontSize: 40 }}>⚠️</Text>
+          <Text style={{ fontSize: 16, fontWeight: '700', color: semantic.textPrimary, textAlign: 'center' }}>
+            No se pudo mostrar este contenido
+          </Text>
+          <Text style={{ fontSize: 13, color: semantic.textSecondary, textAlign: 'center' }}>
+            Puedes continuar — no afecta el resto de la misión.
+          </Text>
+          <Pressable onPress={this.props.onSkip} style={{ backgroundColor: BRAND, paddingHorizontal: 28, paddingVertical: 14, borderRadius: 28 }}>
+            <Text style={{ color: palette.blanco, fontWeight: '800', fontSize: 15 }}>
+              {this.props.isLast ? 'Finalizar →' : 'Continuar →'}
+            </Text>
+          </Pressable>
+        </View>
+      );
+    }
+    return this.props.children;
+  }
+}
+
 // Quiz engagement constants
 const COMBO_SIZE = 6;
 const COMBO_MILESTONES: Record<number, { xp: number; msg: string }> = {
@@ -1659,6 +1711,7 @@ export default function SessionPlayerScreen() {
               if (dx > 40 && summaryIdx > 0) goPrev();
             }}
           >
+            <SlideErrorBoundary key={summaryIdx} slideIndex={summaryIdx} slide={slide} isLast={isLast} onSkip={() => (isLast ? completeMode('summary') : goNext())}>
             {slide?.type === 'quiz' ? (
               <View style={sum.quizCard}>
                 <Text style={sum.quizLabel}>🧠 MINI QUIZ</Text>
@@ -2880,6 +2933,7 @@ export default function SessionPlayerScreen() {
                 )}
               </View>
             )}
+            </SlideErrorBoundary>
 
             {/* Summary micro-reward — integrated into feedback boxes (no floating overlay) */}
           </Animated.View>
