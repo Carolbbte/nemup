@@ -91,56 +91,56 @@ function getSubjectEmoji(subject: string) {
   return SUBJECT_EMOJI.find(([key]) => k.includes(key))?.[1] ?? '📚';
 }
 
-// Last-resort safety net for the Mission slide renderer. Extensive static
-// analysis (manual read + full-file regex + AST scan of every `.emoji`
-// property/optional/bracket/destructure access) found no remaining unguarded
-// read, yet a "Cannot read property 'emoji' of undefined" render crash was
-// still reported from a fresh v2 session. Rather than leave the whole
-// Mission screen dead on an unreproduced edge case, this boundary contains
-// the crash to the single broken slide, logs the exact slide/index that
-// caused it (so the real trigger can be identified from the next report),
-// and lets the student skip past it instead of losing the session.
-class SlideErrorBoundary extends React.Component<
-  { children: React.ReactNode; slideIndex: number; slide: unknown; onSkip: () => void; isLast: boolean },
-  { hasError: boolean }
-> {
-  state = { hasError: false };
-  static getDerivedStateFromError() {
-    return { hasError: true };
-  }
-  componentDidCatch(error: Error, info: { componentStack?: string }) {
+// Last-resort safety net for the Mission slide renderer.
+//
+// A React error *boundary* (class component with getDerivedStateFromError)
+// CANNOT catch this failure: `<Boundary>{expr}</Boundary>` still evaluates
+// `expr` (the slide ternary / .map() / IIFE) synchronously as part of
+// SessionPlayerScreen's OWN function body, to build the `children` value —
+// before React ever instantiates/renders the Boundary component. A boundary
+// only intercepts errors thrown during a DESCENDANT's own render call, so an
+// error thrown while the parent is still constructing that descendant's
+// props is invisible to it (confirmed by the crash's own stack: beginWork/
+// updateFunctionComponent for SessionPlayerScreen itself, no separate frame
+// for a child boundary). A plain try/catch around the expression evaluation
+// is the only mechanism that actually intercepts this.
+function safeRender(
+  render: () => React.ReactNode,
+  fallback: React.ReactNode,
+  context?: Record<string, unknown>,
+): React.ReactNode {
+  try {
+    return render();
+  } catch (error) {
     console.error(
       '[Session] Slide render crashed — diagnostic dump for next investigation:\n' +
       JSON.stringify({
-        index: this.props.slideIndex,
-        slide: this.props.slide,
-        message: error.message,
-        stack: error.stack,
-        componentStack: info?.componentStack,
+        ...context,
+        message: (error as Error)?.message,
+        stack: (error as Error)?.stack,
       }, null, 2)
     );
+    return fallback;
   }
-  render() {
-    if (this.state.hasError) {
-      return (
-        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', padding: 24, gap: 16 }}>
-          <Text style={{ fontSize: 40 }}>⚠️</Text>
-          <Text style={{ fontSize: 16, fontWeight: '700', color: semantic.textPrimary, textAlign: 'center' }}>
-            No se pudo mostrar este contenido
-          </Text>
-          <Text style={{ fontSize: 13, color: semantic.textSecondary, textAlign: 'center' }}>
-            Puedes continuar — no afecta el resto de la misión.
-          </Text>
-          <Pressable onPress={this.props.onSkip} style={{ backgroundColor: BRAND, paddingHorizontal: 28, paddingVertical: 14, borderRadius: 28 }}>
-            <Text style={{ color: palette.blanco, fontWeight: '800', fontSize: 15 }}>
-              {this.props.isLast ? 'Finalizar →' : 'Continuar →'}
-            </Text>
-          </Pressable>
-        </View>
-      );
-    }
-    return this.props.children;
-  }
+}
+
+function SlideCrashFallback({ onSkip, isLast }: { onSkip: () => void; isLast: boolean }) {
+  return (
+    <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', padding: 24, gap: 16 }}>
+      <Text style={{ fontSize: 40 }}>⚠️</Text>
+      <Text style={{ fontSize: 16, fontWeight: '700', color: semantic.textPrimary, textAlign: 'center' }}>
+        No se pudo mostrar este contenido
+      </Text>
+      <Text style={{ fontSize: 13, color: semantic.textSecondary, textAlign: 'center' }}>
+        Puedes continuar — no afecta el resto de la misión.
+      </Text>
+      <Pressable onPress={onSkip} style={{ backgroundColor: BRAND, paddingHorizontal: 28, paddingVertical: 14, borderRadius: 28 }}>
+        <Text style={{ color: palette.blanco, fontWeight: '800', fontSize: 15 }}>
+          {isLast ? 'Finalizar →' : 'Continuar →'}
+        </Text>
+      </Pressable>
+    </View>
+  );
 }
 
 // Quiz engagement constants
@@ -1711,8 +1711,8 @@ export default function SessionPlayerScreen() {
               if (dx > 40 && summaryIdx > 0) goPrev();
             }}
           >
-            <SlideErrorBoundary key={summaryIdx} slideIndex={summaryIdx} slide={slide} isLast={isLast} onSkip={() => (isLast ? completeMode('summary') : goNext())}>
-            {slide?.type === 'quiz' ? (
+            {safeRender(() => (
+            slide?.type === 'quiz' ? (
               <View style={sum.quizCard}>
                 <Text style={sum.quizLabel}>🧠 MINI QUIZ</Text>
                 <Text style={sum.quizQuestion}>{slide.question}</Text>
@@ -2932,8 +2932,8 @@ export default function SessionPlayerScreen() {
                   </View>
                 )}
               </View>
-            )}
-            </SlideErrorBoundary>
+            )
+            ), <SlideCrashFallback onSkip={() => (isLast ? completeMode('summary') : goNext())} isLast={isLast} />, { index: summaryIdx, slide })}
 
             {/* Summary micro-reward — integrated into feedback boxes (no floating overlay) */}
           </Animated.View>
@@ -2943,8 +2943,7 @@ export default function SessionPlayerScreen() {
               DELETE+INSERT on a direct SafeAreaView child when fbActive toggles.
               Style and first child mutate in-place; the Continuar Pressable is
               inserted/deleted at grandchild depth, which Fabric handles safely. */}
-          <SlideErrorBoundary key={`cta-${summaryIdx}`} slideIndex={summaryIdx} slide={slide} isLast={isLast} onSkip={() => (isLast ? completeMode('summary') : goNext())}>
-          {(() => {
+          {safeRender(() => {
             const bs = slide as BackendSlide | undefined;
             const MISSION_QUIZ_TYPES = new Set(['micro_challenge', 'reinforcement_challenge', 'comprehension', 'mini_quiz', 'final_challenge', 'decide']);
             // Requires non-empty options too — a slide with a question but no options
@@ -3025,8 +3024,7 @@ export default function SessionPlayerScreen() {
                 )}
               </View>
             );
-          })()}
-          </SlideErrorBoundary>
+          }, <SlideCrashFallback onSkip={() => (isLast ? completeMode('summary') : goNext())} isLast={isLast} />, { index: summaryIdx, slide })}
         </SafeAreaView>
       </View>
     );
