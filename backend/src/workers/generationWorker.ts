@@ -47,18 +47,6 @@ async function processGenerationJob(job: Job<GenerationJobData>): Promise<Genera
     session.userId = userId;
     session.documentId = documentId;
 
-    // Temporary diagnostic — dumps the exact options array being persisted for
-    // every interactive slide, to settle whether a "blank options" report is a
-    // real backend regression or a stale/cached session on the client. Every
-    // static/simulated check of this pipeline so far has produced correct,
-    // non-empty options — this proves (or disproves) that against the ACTUAL
-    // data being saved for a real generation. Safe to remove once resolved.
-    (session.summary?.slides ?? []).forEach((s: any, i: number) => {
-      if (Array.isArray(s.options) && s.options.length > 0) {
-        console.log(`[GenerationWorker][DIAG] slide ${i} (${s.type}) options=${JSON.stringify(s.options)} correctAnswer=${s.correctAnswer}`);
-      }
-    });
-
     await saveGeneratedSession(userId, sessionId, session);
     await setGenerationJobStatus(documentId, 'completed', { sessionId, userId });
 

@@ -787,28 +787,6 @@ export default function SessionPlayerScreen() {
       console.log('[Frontend Audit] ════════════════════════════════════════════\n');
     }
 
-    // Temporary diagnostic — the FASE 6/7 audit above only fires when
-    // summarySlides[0].type === 'mission', which is FALSE for v2 sessions (v2
-    // starts with 'micro_challenge'), so it never ran for the sessions being
-    // debugged here. This one always fires and dumps the exact options array
-    // for every interactive slide both BEFORE (raw backend data) and AFTER
-    // (this frontend's own buildSummarySlides) — the backend's own save-time
-    // log already proved the raw data is correct, so this settles whether
-    // something in THIS function is the one blanking options out. Safe to
-    // remove once resolved.
-    console.log('[Session][DIAG] RAW summarySlides (from backend):');
-    summarySlides.forEach((s: any, i: number) => {
-      if (Array.isArray(s.options) && s.options.length > 0) {
-        console.log(`  [${i}] ${s.type} options=${JSON.stringify(s.options)} correctAnswer=${s.correctAnswer}`);
-      }
-    });
-    console.log('[Session][DIAG] BUILT missionSlides (after frontend buildSummarySlides):');
-    built.forEach((s: any, i: number) => {
-      if (Array.isArray(s.options) && s.options.length > 0) {
-        console.log(`  [${i}] ${s.type} options=${JSON.stringify(s.options)} correctAnswer=${s.correctAnswer}`);
-      }
-    });
-
     setMissionSlides(built);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [session]);
@@ -2001,7 +1979,7 @@ export default function SessionPlayerScreen() {
                       <Text style={[sum.quizQuestion, { marginTop: 12 }]}>{slide.question ?? slide.title}</Text>
                       {slide.options?.length ? (
                         <View key={`options-${summaryIdx}-${quizAnswers[summaryIdx] ?? 'none'}`} style={{ gap: 8, marginTop: 14 }}>
-                          {slide.options.slice(0, 3).map((opt, i) => {
+                          {slide.options.slice(0, 4).map((opt, i) => {
                             const letter    = LETTERS[i];
                             const isOpt     = slide.correctAnswer === letter;
                             const showGreen = !!answered && isOpt;
@@ -2049,7 +2027,7 @@ export default function SessionPlayerScreen() {
                       <Text style={[sum.quizQuestion, { marginTop: 12 }]}>{slide.question ?? slide.title}</Text>
                       {slide.options?.length ? (
                         <View key={`options-${summaryIdx}-${quizAnswers[summaryIdx] ?? 'none'}`} style={{ gap: 8, marginTop: 14 }}>
-                          {slide.options.slice(0, 3).map((opt, i) => {
+                          {slide.options.slice(0, 4).map((opt, i) => {
                             const letter    = LETTERS[i];
                             const isOpt     = slide.correctAnswer === letter;
                             const showGreen = !!answered && isOpt;
@@ -2066,14 +2044,12 @@ export default function SessionPlayerScreen() {
                                   }}
                                   style={[sum.quizOption, showGreen && sum.quizOptCorrect, showRed && sum.quizOptWrong, { opacity: dimmed ? 0.35 : 1 }]}
                                 >
-                                  <View>
-                                    <View style={[sum.quizLetter, showGreen && sum.quizLetterGreen, showRed && sum.quizLetterRed]}>
-                                      <Text style={[sum.quizLetterText, (showGreen || showRed) && { color: palette.blanco }]}>
-                                        {showGreen ? '✓' : showRed ? '✗' : letter}
-                                      </Text>
-                                    </View>
-                                    <Text style={[sum.quizOptText, showGreen && { color: BRAND, fontWeight: '700' }, showRed && { color: palette.rojoErrorDark, fontWeight: '700' }]}>{opt}</Text>
+                                  <View style={[sum.quizLetter, showGreen && sum.quizLetterGreen, showRed && sum.quizLetterRed]}>
+                                    <Text style={[sum.quizLetterText, (showGreen || showRed) && { color: palette.blanco }]}>
+                                      {showGreen ? '✓' : showRed ? '✗' : letter}
+                                    </Text>
                                   </View>
+                                  <Text style={[sum.quizOptText, showGreen && { color: BRAND, fontWeight: '700' }, showRed && { color: palette.rojoErrorDark, fontWeight: '700' }]}>{opt}</Text>
                                 </Pressable>
                               </Animated.View>
                             );
