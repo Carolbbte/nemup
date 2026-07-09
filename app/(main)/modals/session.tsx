@@ -336,8 +336,21 @@ function buildSummarySlides(backendSlides: BackendSlide[], questions: Question[]
     return [{ type: 'concept', emoji: '📚', title: 'Resumen', definition: '', example: '' }];
   }
 
-  // Mission model: quality pass before rendering
-  if (backendSlides[0].type === 'mission') {
+  // Mission model: quality pass before rendering.
+  // Detected by the PRESENCE of any structured mission-type slide anywhere in
+  // the array — not just `backendSlides[0].type === 'mission'`. The v2 engine
+  // (assemble.ts) never emits a leading 'mission' slide (it starts directly
+  // with 'micro_challenge'), so the old first-element-only check silently
+  // routed every v2 session through the unprotected legacy branch below,
+  // which has no fallback content and no "empty options → non-interactive"
+  // safety conversion — this is what let interactive slides (e.g. REFUERZO/
+  // reinforcement_challenge) reach the screen with zero answer options.
+  const MISSION_MODEL_TYPES = new Set([
+    'mission', 'main_concept', 'micro_challenge', 'reinforcement_challenge', 'comprehension',
+    'key_relation', 'process_flow', 'application', 'victory', 'challenge', 'decide',
+    'order_sequence', 'quiz_transition', 'final_challenge', 'mini_quiz',
+  ]);
+  if (backendSlides.some(s => MISSION_MODEL_TYPES.has(s.type))) {
     const INTER = ['micro_challenge', 'reinforcement_challenge', 'comprehension', 'mini_quiz', 'final_challenge', 'decide', 'order_sequence'];
     const isInteractive = (s: BackendSlide) =>
       INTER.includes(s.type) || (s.type === 'wow_fact' && !!s.question?.trim());
@@ -365,10 +378,16 @@ function buildSummarySlides(backendSlides: BackendSlide[], questions: Question[]
       challenge: { title: 'Reflexiona', definition: 'Piensa en cómo aplicarías este concepto en una situación real.' },
       victory: { title: '¡Misión completada!', definition: 'Aprendiste los conceptos clave de esta sesión.' },
     };
+    const DEFAULT_EMOJI: Record<string, string> = {
+      mission: '🎯', main_concept: '💡', micro_challenge: '🏁', reinforcement_challenge: '🔁',
+      comprehension: '🧠', mini_quiz: '⚡', process_flow: '🔄', application: '🚀',
+      common_error: '⚠️', decide: '🤔', final_challenge: '🏆', challenge: '🤔', victory: '🎉',
+    };
     const applyFallback = (s: BackendSlide): BackendSlide => {
       const fb = SLIDE_CONTENT_FALLBACKS[s.type] ?? { title: 'Contenido', definition: 'Revisa este concepto con tu material.' };
       return {
         ...s,
+        emoji: s.emoji?.trim() ? s.emoji : (DEFAULT_EMOJI[s.type] ?? '📚'),
         title: s.title?.trim() ? s.title : fb.title,
         definition: s.definition?.trim() ? s.definition : fb.definition,
       };
@@ -556,7 +575,9 @@ function buildSummarySlides(backendSlides: BackendSlide[], questions: Question[]
       out.push(makePrediction(slide));
     }
 
-    out.push(slide);
+    // Defensive: this legacy branch has no fallback pass of its own — guard
+    // against an empty/missing emoji reaching the renderer directly.
+    out.push(slide.emoji?.trim() ? slide : { ...slide, emoji: '📚' });
 
     // After every 4th content slide inject quiz → prediction → motivation
     if ((i + 1) % 4 === 0 && i < backendSlides.length - 1) {
@@ -1481,8 +1502,15 @@ export default function SessionPlayerScreen() {
   // SUMMARY — Screen 3 (story slides, NO SCROLL)
   // ══════════════════════════════════════════════════════════════
   if (phase === 'summary') {
-    const slides            = missionSlides;
-    const slide             = slides[summaryIdx];
+    const slides   = missionSlides;
+    const rawSlide = slides[summaryIdx];
+    // Single choke point: guarantee `emoji` is populated on the slide object
+    // BEFORE any of the ~15 branches/IIFEs below read `slide.emoji` — closes
+    // off every current AND future read site in one place, rather than
+    // relying on each branch to remember its own fallback.
+    const slide = rawSlide && !(rawSlide as any).emoji
+      ? ({ ...rawSlide, emoji: '📚' } as SummarySlide)
+      : rawSlide;
     const isLast            = summaryIdx >= slides.length - 1;
     const slideQuizAnswered = slide?.type === 'quiz' ? quizAnswers[summaryIdx] : undefined;
     // Stats for victory screen — computed once, used in victory card renderer and CTA button
@@ -1684,7 +1712,7 @@ export default function SessionPlayerScreen() {
               </View>
             ) : slide?.type === 'motivation' ? (
               <View style={sum.motivCard}>
-                <Text style={sum.motivEmoji}>{slide.emoji}</Text>
+                <Text style={sum.motivEmoji}>{slide?.emoji || '🎉'}</Text>
                 <Text style={sum.motivMsg}>{slide.message}</Text>
                 <Text style={sum.motivSub}>{slide.sub}</Text>
               </View>
@@ -1702,7 +1730,7 @@ export default function SessionPlayerScreen() {
                   <View style={sum.missionCard}>
                     <View style={[sum.missionGrad, { backgroundColor: BRAND }]}>
                       <View style={sum.missionBadge}><Text style={sum.missionBadgeText}>🎯 MISIÓN</Text></View>
-                      <Text style={sum.missionEmoji}>{slide.emoji}</Text>
+                      <Text style={sum.missionEmoji}>{slide?.emoji || '🎯'}</Text>
                       <Text style={sum.missionTitle}>{slide.title}</Text>
                       {coverConcepts.length > 0 && (
                         <View style={sum.missionLearnBlock}>
@@ -1739,7 +1767,7 @@ export default function SessionPlayerScreen() {
                     <Text style={sum.mainCardLabel}>{isProcedural ? '📐 PASO A PASO' : '⚡ INSIGHT'}</Text>
                   </View>
                   <View style={sum.mainCardBody}>
-                    <Text style={sum.mainCardEmoji}>{slide.emoji}</Text>
+                    <Text style={sum.mainCardEmoji}>{slide?.emoji || '💡'}</Text>
                     <Text style={sum.mainCardTitle}>{slide.title}</Text>
                     {hasConnector ? (
                       <>
@@ -1896,35 +1924,39 @@ export default function SessionPlayerScreen() {
                     </View>
                     <View style={{ paddingHorizontal: SM ? 14 : 18, paddingBottom: SM ? 14 : 18 }}>
                       <Text style={[sum.quizQuestion, { marginTop: 12 }]}>{slide.question ?? slide.title}</Text>
-                      <View key={`options-${summaryIdx}-${quizAnswers[summaryIdx] ?? 'none'}`} style={{ gap: 8, marginTop: 14 }}>
-                        {slide.options?.slice(0, 3).map((opt, i) => {
-                          const letter    = LETTERS[i];
-                          const isOpt     = slide.correctAnswer === letter;
-                          const showGreen = !!answered && isOpt;
-                          const showRed   = answered === letter && !isOpt;
-                          const dimmed    = !!answered && !isOpt && answered !== letter;
-                          return (
-                            <Animated.View key={i} style={wrongShakeStyle}>
-                              <Pressable
-                                onPress={() => {
-                                  if (!answered) {
-                                    missionStreakRef.current = isOpt ? missionStreakRef.current + 1 : 0;
-                                    setQuizAnswers(prev => ({ ...prev, [summaryIdx]: letter }));
-                                  }
-                                }}
-                                style={[sum.quizOption, showGreen && sum.quizOptCorrect, showRed && sum.quizOptWrong, { opacity: dimmed ? 0.35 : 1 }]}
-                              >
-                                <View style={[sum.quizLetter, showGreen && sum.quizLetterGreen, showRed && sum.quizLetterRed]}>
-                                  <Text style={[sum.quizLetterText, (showGreen || showRed) && { color: palette.blanco }]}>
-                                    {showGreen ? '✓' : showRed ? '✗' : letter}
-                                  </Text>
-                                </View>
-                                <Text style={[sum.quizOptText, showGreen && { color: BRAND, fontWeight: '700' }, showRed && { color: palette.rojoErrorDark, fontWeight: '700' }]}>{opt}</Text>
-                              </Pressable>
-                            </Animated.View>
-                          );
-                        })}
-                      </View>
+                      {slide.options?.length ? (
+                        <View key={`options-${summaryIdx}-${quizAnswers[summaryIdx] ?? 'none'}`} style={{ gap: 8, marginTop: 14 }}>
+                          {slide.options.slice(0, 3).map((opt, i) => {
+                            const letter    = LETTERS[i];
+                            const isOpt     = slide.correctAnswer === letter;
+                            const showGreen = !!answered && isOpt;
+                            const showRed   = answered === letter && !isOpt;
+                            const dimmed    = !!answered && !isOpt && answered !== letter;
+                            return (
+                              <Animated.View key={i} style={wrongShakeStyle}>
+                                <Pressable
+                                  onPress={() => {
+                                    if (!answered) {
+                                      missionStreakRef.current = isOpt ? missionStreakRef.current + 1 : 0;
+                                      setQuizAnswers(prev => ({ ...prev, [summaryIdx]: letter }));
+                                    }
+                                  }}
+                                  style={[sum.quizOption, showGreen && sum.quizOptCorrect, showRed && sum.quizOptWrong, { opacity: dimmed ? 0.35 : 1 }]}
+                                >
+                                  <View style={[sum.quizLetter, showGreen && sum.quizLetterGreen, showRed && sum.quizLetterRed]}>
+                                    <Text style={[sum.quizLetterText, (showGreen || showRed) && { color: palette.blanco }]}>
+                                      {showGreen ? '✓' : showRed ? '✗' : letter}
+                                    </Text>
+                                  </View>
+                                  <Text style={[sum.quizOptText, showGreen && { color: BRAND, fontWeight: '700' }, showRed && { color: palette.rojoErrorDark, fontWeight: '700' }]}>{opt}</Text>
+                                </Pressable>
+                              </Animated.View>
+                            );
+                          })}
+                        </View>
+                      ) : (
+                        <Text style={sum.introDef}>Este contenido no tiene opciones disponibles — desliza para continuar.</Text>
+                      )}
                     </View>
                   </View>
                 );
@@ -1940,37 +1972,41 @@ export default function SessionPlayerScreen() {
                     </View>
                     <View style={{ paddingHorizontal: SM ? 14 : 18, paddingBottom: SM ? 14 : 18 }}>
                       <Text style={[sum.quizQuestion, { marginTop: 12 }]}>{slide.question ?? slide.title}</Text>
-                      <View key={`options-${summaryIdx}-${quizAnswers[summaryIdx] ?? 'none'}`} style={{ gap: 8, marginTop: 14 }}>
-                        {slide.options?.slice(0, 3).map((opt, i) => {
-                          const letter    = LETTERS[i];
-                          const isOpt     = slide.correctAnswer === letter;
-                          const showGreen = !!answered && isOpt;
-                          const showRed   = answered === letter && !isOpt;
-                          const dimmed    = !!answered && !isOpt && answered !== letter;
-                          return (
-                            <Animated.View key={i} style={wrongShakeStyle}>
-                              <Pressable
-                                onPress={() => {
-                                  if (!answered) {
-                                    missionStreakRef.current = isOpt ? missionStreakRef.current + 1 : 0;
-                                    setQuizAnswers(prev => ({ ...prev, [summaryIdx]: letter }));
-                                  }
-                                }}
-                                style={[sum.quizOption, showGreen && sum.quizOptCorrect, showRed && sum.quizOptWrong, { opacity: dimmed ? 0.35 : 1 }]}
-                              >
-                                <View>
-                                  <View style={[sum.quizLetter, showGreen && sum.quizLetterGreen, showRed && sum.quizLetterRed]}>
-                                    <Text style={[sum.quizLetterText, (showGreen || showRed) && { color: palette.blanco }]}>
-                                      {showGreen ? '✓' : showRed ? '✗' : letter}
-                                    </Text>
+                      {slide.options?.length ? (
+                        <View key={`options-${summaryIdx}-${quizAnswers[summaryIdx] ?? 'none'}`} style={{ gap: 8, marginTop: 14 }}>
+                          {slide.options.slice(0, 3).map((opt, i) => {
+                            const letter    = LETTERS[i];
+                            const isOpt     = slide.correctAnswer === letter;
+                            const showGreen = !!answered && isOpt;
+                            const showRed   = answered === letter && !isOpt;
+                            const dimmed    = !!answered && !isOpt && answered !== letter;
+                            return (
+                              <Animated.View key={i} style={wrongShakeStyle}>
+                                <Pressable
+                                  onPress={() => {
+                                    if (!answered) {
+                                      missionStreakRef.current = isOpt ? missionStreakRef.current + 1 : 0;
+                                      setQuizAnswers(prev => ({ ...prev, [summaryIdx]: letter }));
+                                    }
+                                  }}
+                                  style={[sum.quizOption, showGreen && sum.quizOptCorrect, showRed && sum.quizOptWrong, { opacity: dimmed ? 0.35 : 1 }]}
+                                >
+                                  <View>
+                                    <View style={[sum.quizLetter, showGreen && sum.quizLetterGreen, showRed && sum.quizLetterRed]}>
+                                      <Text style={[sum.quizLetterText, (showGreen || showRed) && { color: palette.blanco }]}>
+                                        {showGreen ? '✓' : showRed ? '✗' : letter}
+                                      </Text>
+                                    </View>
+                                    <Text style={[sum.quizOptText, showGreen && { color: BRAND, fontWeight: '700' }, showRed && { color: palette.rojoErrorDark, fontWeight: '700' }]}>{opt}</Text>
                                   </View>
-                                  <Text style={[sum.quizOptText, showGreen && { color: BRAND, fontWeight: '700' }, showRed && { color: palette.rojoErrorDark, fontWeight: '700' }]}>{opt}</Text>
-                                </View>
-                              </Pressable>
-                            </Animated.View>
-                          );
-                        })}
-                      </View>
+                                </Pressable>
+                              </Animated.View>
+                            );
+                          })}
+                        </View>
+                      ) : (
+                        <Text style={sum.introDef}>Este contenido no tiene opciones disponibles — desliza para continuar.</Text>
+                      )}
                     </View>
                   </View>
                 );
@@ -2073,7 +2109,7 @@ export default function SessionPlayerScreen() {
             ) : slide?.type === 'application' ? (
               <View style={sum.appCard}>
                 <View style={sum.appBand}>
-                  <Text style={sum.appEmoji}>{slide.emoji}</Text>
+                  <Text style={sum.appEmoji}>{slide?.emoji || '🚀'}</Text>
                   <Text style={sum.appLabel}>🌍 APLICACIÓN REAL</Text>
                 </View>
                 <View style={sum.appBody}>
@@ -2184,7 +2220,7 @@ export default function SessionPlayerScreen() {
                 </View>
               ) : !slide.definition || !slide.example ? (
                 <View style={sum.introCard}>
-                  <Text style={sum.slideEmoji}>{slide.emoji}</Text>
+                  <Text style={sum.slideEmoji}>{slide?.emoji || '⚠️'}</Text>
                   <Text style={sum.introHeading}>{slide.title}</Text>
                   {!!(slide.definition || slide.example) && (
                     <Text style={sum.introDef}>{slide.definition || slide.example}</Text>
@@ -2627,7 +2663,7 @@ export default function SessionPlayerScreen() {
 
               return (
               <View style={sum.victoryCard}>
-                <Text style={sum.victoryEmoji}>{slide.emoji}</Text>
+                <Text style={sum.victoryEmoji}>{slide?.emoji || '🎉'}</Text>
                 <Text style={sum.victoryTitle}>{effectiveVictoryTitle}</Text>
                 {/* Mission progress indicator */}
                 {!!missionProgress && (
@@ -2744,7 +2780,7 @@ export default function SessionPlayerScreen() {
             // ── Legacy screens ────────────────────────────────────
             ) : slide?.type === 'concept' ? (
               <View style={sum.introCard}>
-                <Text style={sum.slideEmoji}>{slide.emoji}</Text>
+                <Text style={sum.slideEmoji}>{slide?.emoji || '📚'}</Text>
                 <Text style={sum.introHeading}>{slide.title}</Text>
                 {!!slide.definition && <Text style={sum.introDef}>{slide.definition}</Text>}
                 {!!slide.example && (
@@ -2815,7 +2851,7 @@ export default function SessionPlayerScreen() {
             ) : slide?.type === 'example' ? (
               <View style={sum.scenarioCard}>
                 <View style={sum.scenarioBand}>
-                  <Text style={sum.scenarioEmoji}>{slide.emoji}</Text>
+                  <Text style={sum.scenarioEmoji}>{slide?.emoji || '📌'}</Text>
                   <Text style={sum.scenarioLabel}>📌 EJEMPLO PRÁCTICO</Text>
                 </View>
                 <View style={sum.scenarioBody}>
@@ -2832,7 +2868,7 @@ export default function SessionPlayerScreen() {
               </View>
             ) : (
               <View style={[sum.kpCard, { backgroundColor: SLIDE_STYLE[slide?.type ?? '']?.bg ?? 'rgba(22,119,242,0.08)', borderLeftColor: SLIDE_STYLE[slide?.type ?? '']?.accent ?? BRAND }]}>
-                <Text style={sum.kpEmoji}>{slide?.emoji}</Text>
+                <Text style={sum.kpEmoji}>{slide?.emoji || '📚'}</Text>
                 <Text style={[sum.kpLabel, { color: SLIDE_STYLE[slide?.type ?? '']?.accent ?? BRAND }]}>{SLIDE_STYLE[slide?.type ?? '']?.label}</Text>
                 <Text style={sum.kpTitle}>{slide?.title}</Text>
                 {!!slide?.definition && <Text style={sum.kpDef}>{slide.definition}</Text>}
@@ -2856,8 +2892,12 @@ export default function SessionPlayerScreen() {
           {(() => {
             const bs = slide as BackendSlide | undefined;
             const MISSION_QUIZ_TYPES = new Set(['micro_challenge', 'reinforcement_challenge', 'comprehension', 'mini_quiz', 'final_challenge', 'decide']);
-            const isMissionInteractive = MISSION_QUIZ_TYPES.has(slide?.type ?? '') ||
-              (['common_error', 'wow_fact', 'application', 'challenge'].includes(slide?.type ?? '') && !!bs?.question);
+            // Requires non-empty options too — a slide with a question but no options
+            // (should not happen post quality-pass, but kept as a defensive fallback)
+            // must never soft-lock the "Elige una opción" CTA with nothing to tap.
+            const isMissionInteractive = (MISSION_QUIZ_TYPES.has(slide?.type ?? '') ||
+              (['common_error', 'wow_fact', 'application', 'challenge'].includes(slide?.type ?? '') && !!bs?.question))
+              && !!bs?.options?.length;
             const missionAnswered = isMissionInteractive ? quizAnswers[summaryIdx] : undefined;
             const missionCorrect  = !!missionAnswered && missionAnswered === bs?.correctAnswer;
             const _seed = (summaryIdx * 2654435761) >>> 0;
