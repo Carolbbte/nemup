@@ -452,6 +452,22 @@ export function buildDesafio(
  * final_challenge reuses the hardest concept's already-generated question
  * rather than requesting a new one.
  */
+// The frontend's Mission player stores the TAPPED LETTER ('A'/'B'/'C'/'D') in
+// its answers map and compares it against `slide.correctAnswer` for every
+// interactive slide type — a convention set by the legacy v1 AI (which always
+// emits a letter) and already followed by buildDesafio's own choice-builders
+// below. Storing the literal answer TEXT in `correctAnswer` here (as this
+// function used to) makes that comparison always false: the student is never
+// marked correct on a micro_challenge/reinforcement_challenge/final_challenge,
+// which also meant the CTA's wrong-answer feedback path fired on every single
+// answer, right or wrong.
+const SUMMARY_LETTERS = ['A', 'B', 'C', 'D'];
+function shuffleWithLetterAnswer(correctText: string, distractorTexts: string[]): { options: string[]; correctAnswer: string } {
+  const options = shuffleArray([correctText, ...distractorTexts]);
+  const correctAnswer = SUMMARY_LETTERS[options.indexOf(correctText)] ?? 'A';
+  return { options, correctAnswer };
+}
+
 export function buildSummarySlides(
   ko: KnowledgeObject,
   distractors: Record<string, DistractorSet>,
@@ -464,6 +480,7 @@ export function buildSummarySlides(
     const d = distractors[concept.id];
     if (!d) continue; // no generated question — skip this concept's loop, keep the rest intact
 
+    const micro = shuffleWithLetterAnswer(d.correctText, d.distractors);
     slides.push({
       type: 'micro_challenge',
       emoji: '🧠',
@@ -471,8 +488,8 @@ export function buildSummarySlides(
       definition: 'Responde antes de ver la respuesta — así el concepto se queda contigo.',
       example: '',
       question: d.question,
-      options: shuffleArray([d.correctText, ...d.distractors]),
-      correctAnswer: d.correctText,
+      options: micro.options,
+      correctAnswer: micro.correctAnswer,
     });
 
     slides.push({
@@ -483,6 +500,7 @@ export function buildSummarySlides(
       example: concept.example ?? '',
     });
 
+    const reinforcement = shuffleWithLetterAnswer(d.correctText, d.distractors);
     slides.push({
       type: 'reinforcement_challenge',
       emoji: '🎯',
@@ -490,8 +508,8 @@ export function buildSummarySlides(
       definition: `Aplica lo que acabas de aprender sobre ${concept.name}.`,
       example: '',
       question: d.question,
-      options: shuffleArray([d.correctText, ...d.distractors]),
-      correctAnswer: d.correctText,
+      options: reinforcement.options,
+      correctAnswer: reinforcement.correctAnswer,
     });
   }
 
@@ -506,6 +524,7 @@ export function buildSummarySlides(
   const bossConcept = ko.concepts.reduce((max, c) => (c.difficulty > max.difficulty ? c : max));
   const bossDistractor = distractors[bossConcept.id];
   if (bossDistractor) {
+    const boss = shuffleWithLetterAnswer(bossDistractor.correctText, bossDistractor.distractors);
     slides.push({
       type: 'final_challenge',
       emoji: '🏆',
@@ -513,8 +532,8 @@ export function buildSummarySlides(
       definition: 'Demuestra que dominas el concepto más exigente de esta sesión.',
       example: '',
       question: bossDistractor.question,
-      options: shuffleArray([bossDistractor.correctText, ...bossDistractor.distractors]),
-      correctAnswer: bossDistractor.correctText,
+      options: boss.options,
+      correctAnswer: boss.correctAnswer,
     });
   }
 

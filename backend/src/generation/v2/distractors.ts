@@ -154,9 +154,28 @@ export async function generateDistractors(
 
   const parsed = JSON.parse(raw) as { items: DistractorSet[] };
 
+  // Strict json_schema mode enforces shape (types/required/additionalProperties)
+  // but NOT string content — the model can satisfy `type: "string"` with `""`.
+  // A concept with an empty correctText/distractor renders as a blank option
+  // with a visible letter but no text (REFUERZO/CHECKPOINT reported bug), with
+  // no crash to signal it. Validate content here so every consumer downstream
+  // (buildQuestions/buildSummarySlides/buildDesafio) gets a clean `!d` skip via
+  // their existing "no distractor for this concept" branch, instead of each
+  // one needing its own content check.
   const result: Record<string, DistractorSet> = {};
   selected.forEach((concept, i) => {
-    result[concept.id] = parsed.items[i];
+    const item = parsed.items[i];
+    const isValid =
+      !!item?.question?.trim() &&
+      !!item?.correctText?.trim() &&
+      Array.isArray(item?.distractors) &&
+      item.distractors.length === 3 &&
+      item.distractors.every((d) => !!d?.trim());
+    if (isValid) {
+      result[concept.id] = item;
+    } else {
+      console.warn(`[Distractors] Concept "${concept.name}" got empty/malformed distractor content from the model — skipping its interactive slides.`);
+    }
   });
   return result;
 }
