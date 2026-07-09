@@ -787,6 +787,28 @@ export default function SessionPlayerScreen() {
       console.log('[Frontend Audit] ════════════════════════════════════════════\n');
     }
 
+    // Temporary diagnostic — the FASE 6/7 audit above only fires when
+    // summarySlides[0].type === 'mission', which is FALSE for v2 sessions (v2
+    // starts with 'micro_challenge'), so it never ran for the sessions being
+    // debugged here. This one always fires and dumps the exact options array
+    // for every interactive slide both BEFORE (raw backend data) and AFTER
+    // (this frontend's own buildSummarySlides) — the backend's own save-time
+    // log already proved the raw data is correct, so this settles whether
+    // something in THIS function is the one blanking options out. Safe to
+    // remove once resolved.
+    console.log('[Session][DIAG] RAW summarySlides (from backend):');
+    summarySlides.forEach((s: any, i: number) => {
+      if (Array.isArray(s.options) && s.options.length > 0) {
+        console.log(`  [${i}] ${s.type} options=${JSON.stringify(s.options)} correctAnswer=${s.correctAnswer}`);
+      }
+    });
+    console.log('[Session][DIAG] BUILT missionSlides (after frontend buildSummarySlides):');
+    built.forEach((s: any, i: number) => {
+      if (Array.isArray(s.options) && s.options.length > 0) {
+        console.log(`  [${i}] ${s.type} options=${JSON.stringify(s.options)} correctAnswer=${s.correctAnswer}`);
+      }
+    });
+
     setMissionSlides(built);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [session]);
