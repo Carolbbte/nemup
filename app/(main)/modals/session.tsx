@@ -2955,8 +2955,15 @@ export default function SessionPlayerScreen() {
             const missionAnswered = isMissionInteractive ? quizAnswers[summaryIdx] : undefined;
             const missionCorrect  = !!missionAnswered && missionAnswered === bs?.correctAnswer;
             const _seed = (summaryIdx * 2654435761) >>> 0;
+            // `_seed ^ 0xDEAD` runs through ToInt32 (signed) — for any _seed >= 2^31
+            // (roughly half of all summaryIdx values) that yields a NEGATIVE result,
+            // and `%` in JS preserves the dividend's sign, producing a negative index
+            // (array[-n] is undefined in JS). `>>> 0` re-forces it unsigned before the
+            // modulo. This was the actual root cause of the emoji crash — it only fired
+            // on wrong answers (errMsg), for specific summaryIdx values, which is why it
+            // looked inconsistent across reports.
             const celebMsg = MISSION_FB_OK[_seed % MISSION_FB_OK.length];
-            const errMsg   = MISSION_FB_ERR[(_seed ^ 0xDEAD) % MISSION_FB_ERR.length];
+            const errMsg   = MISSION_FB_ERR[((_seed ^ 0xDEAD) >>> 0) % MISSION_FB_ERR.length];
             const streakLabel = missionStreakRef.current >= 5 ? `⚡ ¡${missionStreakRef.current} en racha!` :
                                 missionStreakRef.current === 4 ? '⚡ ¡Racha de 4!' :
                                 missionStreakRef.current === 3 ? '🔥 ¡3 seguidas!' :
@@ -2973,8 +2980,8 @@ export default function SessionPlayerScreen() {
               }>
                 {fbActive ? (
                   <View key={missionCorrect ? `fb-${summaryIdx}-correct` : `fb-${summaryIdx}-incorrect`} style={sum.mFbContent}>
-                    <Text style={sum.mFbEmoji}>{missionCorrect ? celebMsg.emoji : errMsg.emoji}</Text>
-                    <Text style={sum.mFbTitle}>{missionCorrect ? celebMsg.text : errMsg.text}</Text>
+                    <Text style={sum.mFbEmoji}>{(missionCorrect ? celebMsg?.emoji : errMsg?.emoji) || '🎯'}</Text>
+                    <Text style={sum.mFbTitle}>{(missionCorrect ? celebMsg?.text : errMsg?.text) || (missionCorrect ? '¡Correcto!' : 'Sigue intentando.')}</Text>
                     <React.Fragment key={`explanation-${summaryIdx}-${missionCorrect ? 'ok' : 'err'}`}>
                     {!missionCorrect && !!bs?.definition && (
                       <Text style={sum.mFbExpl} numberOfLines={3}>{bs.definition}</Text>
