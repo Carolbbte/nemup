@@ -1,0 +1,50 @@
+/**
+ * distractors.ts — unit tests for the pure content-validation gate.
+ * Deliberately does NOT mock the OpenAI SDK — only the deterministic
+ * logic that decides whether a model-generated distractor set is safe
+ * to use is exercised here.
+ *
+ * Regression coverage for the "blank REFUERZO options" bug: strict
+ * json_schema enforces JSON shape but not string content, so the model
+ * can satisfy `type: "string"` with `""`.
+ */
+
+import { describe, it, expect } from 'vitest';
+import { isValidDistractorSet, type DistractorSet } from '../distractors.js';
+
+const VALID: DistractorSet = {
+  question: '¿Cuál de las siguientes opciones representa un término algebraico?',
+  correctText: '3x²',
+  distractors: ['2x - 1', 'x + 2', '5'],
+};
+
+describe('isValidDistractorSet', () => {
+  it('accepts a fully populated distractor set', () => {
+    expect(isValidDistractorSet(VALID)).toBe(true);
+  });
+
+  it('rejects undefined/null (no item at this array position)', () => {
+    expect(isValidDistractorSet(undefined)).toBe(false);
+    expect(isValidDistractorSet(null)).toBe(false);
+  });
+
+  it('rejects an empty-string question', () => {
+    expect(isValidDistractorSet({ ...VALID, question: '' })).toBe(false);
+  });
+
+  it('rejects a whitespace-only correctText', () => {
+    expect(isValidDistractorSet({ ...VALID, correctText: '   ' })).toBe(false);
+  });
+
+  it('rejects when any single distractor is an empty string', () => {
+    expect(isValidDistractorSet({ ...VALID, distractors: ['2x - 1', '', '5'] })).toBe(false);
+  });
+
+  it('rejects when distractors has fewer than 3 entries', () => {
+    expect(isValidDistractorSet({ ...VALID, distractors: ['2x - 1', 'x + 2'] })).toBe(false);
+  });
+
+  it('rejects when distractors is not an array', () => {
+    expect(isValidDistractorSet({ ...VALID, distractors: undefined as unknown as string[] })).toBe(false);
+  });
+});

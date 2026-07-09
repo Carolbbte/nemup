@@ -462,7 +462,7 @@ export function buildDesafio(
 // which also meant the CTA's wrong-answer feedback path fired on every single
 // answer, right or wrong.
 const SUMMARY_LETTERS = ['A', 'B', 'C', 'D'];
-function shuffleWithLetterAnswer(correctText: string, distractorTexts: string[]): { options: string[]; correctAnswer: string } {
+export function shuffleWithLetterAnswer(correctText: string, distractorTexts: string[]): { options: string[]; correctAnswer: string } {
   const options = shuffleArray([correctText, ...distractorTexts]);
   const correctAnswer = SUMMARY_LETTERS[options.indexOf(correctText)] ?? 'A';
   return { options, correctAnswer };
