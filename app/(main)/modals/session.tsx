@@ -2943,6 +2943,7 @@ export default function SessionPlayerScreen() {
               DELETE+INSERT on a direct SafeAreaView child when fbActive toggles.
               Style and first child mutate in-place; the Continuar Pressable is
               inserted/deleted at grandchild depth, which Fabric handles safely. */}
+          <SlideErrorBoundary key={`cta-${summaryIdx}`} slideIndex={summaryIdx} slide={slide} isLast={isLast} onSkip={() => (isLast ? completeMode('summary') : goNext())}>
           {(() => {
             const bs = slide as BackendSlide | undefined;
             const MISSION_QUIZ_TYPES = new Set(['micro_challenge', 'reinforcement_challenge', 'comprehension', 'mini_quiz', 'final_challenge', 'decide']);
@@ -3025,6 +3026,7 @@ export default function SessionPlayerScreen() {
               </View>
             );
           })()}
+          </SlideErrorBoundary>
         </SafeAreaView>
       </View>
     );
