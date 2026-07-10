@@ -1,10 +1,10 @@
-import { DAILY_SESSION_LOGIC, FIXED_QUIZ_FEEDBACK, MAX_ATTEMPTS_PER_QUESTION, MODE_COMPLETION_REDESIGN, NEUTRAL_MISSION_COMPLETION, SHOW_GEMS, UNIFIED_PROGRESS_BAR, UNIFIED_QUIZ_COMPLETION } from '@/config/features';
 import ModeCompletionScreen from '@/components/ModeCompletionScreen';
 import UnifiedProgressBar from '@/components/UnifiedProgressBar';
-import { useDailySession } from '@/contexts/DailySessionContext';
+import { DAILY_SESSION_LOGIC, FIXED_QUIZ_FEEDBACK, MAX_ATTEMPTS_PER_QUESTION, MODE_COMPLETION_REDESIGN, NEUTRAL_MISSION_COMPLETION, SHOW_GEMS, UNIFIED_PROGRESS_BAR, UNIFIED_QUIZ_COMPLETION } from '@/config/features';
 import type { DailyMode } from '@/contexts/DailySessionContext';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useDailySession } from '@/contexts/DailySessionContext';
 import { palette, paletteExtras, semantic } from '@/theme/colors';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Haptics from 'expo-haptics';
 import { useFocusEffect, useRouter } from 'expo-router';
 import {
@@ -19,7 +19,7 @@ import {
   X,
   Zap,
 } from 'lucide-react-native';
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Dimensions,
   Pressable,
@@ -33,6 +33,7 @@ import {
 import Animated, {
   Easing,
   interpolate,
+  interpolateColor,
   runOnJS,
   useAnimatedReaction,
   useAnimatedStyle,
@@ -59,7 +60,7 @@ type Flashcard = { id: string; front: string; back: string };
 type SummarySlideType = 'concept' | 'key_fact' | 'important' | 'remember' | 'example' | 'curiosity' | 'wow_fact'
   | 'mission' | 'main_concept' | 'micro_challenge' | 'reinforcement_challenge' | 'comprehension' | 'key_relation' | 'mini_quiz' | 'process_flow' | 'application' | 'common_error' | 'final_challenge' | 'victory' | 'challenge' | 'decide' | 'order_sequence' | 'quiz_transition';
 type IllustrationType = 'educational' | 'diagram' | 'concept' | 'timeline' | 'map' | 'process' | 'comparison';
-type BackendSlide = { type: SummarySlideType; emoji: string; title: string; definition: string; example: string; visualHint?: string; illustrationType?: IllustrationType; connector?: string | null; question?: string | null; options?: string[] | null; correctAnswer?: string | null; wrongAnswerHints?: Record<string, string> | null };
+type BackendSlide = { type: SummarySlideType; emoji: string; title: string; definition: string; example: string; visualHint?: string; illustrationType?: IllustrationType; connector?: string | null; question?: string | null; options?: string[] | null; correctAnswer?: string | null; wrongAnswerHints?: Record<string, string> | null; requeued?: boolean; requeuedFrom?: string | null };
 type LegacySection = { heading: string; content: string; keyPoints: string[] };
 type Session = {
   id?: string; userId?: string;
@@ -194,7 +195,7 @@ const MISSION_FB_ERR: Array<{ emoji: string; text: string }> = [
   { emoji: '💡', text: 'Casi.' },
   { emoji: '🤔', text: 'Buena prueba.' },
   { emoji: '🎯', text: 'Estuviste cerca.' },
-  { emoji: '💪', text: 'Sigue intentando.' },
+  { emoji: '💪', text: 'Vas aprendiendo.' },
   { emoji: '🧩', text: 'Ya lo tendrás.' },
   { emoji: '🌱', text: 'Aprendiste algo nuevo.' },
   { emoji: '🔄', text: 'Así se aprende.' },
@@ -810,6 +811,10 @@ export default function SessionPlayerScreen() {
   const [streak, setStreak]               = useState(0);
   const [maxStreak, setMaxStreak]         = useState(0);
   const missionStreakRef  = useRef(0);
+  // Mirrors missionStreakRef into state — refs don't trigger re-renders, so the
+  // header pill needs this to update live. The ref stays the source of truth
+  // (other calculations read it); this is purely for display.
+  const [missionStreak, setMissionStreak] = useState(0);
   const [quizDone, setQuizDone]           = useState(false);
   const [comboCount, setComboCount]       = useState(0);
   const [streakMsg, setStreakMsg]         = useState('');
@@ -850,6 +855,8 @@ export default function SessionPlayerScreen() {
   const microSV       = useSharedValue(0);
   const heartShakeSV  = useSharedValue(0);
   const wrongShakeSV  = useSharedValue(0);
+  const mXpChipSV     = useSharedValue(1);
+  const streakPillSV  = useSharedValue(1);
   const feedbackY     = useSharedValue(14);
   const feedbackOp    = useSharedValue(0);
   const optScale0     = useSharedValue(1);
@@ -863,6 +870,8 @@ export default function SessionPlayerScreen() {
   const microRewardStyle = useAnimatedStyle(() => ({ opacity: microSV.value, transform: [{ scale: 0.82 + microSV.value * 0.18 }] }));
   const heartShakeStyle  = useAnimatedStyle(() => ({ transform: [{ translateX: heartShakeSV.value }] }));
   const wrongShakeStyle  = useAnimatedStyle(() => ({ transform: [{ translateX: wrongShakeSV.value }] }));
+  const mXpChipStyle     = useAnimatedStyle(() => ({ transform: [{ scale: mXpChipSV.value }] }));
+  const streakPillStyle  = useAnimatedStyle(() => ({ transform: [{ scale: streakPillSV.value }] }));
   const feedbackStyle    = useAnimatedStyle(() => ({ opacity: feedbackOp.value, transform: [{ translateY: feedbackY.value }] }));
   const optAnimStyle0    = useAnimatedStyle(() => ({ transform: [{ scale: optScale0.value }] }));
   const optAnimStyle1    = useAnimatedStyle(() => ({ transform: [{ scale: optScale1.value }] }));
@@ -901,7 +910,10 @@ export default function SessionPlayerScreen() {
     opacity:   questionOp.value,
     transform: [{ translateX: questionX.value }],
   }));
-  const correctGlowStyle = useAnimatedStyle(() => ({}));
+  const correctGlowStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: 1 + correctGlowSV.value * 0.03 }],
+    borderColor: interpolateColor(correctGlowSV.value, [0, 1], [semantic.success, palette.verdeXP]),
+  }));
   const comboPulseStyle  = useAnimatedStyle(() => ({ transform: [{ scale: comboPulseSV.value }] }));
   const nemiStyle        = useAnimatedStyle(() => ({ opacity: nemiOp.value }));
   const motivFadeStyle   = useAnimatedStyle(() => ({ opacity: motivFadeOp.value }));
@@ -918,6 +930,7 @@ export default function SessionPlayerScreen() {
     slideX.value = withSpring(0, { damping: 22, stiffness: 220 });
     slideOpacity.value = withTiming(1, { duration: 240 });
     wrongShakeSV.value = 0;
+    correctGlowSV.value = 0;
   }, [summaryIdx, phase]);
 
   // Shake wrong option when an incorrect answer is selected.
@@ -935,9 +948,43 @@ export default function SessionPlayerScreen() {
         withTiming(7,   { duration: 45 }),
         withTiming(0,   { duration: 40 }),
       );
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error).catch(() => {});
+    } else {
+      // XP chip pop — same "reset then animate" pattern as the slide-transition
+      // effect above: jump to the starting scale, then animate with overshoot.
+      mXpChipSV.value = 0.8;
+      mXpChipSV.value = withSequence(
+        withTiming(1.15, { duration: 150 }),
+        withSpring(1, { damping: 12 }),
+      );
+      // Correct-option glow — same trigger shape already used in the Quiz phase.
+      correctGlowSV.value = withSequence(
+        withTiming(1, { duration: 140 }),
+        withDelay(700, withTiming(0, { duration: 400 })),
+      );
+      // Combo pulse on the streak badge — only once an actual streak is active.
+      if (missionStreakRef.current >= 2) {
+        comboPulseSV.value = withSequence(
+          withSpring(1.1, { damping: 10, stiffness: 380 }),
+          withSpring(1,   { damping: 18, stiffness: 280 }),
+        );
+      }
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [quizAnswers[summaryIdx], summaryIdx, phase]);
+
+  // Pop the header streak pill whenever it's visible (>=2) and changes — covers
+  // both the 1→2 appearance and every subsequent increment.
+  useEffect(() => {
+    if (phase !== 'summary') return;
+    if (missionStreak < 2) return;
+    streakPillSV.value = 0.8;
+    streakPillSV.value = withSequence(
+      withTiming(1.2, { duration: 120 }),
+      withSpring(1, { damping: 10 }),
+    );
+  }, [missionStreak, phase]);
 
   // Capture mission start time on first entry to summary phase
   useEffect(() => {
@@ -1641,24 +1688,30 @@ export default function SessionPlayerScreen() {
       );
     }
 
-    // Adaptive correction: insert a conceptual-confusion slide after a wrong answer.
-    // Uses the backend-generated wrongAnswerHints — specific explanation for each wrong option.
-    // Per REGLA FINAL: skips entirely if no domain-specific hint is available.
-    const insertCorrectiveSlide = (_wrongSlide: BackendSlide, _selectedKey: string) => {
-      return; // reflexion slides after wrong answers are disabled
+    // Adaptive correction: on a wrong answer, requeue the SAME question later
+    // in the mission (right after the next main_concept "insight", or at the
+    // end if there's no concept card left ahead) instead of revealing the
+    // answer immediately. `requeued: true` on the clone prevents it from ever
+    // being requeued a second time (no infinite loop on repeated failures),
+    // and doubles as the flag `xpLabel` reads to award reduced XP on it.
+    const insertCorrectiveSlide = (wrongSlide: BackendSlide, _selectedKey: string) => {
+      if (wrongSlide.requeued) return; // a requeued copy failed again — never requeue twice
 
-      const corrective: BackendSlide = {
-        type: 'challenge' as SummarySlideType,
-        emoji: '🧠',
-        title: `err:${_selectedKey}`,
-        definition: _wrongSlide.wrongAnswerHints?.[_selectedKey] ?? '',
-        example: '',
-        question: null, options: null, correctAnswer: null,
-      };
       setMissionSlides(prev => {
-        const insertAt = summaryIdx + 1;
-        if (prev[insertAt]?.type === 'challenge' && (prev[insertAt] as BackendSlide)?.title?.startsWith('err:')) return prev;
-        return [...prev.slice(0, insertAt), corrective as SummarySlide, ...prev.slice(insertAt)];
+        const alreadyQueued = !!wrongSlide.question && prev.some(s => (s as BackendSlide).requeuedFrom === wrongSlide.question);
+        if (alreadyQueued) return prev;
+
+        const requeuedSlide: SummarySlide = { ...wrongSlide, requeued: true, requeuedFrom: wrongSlide.question ?? null } as SummarySlide;
+
+        let insertAt = prev.length; // no main_concept ahead — the question is already near the end of the mission
+        for (let i = summaryIdx + 1; i < prev.length; i++) {
+          if ((prev[i] as BackendSlide).type === 'main_concept') {
+            insertAt = i + 1;
+            break;
+          }
+        }
+
+        return [...prev.slice(0, insertAt), requeuedSlide, ...prev.slice(insertAt)];
       });
     };
 
@@ -1690,11 +1743,16 @@ export default function SessionPlayerScreen() {
             >
               <ChevronLeft size={18} color={semantic.textPrimary} strokeWidth={2.5} />
             </Pressable>
-            <View style={{ flex: 1, alignItems: 'center' }}>
-              <Text style={g.screenTitle}>🎯 Misión</Text>
-              {!UNIFIED_PROGRESS_BAR && (
-                <Text style={[sum.slideCounter, { minWidth: 0, textAlign: 'center', fontSize: 11 }]}>Paso {summaryIdx + 1} de {slides.length}</Text>
-              )}
+            {/* Progress already shown by UnifiedProgressBar above — this center slot
+                is the game zone: streak now, lives once that mechanic is defined. */}
+            <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
+              {missionStreak >= 2 ? (
+                <Animated.View style={[sum.streakPill, streakPillStyle]}>
+                  <Text style={sum.streakPillEmoji}>🔥</Text>
+                  <Text style={sum.streakPillText}>{missionStreak}</Text>
+                </Animated.View>
+              ) : null}
+              {/* TODO: vidas cuando se defina la mecánica */}
             </View>
             <Pressable onPress={() => setPhase('mode-select')} style={g.iconBtn} hitSlop={10}>
               <X size={16} color={semantic.textPrimary} strokeWidth={2.5} />
@@ -1713,10 +1771,9 @@ export default function SessionPlayerScreen() {
           >
             {safeRender(() => (
             slide?.type === 'quiz' ? (
-              <View style={sum.quizCard}>
-                <Text style={sum.quizLabel}>🧠 MINI QUIZ</Text>
-                <Text style={sum.quizQuestion}>{slide.question}</Text>
-                <View key={`options-${summaryIdx}-${quizAnswers[summaryIdx] ?? 'none'}`} style={{ gap: 8, marginTop: 14 }}>
+              <>
+                <Text style={sum.quizQuestionFull}>{slide.question}</Text>
+                <View key={`options-${summaryIdx}-${quizAnswers[summaryIdx] ?? 'none'}`} style={{ gap: 12, marginTop: 14 }}>
                   {slide.options.map((opt, i) => {
                     const isCorrect = opt.id === slide.correctId;
                     const showGreen = !!slideQuizAnswered && isCorrect;
@@ -1725,14 +1782,14 @@ export default function SessionPlayerScreen() {
                     return (
                       <Pressable key={opt.id}
                         onPress={() => !slideQuizAnswered && setQuizAnswers(prev => ({ ...prev, [summaryIdx]: opt.id }))}
-                        style={[sum.quizOption, showGreen && sum.quizOptCorrect, showRed && sum.quizOptWrong, { opacity: dimmed ? 0.35 : 1 }]}
+                        onPressIn={() => { optScaleArr[i].value = withSequence(withTiming(0.96, { duration: 60 }), withSpring(1, { damping: 12, stiffness: 300 })); }} style={[sum.quizOption, showGreen && sum.quizOptCorrect, showRed && sum.quizOptWrong, { opacity: dimmed ? 0.35 : 1 }]}
                       >
                         <View style={[sum.quizLetter, showGreen && sum.quizLetterGreen, showRed && sum.quizLetterRed]}>
                           <Text style={[sum.quizLetterText, (showGreen || showRed) && { color: palette.blanco }]}>
                             {showGreen ? '✓' : showRed ? '✗' : LETTERS[i]}
                           </Text>
                         </View>
-                        <Text style={[sum.quizOptText, showGreen && { color: BRAND, fontWeight: '700' }, showRed && { color: palette.rojoErrorDark, fontWeight: '700' }]}>
+                        <Text style={[sum.quizOptText, showGreen && { color: paletteExtras.verdeTextoOscuro, fontWeight: '700' }, showRed && { color: palette.rojoErrorDark, fontWeight: '700' }]}>
                           {opt.text}
                         </Text>
                       </Pressable>
@@ -1752,7 +1809,7 @@ export default function SessionPlayerScreen() {
                     {!!slide.explanation && <Text style={sum.quizFeedbackText}>{slide.explanation}</Text>}
                   </View>
                 )}
-              </View>
+              </>
             ) : slide?.type === 'prediction' ? (
               <View style={sum.predCard}>
                 <Text style={sum.predIcon}>🧠</Text>
@@ -1911,26 +1968,15 @@ export default function SessionPlayerScreen() {
               })()
             ) : slide?.type === 'comprehension' ? (
               (() => {
-                const prevSlide = missionSlides[summaryIdx - 1] as BackendSlide | undefined;
-                const isEarlyCheck = prevSlide?.type === 'main_concept';
                 return (
-                  <View style={isEarlyCheck ? sum.checkCard : sum.quizCard}>
-                    {isEarlyCheck ? (
-                      <View style={sum.checkHeader}>
-                        <Text style={sum.checkLabel}>🧠 COMPRUEBA SI ENTENDISTE</Text>
-                        <Text style={sum.checkSubtitle}>Una pregunta rápida antes de continuar.</Text>
-                      </View>
-                    ) : (
-                      <Text style={[sum.quizLabel, { color: BRAND }]}>✅ COMPROBACIÓN</Text>
-                    )}
+                  <>
                     {!!slide.example && (
-                      <View style={[sum.comprehensionCtx, isEarlyCheck && { marginHorizontal: SM ? 14 : 18, marginTop: SM ? 10 : 14 }]}>
+                      <View style={sum.comprehensionCtx}>
                         <Text style={sum.comprehensionCtxText}>{slide.example}</Text>
                       </View>
                     )}
-                    <View style={isEarlyCheck ? { paddingHorizontal: SM ? 14 : 18, paddingBottom: SM ? 14 : 18 } : {}}>
-                      <Text style={[sum.quizQuestion, isEarlyCheck && { marginTop: 12 }]}>{slide.question ?? slide.title}</Text>
-                      <View key={`options-${summaryIdx}-${quizAnswers[summaryIdx] ?? 'none'}`} style={{ gap: 8, marginTop: 14 }}>
+                    <Text style={sum.quizQuestionFull}>{slide.question ?? slide.title}</Text>
+                      <View key={`options-${summaryIdx}-${quizAnswers[summaryIdx] ?? 'none'}`} style={{ gap: 12, marginTop: 14 }}>
                         {slide.options?.map((opt, i) => {
                           const letter    = LETTERS[i];
                           const answered  = quizAnswers[summaryIdx];
@@ -1939,46 +1985,43 @@ export default function SessionPlayerScreen() {
                           const showRed   = answered === letter && !isCorrect;
                           const dimmed    = !!answered && !isCorrect && answered !== letter;
                           return (
-                            <Animated.View key={i} style={wrongShakeStyle}>
+                            <Animated.View key={i} style={[wrongShakeStyle, optAnimStyles[i], showGreen && correctGlowStyle]}>
                               <Pressable
                                 onPress={() => {
                                   if (!answered) {
                                     missionStreakRef.current = isCorrect ? missionStreakRef.current + 1 : 0;
+                                setMissionStreak(missionStreakRef.current);
                                     setQuizAnswers(prev => ({ ...prev, [summaryIdx]: letter }));
                                   }
                                 }}
-                                style={[sum.quizOption, showGreen && sum.quizOptCorrect, showRed && sum.quizOptWrong, { opacity: dimmed ? 0.35 : 1 }]}
+                                onPressIn={() => { optScaleArr[i].value = withSequence(withTiming(0.96, { duration: 60 }), withSpring(1, { damping: 12, stiffness: 300 })); }} style={[sum.quizOption, showGreen && sum.quizOptCorrect, showRed && sum.quizOptWrong, { opacity: dimmed ? 0.35 : 1 }]}
                               >
-                                <View>
                                   <View style={[sum.quizLetter, showGreen && sum.quizLetterGreen, showRed && sum.quizLetterRed]}>
-                                    <Text style={[sum.quizLetterText, (showGreen || showRed) && { color: palette.blanco }]}>
-                                      {showGreen ? '✓' : showRed ? '✗' : letter}
-                                    </Text>
+                                    {showGreen ? (
+                                      <Check size={16} color={palette.blanco} strokeWidth={3} />
+                                    ) : showRed ? (
+                                      <X size={16} color={palette.blanco} strokeWidth={3} />
+                                    ) : (
+                                      <Text style={sum.quizLetterText}>{letter}</Text>
+                                    )}
                                   </View>
-                                  <Text style={[sum.quizOptText, showGreen && { color: BRAND, fontWeight: '700' }, showRed && { color: palette.rojoErrorDark, fontWeight: '700' }]}>{opt}</Text>
-                                </View>
+                                  <Text style={[sum.quizOptText, showGreen && { color: paletteExtras.verdeTextoOscuro, fontWeight: '700' }, showRed && { color: palette.rojoErrorDark, fontWeight: '700' }]}>{opt}</Text>
                               </Pressable>
                             </Animated.View>
                           );
                         })}
                       </View>
-                    </View>
-                  </View>
+                  </>
                 );
               })()
             ) : slide?.type === 'micro_challenge' ? (
               (() => {
                 const answered = quizAnswers[summaryIdx];
                 return (
-                  <View style={sum.microCard}>
-                    <View style={sum.microHeader}>
-                      <Text style={sum.microLabel}>🏁 CHECKPOINT</Text>
-                      <Text style={sum.microSubtitle}>Responde antes de continuar</Text>
-                    </View>
-                    <View style={{ paddingHorizontal: SM ? 14 : 18, paddingBottom: SM ? 14 : 18 }}>
-                      <Text style={[sum.quizQuestion, { marginTop: 12 }]}>{slide.question ?? slide.title}</Text>
+                  <>
+                      <Text style={sum.quizQuestionFull}>{slide.question ?? slide.title}</Text>
                       {slide.options?.length ? (
-                        <View key={`options-${summaryIdx}-${quizAnswers[summaryIdx] ?? 'none'}`} style={{ gap: 8, marginTop: 14 }}>
+                        <View key={`options-${summaryIdx}-${quizAnswers[summaryIdx] ?? 'none'}`} style={{ gap: 12, marginTop: 14 }}>
                           {slide.options.slice(0, 4).map((opt, i) => {
                             const letter    = LETTERS[i];
                             const isOpt     = slide.correctAnswer === letter;
@@ -1986,22 +2029,28 @@ export default function SessionPlayerScreen() {
                             const showRed   = answered === letter && !isOpt;
                             const dimmed    = !!answered && !isOpt && answered !== letter;
                             return (
-                              <Animated.View key={i} style={wrongShakeStyle}>
+                              <Animated.View key={i} style={[wrongShakeStyle, optAnimStyles[i], showGreen && correctGlowStyle]}>
                                 <Pressable
                                   onPress={() => {
                                     if (!answered) {
                                       missionStreakRef.current = isOpt ? missionStreakRef.current + 1 : 0;
+                                      setMissionStreak(missionStreakRef.current);
                                       setQuizAnswers(prev => ({ ...prev, [summaryIdx]: letter }));
+                                      if (!isOpt) insertCorrectiveSlide(slide as BackendSlide, letter);
                                     }
                                   }}
-                                  style={[sum.quizOption, showGreen && sum.quizOptCorrect, showRed && sum.quizOptWrong, { opacity: dimmed ? 0.35 : 1 }]}
+                                  onPressIn={() => { optScaleArr[i].value = withSequence(withTiming(0.96, { duration: 60 }), withSpring(1, { damping: 12, stiffness: 300 })); }} style={[sum.quizOption, showGreen && sum.quizOptCorrect, showRed && sum.quizOptWrong, { opacity: dimmed ? 0.35 : 1 }]}
                                 >
                                   <View style={[sum.quizLetter, showGreen && sum.quizLetterGreen, showRed && sum.quizLetterRed]}>
-                                    <Text style={[sum.quizLetterText, (showGreen || showRed) && { color: palette.blanco }]}>
-                                      {showGreen ? '✓' : showRed ? '✗' : letter}
-                                    </Text>
+                                    {showGreen ? (
+                                      <Check size={16} color={palette.blanco} strokeWidth={3} />
+                                    ) : showRed ? (
+                                      <X size={16} color={palette.blanco} strokeWidth={3} />
+                                    ) : (
+                                      <Text style={sum.quizLetterText}>{letter}</Text>
+                                    )}
                                   </View>
-                                  <Text style={[sum.quizOptText, showGreen && { color: BRAND, fontWeight: '700' }, showRed && { color: palette.rojoErrorDark, fontWeight: '700' }]}>{opt}</Text>
+                                  <Text style={[sum.quizOptText, showGreen && { color: paletteExtras.verdeTextoOscuro, fontWeight: '700' }, showRed && { color: palette.rojoErrorDark, fontWeight: '700' }]}>{opt}</Text>
                                 </Pressable>
                               </Animated.View>
                             );
@@ -2010,23 +2059,17 @@ export default function SessionPlayerScreen() {
                       ) : (
                         <Text style={sum.introDef}>Este contenido no tiene opciones disponibles — desliza para continuar.</Text>
                       )}
-                    </View>
-                  </View>
+                  </>
                 );
               })()
             ) : slide?.type === 'reinforcement_challenge' ? (
               (() => {
                 const answered = quizAnswers[summaryIdx];
                 return (
-                  <View style={sum.microCard}>
-                    <View style={[sum.microHeader, { backgroundColor: paletteExtras.indigoOscuro }]}>
-                      <Text style={sum.microLabel}>🔁 REFUERZO</Text>
-                      <Text style={sum.microSubtitle}>Aplica lo que aprendiste</Text>
-                    </View>
-                    <View style={{ paddingHorizontal: SM ? 14 : 18, paddingBottom: SM ? 14 : 18 }}>
-                      <Text style={[sum.quizQuestion, { marginTop: 12 }]}>{slide.question ?? slide.title}</Text>
+                  <>
+                      <Text style={sum.quizQuestionFull}>{slide.question ?? slide.title}</Text>
                       {slide.options?.length ? (
-                        <View key={`options-${summaryIdx}-${quizAnswers[summaryIdx] ?? 'none'}`} style={{ gap: 8, marginTop: 14 }}>
+                        <View key={`options-${summaryIdx}-${quizAnswers[summaryIdx] ?? 'none'}`} style={{ gap: 12, marginTop: 14 }}>
                           {slide.options.slice(0, 4).map((opt, i) => {
                             const letter    = LETTERS[i];
                             const isOpt     = slide.correctAnswer === letter;
@@ -2034,22 +2077,28 @@ export default function SessionPlayerScreen() {
                             const showRed   = answered === letter && !isOpt;
                             const dimmed    = !!answered && !isOpt && answered !== letter;
                             return (
-                              <Animated.View key={i} style={wrongShakeStyle}>
+                              <Animated.View key={i} style={[wrongShakeStyle, optAnimStyles[i], showGreen && correctGlowStyle]}>
                                 <Pressable
                                   onPress={() => {
                                     if (!answered) {
                                       missionStreakRef.current = isOpt ? missionStreakRef.current + 1 : 0;
+                                      setMissionStreak(missionStreakRef.current);
                                       setQuizAnswers(prev => ({ ...prev, [summaryIdx]: letter }));
+                                      if (!isOpt) insertCorrectiveSlide(slide as BackendSlide, letter);
                                     }
                                   }}
-                                  style={[sum.quizOption, showGreen && sum.quizOptCorrect, showRed && sum.quizOptWrong, { opacity: dimmed ? 0.35 : 1 }]}
+                                  onPressIn={() => { optScaleArr[i].value = withSequence(withTiming(0.96, { duration: 60 }), withSpring(1, { damping: 12, stiffness: 300 })); }} style={[sum.quizOption, showGreen && sum.quizOptCorrect, showRed && sum.quizOptWrong, { opacity: dimmed ? 0.35 : 1 }]}
                                 >
                                   <View style={[sum.quizLetter, showGreen && sum.quizLetterGreen, showRed && sum.quizLetterRed]}>
-                                    <Text style={[sum.quizLetterText, (showGreen || showRed) && { color: palette.blanco }]}>
-                                      {showGreen ? '✓' : showRed ? '✗' : letter}
-                                    </Text>
+                                    {showGreen ? (
+                                      <Check size={16} color={palette.blanco} strokeWidth={3} />
+                                    ) : showRed ? (
+                                      <X size={16} color={palette.blanco} strokeWidth={3} />
+                                    ) : (
+                                      <Text style={sum.quizLetterText}>{letter}</Text>
+                                    )}
                                   </View>
-                                  <Text style={[sum.quizOptText, showGreen && { color: BRAND, fontWeight: '700' }, showRed && { color: palette.rojoErrorDark, fontWeight: '700' }]}>{opt}</Text>
+                                  <Text style={[sum.quizOptText, showGreen && { color: paletteExtras.verdeTextoOscuro, fontWeight: '700' }, showRed && { color: palette.rojoErrorDark, fontWeight: '700' }]}>{opt}</Text>
                                 </Pressable>
                               </Animated.View>
                             );
@@ -2058,8 +2107,7 @@ export default function SessionPlayerScreen() {
                       ) : (
                         <Text style={sum.introDef}>Este contenido no tiene opciones disponibles — desliza para continuar.</Text>
                       )}
-                    </View>
-                  </View>
+                  </>
                 );
               })()
             ) : slide?.type === 'key_relation' ? (
@@ -2098,10 +2146,9 @@ export default function SessionPlayerScreen() {
                 );
               })()
             ) : slide?.type === 'mini_quiz' ? (
-              <View style={sum.quizCard}>
-                <Text style={sum.quizLabel}>⚡ MINI QUIZ</Text>
-                <Text style={sum.quizQuestion}>{slide.question ?? slide.title}</Text>
-                <View key={`options-${summaryIdx}-${quizAnswers[summaryIdx] ?? 'none'}`} style={{ gap: 8, marginTop: 14 }}>
+              <>
+                <Text style={sum.quizQuestionFull}>{slide.question ?? slide.title}</Text>
+                <View key={`options-${summaryIdx}-${quizAnswers[summaryIdx] ?? 'none'}`} style={{ gap: 12, marginTop: 14 }}>
                   {slide.options?.map((opt, i) => {
                     const letter    = LETTERS[i];
                     const answered  = quizAnswers[summaryIdx];
@@ -2110,30 +2157,34 @@ export default function SessionPlayerScreen() {
                     const showRed   = answered === letter && !isCorrect;
                     const dimmed    = !!answered && !isCorrect && answered !== letter;
                     return (
-                      <Animated.View key={i} style={wrongShakeStyle}>
+                      <Animated.View key={i} style={[wrongShakeStyle, optAnimStyles[i], showGreen && correctGlowStyle]}>
                         <Pressable
                           onPress={() => {
                             if (!answered) {
                               missionStreakRef.current = isCorrect ? missionStreakRef.current + 1 : 0;
+                                setMissionStreak(missionStreakRef.current);
                               setQuizAnswers(prev => ({ ...prev, [summaryIdx]: letter }));
+                              if (!isCorrect) insertCorrectiveSlide(slide as BackendSlide, letter);
                             }
                           }}
-                          style={[sum.quizOption, showGreen && sum.quizOptCorrect, showRed && sum.quizOptWrong, { opacity: dimmed ? 0.35 : 1 }]}
+                          onPressIn={() => { optScaleArr[i].value = withSequence(withTiming(0.96, { duration: 60 }), withSpring(1, { damping: 12, stiffness: 300 })); }} style={[sum.quizOption, showGreen && sum.quizOptCorrect, showRed && sum.quizOptWrong, { opacity: dimmed ? 0.35 : 1 }]}
                         >
-                          <View>
                             <View style={[sum.quizLetter, showGreen && sum.quizLetterGreen, showRed && sum.quizLetterRed]}>
-                              <Text style={[sum.quizLetterText, (showGreen || showRed) && { color: palette.blanco }]}>
-                                {showGreen ? '✓' : showRed ? '✗' : letter}
-                              </Text>
+                              {showGreen ? (
+                                <Check size={16} color={palette.blanco} strokeWidth={3} />
+                              ) : showRed ? (
+                                <X size={16} color={palette.blanco} strokeWidth={3} />
+                              ) : (
+                                <Text style={sum.quizLetterText}>{letter}</Text>
+                              )}
                             </View>
-                            <Text style={[sum.quizOptText, showGreen && { color: BRAND, fontWeight: '700' }, showRed && { color: palette.rojoErrorDark, fontWeight: '700' }]}>{opt}</Text>
-                          </View>
+                            <Text style={[sum.quizOptText, showGreen && { color: paletteExtras.verdeTextoOscuro, fontWeight: '700' }, showRed && { color: palette.rojoErrorDark, fontWeight: '700' }]}>{opt}</Text>
                         </Pressable>
                       </Animated.View>
                     );
                   })}
                 </View>
-              </View>
+              </>
             ) : slide?.type === 'process_flow' ? (
               <View style={sum.processCard}>
                 <Text style={sum.processLabel}>⚙️ PROCESO</Text>
@@ -2176,7 +2227,7 @@ export default function SessionPlayerScreen() {
                   {!!slide.definition && <Text style={sum.appSit}>{slide.definition}</Text>}
                   {/* Interactive question */}
                   {slide.question && slide.options?.length ? (
-                    <View key={`options-${summaryIdx}-${quizAnswers[summaryIdx] ?? 'none'}`} style={{ marginTop: 10, gap: 8 }}>
+                    <View key={`options-${summaryIdx}-${quizAnswers[summaryIdx] ?? 'none'}`} style={{ marginTop: 10, gap: 12 }}>
                       <Text style={sum.quizQuestion}>{slide.question}</Text>
                       {slide.options.map((opt, i) => {
                         const letter = LETTERS[i];
@@ -2186,17 +2237,21 @@ export default function SessionPlayerScreen() {
                         const showRed = answered === letter && !isCorrect;
                         const dimmed = !!answered && !isCorrect && answered !== letter;
                         return (
-                          <Animated.View key={i} style={wrongShakeStyle}>
+                          <Animated.View key={i} style={[wrongShakeStyle, optAnimStyles[i], showGreen && correctGlowStyle]}>
                             <Pressable
                               onPress={() => { if (!answered) { setQuizAnswers(prev => ({ ...prev, [summaryIdx]: letter })); if (isCorrect) showSummaryReward(); else insertCorrectiveSlide(slide as BackendSlide, letter); } }}
-                              style={[sum.quizOption, showGreen && sum.quizOptCorrect, showRed && sum.quizOptWrong, { opacity: dimmed ? 0.35 : 1 }]}
+                              onPressIn={() => { optScaleArr[i].value = withSequence(withTiming(0.96, { duration: 60 }), withSpring(1, { damping: 12, stiffness: 300 })); }} style={[sum.quizOption, showGreen && sum.quizOptCorrect, showRed && sum.quizOptWrong, { opacity: dimmed ? 0.35 : 1 }]}
                             >
                               <View style={[sum.quizLetter, showGreen && sum.quizLetterGreen, showRed && sum.quizLetterRed]}>
-                                <Text style={[sum.quizLetterText, (showGreen || showRed) && { color: palette.blanco }]}>
-                                  {showGreen ? '✓' : showRed ? '✗' : letter}
-                                </Text>
+                                {showGreen ? (
+                                  <Check size={16} color={palette.blanco} strokeWidth={3} />
+                                ) : showRed ? (
+                                  <X size={16} color={palette.blanco} strokeWidth={3} />
+                                ) : (
+                                  <Text style={sum.quizLetterText}>{letter}</Text>
+                                )}
                               </View>
-                              <Text style={[sum.quizOptText, showGreen && { color: BRAND, fontWeight: '700' }, showRed && { color: palette.rojoErrorDark, fontWeight: '700' }]}>{opt}</Text>
+                              <Text style={[sum.quizOptText, showGreen && { color: paletteExtras.verdeTextoOscuro, fontWeight: '700' }, showRed && { color: palette.rojoErrorDark, fontWeight: '700' }]}>{opt}</Text>
                             </Pressable>
                           </Animated.View>
                         );
@@ -2236,7 +2291,7 @@ export default function SessionPlayerScreen() {
                       </View>
                     )}
                     <Text style={[sum.quizQuestion, { marginTop: 10 }]}>{slide.question}</Text>
-                    <View key={`options-${summaryIdx}-${quizAnswers[summaryIdx] ?? 'none'}`} style={{ gap: 8, marginTop: 8 }}>
+                    <View key={`options-${summaryIdx}-${quizAnswers[summaryIdx] ?? 'none'}`} style={{ gap: 12, marginTop: 8 }}>
                       {slide.options.map((opt, i) => {
                         const letter = LETTERS[i];
                         const answered = quizAnswers[summaryIdx];
@@ -2245,17 +2300,21 @@ export default function SessionPlayerScreen() {
                         const showRed = answered === letter && !isCorrect;
                         const dimmed = !!answered && !isCorrect && answered !== letter;
                         return (
-                          <Animated.View key={i} style={wrongShakeStyle}>
+                          <Animated.View key={i} style={[wrongShakeStyle, optAnimStyles[i], showGreen && correctGlowStyle]}>
                             <Pressable
                               onPress={() => { if (!answered) { setQuizAnswers(prev => ({ ...prev, [summaryIdx]: letter })); if (isCorrect) showSummaryReward(); else insertCorrectiveSlide(slide as BackendSlide, letter); } }}
-                              style={[sum.quizOption, showGreen && sum.quizOptCorrect, showRed && sum.quizOptWrong, { opacity: dimmed ? 0.35 : 1 }]}
+                              onPressIn={() => { optScaleArr[i].value = withSequence(withTiming(0.96, { duration: 60 }), withSpring(1, { damping: 12, stiffness: 300 })); }} style={[sum.quizOption, showGreen && sum.quizOptCorrect, showRed && sum.quizOptWrong, { opacity: dimmed ? 0.35 : 1 }]}
                             >
                               <View style={[sum.quizLetter, showGreen && sum.quizLetterGreen, showRed && sum.quizLetterRed]}>
-                                <Text style={[sum.quizLetterText, (showGreen || showRed) && { color: palette.blanco }]}>
-                                  {showGreen ? '✓' : showRed ? '✗' : letter}
-                                </Text>
+                                {showGreen ? (
+                                  <Check size={16} color={palette.blanco} strokeWidth={3} />
+                                ) : showRed ? (
+                                  <X size={16} color={palette.blanco} strokeWidth={3} />
+                                ) : (
+                                  <Text style={sum.quizLetterText}>{letter}</Text>
+                                )}
                               </View>
-                              <Text style={[sum.quizOptText, showGreen && { color: BRAND, fontWeight: '700' }, showRed && { color: palette.rojoErrorDark, fontWeight: '700' }]}>{opt}</Text>
+                              <Text style={[sum.quizOptText, showGreen && { color: paletteExtras.verdeTextoOscuro, fontWeight: '700' }, showRed && { color: palette.rojoErrorDark, fontWeight: '700' }]}>{opt}</Text>
                             </Pressable>
                           </Animated.View>
                         );
@@ -2296,15 +2355,9 @@ export default function SessionPlayerScreen() {
                 </View>
               )
             ) : slide?.type === 'final_challenge' ? (
-              <View style={sum.retoCard}>
-                <View style={sum.retoHeader}>
-                  <Text style={sum.retoTrophy}>🏆</Text>
-                  <Text style={sum.retoHeaderLabel}>MINI RETO FINAL</Text>
-                  <Text style={sum.retoHeaderSub}>Última prueba antes de completar la misión.</Text>
-                </View>
-                <View style={sum.retoBody}>
-                  <Text style={sum.challengeQuestion}>{slide.question ?? slide.title}</Text>
-                  <View key={`options-${summaryIdx}-${quizAnswers[summaryIdx] ?? 'none'}`} style={{ gap: 8 }}>
+              <>
+                  <Text style={sum.quizQuestionFull}>{slide.question ?? slide.title}</Text>
+                  <View key={`options-${summaryIdx}-${quizAnswers[summaryIdx] ?? 'none'}`} style={{ gap: 12 }}>
                     {slide.options?.map((opt, i) => {
                       const letter    = LETTERS[i];
                       const answered  = quizAnswers[summaryIdx];
@@ -2313,36 +2366,38 @@ export default function SessionPlayerScreen() {
                       const showRed   = answered === letter && !isCorrect;
                       const dimmed    = !!answered && !isCorrect && answered !== letter;
                       return (
-                        <Animated.View key={i} style={wrongShakeStyle}>
+                        <Animated.View key={i} style={[wrongShakeStyle, optAnimStyles[i], showGreen && correctGlowStyle]}>
                           <Pressable
                             onPress={() => {
                               if (!answered) {
                                 missionStreakRef.current = isCorrect ? missionStreakRef.current + 1 : 0;
+                                setMissionStreak(missionStreakRef.current);
                                 setQuizAnswers(prev => ({ ...prev, [summaryIdx]: letter }));
+                                if (!isCorrect) insertCorrectiveSlide(slide as BackendSlide, letter);
                               }
                             }}
-                            style={[sum.quizOption, showGreen && sum.quizOptCorrect, showRed && sum.quizOptWrong, { opacity: dimmed ? 0.35 : 1 }]}
+                            onPressIn={() => { optScaleArr[i].value = withSequence(withTiming(0.96, { duration: 60 }), withSpring(1, { damping: 12, stiffness: 300 })); }} style={[sum.quizOption, showGreen && sum.quizOptCorrect, showRed && sum.quizOptWrong, { opacity: dimmed ? 0.35 : 1 }]}
                           >
-                            <View>
                               <View style={[sum.quizLetter, showGreen && sum.quizLetterGreen, showRed && sum.quizLetterRed]}>
-                                <Text style={[sum.quizLetterText, (showGreen || showRed) && { color: palette.blanco }]}>
-                                  {showGreen ? '✓' : showRed ? '✗' : letter}
-                                </Text>
+                                {showGreen ? (
+                                  <Check size={16} color={palette.blanco} strokeWidth={3} />
+                                ) : showRed ? (
+                                  <X size={16} color={palette.blanco} strokeWidth={3} />
+                                ) : (
+                                  <Text style={sum.quizLetterText}>{letter}</Text>
+                                )}
                               </View>
-                              <Text style={[sum.quizOptText, showGreen && { color: BRAND, fontWeight: '700' }, showRed && { color: palette.rojoErrorDark, fontWeight: '700' }]}>{opt}</Text>
-                            </View>
+                              <Text style={[sum.quizOptText, showGreen && { color: paletteExtras.verdeTextoOscuro, fontWeight: '700' }, showRed && { color: palette.rojoErrorDark, fontWeight: '700' }]}>{opt}</Text>
                           </Pressable>
                         </Animated.View>
                       );
                     })}
                   </View>
-                </View>
-              </View>
+              </>
             ) : slide?.type === 'decide' ? (
-              <View style={sum.quizCard}>
-                <Text style={[sum.quizLabel, { color: palette.naranja }]}>🤔 DECIDE</Text>
-                <Text style={sum.quizQuestion}>{slide.question ?? slide.title}</Text>
-                <View key={`options-${summaryIdx}-${quizAnswers[summaryIdx] ?? 'none'}`} style={{ gap: 8, marginTop: 14 }}>
+              <>
+                <Text style={sum.quizQuestionFull}>{slide.question ?? slide.title}</Text>
+                <View key={`options-${summaryIdx}-${quizAnswers[summaryIdx] ?? 'none'}`} style={{ gap: 12, marginTop: 14 }}>
                   {slide.options?.map((opt, i) => {
                     const letter    = LETTERS[i];
                     const answered  = quizAnswers[summaryIdx];
@@ -2351,30 +2406,33 @@ export default function SessionPlayerScreen() {
                     const showRed   = answered === letter && !isCorrect;
                     const dimmed    = !!answered && !isCorrect && answered !== letter;
                     return (
-                      <Animated.View key={i} style={wrongShakeStyle}>
+                      <Animated.View key={i} style={[wrongShakeStyle, optAnimStyles[i], showGreen && correctGlowStyle]}>
                         <Pressable
                           onPress={() => {
                             if (!answered) {
                               missionStreakRef.current = isCorrect ? missionStreakRef.current + 1 : 0;
+                                setMissionStreak(missionStreakRef.current);
                               setQuizAnswers(prev => ({ ...prev, [summaryIdx]: letter }));
                             }
                           }}
-                          style={[sum.quizOption, showGreen && sum.quizOptCorrect, showRed && sum.quizOptWrong, { opacity: dimmed ? 0.35 : 1 }]}
+                          onPressIn={() => { optScaleArr[i].value = withSequence(withTiming(0.96, { duration: 60 }), withSpring(1, { damping: 12, stiffness: 300 })); }} style={[sum.quizOption, showGreen && sum.quizOptCorrect, showRed && sum.quizOptWrong, { opacity: dimmed ? 0.35 : 1 }]}
                         >
-                          <View>
                             <View style={[sum.quizLetter, showGreen && sum.quizLetterGreen, showRed && sum.quizLetterRed]}>
-                              <Text style={[sum.quizLetterText, (showGreen || showRed) && { color: palette.blanco }]}>
-                                {showGreen ? '✓' : showRed ? '✗' : letter}
-                              </Text>
+                              {showGreen ? (
+                                <Check size={16} color={palette.blanco} strokeWidth={3} />
+                              ) : showRed ? (
+                                <X size={16} color={palette.blanco} strokeWidth={3} />
+                              ) : (
+                                <Text style={sum.quizLetterText}>{letter}</Text>
+                              )}
                             </View>
-                            <Text style={[sum.quizOptText, showGreen && { color: BRAND, fontWeight: '700' }, showRed && { color: palette.rojoErrorDark, fontWeight: '700' }]}>{opt}</Text>
-                          </View>
+                            <Text style={[sum.quizOptText, showGreen && { color: paletteExtras.verdeTextoOscuro, fontWeight: '700' }, showRed && { color: palette.rojoErrorDark, fontWeight: '700' }]}>{opt}</Text>
                         </Pressable>
                       </Animated.View>
                     );
                   })}
                 </View>
-              </View>
+              </>
             ) : slide?.type === 'order_sequence' ? (
               // IIFE to define local shuffle vars inline
               (() => {
@@ -2447,7 +2505,7 @@ export default function SessionPlayerScreen() {
                 <Text style={sum.challengeRefEmoji}>🤔</Text>
                 <Text style={sum.challengeRefLabel}>DESAFÍO</Text>
                 {!!slide.definition && <Text style={sum.challengeRefQ}>{slide.definition}</Text>}
-                <View key={`options-${summaryIdx}-${quizAnswers[summaryIdx] ?? 'none'}`} style={{ gap: 8, marginTop: 10, width: '100%' }}>
+                <View key={`options-${summaryIdx}-${quizAnswers[summaryIdx] ?? 'none'}`} style={{ gap: 12, marginTop: 10, width: '100%' }}>
                   <Text style={sum.quizQuestion}>{slide.question}</Text>
                   {slide.options?.map((opt, i) => {
                     const letter = LETTERS[i];
@@ -2457,17 +2515,21 @@ export default function SessionPlayerScreen() {
                     const showRed = answered === letter && !isCorrect;
                     const dimmed = !!answered && !isCorrect && answered !== letter;
                     return (
-                      <Animated.View key={i} style={wrongShakeStyle}>
+                      <Animated.View key={i} style={[wrongShakeStyle, optAnimStyles[i], showGreen && correctGlowStyle]}>
                         <Pressable
                           onPress={() => { if (!answered) { setQuizAnswers(prev => ({ ...prev, [summaryIdx]: letter })); if (isCorrect) showSummaryReward(); else insertCorrectiveSlide(slide as BackendSlide, letter); } }}
-                          style={[sum.quizOption, showGreen && sum.quizOptCorrect, showRed && sum.quizOptWrong, { opacity: dimmed ? 0.35 : 1 }]}
+                          onPressIn={() => { optScaleArr[i].value = withSequence(withTiming(0.96, { duration: 60 }), withSpring(1, { damping: 12, stiffness: 300 })); }} style={[sum.quizOption, showGreen && sum.quizOptCorrect, showRed && sum.quizOptWrong, { opacity: dimmed ? 0.35 : 1 }]}
                         >
                           <View style={[sum.quizLetter, showGreen && sum.quizLetterGreen, showRed && sum.quizLetterRed]}>
-                            <Text style={[sum.quizLetterText, (showGreen || showRed) && { color: palette.blanco }]}>
-                              {showGreen ? '✓' : showRed ? '✗' : letter}
-                            </Text>
+                            {showGreen ? (
+                              <Check size={16} color={palette.blanco} strokeWidth={3} />
+                            ) : showRed ? (
+                              <X size={16} color={palette.blanco} strokeWidth={3} />
+                            ) : (
+                              <Text style={sum.quizLetterText}>{letter}</Text>
+                            )}
                           </View>
-                          <Text style={[sum.quizOptText, showGreen && { color: BRAND, fontWeight: '700' }, showRed && { color: palette.rojoErrorDark, fontWeight: '700' }]}>{opt}</Text>
+                          <Text style={[sum.quizOptText, showGreen && { color: paletteExtras.verdeTextoOscuro, fontWeight: '700' }, showRed && { color: palette.rojoErrorDark, fontWeight: '700' }]}>{opt}</Text>
                         </Pressable>
                       </Animated.View>
                     );
@@ -2590,6 +2652,8 @@ export default function SessionPlayerScreen() {
                 setCorrectCount(0);
                 setStreak(0);
                 setMaxStreak(0);
+                missionStreakRef.current = 0;
+                setMissionStreak(0);
                 setQuizDone(false);
                 setComboCount(0);
                 setStreakMsg('');
@@ -2856,7 +2920,7 @@ export default function SessionPlayerScreen() {
                   <Text style={sum.wowContext}>{slide.example}</Text>
                 )}
                 {slide.question && slide.options && (
-                  <View key={`options-${summaryIdx}-${quizAnswers[summaryIdx] ?? 'none'}`} style={{ gap: 8, marginTop: 16, alignSelf: 'stretch' }}>
+                  <View key={`options-${summaryIdx}-${quizAnswers[summaryIdx] ?? 'none'}`} style={{ gap: 12, marginTop: 16, alignSelf: 'stretch' }}>
                     <Text style={[sum.quizQuestion, { fontSize: SM ? 13 : 14 }]}>{slide.question}</Text>
                     {slide.options.map((opt, i) => {
                       const letter    = LETTERS[i];
@@ -2866,17 +2930,21 @@ export default function SessionPlayerScreen() {
                       const showRed   = answered === letter && !isCorrect;
                       const dimmed    = !!answered && !isCorrect && answered !== letter;
                       return (
-                        <Animated.View key={i} style={wrongShakeStyle}>
+                        <Animated.View key={i} style={[wrongShakeStyle, optAnimStyles[i], showGreen && correctGlowStyle]}>
                           <Pressable
                             onPress={() => { if (!answered) { setQuizAnswers(prev => ({ ...prev, [summaryIdx]: letter })); if (isCorrect) showSummaryReward(); else insertCorrectiveSlide(slide as BackendSlide, letter); } }}
-                            style={[sum.quizOption, showGreen && sum.quizOptCorrect, showRed && sum.quizOptWrong, { opacity: dimmed ? 0.35 : 1 }]}
+                            onPressIn={() => { optScaleArr[i].value = withSequence(withTiming(0.96, { duration: 60 }), withSpring(1, { damping: 12, stiffness: 300 })); }} style={[sum.quizOption, showGreen && sum.quizOptCorrect, showRed && sum.quizOptWrong, { opacity: dimmed ? 0.35 : 1 }]}
                           >
                             <View style={[sum.quizLetter, showGreen && sum.quizLetterGreen, showRed && sum.quizLetterRed]}>
-                              <Text style={[sum.quizLetterText, (showGreen || showRed) && { color: palette.blanco }]}>
-                                {showGreen ? '✓' : showRed ? '✗' : letter}
-                              </Text>
+                              {showGreen ? (
+                                <Check size={16} color={palette.blanco} strokeWidth={3} />
+                              ) : showRed ? (
+                                <X size={16} color={palette.blanco} strokeWidth={3} />
+                              ) : (
+                                <Text style={sum.quizLetterText}>{letter}</Text>
+                              )}
                             </View>
-                            <Text style={[sum.quizOptText, showGreen && { color: BRAND, fontWeight: '700' }, showRed && { color: palette.rojoErrorDark, fontWeight: '700' }]}>{opt}</Text>
+                            <Text style={[sum.quizOptText, showGreen && { color: paletteExtras.verdeTextoOscuro, fontWeight: '700' }, showRed && { color: palette.rojoErrorDark, fontWeight: '700' }]}>{opt}</Text>
                           </Pressable>
                         </Animated.View>
                       );
@@ -2966,7 +3034,10 @@ export default function SessionPlayerScreen() {
                                 missionStreakRef.current === 4 ? '⚡ ¡Racha de 4!' :
                                 missionStreakRef.current === 3 ? '🔥 ¡3 seguidas!' :
                                 missionStreakRef.current === 2 ? '🔥 ¡Racha de 2!' : null;
-            const xpLabel = slide?.type === 'final_challenge' ? '+10 XP' : '+5 XP';
+            // Requeued questions (a wrong answer's second appearance later in the mission)
+            // pay less XP than a first-try correct answer — rewards persistence without
+            // inflating XP for a question the student already saw once.
+            const xpLabel = bs?.requeued ? '+2 XP' : slide?.type === 'final_challenge' ? '+10 XP' : '+5 XP';
             const fbActive = isMissionInteractive && !!missionAnswered;
             const showChoose = (slide?.type === 'quiz' && !slideQuizAnswered) || (isMissionInteractive && !missionAnswered);
 
@@ -2978,24 +3049,25 @@ export default function SessionPlayerScreen() {
               }>
                 {fbActive ? (
                   <View key={missionCorrect ? `fb-${summaryIdx}-correct` : `fb-${summaryIdx}-incorrect`} style={sum.mFbContent}>
-                    <Text style={sum.mFbEmoji}>{(missionCorrect ? celebMsg?.emoji : errMsg?.emoji) || '🎯'}</Text>
-                    <Text style={sum.mFbTitle}>{(missionCorrect ? celebMsg?.text : errMsg?.text) || (missionCorrect ? '¡Correcto!' : 'Sigue intentando.')}</Text>
-                    <React.Fragment key={`explanation-${summaryIdx}-${missionCorrect ? 'ok' : 'err'}`}>
-                    {!missionCorrect && !!bs?.definition && (
-                      <Text style={sum.mFbExpl} numberOfLines={3}>{bs.definition}</Text>
-                    )}
-                    {!missionCorrect && !!bs?.correctAnswer && (
-                      <Text style={sum.mFbCorrect}>Respuesta: {bs.correctAnswer}</Text>
-                    )}
-                    {missionCorrect && !!streakLabel && (
-                      <View style={sum.mStreakBadge}><Text style={sum.mStreakText}>{streakLabel}</Text></View>
-                    )}
-                    {missionCorrect && (
-                      <View style={sum.mXpChip}>
-                        <Text style={sum.mXpText}>{xpLabel}</Text>
-                      </View>
-                    )}
-                    </React.Fragment>
+                    <View style={[sum.mFbIconCircle, missionCorrect ? sum.mFbIconCircleOk : sum.mFbIconCircleErr]}>
+                      <Text style={sum.mFbIconEmoji}>{(missionCorrect ? celebMsg?.emoji : errMsg?.emoji) || '🎯'}</Text>
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={sum.mFbTitle}>{(missionCorrect ? celebMsg?.text : errMsg?.text) || (missionCorrect ? '¡Correcto!' : 'Vas aprendiendo.')}</Text>
+                      <React.Fragment key={`explanation-${summaryIdx}-${missionCorrect ? 'ok' : 'err'}`}>
+                      {!missionCorrect && !!bs?.definition && (
+                        <Text style={sum.mFbExpl} numberOfLines={3}>{bs.definition}</Text>
+                      )}
+                      {missionCorrect && !!streakLabel && (
+                        <Animated.View style={[sum.mStreakBadge, comboPulseStyle]}><Text style={sum.mStreakText}>{streakLabel}</Text></Animated.View>
+                      )}
+                      {missionCorrect && (
+                        <Animated.View style={[sum.mXpChip, mXpChipStyle]}>
+                          <Text style={sum.mXpText}>{xpLabel}</Text>
+                        </Animated.View>
+                      )}
+                      </React.Fragment>
+                    </View>
                   </View>
                 ) : showChoose ? (
                   <View key={`cta-choose-${summaryIdx}`} style={g.ctaBtnOff}>
@@ -3816,7 +3888,7 @@ const sum = StyleSheet.create({
   slideCounter: { fontSize: 12, color: semantic.textSecondary, fontWeight: '700', minWidth: 40, textAlign: 'right' },
   progressBarOuter: { width: 72, height: 3, borderRadius: 2, backgroundColor: 'rgba(0,0,0,0.07)', overflow: 'hidden', marginTop: 3 },
   progressBarFill:  { height: '100%', borderRadius: 2, backgroundColor: BRAND },
-  slideArea:    { flex: 1, paddingHorizontal: 20, justifyContent: 'center' },
+  slideArea:    { flex: 1, paddingHorizontal: 20, paddingTop: SM ? 24 : 36, justifyContent: 'flex-start' },
 
   // Summary micro-reward overlay
   summaryRewardOverlay: { position: 'absolute', alignSelf: 'center', top: '30%', zIndex: 50 },
@@ -3850,18 +3922,23 @@ const sum = StyleSheet.create({
   wowDataBox:   { backgroundColor: palette.blanco, borderRadius: 16, padding: SM ? 14 : 16, marginTop: 4, alignSelf: 'stretch' },
   wowContext:   { fontSize: SM ? 11 : 12, color: semantic.textSecondary, textAlign: 'center', fontWeight: '600', marginTop: 12, lineHeight: SM ? 17 : 19 },
 
-  // Quiz card
-  quizCard:          { backgroundColor: palette.blanco, borderRadius: 28, padding: SM ? 16 : 20 },
-  quizLabel:         { fontSize: 10, fontWeight: '900', color: BRAND, letterSpacing: 1.5, marginBottom: 10, textTransform: 'uppercase' },
-  quizQuestion:      { fontSize: SM ? 16 : 18, fontWeight: '800', color: semantic.textPrimary, lineHeight: SM ? 24 : 27, letterSpacing: -0.2 },
-  quizOption:        { flexDirection: 'row', alignItems: 'center', gap: 10, padding: 12, borderRadius: 14, borderWidth: 2, borderColor: palette.bordeClaro, backgroundColor: palette.blanco },
-  quizOptCorrect:    { borderColor: BRAND, borderWidth: 2, backgroundColor: 'rgba(22,119,242,0.05)' },
-  quizOptWrong:      { borderColor: palette.bordeMedio, backgroundColor: 'rgba(0,0,0,0.02)' },
-  quizLetter:        { width: 28, height: 28, borderRadius: 8, backgroundColor: palette.crema, alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
-  quizLetterGreen:   { backgroundColor: BRAND },
-  quizLetterRed:     { backgroundColor: palette.bordeMedio },
-  quizLetterText:    { fontSize: 12, fontWeight: '800', color: semantic.textPrimary },
-  quizOptText:       { flex: 1, fontSize: SM ? 13 : 14, color: semantic.textPrimary, fontWeight: '600', lineHeight: 20 },
+  quizQuestion:      { fontSize: SM ? 18 : 20, fontWeight: '800', color: semantic.textPrimary, lineHeight: SM ? 25 : 29, letterSpacing: -0.2 },
+  // Full-screen question — no card wrapper, sits directly on slideArea's background.
+  quizQuestionFull:  { fontSize: SM ? 20 : 22, fontWeight: '800', color: semantic.textPrimary, lineHeight: SM ? 27 : 30, letterSpacing: -0.3, marginBottom: SM ? 20 : 24 },
+  // borderBottomWidth: 4 is the key "physical key" illusion — Duolingo-style button volume.
+  // Same borderColor on all 4 sides — the clean-key look comes from the thickness
+  // difference, not from a darker bottom border (that reads as a dirty shadow).
+  // bordeMedio (not bordeClaro) now that options sit directly on BG (palette.crema,
+  // #F8FAFC) instead of a white card — bordeClaro is nearly invisible against a
+  // white option on that near-white background.
+  quizOption:        { flexDirection: 'row', alignItems: 'center', gap: 10, padding: 16, borderRadius: 16, borderWidth: 2, borderBottomWidth: 4, borderColor: palette.azulClaro, borderBottomColor: BRAND, backgroundColor: palette.blanco },
+  quizOptCorrect:    { borderColor: semantic.success, borderWidth: 2, borderBottomWidth: 4, backgroundColor: paletteExtras.verdeSuaveBg },
+  quizOptWrong:      { borderColor: semantic.error, borderWidth: 2, borderBottomWidth: 4, backgroundColor: palette.rojoErrorBg },
+  quizLetter:        { width: 30, height: 30, borderRadius: 8, backgroundColor: 'transparent', alignItems: 'center', justifyContent: 'center', flexShrink: 0, borderWidth: 2, borderColor: palette.azulClaro },
+  quizLetterGreen:   { backgroundColor: semantic.success, borderWidth: 0 },
+  quizLetterRed:     { backgroundColor: semantic.error, borderWidth: 0 },
+  quizLetterText:    { fontSize: 13, fontWeight: '800', color: semantic.textPrimary },
+  quizOptText:       { flex: 1, fontSize: SM ? 15 : 17, color: semantic.textPrimary, fontWeight: '600', lineHeight: 22 },
   quizFeedback:      { marginTop: 12, borderRadius: 14, padding: 12 },
   quizFeedbackOk:    { backgroundColor: 'rgba(22,119,242,0.07)', borderWidth: 1.5, borderColor: 'rgba(22,119,242,0.2)' },
   quizFeedbackErr:   { backgroundColor: 'rgba(0,0,0,0.03)', borderWidth: 1, borderColor: palette.bordeClaro },
@@ -4007,44 +4084,36 @@ const sum = StyleSheet.create({
   errorRightLabel:  { fontSize: 10, fontWeight: '900', color: BRAND, letterSpacing: 0.5, marginBottom: 5, textTransform: 'uppercase' },
   errorRightText:   { fontSize: SM ? 13 : 14, color: semantic.textPrimary, lineHeight: SM ? 20 : 22, fontWeight: '600' },
 
-  // Final challenge card
-  // Comprueba si entendiste card
-  checkCard:     { backgroundColor: palette.blanco, borderRadius: 28, overflow: 'hidden' },
-  checkHeader:   { backgroundColor: BRAND, paddingVertical: SM ? 14 : 18, paddingHorizontal: SM ? 14 : 18, alignItems: 'center' },
-  checkLabel:    { fontSize: 11, fontWeight: '900', color: palette.blanco, letterSpacing: 1.5, textTransform: 'uppercase', marginBottom: 4 },
-  checkSubtitle: { fontSize: SM ? 11 : 12, color: 'rgba(255,255,255,0.8)', fontWeight: '500', textAlign: 'center' },
-
-  // Micro challenge card — compact action card after main_concept
-  microCard:     { backgroundColor: palette.blanco, borderRadius: 28, overflow: 'hidden' },
-  microHeader:   { backgroundColor: 'rgba(22,119,242,0.1)', paddingVertical: SM ? 12 : 14, paddingHorizontal: SM ? 14 : 18, alignItems: 'center', borderBottomWidth: 1, borderBottomColor: 'rgba(22,119,242,0.15)' },
-  microLabel:    { fontSize: 11, fontWeight: '900', color: BRAND, letterSpacing: 1.5, textTransform: 'uppercase', marginBottom: 2 },
-  microSubtitle: { fontSize: SM ? 11 : 12, color: semantic.textSecondary, fontWeight: '500' },
+  // Header streak pill — same amber tokens as mStreakBadge/mStreakText below,
+  // reused verbatim for visual consistency between the two streak indicators.
+  streakPill:      { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: 'rgba(255,144,0,0.12)', borderWidth: 1, borderColor: 'rgba(255,144,0,0.3)', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 100 },
+  streakPillEmoji: { fontSize: 14 },
+  streakPillText:  { fontSize: 14, fontWeight: '800', color: paletteExtras.naranjaOscuro },
 
   // Mission feedback bar (Duolingo-style bottom panel)
   mFeedbackBar:  { paddingHorizontal: 20, paddingTop: SM ? 16 : 20, gap: 12 },
-  mFeedbackBarOk:{ backgroundColor: 'rgba(22,119,242,0.08)', borderTopWidth: 2, borderTopColor: 'rgba(22,119,242,0.2)' },
-  mFeedbackBarErr:{ backgroundColor: 'rgba(239,68,68,0.05)', borderTopWidth: 2, borderTopColor: 'rgba(239,68,68,0.18)' },
-  mFbContent:    { gap: 4 },
+  // Success = green (reserve blue for the neutral "selected" option state).
+  // Error bar stays amber/orange, never red — red is reserved for marking
+  // the specific wrong option the student picked (showRed).
+  mFeedbackBarOk:{ backgroundColor: paletteExtras.verdeSuaveBg, borderTopWidth: 2, borderTopColor: palette.verde },
+  mFeedbackBarErr:{ backgroundColor: palette.ambarBg, borderTopWidth: 2, borderTopColor: paletteExtras.ambarFuerte },
+  mFbContent:    { flexDirection: 'row', alignItems: 'center', gap: 12 },
   mFbRow:        { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 2 },
+  mFbIconCircle: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
+  mFbIconCircleOk: { backgroundColor: palette.verde },
+  mFbIconCircleErr: { backgroundColor: paletteExtras.ambarFuerte },
+  mFbIconEmoji:  { fontSize: 24 },
   mFbEmoji:      { fontSize: SM ? 28 : 34 },
   mFbTitle:      { fontSize: SM ? 20 : 23, fontWeight: '900', color: semantic.textPrimary, letterSpacing: -0.4, lineHeight: SM ? 26 : 30 },
   mFbExpl:       { fontSize: SM ? 13 : 14, color: semantic.textSecondary, lineHeight: SM ? 19 : 22, fontWeight: '500', marginTop: 2 },
-  mFbCorrect:    { fontSize: SM ? 13 : 14, fontWeight: '700', color: BRAND, marginTop: 4 },
   mStreakBadge:  { backgroundColor: 'rgba(255,144,0,0.12)', borderRadius: 100, paddingVertical: 3, paddingHorizontal: 10, borderWidth: 1, borderColor: 'rgba(255,144,0,0.3)' },
   mStreakText:   { fontSize: 12, fontWeight: '800', color: paletteExtras.naranjaOscuro },
-  mXpChip:       { alignSelf: 'flex-start', backgroundColor: BRAND, borderRadius: 100, paddingVertical: 4, paddingHorizontal: 14, marginTop: 6 },
-  mXpText:       { fontSize: 13, fontWeight: '900', color: LIME, letterSpacing: 0.3 },
+  mXpChip:       { alignSelf: 'flex-start', backgroundColor: palette.verde, borderRadius: 100, paddingVertical: 4, paddingHorizontal: 14, marginTop: 6 },
+  mXpText:       { fontSize: 13, fontWeight: '900', color: palette.blanco, letterSpacing: 0.3 },
   mContinueBtn:  { height: 52, borderRadius: 28, alignItems: 'center', justifyContent: 'center', backgroundColor: BRAND },
-  mContinueBtnErr:{ backgroundColor: palette.rojoErrorDark },
+  mContinueBtnErr:{ backgroundColor: paletteExtras.ambarIntermedio },
   mContinueBtnText:{ fontSize: 16, fontWeight: '800', color: palette.blanco, letterSpacing: 0.2 },
 
-  // Mini Reto Final card
-  retoCard:        { backgroundColor: palette.blanco, borderRadius: 28, overflow: 'hidden' },
-  retoHeader:      { backgroundColor: BRAND, paddingVertical: SM ? 16 : 20, paddingHorizontal: SM ? 18 : 22, alignItems: 'center' },
-  retoTrophy:      { fontSize: SM ? 36 : 44, marginBottom: 6 },
-  retoHeaderLabel: { fontSize: 11, fontWeight: '900', color: palette.blanco, letterSpacing: 2, textTransform: 'uppercase', marginBottom: 3 },
-  retoHeaderSub:   { fontSize: SM ? 11 : 12, color: 'rgba(255,255,255,0.8)', fontWeight: '500', textAlign: 'center' },
-  retoBody:        { padding: SM ? 14 : 18, gap: 12 },
   retoFeedbackOk:  { backgroundColor: BRAND, borderWidth: 0, borderRadius: 14, padding: SM ? 10 : 12 },
 
   challengeCard:        { backgroundColor: palette.blanco, borderRadius: 28, overflow: 'hidden' },
