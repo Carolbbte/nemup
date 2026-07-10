@@ -4,6 +4,7 @@ import { DAILY_SESSION_LOGIC, FIXED_QUIZ_FEEDBACK, MAX_ATTEMPTS_PER_QUESTION, MO
 import type { DailyMode } from '@/contexts/DailySessionContext';
 import { useDailySession } from '@/contexts/DailySessionContext';
 import { palette, paletteExtras, semantic } from '@/theme/colors';
+import { formatMath } from '@/app/utils/formatMath';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Haptics from 'expo-haptics';
 import { useFocusEffect, useRouter } from 'expo-router';
@@ -340,7 +341,7 @@ function FlipCard({ front, back, onFlip }: { front: string; back: string; onFlip
     <Pressable onPress={handlePress} style={fcd.container}>
       <Animated.View style={[fcd.face, fcd.front, frontStyle]}>
         <Text style={fcd.label}>CONCEPTO</Text>
-        <Text style={fcd.frontText}>{front}</Text>
+        <Text style={fcd.frontText}>{formatMath(front)}</Text>
         <View style={fcd.hint}>
           <RotateCcw size={14} color={semantic.textTertiary} strokeWidth={2} />
           <Text style={fcd.hintText}>Toca para voltear</Text>
@@ -348,7 +349,7 @@ function FlipCard({ front, back, onFlip }: { front: string; back: string; onFlip
       </Animated.View>
       <Animated.View style={[fcd.face, fcd.back, backStyle]}>
         <Text style={[fcd.label, { color: BRAND }]}>EXPLICACIÓN</Text>
-        <Text style={fcd.backText}>{back}</Text>
+        <Text style={fcd.backText}>{formatMath(back)}</Text>
       </Animated.View>
     </Pressable>
   );
@@ -1772,7 +1773,7 @@ export default function SessionPlayerScreen() {
             {safeRender(() => (
             slide?.type === 'quiz' ? (
               <>
-                <Text style={sum.quizQuestionFull}>{slide.question}</Text>
+                <Text style={sum.quizQuestionFull}>{formatMath(slide.question)}</Text>
                 <View key={`options-${summaryIdx}-${quizAnswers[summaryIdx] ?? 'none'}`} style={{ gap: 12, marginTop: 14 }}>
                   {slide.options.map((opt, i) => {
                     const isCorrect = opt.id === slide.correctId;
@@ -1790,7 +1791,7 @@ export default function SessionPlayerScreen() {
                           </Text>
                         </View>
                         <Text style={[sum.quizOptText, showGreen && { color: paletteExtras.verdeTextoOscuro, fontWeight: '700' }, showRed && { color: palette.rojoErrorDark, fontWeight: '700' }]}>
-                          {opt.text}
+                          {formatMath(opt.text)}
                         </Text>
                       </Pressable>
                     );
@@ -1806,7 +1807,7 @@ export default function SessionPlayerScreen() {
                     ) : (
                       <Text style={sum.quizFeedbackTitle}>💡 Incorrecto</Text>
                     )}
-                    {!!slide.explanation && <Text style={sum.quizFeedbackText}>{slide.explanation}</Text>}
+                    {!!slide.explanation && <Text style={sum.quizFeedbackText}>{formatMath(slide.explanation)}</Text>}
                   </View>
                 )}
               </>
@@ -1814,10 +1815,10 @@ export default function SessionPlayerScreen() {
               <View style={sum.predCard}>
                 <Text style={sum.predIcon}>🧠</Text>
                 <Text style={sum.predLabel}>PIENSA UN MOMENTO</Text>
-                <Text style={sum.predPrompt}>{slide.prompt}</Text>
+                <Text style={sum.predPrompt}>{formatMath(slide.prompt)}</Text>
                 <View style={sum.predHintBox}>
                   <Text style={sum.predHintLabel}>Respuesta</Text>
-                  <Text style={sum.predHint}>{slide.hint}</Text>
+                  <Text style={sum.predHint}>{formatMath(slide.hint)}</Text>
                 </View>
               </View>
             ) : slide?.type === 'motivation' ? (
@@ -1841,7 +1842,7 @@ export default function SessionPlayerScreen() {
                     <View style={[sum.missionGrad, { backgroundColor: BRAND }]}>
                       <View style={sum.missionBadge}><Text style={sum.missionBadgeText}>🎯 MISIÓN</Text></View>
                       <Text style={sum.missionEmoji}>{slide?.emoji || '🎯'}</Text>
-                      <Text style={sum.missionTitle}>{slide.title}</Text>
+                      <Text style={sum.missionTitle}>{formatMath(slide.title)}</Text>
                       {coverConcepts.length > 0 && (
                         <View style={sum.missionLearnBlock}>
                           <Text style={sum.missionLearnLabel}>Qué aprenderás</Text>
@@ -1872,13 +1873,9 @@ export default function SessionPlayerScreen() {
               const isProcedural = defLines.length >= 3 && defLines.some(l => STEP_RE.test(l));
               const hasConnector = !!slide.connector?.includes('↓');
               return (
-                <View style={sum.mainCard}>
-                  <View style={sum.mainCardHeader}>
-                    <Text style={sum.mainCardLabel}>{isProcedural ? '📐 PASO A PASO' : '⚡ INSIGHT'}</Text>
-                  </View>
-                  <View style={sum.mainCardBody}>
+                <>
                     <Text style={sum.mainCardEmoji}>{slide?.emoji || '💡'}</Text>
-                    <Text style={sum.mainCardTitle}>{slide.title}</Text>
+                    <Text style={sum.mainCardTitle}>{formatMath(slide.title)}</Text>
                     {hasConnector ? (
                       <>
                         <View style={sum.chainContainer}>
@@ -1887,12 +1884,12 @@ export default function SessionPlayerScreen() {
                             if (!text) return null;
                             return i % 2 === 0 ? (
                               <View key={i} style={sum.chainNode}>
-                                <Text style={sum.chainNodeText}>{text}</Text>
+                                <Text style={sum.chainNodeText}>{formatMath(text)}</Text>
                               </View>
                             ) : (
                               <View key={i} style={sum.chainLink}>
                                 <Text style={sum.chainLinkArrow}>↓</Text>
-                                <Text style={sum.chainLinkText}>{text}</Text>
+                                <Text style={sum.chainLinkText}>{formatMath(text)}</Text>
                               </View>
                             );
                           })}
@@ -1900,13 +1897,13 @@ export default function SessionPlayerScreen() {
                         {!!slide.definition && (
                           <View style={sum.conceptCard}>
                             <Text style={sum.conceptCardLabel}>💡 CONCEPTO</Text>
-                            <Text style={sum.conceptCardText}>{slide.definition}</Text>
+                            <Text style={sum.conceptCardText}>{formatMath(slide.definition)}</Text>
                           </View>
                         )}
                         {!!slide.example && (
                           <View style={sum.exampleBox}>
                             <Text style={sum.exampleLabel}>📌 Ejemplo</Text>
-                            <Text style={sum.exampleText}>{slide.example}</Text>
+                            <Text style={sum.exampleText}>{formatMath(slide.example)}</Text>
                           </View>
                         )}
                       </>
@@ -1923,7 +1920,7 @@ export default function SessionPlayerScreen() {
                                 <View style={[sum.stepBadge, isResult && sum.stepBadgeResult, isProblem && sum.stepBadgeProblem]}>
                                   <Text style={sum.stepBadgeText}>{label}</Text>
                                 </View>
-                                <Text style={[sum.stepContent, isResult && sum.stepContentResult]}>{content}</Text>
+                                <Text style={[sum.stepContent, isResult && sum.stepContentResult]}>{formatMath(content)}</Text>
                               </View>
                             );
                           })}
@@ -1931,7 +1928,7 @@ export default function SessionPlayerScreen() {
                         {!!slide.example && (
                           <View style={sum.exampleBox}>
                             <Text style={sum.exampleLabel}>📌 Ejemplo</Text>
-                            <Text style={sum.exampleText}>{slide.example}</Text>
+                            <Text style={sum.exampleText}>{formatMath(slide.example)}</Text>
                           </View>
                         )}
                       </>
@@ -1946,24 +1943,23 @@ export default function SessionPlayerScreen() {
                               return (
                                 <View key={i} style={[sum.insightRow, i === 0 && sum.insightRowMain]}>
                                   {isBullet && <View style={[sum.insightDot, i === 0 && sum.insightDotMain]} />}
-                                  <Text style={[sum.insightLine, i === 0 && sum.insightLineMain]}>{text}</Text>
+                                  <Text style={[sum.insightLine, i === 0 && sum.insightLineMain]}>{formatMath(text)}</Text>
                                 </View>
                               );
                             })}
                           </View>
                         ) : (
-                          !!slide.definition && <Text style={sum.insightFallback}>{slide.definition}</Text>
+                          !!slide.definition && <Text style={sum.insightFallback}>{formatMath(slide.definition)}</Text>
                         )}
                         {!!slide.example && (
                           <View style={sum.exampleBox}>
                             <Text style={sum.exampleLabel}>📌 Ejemplo</Text>
-                            <Text style={sum.exampleText}>{slide.example}</Text>
+                            <Text style={sum.exampleText}>{formatMath(slide.example)}</Text>
                           </View>
                         )}
                       </>
                     )}
-                  </View>
-                </View>
+                </>
               );
               })()
             ) : slide?.type === 'comprehension' ? (
@@ -1972,10 +1968,10 @@ export default function SessionPlayerScreen() {
                   <>
                     {!!slide.example && (
                       <View style={sum.comprehensionCtx}>
-                        <Text style={sum.comprehensionCtxText}>{slide.example}</Text>
+                        <Text style={sum.comprehensionCtxText}>{formatMath(slide.example)}</Text>
                       </View>
                     )}
-                    <Text style={sum.quizQuestionFull}>{slide.question ?? slide.title}</Text>
+                    <Text style={sum.quizQuestionFull}>{formatMath(slide.question ?? slide.title)}</Text>
                       <View key={`options-${summaryIdx}-${quizAnswers[summaryIdx] ?? 'none'}`} style={{ gap: 12, marginTop: 14 }}>
                         {slide.options?.map((opt, i) => {
                           const letter    = LETTERS[i];
@@ -2005,7 +2001,7 @@ export default function SessionPlayerScreen() {
                                       <Text style={sum.quizLetterText}>{letter}</Text>
                                     )}
                                   </View>
-                                  <Text style={[sum.quizOptText, showGreen && { color: paletteExtras.verdeTextoOscuro, fontWeight: '700' }, showRed && { color: palette.rojoErrorDark, fontWeight: '700' }]}>{opt}</Text>
+                                  <Text style={[sum.quizOptText, showGreen && { color: paletteExtras.verdeTextoOscuro, fontWeight: '700' }, showRed && { color: palette.rojoErrorDark, fontWeight: '700' }]}>{formatMath(opt)}</Text>
                               </Pressable>
                             </Animated.View>
                           );
@@ -2019,7 +2015,7 @@ export default function SessionPlayerScreen() {
                 const answered = quizAnswers[summaryIdx];
                 return (
                   <>
-                      <Text style={sum.quizQuestionFull}>{slide.question ?? slide.title}</Text>
+                      <Text style={sum.quizQuestionFull}>{formatMath(slide.question ?? slide.title)}</Text>
                       {slide.options?.length ? (
                         <View key={`options-${summaryIdx}-${quizAnswers[summaryIdx] ?? 'none'}`} style={{ gap: 12, marginTop: 14 }}>
                           {slide.options.slice(0, 4).map((opt, i) => {
@@ -2050,7 +2046,7 @@ export default function SessionPlayerScreen() {
                                       <Text style={sum.quizLetterText}>{letter}</Text>
                                     )}
                                   </View>
-                                  <Text style={[sum.quizOptText, showGreen && { color: paletteExtras.verdeTextoOscuro, fontWeight: '700' }, showRed && { color: palette.rojoErrorDark, fontWeight: '700' }]}>{opt}</Text>
+                                  <Text style={[sum.quizOptText, showGreen && { color: paletteExtras.verdeTextoOscuro, fontWeight: '700' }, showRed && { color: palette.rojoErrorDark, fontWeight: '700' }]}>{formatMath(opt)}</Text>
                                 </Pressable>
                               </Animated.View>
                             );
@@ -2067,7 +2063,7 @@ export default function SessionPlayerScreen() {
                 const answered = quizAnswers[summaryIdx];
                 return (
                   <>
-                      <Text style={sum.quizQuestionFull}>{slide.question ?? slide.title}</Text>
+                      <Text style={sum.quizQuestionFull}>{formatMath(slide.question ?? slide.title)}</Text>
                       {slide.options?.length ? (
                         <View key={`options-${summaryIdx}-${quizAnswers[summaryIdx] ?? 'none'}`} style={{ gap: 12, marginTop: 14 }}>
                           {slide.options.slice(0, 4).map((opt, i) => {
@@ -2098,7 +2094,7 @@ export default function SessionPlayerScreen() {
                                       <Text style={sum.quizLetterText}>{letter}</Text>
                                     )}
                                   </View>
-                                  <Text style={[sum.quizOptText, showGreen && { color: paletteExtras.verdeTextoOscuro, fontWeight: '700' }, showRed && { color: palette.rojoErrorDark, fontWeight: '700' }]}>{opt}</Text>
+                                  <Text style={[sum.quizOptText, showGreen && { color: paletteExtras.verdeTextoOscuro, fontWeight: '700' }, showRed && { color: palette.rojoErrorDark, fontWeight: '700' }]}>{formatMath(opt)}</Text>
                                 </Pressable>
                               </Animated.View>
                             );
@@ -2147,7 +2143,7 @@ export default function SessionPlayerScreen() {
               })()
             ) : slide?.type === 'mini_quiz' ? (
               <>
-                <Text style={sum.quizQuestionFull}>{slide.question ?? slide.title}</Text>
+                <Text style={sum.quizQuestionFull}>{formatMath(slide.question ?? slide.title)}</Text>
                 <View key={`options-${summaryIdx}-${quizAnswers[summaryIdx] ?? 'none'}`} style={{ gap: 12, marginTop: 14 }}>
                   {slide.options?.map((opt, i) => {
                     const letter    = LETTERS[i];
@@ -2178,7 +2174,7 @@ export default function SessionPlayerScreen() {
                                 <Text style={sum.quizLetterText}>{letter}</Text>
                               )}
                             </View>
-                            <Text style={[sum.quizOptText, showGreen && { color: paletteExtras.verdeTextoOscuro, fontWeight: '700' }, showRed && { color: palette.rojoErrorDark, fontWeight: '700' }]}>{opt}</Text>
+                            <Text style={[sum.quizOptText, showGreen && { color: paletteExtras.verdeTextoOscuro, fontWeight: '700' }, showRed && { color: palette.rojoErrorDark, fontWeight: '700' }]}>{formatMath(opt)}</Text>
                         </Pressable>
                       </Animated.View>
                     );
@@ -2188,7 +2184,7 @@ export default function SessionPlayerScreen() {
             ) : slide?.type === 'process_flow' ? (
               <View style={sum.processCard}>
                 <Text style={sum.processLabel}>⚙️ PROCESO</Text>
-                <Text style={sum.processTitle}>{slide.title}</Text>
+                <Text style={sum.processTitle}>{formatMath(slide.title)}</Text>
                 {!!slide.definition && (
                   <View style={sum.processSteps}>
                     {slide.definition.split('→').map((step, i) => (
@@ -2196,7 +2192,7 @@ export default function SessionPlayerScreen() {
                         <View style={sum.processNum}>
                           <Text style={sum.processNumText}>{i + 1}</Text>
                         </View>
-                        <Text style={sum.processStepText}>{step.replace(/^\d+\.\s*/, '').trim()}</Text>
+                        <Text style={sum.processStepText}>{formatMath(step.replace(/^\d+\.\s*/, '').trim())}</Text>
                       </View>
                     ))}
                   </View>
@@ -2204,7 +2200,7 @@ export default function SessionPlayerScreen() {
                 {!!slide.example && (
                   <View style={sum.exampleBox}>
                     <Text style={sum.exampleLabel}>📌 Ejemplo</Text>
-                    <Text style={sum.exampleText}>{slide.example}</Text>
+                    <Text style={sum.exampleText}>{formatMath(slide.example)}</Text>
                   </View>
                 )}
               </View>
@@ -2215,20 +2211,20 @@ export default function SessionPlayerScreen() {
                   <Text style={sum.appLabel}>🌍 APLICACIÓN REAL</Text>
                 </View>
                 <View style={sum.appBody}>
-                  <Text style={sum.appTitle}>{slide.title}</Text>
+                  <Text style={sum.appTitle}>{formatMath(slide.title)}</Text>
                   {/* Concrete example front-and-center — this is the specific real case */}
                   {!!slide.example && (
                     <View style={sum.appScenarioBox}>
                       <Text style={sum.appScenarioLabel}>CASO REAL</Text>
-                      <Text style={sum.appScenarioText}>{slide.example}</Text>
+                      <Text style={sum.appScenarioText}>{formatMath(slide.example)}</Text>
                     </View>
                   )}
                   {/* Definition as secondary context — only shown if adds new info */}
-                  {!!slide.definition && <Text style={sum.appSit}>{slide.definition}</Text>}
+                  {!!slide.definition && <Text style={sum.appSit}>{formatMath(slide.definition)}</Text>}
                   {/* Interactive question */}
                   {slide.question && slide.options?.length ? (
                     <View key={`options-${summaryIdx}-${quizAnswers[summaryIdx] ?? 'none'}`} style={{ marginTop: 10, gap: 12 }}>
-                      <Text style={sum.quizQuestion}>{slide.question}</Text>
+                      <Text style={sum.quizQuestion}>{formatMath(slide.question)}</Text>
                       {slide.options.map((opt, i) => {
                         const letter = LETTERS[i];
                         const answered = quizAnswers[summaryIdx];
@@ -2251,7 +2247,7 @@ export default function SessionPlayerScreen() {
                                   <Text style={sum.quizLetterText}>{letter}</Text>
                                 )}
                               </View>
-                              <Text style={[sum.quizOptText, showGreen && { color: paletteExtras.verdeTextoOscuro, fontWeight: '700' }, showRed && { color: palette.rojoErrorDark, fontWeight: '700' }]}>{opt}</Text>
+                              <Text style={[sum.quizOptText, showGreen && { color: paletteExtras.verdeTextoOscuro, fontWeight: '700' }, showRed && { color: palette.rojoErrorDark, fontWeight: '700' }]}>{formatMath(opt)}</Text>
                             </Pressable>
                           </Animated.View>
                         );
@@ -2266,7 +2262,7 @@ export default function SessionPlayerScreen() {
                           ) : (
                             <>
                               <Text style={sum.quizFeedbackTitle}>💡 Incorrecto</Text>
-                              <Text style={sum.quizFeedbackText}>{slide.definition || `La respuesta correcta era la ${(slide as BackendSlide).correctAnswer}.`}</Text>
+                              <Text style={sum.quizFeedbackText}>{formatMath(slide.definition) || `La respuesta correcta era la ${(slide as BackendSlide).correctAnswer}.`}</Text>
                             </>
                           )}
                         </View>
@@ -2287,10 +2283,10 @@ export default function SessionPlayerScreen() {
                     {!!slide.definition && (
                       <View style={sum.errorWrongBox}>
                         <Text style={sum.errorWrongLabel}>Analiza esta solución</Text>
-                        <Text style={sum.errorWrongText}>{slide.definition}</Text>
+                        <Text style={sum.errorWrongText}>{formatMath(slide.definition)}</Text>
                       </View>
                     )}
-                    <Text style={[sum.quizQuestion, { marginTop: 10 }]}>{slide.question}</Text>
+                    <Text style={[sum.quizQuestion, { marginTop: 10 }]}>{formatMath(slide.question)}</Text>
                     <View key={`options-${summaryIdx}-${quizAnswers[summaryIdx] ?? 'none'}`} style={{ gap: 12, marginTop: 8 }}>
                       {slide.options.map((opt, i) => {
                         const letter = LETTERS[i];
@@ -2314,7 +2310,7 @@ export default function SessionPlayerScreen() {
                                   <Text style={sum.quizLetterText}>{letter}</Text>
                                 )}
                               </View>
-                              <Text style={[sum.quizOptText, showGreen && { color: paletteExtras.verdeTextoOscuro, fontWeight: '700' }, showRed && { color: palette.rojoErrorDark, fontWeight: '700' }]}>{opt}</Text>
+                              <Text style={[sum.quizOptText, showGreen && { color: paletteExtras.verdeTextoOscuro, fontWeight: '700' }, showRed && { color: palette.rojoErrorDark, fontWeight: '700' }]}>{formatMath(opt)}</Text>
                             </Pressable>
                           </Animated.View>
                         );
@@ -2323,7 +2319,7 @@ export default function SessionPlayerScreen() {
                     {!!quizAnswers[summaryIdx] && !!slide.example && (
                       <View style={[sum.errorRightBox, { marginTop: 10 }]}>
                         <Text style={sum.errorRightLabel}>💡 Lo correcto es</Text>
-                        <Text style={sum.errorRightText}>{slide.example}</Text>
+                        <Text style={sum.errorRightText}>{formatMath(slide.example)}</Text>
                       </View>
                     )}
                   </View>
@@ -2331,9 +2327,9 @@ export default function SessionPlayerScreen() {
               ) : !slide.definition || !slide.example ? (
                 <View style={sum.introCard}>
                   <Text style={sum.slideEmoji}>{slide?.emoji || '⚠️'}</Text>
-                  <Text style={sum.introHeading}>{slide.title}</Text>
+                  <Text style={sum.introHeading}>{formatMath(slide.title)}</Text>
                   {!!(slide.definition || slide.example) && (
-                    <Text style={sum.introDef}>{slide.definition || slide.example}</Text>
+                    <Text style={sum.introDef}>{formatMath(slide.definition || slide.example)}</Text>
                   )}
                 </View>
               ) : (
@@ -2345,18 +2341,18 @@ export default function SessionPlayerScreen() {
                   <View style={sum.errorBody}>
                     <View style={sum.errorWrongBox}>
                       <Text style={sum.errorWrongLabel}>⚠️ Error detectado</Text>
-                      <Text style={sum.errorWrongText}>{slide.definition}</Text>
+                      <Text style={sum.errorWrongText}>{formatMath(slide.definition)}</Text>
                     </View>
                     <View style={sum.errorRightBox}>
                       <Text style={sum.errorRightLabel}>💡 Lo correcto es</Text>
-                      <Text style={sum.errorRightText}>{slide.example}</Text>
+                      <Text style={sum.errorRightText}>{formatMath(slide.example)}</Text>
                     </View>
                   </View>
                 </View>
               )
             ) : slide?.type === 'final_challenge' ? (
               <>
-                  <Text style={sum.quizQuestionFull}>{slide.question ?? slide.title}</Text>
+                  <Text style={sum.quizQuestionFull}>{formatMath(slide.question ?? slide.title)}</Text>
                   <View key={`options-${summaryIdx}-${quizAnswers[summaryIdx] ?? 'none'}`} style={{ gap: 12 }}>
                     {slide.options?.map((opt, i) => {
                       const letter    = LETTERS[i];
@@ -2387,7 +2383,7 @@ export default function SessionPlayerScreen() {
                                   <Text style={sum.quizLetterText}>{letter}</Text>
                                 )}
                               </View>
-                              <Text style={[sum.quizOptText, showGreen && { color: paletteExtras.verdeTextoOscuro, fontWeight: '700' }, showRed && { color: palette.rojoErrorDark, fontWeight: '700' }]}>{opt}</Text>
+                              <Text style={[sum.quizOptText, showGreen && { color: paletteExtras.verdeTextoOscuro, fontWeight: '700' }, showRed && { color: palette.rojoErrorDark, fontWeight: '700' }]}>{formatMath(opt)}</Text>
                           </Pressable>
                         </Animated.View>
                       );
@@ -2396,7 +2392,7 @@ export default function SessionPlayerScreen() {
               </>
             ) : slide?.type === 'decide' ? (
               <>
-                <Text style={sum.quizQuestionFull}>{slide.question ?? slide.title}</Text>
+                <Text style={sum.quizQuestionFull}>{formatMath(slide.question ?? slide.title)}</Text>
                 <View key={`options-${summaryIdx}-${quizAnswers[summaryIdx] ?? 'none'}`} style={{ gap: 12, marginTop: 14 }}>
                   {slide.options?.map((opt, i) => {
                     const letter    = LETTERS[i];
@@ -2426,7 +2422,7 @@ export default function SessionPlayerScreen() {
                                 <Text style={sum.quizLetterText}>{letter}</Text>
                               )}
                             </View>
-                            <Text style={[sum.quizOptText, showGreen && { color: paletteExtras.verdeTextoOscuro, fontWeight: '700' }, showRed && { color: palette.rojoErrorDark, fontWeight: '700' }]}>{opt}</Text>
+                            <Text style={[sum.quizOptText, showGreen && { color: paletteExtras.verdeTextoOscuro, fontWeight: '700' }, showRed && { color: palette.rojoErrorDark, fontWeight: '700' }]}>{formatMath(opt)}</Text>
                         </Pressable>
                       </Animated.View>
                     );
@@ -2485,7 +2481,7 @@ export default function SessionPlayerScreen() {
                                 : <Text style={sum.orderNumTxtMuted}>?</Text>}
                             </View>
                             <Text style={[sum.orderItemTxt, isSelected && sum.orderItemTxtSelected]}>
-                              {opts[origIdx]}
+                              {formatMath(opts[origIdx])}
                             </Text>
                           </Pressable>
                         );
@@ -2504,9 +2500,9 @@ export default function SessionPlayerScreen() {
               <View style={sum.challengeRefCard}>
                 <Text style={sum.challengeRefEmoji}>🤔</Text>
                 <Text style={sum.challengeRefLabel}>DESAFÍO</Text>
-                {!!slide.definition && <Text style={sum.challengeRefQ}>{slide.definition}</Text>}
+                {!!slide.definition && <Text style={sum.challengeRefQ}>{formatMath(slide.definition)}</Text>}
                 <View key={`options-${summaryIdx}-${quizAnswers[summaryIdx] ?? 'none'}`} style={{ gap: 12, marginTop: 10, width: '100%' }}>
-                  <Text style={sum.quizQuestion}>{slide.question}</Text>
+                  <Text style={sum.quizQuestion}>{formatMath(slide.question)}</Text>
                   {slide.options?.map((opt, i) => {
                     const letter = LETTERS[i];
                     const answered = quizAnswers[summaryIdx];
@@ -2529,7 +2525,7 @@ export default function SessionPlayerScreen() {
                               <Text style={sum.quizLetterText}>{letter}</Text>
                             )}
                           </View>
-                          <Text style={[sum.quizOptText, showGreen && { color: paletteExtras.verdeTextoOscuro, fontWeight: '700' }, showRed && { color: palette.rojoErrorDark, fontWeight: '700' }]}>{opt}</Text>
+                          <Text style={[sum.quizOptText, showGreen && { color: paletteExtras.verdeTextoOscuro, fontWeight: '700' }, showRed && { color: palette.rojoErrorDark, fontWeight: '700' }]}>{formatMath(opt)}</Text>
                         </Pressable>
                       </Animated.View>
                     );
@@ -2537,7 +2533,7 @@ export default function SessionPlayerScreen() {
                   {!!quizAnswers[summaryIdx] && !!slide.example && (
                     <View style={sum.challengeRefHintBox}>
                       <Text style={sum.challengeRefHintLbl}>Explicación</Text>
-                      <Text style={sum.challengeRefHintTxt}>{slide.example}</Text>
+                      <Text style={sum.challengeRefHintTxt}>{formatMath(slide.example)}</Text>
                     </View>
                   )}
                 </View>
@@ -2896,12 +2892,12 @@ export default function SessionPlayerScreen() {
             ) : slide?.type === 'concept' ? (
               <View style={sum.introCard}>
                 <Text style={sum.slideEmoji}>{slide?.emoji || '📚'}</Text>
-                <Text style={sum.introHeading}>{slide.title}</Text>
-                {!!slide.definition && <Text style={sum.introDef}>{slide.definition}</Text>}
+                <Text style={sum.introHeading}>{formatMath(slide.title)}</Text>
+                {!!slide.definition && <Text style={sum.introDef}>{formatMath(slide.definition)}</Text>}
                 {!!slide.example && (
                   <View style={sum.exampleBox}>
                     <Text style={sum.exampleLabel}>📌 Ejemplo</Text>
-                    <Text style={sum.exampleText}>{slide.example}</Text>
+                    <Text style={sum.exampleText}>{formatMath(slide.example)}</Text>
                   </View>
                 )}
               </View>
@@ -2910,18 +2906,18 @@ export default function SessionPlayerScreen() {
                 <Text style={sum.wowEmoji}>{(slide as BackendSlide).emoji || '🤯'}</Text>
                 <Text style={sum.wowLabel}>🧠 ¿SABÍAS QUE?</Text>
                 {/* Title is the surprise hook — the memorable claim */}
-                {!!slide.title && <Text style={sum.wowHook}>{slide.title}</Text>}
+                {!!slide.title && <Text style={sum.wowHook}>{formatMath(slide.title)}</Text>}
                 {/* Definition expands the surprising fact */}
                 <View style={sum.wowDataBox}>
-                  <Text style={sum.wowText}>{slide.definition}</Text>
+                  <Text style={sum.wowText}>{formatMath(slide.definition)}</Text>
                 </View>
                 {/* Example as "¿por qué importa?" — only when no question */}
                 {!!slide.example && !slide.question && (
-                  <Text style={sum.wowContext}>{slide.example}</Text>
+                  <Text style={sum.wowContext}>{formatMath(slide.example)}</Text>
                 )}
                 {slide.question && slide.options && (
                   <View key={`options-${summaryIdx}-${quizAnswers[summaryIdx] ?? 'none'}`} style={{ gap: 12, marginTop: 16, alignSelf: 'stretch' }}>
-                    <Text style={[sum.quizQuestion, { fontSize: SM ? 13 : 14 }]}>{slide.question}</Text>
+                    <Text style={[sum.quizQuestion, { fontSize: SM ? 13 : 14 }]}>{formatMath(slide.question)}</Text>
                     {slide.options.map((opt, i) => {
                       const letter    = LETTERS[i];
                       const answered  = quizAnswers[summaryIdx];
@@ -2944,7 +2940,7 @@ export default function SessionPlayerScreen() {
                                 <Text style={sum.quizLetterText}>{letter}</Text>
                               )}
                             </View>
-                            <Text style={[sum.quizOptText, showGreen && { color: paletteExtras.verdeTextoOscuro, fontWeight: '700' }, showRed && { color: palette.rojoErrorDark, fontWeight: '700' }]}>{opt}</Text>
+                            <Text style={[sum.quizOptText, showGreen && { color: paletteExtras.verdeTextoOscuro, fontWeight: '700' }, showRed && { color: palette.rojoErrorDark, fontWeight: '700' }]}>{formatMath(opt)}</Text>
                           </Pressable>
                         </Animated.View>
                       );
@@ -2959,7 +2955,7 @@ export default function SessionPlayerScreen() {
                         ) : (
                           <>
                             <Text style={sum.quizFeedbackTitle}>💡 Incorrecto</Text>
-                            {!!slide.example && <Text style={sum.quizFeedbackText}>{slide.example}</Text>}
+                            {!!slide.example && <Text style={sum.quizFeedbackText}>{formatMath(slide.example)}</Text>}
                           </>
                         )}
                       </View>
@@ -2974,9 +2970,9 @@ export default function SessionPlayerScreen() {
                   <Text style={sum.scenarioLabel}>📌 EJEMPLO PRÁCTICO</Text>
                 </View>
                 <View style={sum.scenarioBody}>
-                  <Text style={sum.scenarioTitle}>{slide.title}</Text>
-                  {!!slide.definition && <Text style={sum.scenarioDef}>{slide.definition}</Text>}
-                  {!!slide.example && <Text style={sum.scenarioEx}>{slide.example}</Text>}
+                  <Text style={sum.scenarioTitle}>{formatMath(slide.title)}</Text>
+                  {!!slide.definition && <Text style={sum.scenarioDef}>{formatMath(slide.definition)}</Text>}
+                  {!!slide.example && <Text style={sum.scenarioEx}>{formatMath(slide.example)}</Text>}
                 </View>
               </View>
             ) : !slide?.title?.trim() && !slide?.definition?.trim() ? (
@@ -2989,12 +2985,12 @@ export default function SessionPlayerScreen() {
               <View style={[sum.kpCard, { backgroundColor: SLIDE_STYLE[slide?.type ?? '']?.bg ?? 'rgba(22,119,242,0.08)', borderLeftColor: SLIDE_STYLE[slide?.type ?? '']?.accent ?? BRAND }]}>
                 <Text style={sum.kpEmoji}>{slide?.emoji || '📚'}</Text>
                 <Text style={[sum.kpLabel, { color: SLIDE_STYLE[slide?.type ?? '']?.accent ?? BRAND }]}>{SLIDE_STYLE[slide?.type ?? '']?.label}</Text>
-                <Text style={sum.kpTitle}>{slide?.title}</Text>
-                {!!slide?.definition && <Text style={sum.kpDef}>{slide.definition}</Text>}
+                <Text style={sum.kpTitle}>{formatMath(slide?.title)}</Text>
+                {!!slide?.definition && <Text style={sum.kpDef}>{formatMath(slide.definition)}</Text>}
                 {!!slide?.example && (
                   <View style={sum.exampleBox}>
                     <Text style={sum.exampleLabel}>📌 Ejemplo</Text>
-                    <Text style={sum.exampleText}>{slide.example}</Text>
+                    <Text style={sum.exampleText}>{formatMath(slide.example)}</Text>
                   </View>
                 )}
               </View>
@@ -3056,7 +3052,7 @@ export default function SessionPlayerScreen() {
                       <Text style={sum.mFbTitle}>{(missionCorrect ? celebMsg?.text : errMsg?.text) || (missionCorrect ? '¡Correcto!' : 'Vas aprendiendo.')}</Text>
                       <React.Fragment key={`explanation-${summaryIdx}-${missionCorrect ? 'ok' : 'err'}`}>
                       {!missionCorrect && !!bs?.definition && (
-                        <Text style={sum.mFbExpl} numberOfLines={3}>{bs.definition}</Text>
+                        <Text style={sum.mFbExpl} numberOfLines={3}>{formatMath(bs.definition)}</Text>
                       )}
                       {missionCorrect && !!streakLabel && (
                         <Animated.View style={[sum.mStreakBadge, comboPulseStyle]}><Text style={sum.mStreakText}>{streakLabel}</Text></Animated.View>
@@ -3343,7 +3339,7 @@ export default function SessionPlayerScreen() {
                   <Text style={qz.questionChip}>🧠 Pregunta {quizIdx + 1}</Text>
                   {isLastQuestion && <Text style={qz.lastQChip}>🏁 Última</Text>}
                 </View>
-                <Text style={qz.questionText}>{question?.text}</Text>
+                <Text style={qz.questionText}>{formatMath(question?.text)}</Text>
               </View>
 
               {/* Options (FASE 5) */}
@@ -3398,7 +3394,7 @@ export default function SessionPlayerScreen() {
                           showBrand && { color: BRAND, fontWeight: '700' },
                           isWrong   && { color: semantic.textTertiary },
                         ]}>
-                          {opt.text}
+                          {formatMath(opt.text)}
                         </Text>
                       </Pressable>
                     </Animated.View>
@@ -3420,7 +3416,7 @@ export default function SessionPlayerScreen() {
                     </View>
                   )}
                 </View>
-                <Text style={qz.feedbackText}>{question.explanation}</Text>
+                <Text style={qz.feedbackText}>{formatMath(question.explanation)}</Text>
               </Animated.View>
             ) : null}
 
@@ -3441,7 +3437,7 @@ export default function SessionPlayerScreen() {
                 {stateB && <Text style={qz.feedbackText}>Vuelve a intentarlo.</Text>}
                 {/* State A/C: show explanation */}
                 {!stateB && !!question?.explanation && (
-                  <Text style={qz.feedbackText}>{question.explanation}</Text>
+                  <Text style={qz.feedbackText}>{formatMath(question.explanation)}</Text>
                 )}
                 {/* State C: reveal correct answer */}
                 {stateC && (
@@ -3931,7 +3927,7 @@ const sum = StyleSheet.create({
   // bordeMedio (not bordeClaro) now that options sit directly on BG (palette.crema,
   // #F8FAFC) instead of a white card — bordeClaro is nearly invisible against a
   // white option on that near-white background.
-  quizOption:        { flexDirection: 'row', alignItems: 'center', gap: 10, padding: 16, borderRadius: 16, borderWidth: 2, borderBottomWidth: 4, borderColor: palette.azulClaro, borderBottomColor: BRAND, backgroundColor: palette.blanco },
+  quizOption:        { flexDirection: 'row', alignItems: 'center', gap: 10, padding: 16, borderRadius: 16, borderWidth: 2, borderBottomWidth: 4, borderColor: palette.azulClaro, backgroundColor: palette.blanco },
   quizOptCorrect:    { borderColor: semantic.success, borderWidth: 2, borderBottomWidth: 4, backgroundColor: paletteExtras.verdeSuaveBg },
   quizOptWrong:      { borderColor: semantic.error, borderWidth: 2, borderBottomWidth: 4, backgroundColor: palette.rojoErrorBg },
   quizLetter:        { width: 30, height: 30, borderRadius: 8, backgroundColor: 'transparent', alignItems: 'center', justifyContent: 'center', flexShrink: 0, borderWidth: 2, borderColor: palette.azulClaro },
@@ -3992,11 +3988,7 @@ const sum = StyleSheet.create({
   missionMetaChipText:{ fontSize: 12, color: palette.blanco, fontWeight: '700' },
   missionMetaChipXp:{ backgroundColor: LIME },
 
-  // Main concept card
-  mainCard:         { backgroundColor: palette.blanco, borderRadius: 28, overflow: 'hidden' },
-  mainCardHeader:   { backgroundColor: 'rgba(22,119,242,0.07)', paddingHorizontal: SM ? 18 : 22, paddingVertical: SM ? 10 : 12 },
-  mainCardLabel:    { fontSize: 10, fontWeight: '900', color: BRAND, letterSpacing: 1.5, textTransform: 'uppercase' },
-  mainCardBody:     { paddingHorizontal: SM ? 18 : 22, paddingVertical: SM ? 14 : 18 },
+  // Main concept — full-screen, no card wrapper (consistent with question slides)
   mainCardEmoji:    { fontSize: SM ? 36 : 44, marginBottom: 10 },
   mainCardTitle:    { fontSize: SM ? 20 : 24, fontWeight: '900', color: semantic.textPrimary, letterSpacing: -0.4, lineHeight: SM ? 26 : 30, marginBottom: 8 },
   mainCardDef:      { fontSize: SM ? 14 : 15, color: semantic.textPrimary, lineHeight: SM ? 21 : 24, fontWeight: '500' },
