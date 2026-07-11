@@ -378,6 +378,17 @@ const SLIDE_STYLE: Record<string, { accent: string; bg: string; label: string }>
   curiosity: { accent: palette.ambar, bg: 'rgba(255,181,71,0.08)', label: '✨ Curiosidad' },
 };
 
+// Insight card color rotation — one scheme per concept, in order (not per
+// slide, so interleaved questions don't skip/repeat a color). Solid tones,
+// no gradient dependency.
+const CONCEPT_PALETTES: Array<{ bg: string; border: string; iconBg: string; accent: string }> = [
+  { bg: '#EEF3FF', border: '#C9D8F5', iconBg: '#5B6EE1', accent: '#3D52B5' }, // azul
+  { bg: '#F4EEFF', border: '#DCC9F5', iconBg: '#8B5BD6', accent: '#6B3DB5' }, // morado
+  { bg: '#EAF6EA', border: '#C5E5C5', iconBg: '#639922', accent: '#4A7519' }, // verde
+  { bg: '#FFF4E6', border: '#FFD9A8', iconBg: '#F59331', accent: '#C06E1A' }, // ámbar
+  { bg: '#E6F6F6', border: '#B4E0E0', iconBg: '#2FA8A8', accent: '#1E7A7A' }, // turquesa
+];
+
 // ── Summary slide builder ─────────────────────────────────────────
 type SummarySlide =
   | BackendSlide
@@ -812,6 +823,10 @@ export default function SessionPlayerScreen() {
   const [streak, setStreak]               = useState(0);
   const [maxStreak, setMaxStreak]         = useState(0);
   const missionStreakRef  = useRef(0);
+  // Direction of the last slide transition — lets the entry effect below slide
+  // the incoming Misión slide in from the correct side (right for next, left
+  // for prev) instead of always from the right regardless of gesture.
+  const summaryDirRef     = useRef<'next' | 'prev'>('next');
   // Mirrors missionStreakRef into state — refs don't trigger re-renders, so the
   // header pill needs this to update live. The ref stays the source of truth
   // (other calculations read it); this is purely for display.
@@ -865,6 +880,13 @@ export default function SessionPlayerScreen() {
   const optScale2     = useSharedValue(1);
   const optScale3     = useSharedValue(1);
   const optScale4     = useSharedValue(1);
+  // Per-option stagger entrance (fade + rise), separate from the tap-bounce
+  // scale above — triggered once per new slide, not on tap.
+  const optEnter0     = useSharedValue(0);
+  const optEnter1     = useSharedValue(0);
+  const optEnter2     = useSharedValue(0);
+  const optEnter3     = useSharedValue(0);
+  const optEnter4     = useSharedValue(0);
 
   const xpFloatStyle     = useAnimatedStyle(() => ({ opacity: xpFloatOp.value, transform: [{ translateY: xpFloatY.value }] }));
   const streakBadgeStyle = useAnimatedStyle(() => ({ opacity: streakBadgeSV.value, transform: [{ scale: 0.82 + streakBadgeSV.value * 0.18 }] }));
@@ -881,6 +903,13 @@ export default function SessionPlayerScreen() {
   const optAnimStyle4    = useAnimatedStyle(() => ({ transform: [{ scale: optScale4.value }] }));
   const optAnimStyles    = [optAnimStyle0, optAnimStyle1, optAnimStyle2, optAnimStyle3, optAnimStyle4];
   const optScaleArr      = [optScale0, optScale1, optScale2, optScale3, optScale4];
+  const optEnterStyle0   = useAnimatedStyle(() => ({ opacity: optEnter0.value, transform: [{ translateY: (1 - optEnter0.value) * 16 }] }));
+  const optEnterStyle1   = useAnimatedStyle(() => ({ opacity: optEnter1.value, transform: [{ translateY: (1 - optEnter1.value) * 16 }] }));
+  const optEnterStyle2   = useAnimatedStyle(() => ({ opacity: optEnter2.value, transform: [{ translateY: (1 - optEnter2.value) * 16 }] }));
+  const optEnterStyle3   = useAnimatedStyle(() => ({ opacity: optEnter3.value, transform: [{ translateY: (1 - optEnter3.value) * 16 }] }));
+  const optEnterStyle4   = useAnimatedStyle(() => ({ opacity: optEnter4.value, transform: [{ translateY: (1 - optEnter4.value) * 16 }] }));
+  const optEnterStyles   = [optEnterStyle0, optEnterStyle1, optEnterStyle2, optEnterStyle3, optEnterStyle4];
+  const optEnterArr      = [optEnter0, optEnter1, optEnter2, optEnter3, optEnter4];
 
   // Summary mode micro-reward animation
   const summaryRewardOpSV = useSharedValue(0);
@@ -926,12 +955,21 @@ export default function SessionPlayerScreen() {
 
   useEffect(() => {
     if (phase !== 'summary') return;
-    slideX.value = SCREEN_W * 0.12;
+    // Enter from the side opposite the exit direction (right for 'next', left
+    // for 'prev') so the slide-out and slide-in read as one continuous motion.
+    slideX.value = (summaryDirRef.current === 'prev' ? -1 : 1) * SCREEN_W * 0.5;
     slideOpacity.value = 0;
-    slideX.value = withSpring(0, { damping: 22, stiffness: 220 });
+    slideX.value = withSpring(0, { damping: 20, stiffness: 200 });
     slideOpacity.value = withTiming(1, { duration: 240 });
     wrongShakeSV.value = 0;
     correctGlowSV.value = 0;
+    // Stagger the options in one after another (120ms lets the slide itself
+    // arrive first, then ~70ms between each option).
+    optEnterArr.forEach((sv, i) => {
+      sv.value = 0;
+      sv.value = withDelay(120 + i * 70, withTiming(1, { duration: 220 }));
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [summaryIdx, phase]);
 
   // Shake wrong option when an incorrect answer is selected.
@@ -1624,17 +1662,19 @@ export default function SessionPlayerScreen() {
 
     const goNext = () => {
       Vibration.vibrate(18);
-      slideX.value       = withTiming(-SCREEN_W * 0.15, { duration: 180 }, (done) => {
+      summaryDirRef.current = 'next';
+      slideX.value       = withTiming(-SCREEN_W * 0.6, { duration: 220 }, (done) => {
         if (done) runOnJS(setSummaryIdx)(summaryIdx + 1);
       });
-      slideOpacity.value = withTiming(0, { duration: 180 });
+      slideOpacity.value = withTiming(0, { duration: 200 });
     };
     const goPrev = () => {
       Vibration.vibrate(10);
-      slideX.value       = withTiming(SCREEN_W * 0.15, { duration: 180 }, (done) => {
+      summaryDirRef.current = 'prev';
+      slideX.value       = withTiming(SCREEN_W * 0.6, { duration: 220 }, (done) => {
         if (done) runOnJS(setSummaryIdx)(summaryIdx - 1);
       });
-      slideOpacity.value = withTiming(0, { duration: 180 });
+      slideOpacity.value = withTiming(0, { duration: 200 });
     };
 
     // MODE_COMPLETION_REDESIGN: replace victory slide with full-screen ModeCompletionScreen
@@ -1872,10 +1912,20 @@ export default function SessionPlayerScreen() {
               const defLines = (slide.definition ?? '').split(/\\n|\n/).map(l => l.trim()).filter(Boolean);
               const isProcedural = defLines.length >= 3 && defLines.some(l => STEP_RE.test(l));
               const hasConnector = !!slide.connector?.includes('↓');
+              // Rotate color by CONCEPT order (not slide order) — count only
+              // concept-type slides up to and including this one, so
+              // interleaved questions never skip or repeat a color.
+              const conceptOrder = slides
+                .slice(0, summaryIdx + 1)
+                .filter(s => V_CONCEPT.includes(s.type)).length - 1;
+              const pal = CONCEPT_PALETTES[Math.max(0, conceptOrder) % CONCEPT_PALETTES.length];
               return (
-                <>
-                    <Text style={sum.mainCardEmoji}>{slide?.emoji || '💡'}</Text>
-                    <Text style={sum.mainCardTitle}>{formatMath(slide.title)}</Text>
+                <View style={[sum.conceptTarjeta, { backgroundColor: pal.bg, borderColor: pal.border }]}>
+                    <View style={[sum.conceptIconBox, { backgroundColor: pal.iconBg }]}>
+                      <Text style={sum.conceptIconEmoji}>{slide?.emoji || '💡'}</Text>
+                    </View>
+                    <Text style={[sum.conceptKicker, { color: pal.accent }]}>CONCEPTO CLAVE</Text>
+                    <Text style={sum.conceptTitle}>{formatMath(slide.title)}</Text>
                     {hasConnector ? (
                       <>
                         <View style={sum.chainContainer}>
@@ -1959,7 +2009,7 @@ export default function SessionPlayerScreen() {
                         )}
                       </>
                     )}
-                </>
+                </View>
               );
               })()
             ) : slide?.type === 'comprehension' ? (
@@ -1981,7 +2031,7 @@ export default function SessionPlayerScreen() {
                           const showRed   = answered === letter && !isCorrect;
                           const dimmed    = !!answered && !isCorrect && answered !== letter;
                           return (
-                            <Animated.View key={i} style={[wrongShakeStyle, optAnimStyles[i], showGreen && correctGlowStyle]}>
+                            <Animated.View key={i} style={[wrongShakeStyle, optAnimStyles[i], optEnterStyles[i], showGreen && correctGlowStyle]}>
                               <Pressable
                                 onPress={() => {
                                   if (!answered) {
@@ -2025,7 +2075,7 @@ export default function SessionPlayerScreen() {
                             const showRed   = answered === letter && !isOpt;
                             const dimmed    = !!answered && !isOpt && answered !== letter;
                             return (
-                              <Animated.View key={i} style={[wrongShakeStyle, optAnimStyles[i], showGreen && correctGlowStyle]}>
+                              <Animated.View key={i} style={[wrongShakeStyle, optAnimStyles[i], optEnterStyles[i], showGreen && correctGlowStyle]}>
                                 <Pressable
                                   onPress={() => {
                                     if (!answered) {
@@ -2073,7 +2123,7 @@ export default function SessionPlayerScreen() {
                             const showRed   = answered === letter && !isOpt;
                             const dimmed    = !!answered && !isOpt && answered !== letter;
                             return (
-                              <Animated.View key={i} style={[wrongShakeStyle, optAnimStyles[i], showGreen && correctGlowStyle]}>
+                              <Animated.View key={i} style={[wrongShakeStyle, optAnimStyles[i], optEnterStyles[i], showGreen && correctGlowStyle]}>
                                 <Pressable
                                   onPress={() => {
                                     if (!answered) {
@@ -2153,7 +2203,7 @@ export default function SessionPlayerScreen() {
                     const showRed   = answered === letter && !isCorrect;
                     const dimmed    = !!answered && !isCorrect && answered !== letter;
                     return (
-                      <Animated.View key={i} style={[wrongShakeStyle, optAnimStyles[i], showGreen && correctGlowStyle]}>
+                      <Animated.View key={i} style={[wrongShakeStyle, optAnimStyles[i], optEnterStyles[i], showGreen && correctGlowStyle]}>
                         <Pressable
                           onPress={() => {
                             if (!answered) {
@@ -2233,7 +2283,7 @@ export default function SessionPlayerScreen() {
                         const showRed = answered === letter && !isCorrect;
                         const dimmed = !!answered && !isCorrect && answered !== letter;
                         return (
-                          <Animated.View key={i} style={[wrongShakeStyle, optAnimStyles[i], showGreen && correctGlowStyle]}>
+                          <Animated.View key={i} style={[wrongShakeStyle, optAnimStyles[i], optEnterStyles[i], showGreen && correctGlowStyle]}>
                             <Pressable
                               onPress={() => { if (!answered) { setQuizAnswers(prev => ({ ...prev, [summaryIdx]: letter })); if (isCorrect) showSummaryReward(); else insertCorrectiveSlide(slide as BackendSlide, letter); } }}
                               onPressIn={() => { optScaleArr[i].value = withSequence(withTiming(0.96, { duration: 60 }), withSpring(1, { damping: 12, stiffness: 300 })); }} style={[sum.quizOption, showGreen && sum.quizOptCorrect, showRed && sum.quizOptWrong, { opacity: dimmed ? 0.35 : 1 }]}
@@ -2296,7 +2346,7 @@ export default function SessionPlayerScreen() {
                         const showRed = answered === letter && !isCorrect;
                         const dimmed = !!answered && !isCorrect && answered !== letter;
                         return (
-                          <Animated.View key={i} style={[wrongShakeStyle, optAnimStyles[i], showGreen && correctGlowStyle]}>
+                          <Animated.View key={i} style={[wrongShakeStyle, optAnimStyles[i], optEnterStyles[i], showGreen && correctGlowStyle]}>
                             <Pressable
                               onPress={() => { if (!answered) { setQuizAnswers(prev => ({ ...prev, [summaryIdx]: letter })); if (isCorrect) showSummaryReward(); else insertCorrectiveSlide(slide as BackendSlide, letter); } }}
                               onPressIn={() => { optScaleArr[i].value = withSequence(withTiming(0.96, { duration: 60 }), withSpring(1, { damping: 12, stiffness: 300 })); }} style={[sum.quizOption, showGreen && sum.quizOptCorrect, showRed && sum.quizOptWrong, { opacity: dimmed ? 0.35 : 1 }]}
@@ -2362,7 +2412,7 @@ export default function SessionPlayerScreen() {
                       const showRed   = answered === letter && !isCorrect;
                       const dimmed    = !!answered && !isCorrect && answered !== letter;
                       return (
-                        <Animated.View key={i} style={[wrongShakeStyle, optAnimStyles[i], showGreen && correctGlowStyle]}>
+                        <Animated.View key={i} style={[wrongShakeStyle, optAnimStyles[i], optEnterStyles[i], showGreen && correctGlowStyle]}>
                           <Pressable
                             onPress={() => {
                               if (!answered) {
@@ -2402,7 +2452,7 @@ export default function SessionPlayerScreen() {
                     const showRed   = answered === letter && !isCorrect;
                     const dimmed    = !!answered && !isCorrect && answered !== letter;
                     return (
-                      <Animated.View key={i} style={[wrongShakeStyle, optAnimStyles[i], showGreen && correctGlowStyle]}>
+                      <Animated.View key={i} style={[wrongShakeStyle, optAnimStyles[i], optEnterStyles[i], showGreen && correctGlowStyle]}>
                         <Pressable
                           onPress={() => {
                             if (!answered) {
@@ -2511,7 +2561,7 @@ export default function SessionPlayerScreen() {
                     const showRed = answered === letter && !isCorrect;
                     const dimmed = !!answered && !isCorrect && answered !== letter;
                     return (
-                      <Animated.View key={i} style={[wrongShakeStyle, optAnimStyles[i], showGreen && correctGlowStyle]}>
+                      <Animated.View key={i} style={[wrongShakeStyle, optAnimStyles[i], optEnterStyles[i], showGreen && correctGlowStyle]}>
                         <Pressable
                           onPress={() => { if (!answered) { setQuizAnswers(prev => ({ ...prev, [summaryIdx]: letter })); if (isCorrect) showSummaryReward(); else insertCorrectiveSlide(slide as BackendSlide, letter); } }}
                           onPressIn={() => { optScaleArr[i].value = withSequence(withTiming(0.96, { duration: 60 }), withSpring(1, { damping: 12, stiffness: 300 })); }} style={[sum.quizOption, showGreen && sum.quizOptCorrect, showRed && sum.quizOptWrong, { opacity: dimmed ? 0.35 : 1 }]}
@@ -2926,7 +2976,7 @@ export default function SessionPlayerScreen() {
                       const showRed   = answered === letter && !isCorrect;
                       const dimmed    = !!answered && !isCorrect && answered !== letter;
                       return (
-                        <Animated.View key={i} style={[wrongShakeStyle, optAnimStyles[i], showGreen && correctGlowStyle]}>
+                        <Animated.View key={i} style={[wrongShakeStyle, optAnimStyles[i], optEnterStyles[i], showGreen && correctGlowStyle]}>
                           <Pressable
                             onPress={() => { if (!answered) { setQuizAnswers(prev => ({ ...prev, [summaryIdx]: letter })); if (isCorrect) showSummaryReward(); else insertCorrectiveSlide(slide as BackendSlide, letter); } }}
                             onPressIn={() => { optScaleArr[i].value = withSequence(withTiming(0.96, { duration: 60 }), withSpring(1, { damping: 12, stiffness: 300 })); }} style={[sum.quizOption, showGreen && sum.quizOptCorrect, showRed && sum.quizOptWrong, { opacity: dimmed ? 0.35 : 1 }]}
@@ -3988,9 +4038,12 @@ const sum = StyleSheet.create({
   missionMetaChipText:{ fontSize: 12, color: palette.blanco, fontWeight: '700' },
   missionMetaChipXp:{ backgroundColor: LIME },
 
-  // Main concept — full-screen, no card wrapper (consistent with question slides)
-  mainCardEmoji:    { fontSize: SM ? 36 : 44, marginBottom: 10 },
-  mainCardTitle:    { fontSize: SM ? 20 : 24, fontWeight: '900', color: semantic.textPrimary, letterSpacing: -0.4, lineHeight: SM ? 26 : 30, marginBottom: 8 },
+  // Main concept — concept card, color rotates per CONCEPT_PALETTES entry
+  conceptTarjeta:   { borderWidth: 2, borderRadius: 22, padding: SM ? 18 : 22, marginTop: 4 },
+  conceptIconBox:   { width: 54, height: 54, borderRadius: 16, alignItems: 'center', justifyContent: 'center', marginBottom: 14 },
+  conceptIconEmoji: { fontSize: 30 },
+  conceptKicker:    { fontSize: 12, fontWeight: '800', letterSpacing: 1, marginBottom: 4 },
+  conceptTitle:     { fontSize: SM ? 21 : 23, fontWeight: '800', color: semantic.textPrimary, lineHeight: SM ? 26 : 28, marginBottom: 12 },
   mainCardDef:      { fontSize: SM ? 14 : 15, color: semantic.textPrimary, lineHeight: SM ? 21 : 24, fontWeight: '500' },
   workedExBox:      { backgroundColor: 'rgba(22,119,242,0.05)', borderRadius: 14, borderWidth: 1.5, borderColor: 'rgba(22,119,242,0.15)', padding: SM ? 14 : 16, marginBottom: SM ? 10 : 12 },
   workedExText:     { fontSize: SM ? 18 : 22, fontWeight: '800', color: BRAND, textAlign: 'center', letterSpacing: -0.3, lineHeight: SM ? 26 : 30 },

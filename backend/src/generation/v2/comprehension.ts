@@ -42,12 +42,28 @@ INSTRUCCIONES:
      palabras distintas, no se puede encontrar textual en el material).
    ✓ LITERAL (válido): sourceQuote="La mitocondria es la organela que produce energía celular mediante
      la respiración." (copiado exacto, carácter por carácter, del material).
-10. workedExamples: extrae SOLO los ejercicios del material que tengan A LA VEZ enunciado Y respuesta
-    explícita ya escrita en el texto (ejercicios resueltos, no propuestos). Copia AMBOS literalmente,
-    palabra por palabra — mismo criterio que sourceQuote, nunca los recalcules ni los corrijas.
-    Si un ejercicio solo tiene enunciado sin respuesta visible en el material, NO lo incluyas.
-    Si el material no contiene ningún ejercicio resuelto, devuelve workedExamples: [].
-    Ejemplo del material real: statement="2m − 5n + 6m − m + 11n", answer="7m + 6n".
+10. workedExamples: extrae los ejercicios del material que tengan A LA VEZ enunciado Y respuesta
+    ya escrita en el texto (ejercicios RESUELTOS, no propuestos). Copia AMBOS literalmente, palabra
+    por palabra — mismo criterio que sourceQuote, nunca los recalcules, completes ni corrijas.
+
+    La respuesta puede aparecer de MUCHAS formas — considéralas todas:
+      • justo al lado o debajo del enunciado (ej. "3x + 2x = 5x")
+      • separada por un signo igual, una flecha, o en otra línea
+      • marcada con etiquetas como "R:", "R/", "Resp:", "Respuesta:", "Solución:", "Resultado:", "="
+      • en un recuadro, al final del ejercicio, o resaltada
+    Si el enunciado y su respuesta están AMBOS presentes en el material (aunque separados por líneas
+    o formato), es un ejercicio resuelto → inclúyelo.
+
+    Reglas:
+    - Si un ejercicio solo tiene enunciado y NO hay respuesta escrita en ninguna parte del material,
+      NO lo incluyas.
+    - NUNCA inventes ni calcules una respuesta que no esté literalmente en el texto.
+    - Si el material no contiene ningún ejercicio resuelto, devuelve workedExamples: [].
+
+    ✓ SÍ capturar: el material dice "Reduce: 2m − 5n + 6m − m + 11n" y más abajo "= 7m + 6n"
+      → statement="2m − 5n + 6m − m + 11n", answer="7m + 6n" (ambos están en el texto).
+    ✗ NO capturar: el material dice "Ejercicio 3: factoriza x² + 5x + 6" sin ninguna respuesta escrita
+      → no se incluye (no hay respuesta en el material, y calcularla sería inventar).
 
 Usa el material como única fuente. No agregues conceptos que no estén en él.`;
 }
@@ -86,7 +102,7 @@ export async function buildKnowledgeObject(
         { role: 'system', content: SYSTEM_PROMPT },
         { role: 'user', content: userPrompt },
       ],
-      temperature: 0.2,
+      temperature: 0,
       max_tokens: 4200, // bumped from 3500 to fit workedExamples (statement+answer pairs, up to a handful per document)
       response_format: knowledgeObjectSchema,
     });
