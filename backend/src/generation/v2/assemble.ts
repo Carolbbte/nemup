@@ -468,9 +468,60 @@ export function shuffleWithLetterAnswer(correctText: string, distractorTexts: st
   return { options, correctAnswer };
 }
 
+/**
+ * Summary-shaped worked_example slide — distinct from Desafío's
+ * buildWorkedExampleSlide (which returns a DesafioSlide, missing
+ * SummarySlide's required `definition`/`example` fields and carrying
+ * Desafío-only fields like conceptIndex/conceptName). `definition`/
+ * `example` are filled with statement/answer too so the slide still reads
+ * correctly even via a render path that only knows the legacy fields.
+ */
+function buildWorkedExampleSummarySlide(result: WorkedExampleResult): SummarySlide {
+  return {
+    type: 'worked_example',
+    emoji: '🧮',
+    title: 'Así se resuelve',
+    definition: result.statement,
+    example: result.answer,
+    statement: result.statement,
+    answer: result.answer,
+    ...(result.steps ? { steps: result.steps } : {}),
+  };
+}
+
+/**
+ * Derives a SECOND, genuinely different question for a concept's
+ * reinforcement_challenge — without a second AI call. `distinctiveTrait` is
+ * explicitly extracted to be true for this concept and false for every other
+ * one in the same document (see KnowledgeConcept's doc comment), which makes
+ * it exactly the right anchor for a "which concept is this" recognition
+ * question: the correct answer and every distractor are real concept names
+ * already in the document, nothing invented.
+ *
+ * Returns null when there aren't enough OTHER concepts to build a real
+ * multiple-choice question (needs >=1 other; comprehension.ts's own "3 a 6
+ * conceptos" instruction means this only happens if the model under-delivers
+ * concepts) — callers must drop the reinforcement_challenge slide in that
+ * case rather than fabricate distractors.
+ */
+export function buildReinforcementFromTrait(
+  concept: KnowledgeConcept,
+  allConcepts: KnowledgeConcept[],
+): { question: string; correctText: string; distractors: string[] } | null {
+  const otherNames = allConcepts.filter((c) => c.id !== concept.id).map((c) => c.name);
+  if (otherNames.length === 0) return null;
+
+  return {
+    question: `¿A cuál de estos conceptos corresponde esta característica: "${concept.distinctiveTrait}"?`,
+    correctText: concept.name,
+    distractors: otherNames.slice(0, 3),
+  };
+}
+
 export function buildSummarySlides(
   ko: KnowledgeObject,
   distractors: Record<string, DistractorSet>,
+  workedExampleResults: WorkedExampleResult[] = [],
 ): SummarySlide[] {
   if (ko.concepts.length === 0) return [];
 
@@ -500,16 +551,44 @@ export function buildSummarySlides(
       example: concept.example ?? '',
     });
 
-    const reinforcement = shuffleWithLetterAnswer(d.correctText, d.distractors);
+    // A DIFFERENT question than the micro's, not the same one reshuffled — a
+    // recognition question derived from distinctiveTrait, no second AI call.
+    // Dropped entirely (no reinforcement_challenge for this concept) when
+    // there isn't enough raw material for a real one — one question per
+    // concept beats two identical ones.
+    const traitQuestion = buildReinforcementFromTrait(concept, ko.concepts);
+    if (traitQuestion) {
+      const reinforcement = shuffleWithLetterAnswer(traitQuestion.correctText, traitQuestion.distractors);
+      slides.push({
+        type: 'reinforcement_challenge',
+        emoji: '🎯',
+        title: 'Refuerzo',
+        definition: `Aplica lo que acabas de aprender sobre ${concept.name}.`,
+        example: '',
+        question: traitQuestion.question,
+        options: reinforcement.options,
+        correctAnswer: reinforcement.correctAnswer,
+      });
+    }
+  }
+
+  // Worked examples: solved exercises from the material, placed after all
+  // concepts are taught and before the application/final challenge — concept
+  // first, then how it's applied in a real solved exercise, then the
+  // student's own attempt. `steps` may be absent per-item (procedural.ts's
+  // B-mínima fallback when the model's derivation didn't validate) — the
+  // slide is still included with just statement/answer, never fabricating
+  // a path, same as buildDesafio already does.
+  if (workedExampleResults.length > 0) {
     slides.push({
-      type: 'reinforcement_challenge',
-      emoji: '🎯',
-      title: 'Refuerzo',
-      definition: `Aplica lo que acabas de aprender sobre ${concept.name}.`,
+      type: 'main_concept',
+      emoji: '✏️',
+      title: 'Veamos cómo se resuelve',
+      definition: 'Estos son ejercicios resueltos paso a paso del material.',
       example: '',
-      question: d.question,
-      options: reinforcement.options,
-      correctAnswer: reinforcement.correctAnswer,
+    });
+    workedExampleResults.forEach((result) => {
+      slides.push(buildWorkedExampleSummarySlide(result));
     });
   }
 

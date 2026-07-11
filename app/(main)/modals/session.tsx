@@ -59,9 +59,9 @@ type Option  = { id: string; text: string };
 type Question = { id: string; text: string; options: Option[]; correctOptionId: string; explanation: string; sourceQuote: string };
 type Flashcard = { id: string; front: string; back: string };
 type SummarySlideType = 'concept' | 'key_fact' | 'important' | 'remember' | 'example' | 'curiosity' | 'wow_fact'
-  | 'mission' | 'main_concept' | 'micro_challenge' | 'reinforcement_challenge' | 'comprehension' | 'key_relation' | 'mini_quiz' | 'process_flow' | 'application' | 'common_error' | 'final_challenge' | 'victory' | 'challenge' | 'decide' | 'order_sequence' | 'quiz_transition';
+  | 'mission' | 'main_concept' | 'micro_challenge' | 'reinforcement_challenge' | 'comprehension' | 'key_relation' | 'mini_quiz' | 'process_flow' | 'application' | 'common_error' | 'final_challenge' | 'victory' | 'challenge' | 'decide' | 'order_sequence' | 'quiz_transition' | 'worked_example';
 type IllustrationType = 'educational' | 'diagram' | 'concept' | 'timeline' | 'map' | 'process' | 'comparison';
-type BackendSlide = { type: SummarySlideType; emoji: string; title: string; definition: string; example: string; visualHint?: string; illustrationType?: IllustrationType; connector?: string | null; question?: string | null; options?: string[] | null; correctAnswer?: string | null; wrongAnswerHints?: Record<string, string> | null; requeued?: boolean; requeuedFrom?: string | null };
+type BackendSlide = { type: SummarySlideType; emoji: string; title: string; definition: string; example: string; visualHint?: string; illustrationType?: IllustrationType; connector?: string | null; question?: string | null; options?: string[] | null; correctAnswer?: string | null; wrongAnswerHints?: Record<string, string> | null; requeued?: boolean; requeuedFrom?: string | null; statement?: string; answer?: string; steps?: string[] };
 type LegacySection = { heading: string; content: string; keyPoints: string[] };
 type Session = {
   id?: string; userId?: string;
@@ -1744,9 +1744,19 @@ export default function SessionPlayerScreen() {
 
         const requeuedSlide: SummarySlide = { ...wrongSlide, requeued: true, requeuedFrom: wrongSlide.question ?? null } as SummarySlide;
 
-        let insertAt = prev.length; // no main_concept ahead — the question is already near the end of the mission
+        // Anchor on the next reinforcement_challenge, NOT the next main_concept.
+        // Every concept triple is micro_challenge -> main_concept ->
+        // reinforcement_challenge, always in that order — reinforcement_challenge
+        // is always the LAST slide of a triple, so the slide right after it is
+        // always the START of a fresh triple (or 'application'/end of mission),
+        // never another reinforcement. Anchoring on main_concept instead (tried
+        // first) still collides: main_concept is always immediately followed by
+        // ITS OWN reinforcement one slide later, so inserting right after ANY
+        // main_concept — even skipping ahead to the 2nd one — still drops the
+        // requeue right before some concept's reinforcement.
+        let insertAt = prev.length; // no reinforcement_challenge ahead — append at the end of the mission
         for (let i = summaryIdx + 1; i < prev.length; i++) {
-          if ((prev[i] as BackendSlide).type === 'main_concept') {
+          if ((prev[i] as BackendSlide).type === 'reinforcement_challenge') {
             insertAt = i + 1;
             break;
           }
@@ -2012,6 +2022,34 @@ export default function SessionPlayerScreen() {
                 </View>
               );
               })()
+            ) : slide?.type === 'worked_example' ? (
+              // Statement/answer are copied verbatim from the source material
+              // (never computed) — steps are omitted when the model's
+              // derivation failed safety validation upstream, same rule as
+              // Desafío's worked_example rendering.
+              <>
+                <Text style={sum.quizQuestionFull}>{slide.title || 'Así se resuelve'}</Text>
+                <View style={sum.conceptCard}>
+                  <Text style={sum.conceptCardLabel}>📝 PROBLEMA</Text>
+                  <Text style={sum.conceptCardText}>{formatMath(slide.statement)}</Text>
+                </View>
+                {!!slide.steps?.length && (
+                  <View style={sum.stepsContainer}>
+                    {slide.steps.map((step, i) => (
+                      <View key={i} style={sum.stepRow}>
+                        <View style={sum.stepBadge}>
+                          <Text style={sum.stepBadgeText}>{i + 1}</Text>
+                        </View>
+                        <Text style={sum.stepContent}>{formatMath(step)}</Text>
+                      </View>
+                    ))}
+                  </View>
+                )}
+                <View style={sum.exampleBox}>
+                  <Text style={sum.exampleLabel}>{slide.steps?.length ? '✅ Se reduce a' : '✅ Resultado'}</Text>
+                  <Text style={sum.exampleText}>{formatMath(slide.answer)}</Text>
+                </View>
+              </>
             ) : slide?.type === 'comprehension' ? (
               (() => {
                 return (

@@ -53,7 +53,8 @@ export type SummarySlideType =
   | 'compare' | 'partial_summary' | 'final_challenge'
   // Structured mission screens
   | 'mission' | 'main_concept' | 'micro_challenge' | 'reinforcement_challenge' | 'comprehension' | 'key_relation'
-  | 'process_flow' | 'application' | 'victory' | 'challenge' | 'decide' | 'order_sequence' | 'quiz_transition';
+  | 'process_flow' | 'application' | 'victory' | 'challenge' | 'decide' | 'order_sequence' | 'quiz_transition'
+  | 'worked_example';
 
 export type IllustrationType = 'educational' | 'diagram' | 'concept' | 'timeline' | 'map' | 'process' | 'comparison';
 
@@ -70,6 +71,12 @@ export interface SummarySlide {
   options?: string[] | null;
   correctAnswer?: string | null;
   wrongAnswerHints?: Record<string, string> | null;
+  // worked_example only — statement/answer copied verbatim from the source
+  // material (never computed), steps omitted when the model's derivation
+  // failed safety validation upstream (see procedural.ts's B-mínima fallback).
+  statement?: string;
+  answer?: string;
+  steps?: string[];
 }
 
 export interface Summary {

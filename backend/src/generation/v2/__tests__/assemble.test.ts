@@ -9,8 +9,8 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { buildSummarySlides, shuffleWithLetterAnswer } from '../assemble.js';
-import type { KnowledgeObject } from '../types.js';
+import { buildSummarySlides, shuffleWithLetterAnswer, buildReinforcementFromTrait } from '../assemble.js';
+import type { KnowledgeObject, KnowledgeConcept } from '../types.js';
 import type { DistractorSet } from '../distractors.js';
 
 const LETTERS = ['A', 'B', 'C', 'D'];
@@ -23,6 +23,38 @@ describe('shuffleWithLetterAnswer', () => {
       expect(LETTERS).toContain(correctAnswer);
       expect(options[LETTERS.indexOf(correctAnswer)]).toBe('3x²');
     }
+  });
+});
+
+const makeConcept = (id: string, name: string, distinctiveTrait: string): KnowledgeConcept => ({
+  id, name, distinctiveTrait,
+  simpleExplanation: '', definition: '', example: null, tips: [], difficulty: 1, sourceQuote: '',
+});
+
+describe('buildReinforcementFromTrait (no-AI second question)', () => {
+  it('builds a question whose correct answer is the concept name and distractors are other real concept names', () => {
+    const concepts = [
+      makeConcept('c1', 'Monomio', 'Es el único con un solo término.'),
+      makeConcept('c2', 'Binomio', 'Es el único con dos términos.'),
+      makeConcept('c3', 'Trinomio', 'Es el único con tres términos.'),
+    ];
+    const result = buildReinforcementFromTrait(concepts[0], concepts);
+    expect(result).not.toBeNull();
+    expect(result!.correctText).toBe('Monomio');
+    expect(result!.question).toContain('Es el único con un solo término.');
+    expect(result!.distractors).toEqual(['Binomio', 'Trinomio']);
+    expect(result!.distractors).not.toContain('Monomio');
+  });
+
+  it('caps distractors at 3 even with more concepts available', () => {
+    const concepts = ['a', 'b', 'c', 'd', 'e'].map((n, i) => makeConcept(`c${i}`, n, `trait-${n}`));
+    const result = buildReinforcementFromTrait(concepts[0], concepts);
+    expect(result!.distractors).toHaveLength(3);
+  });
+
+  it('returns null when there are no other concepts to use as distractors', () => {
+    const concepts = [makeConcept('c1', 'Solo concepto', 'trait')];
+    expect(buildReinforcementFromTrait(concepts[0], concepts)).toBeNull();
   });
 });
 
@@ -71,9 +103,11 @@ const distractors: Record<string, DistractorSet> = {
 };
 
 describe('buildSummarySlides — correctAnswer format', () => {
-  it('stores correctAnswer as a letter that resolves to the correct text within options, for every interactive type', () => {
+  it('stores correctAnswer as a letter that resolves to the correct text within options, for micro_challenge/final_challenge', () => {
     const slides = buildSummarySlides(ko, distractors);
-    const interactive = slides.filter((s) => s.type === 'micro_challenge' || s.type === 'reinforcement_challenge' || s.type === 'final_challenge');
+    // reinforcement_challenge is excluded here — its correct answer is a concept
+    // name (see the dedicated describe block below), not the distractor set's text.
+    const interactive = slides.filter((s) => s.type === 'micro_challenge' || s.type === 'final_challenge');
 
     expect(interactive.length).toBeGreaterThan(0);
     for (const slide of interactive) {
@@ -89,6 +123,27 @@ describe('buildSummarySlides — correctAnswer format', () => {
     }
   });
 
+  it('reinforcement_challenge asks a genuinely different question than micro_challenge for the same concept', () => {
+    const slides = buildSummarySlides(ko, distractors);
+    const micro = slides.find((s) => s.type === 'micro_challenge');
+    const reinforcement = slides.find((s) => s.type === 'reinforcement_challenge');
+
+    expect(micro?.question).toBeTruthy();
+    expect(reinforcement?.question).toBeTruthy();
+    expect(reinforcement?.question).not.toBe(micro?.question);
+    // Its options are real concept names from the document, not the distractor set's text.
+    expect(reinforcement?.options).toContain('Término algebraico');
+  });
+
+  it('reinforcement_challenge correctAnswer resolves to the concept\'s own name', () => {
+    const slides = buildSummarySlides(ko, distractors);
+    const reinforcement = slides.find((s) => s.type === 'reinforcement_challenge' && s.title === 'Refuerzo' && s.definition?.includes('Término algebraico'));
+    expect(reinforcement).toBeTruthy();
+
+    const letterIdx = LETTERS.indexOf(reinforcement!.correctAnswer!);
+    expect((reinforcement!.options as string[])[letterIdx]).toBe('Término algebraico');
+  });
+
   it('skips a concept entirely (no micro_challenge/main_concept/reinforcement_challenge triple) when it has no distractor', () => {
     const partialDistractors: Record<string, DistractorSet> = { c1: distractors.c1 }; // c2 missing
     const slides = buildSummarySlides(ko, partialDistractors);
@@ -100,5 +155,62 @@ describe('buildSummarySlides — correctAnswer format', () => {
 
   it('returns an empty array when there are no concepts', () => {
     expect(buildSummarySlides({ ...ko, concepts: [] }, distractors)).toEqual([]);
+  });
+});
+
+describe('buildSummarySlides — worked examples in Misión', () => {
+  it('produces the same slide types/count when workedExampleResults is omitted vs explicitly empty', () => {
+    // Compares types only — options are freshly shuffled on every call, so
+    // exact-array equality would be flaky regardless of workedExampleResults.
+    const withDefault = buildSummarySlides(ko, distractors);
+    const withExplicitEmpty = buildSummarySlides(ko, distractors, []);
+    expect(withDefault.map((s) => s.type)).toEqual(withExplicitEmpty.map((s) => s.type));
+    expect(withDefault.some((s) => s.type === 'worked_example')).toBe(false);
+  });
+
+  it('inserts a transition slide + one worked_example per result, after all concepts and before application', () => {
+    const slides = buildSummarySlides(ko, distractors, [
+      { statement: '2m − 5n + 6m − m + 11n', answer: '7m + 6n', steps: ['Agrupa términos en m', 'Agrupa términos en n'] },
+    ]);
+
+    const lastConceptTripleIdx = slides.findIndex((s) => s.type === 'reinforcement_challenge' && s.title === 'Refuerzo' && s.definition?.includes('Términos semejantes'));
+    const applicationIdx = slides.findIndex((s) => s.type === 'application');
+    const workedIdx = slides.findIndex((s) => s.type === 'worked_example');
+    const transitionIdx = slides.findIndex((s) => s.title === 'Veamos cómo se resuelve');
+
+    expect(transitionIdx).toBeGreaterThan(lastConceptTripleIdx);
+    expect(workedIdx).toBeGreaterThan(transitionIdx);
+    expect(applicationIdx).toBeGreaterThan(workedIdx);
+
+    const workedSlide = slides[workedIdx];
+    expect(workedSlide.statement).toBe('2m − 5n + 6m − m + 11n');
+    expect(workedSlide.answer).toBe('7m + 6n');
+    expect(workedSlide.steps).toEqual(['Agrupa términos en m', 'Agrupa términos en n']);
+    // definition/example are filled too, for any render path that only knows the legacy fields.
+    expect(workedSlide.definition).toBe(workedSlide.statement);
+    expect(workedSlide.example).toBe(workedSlide.answer);
+  });
+
+  it('omits steps (undefined) when validation failed (B-mínima) — never fabricates a path', () => {
+    const slides = buildSummarySlides(ko, distractors, [
+      { statement: '2m − 5n + 6m − m + 11n', answer: '7m + 6n', steps: null },
+    ]);
+
+    const workedSlide = slides.find((s) => s.type === 'worked_example');
+    expect(workedSlide?.statement).toBe('2m − 5n + 6m − m + 11n');
+    expect(workedSlide?.answer).toBe('7m + 6n');
+    expect(workedSlide?.steps).toBeUndefined();
+  });
+
+  it('inserts one worked_example slide per result, in order', () => {
+    const slides = buildSummarySlides(ko, distractors, [
+      { statement: 'a', answer: '1', steps: null },
+      { statement: 'b', answer: '2', steps: null },
+    ]);
+
+    const workedSlides = slides.filter((s) => s.type === 'worked_example');
+    expect(workedSlides).toHaveLength(2);
+    expect(workedSlides[0].statement).toBe('a');
+    expect(workedSlides[1].statement).toBe('b');
   });
 });
