@@ -32,7 +32,7 @@ const makeConcept = (id: string, name: string, distinctiveTrait: string): Knowle
 });
 
 describe('buildReinforcementFromTrait (no-AI second question)', () => {
-  it('builds a question whose correct answer is the concept name and distractors are other real concept names', () => {
+  it('falls back to the trait/name question when no concept has an example', () => {
     const concepts = [
       makeConcept('c1', 'Monomio', 'Es el único con un solo término.'),
       makeConcept('c2', 'Binomio', 'Es el único con dos términos.'),
@@ -55,6 +55,31 @@ describe('buildReinforcementFromTrait (no-AI second question)', () => {
   it('returns null when there are no other concepts to use as distractors', () => {
     const concepts = [makeConcept('c1', 'Solo concepto', 'trait')];
     expect(buildReinforcementFromTrait(concepts[0], concepts)).toBeNull();
+  });
+
+  it('prefers an example-based question when the concept and at least one other have examples', () => {
+    const withExample = (id: string, name: string, trait: string, example: string): KnowledgeConcept => ({
+      ...makeConcept(id, name, trait),
+      example,
+    });
+    const concepts = [
+      withExample('c1', 'Término algebraico', 'Es el único formado por coeficiente y parte literal.', '5x²'),
+      withExample('c2', 'Términos semejantes', 'Es el único que compara partes literales.', '3x y 5x'),
+    ];
+    const result = buildReinforcementFromTrait(concepts[0], concepts);
+    expect(result).not.toBeNull();
+    expect(result!.correctText).toBe('5x²');
+    expect(result!.distractors).toEqual(['3x y 5x']);
+    expect(result!.question).toContain('ejemplo');
+  });
+
+  it('falls back to the trait question when the concept has an example but no OTHER concept does', () => {
+    const concept = { ...makeConcept('c1', 'Monomio', 'trait'), example: '3x²' };
+    const other = makeConcept('c2', 'Binomio', 'otra característica'); // example: null
+    const result = buildReinforcementFromTrait(concept, [concept, other]);
+    expect(result).not.toBeNull();
+    expect(result!.correctText).toBe('Monomio');
+    expect(result!.distractors).toEqual(['Binomio']);
   });
 });
 
@@ -131,17 +156,18 @@ describe('buildSummarySlides — correctAnswer format', () => {
     expect(micro?.question).toBeTruthy();
     expect(reinforcement?.question).toBeTruthy();
     expect(reinforcement?.question).not.toBe(micro?.question);
-    // Its options are real concept names from the document, not the distractor set's text.
-    expect(reinforcement?.options).toContain('Término algebraico');
+    // Both concepts in `ko` have a real `example`, so its options are the
+    // document's own examples, not the distractor set's text or concept names.
+    expect(reinforcement?.options).toContain('5x²');
   });
 
-  it('reinforcement_challenge correctAnswer resolves to the concept\'s own name', () => {
+  it('reinforcement_challenge correctAnswer resolves to the concept\'s own example', () => {
     const slides = buildSummarySlides(ko, distractors);
     const reinforcement = slides.find((s) => s.type === 'reinforcement_challenge' && s.title === 'Refuerzo' && s.definition?.includes('Término algebraico'));
     expect(reinforcement).toBeTruthy();
 
     const letterIdx = LETTERS.indexOf(reinforcement!.correctAnswer!);
-    expect((reinforcement!.options as string[])[letterIdx]).toBe('Término algebraico');
+    expect((reinforcement!.options as string[])[letterIdx]).toBe('5x²');
   });
 
   it('skips a concept entirely (no micro_challenge/main_concept/reinforcement_challenge triple) when it has no distractor', () => {

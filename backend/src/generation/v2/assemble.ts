@@ -491,12 +491,22 @@ function buildWorkedExampleSummarySlide(result: WorkedExampleResult): SummarySli
 
 /**
  * Derives a SECOND, genuinely different question for a concept's
- * reinforcement_challenge — without a second AI call. `distinctiveTrait` is
- * explicitly extracted to be true for this concept and false for every other
- * one in the same document (see KnowledgeConcept's doc comment), which makes
- * it exactly the right anchor for a "which concept is this" recognition
- * question: the correct answer and every distractor are real concept names
- * already in the document, nothing invented.
+ * reinforcement_challenge — without a second AI call.
+ *
+ * Prefers an example-based question ("¿cuál de estas opciones es un ejemplo
+ * de X?") using each concept's own `example` field — concrete and, for
+ * procedural material (math, formulas), still expression/number-based rather
+ * than pure vocabulary. Only falls back to the abstract trait-matching
+ * question ("¿a cuál de estos conceptos corresponde...?") when the concept
+ * or its siblings don't have a usable `example` (comprehension.ts documents
+ * `example` as nullable — "o null si no aplica").
+ *
+ * `distinctiveTrait` is explicitly extracted to be true for this concept and
+ * false for every other one in the same document (see KnowledgeConcept's doc
+ * comment), which makes it a safe anchor for the fallback: the correct
+ * answer and every distractor are real concept names already in the
+ * document, nothing invented. The example-based path is equally
+ * grounded — every option is a real `example` already in the document.
  *
  * Returns null when there aren't enough OTHER concepts to build a real
  * multiple-choice question (needs >=1 other; comprehension.ts's own "3 a 6
@@ -508,13 +518,27 @@ export function buildReinforcementFromTrait(
   concept: KnowledgeConcept,
   allConcepts: KnowledgeConcept[],
 ): { question: string; correctText: string; distractors: string[] } | null {
-  const otherNames = allConcepts.filter((c) => c.id !== concept.id).map((c) => c.name);
-  if (otherNames.length === 0) return null;
+  const others = allConcepts.filter((c) => c.id !== concept.id);
+  if (others.length === 0) return null;
+
+  if (concept.example && concept.example.trim().length > 0) {
+    const otherExamples = others
+      .map((c) => c.example)
+      .filter((e): e is string => !!e && e.trim().length > 0 && e !== concept.example);
+
+    if (otherExamples.length > 0) {
+      return {
+        question: `¿Cuál de estas opciones es un ejemplo de "${concept.name}"?`,
+        correctText: concept.example,
+        distractors: otherExamples.slice(0, 3),
+      };
+    }
+  }
 
   return {
     question: `¿A cuál de estos conceptos corresponde esta característica: "${concept.distinctiveTrait}"?`,
     correctText: concept.name,
-    distractors: otherNames.slice(0, 3),
+    distractors: others.map((c) => c.name).slice(0, 3),
   };
 }
 
