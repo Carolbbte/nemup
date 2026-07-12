@@ -12,6 +12,7 @@ import { describe, it, expect } from 'vitest';
 import { buildSummarySlides, shuffleWithLetterAnswer, buildReinforcementFromTrait } from '../assemble.js';
 import type { KnowledgeObject, KnowledgeConcept } from '../types.js';
 import type { DistractorSet } from '../distractors.js';
+import type { GeneratedExercise } from '../exerciseGenerator.js';
 
 const LETTERS = ['A', 'B', 'C', 'D'];
 
@@ -238,5 +239,84 @@ describe('buildSummarySlides — worked examples in Misión', () => {
     expect(workedSlides).toHaveLength(2);
     expect(workedSlides[0].statement).toBe('a');
     expect(workedSlides[1].statement).toBe('b');
+  });
+});
+
+describe('buildSummarySlides — generated exercises', () => {
+  const makeExercise = (statement: string, correctAnswer: string): GeneratedExercise => ({
+    statement,
+    correctAnswer,
+    distractors: [
+      { text: `${correctAnswer}-wrong1`, explanation: 'explicación 1' },
+      { text: `${correctAnswer}-wrong2`, explanation: 'explicación 2' },
+      { text: `${correctAnswer}-wrong3`, explanation: 'explicación 3' },
+    ],
+    hint: `pista para ${correctAnswer}`,
+    kind: 'calculation',
+  });
+
+  it('produces the exact same slide types when the exercise pool is empty (default vs explicit)', () => {
+    const withDefault = buildSummarySlides(ko, distractors);
+    const withExplicitEmpty = buildSummarySlides(ko, distractors, [], []);
+    expect(withDefault.map((s) => s.type)).toEqual(withExplicitEmpty.map((s) => s.type));
+  });
+
+  it('uses a generated exercise for micro_challenge instead of the distractor set, when available', () => {
+    const ex = makeExercise('Reduce: 3a + 2a', '5a');
+    const slides = buildSummarySlides(ko, distractors, [], [ex]);
+    const micro = slides.find((s) => s.type === 'micro_challenge');
+
+    expect(micro?.question).toBe('Reduce: 3a + 2a');
+    const letterIdx = LETTERS.indexOf(micro!.correctAnswer!);
+    expect((micro!.options as string[])[letterIdx]).toBe('5a');
+    expect(micro?.hint).toBe('pista para 5a');
+  });
+
+  it('maps wrongAnswerHints to the letter each distractor landed on after shuffling', () => {
+    const ex = makeExercise('Reduce: 3a + 2a', '5a');
+    const slides = buildSummarySlides(ko, distractors, [], [ex]);
+    const micro = slides.find((s) => s.type === 'micro_challenge')!;
+
+    expect(Object.keys(micro.wrongAnswerHints ?? {})).toHaveLength(3);
+    for (const [letter, explanation] of Object.entries(micro.wrongAnswerHints ?? {})) {
+      const optionAtLetter = (micro.options as string[])[LETTERS.indexOf(letter)];
+      const matchingDistractor = ex.distractors.find((d) => d.text === optionAtLetter);
+      expect(matchingDistractor).toBeTruthy();
+      expect(matchingDistractor!.explanation).toBe(explanation);
+    }
+  });
+
+  it('consumes the pool in order (micro then reinforcement) across concepts, falling back once exhausted', () => {
+    const ex1 = makeExercise('ejercicio-1', 'r1');
+    const ex2 = makeExercise('ejercicio-2', 'r2');
+    const slides = buildSummarySlides(ko, distractors, [], [ex1, ex2]);
+
+    const micros = slides.filter((s) => s.type === 'micro_challenge');
+    const reinforcements = slides.filter((s) => s.type === 'reinforcement_challenge');
+
+    // c1's triple consumes both exercises (micro, then reinforcement); c2's
+    // triple finds the pool empty and falls back to its usual sources.
+    expect(micros[0].question).toBe('ejercicio-1');
+    expect(reinforcements[0].question).toBe('ejercicio-2');
+    expect(micros[1].question).toBe(distractors.c2.question);
+    expect(reinforcements[1].question).not.toBe('ejercicio-1');
+    expect(reinforcements[1].question).not.toBe('ejercicio-2');
+  });
+
+  it('uses a leftover exercise for final_challenge when the pool still has one after the concept loop', () => {
+    // 2 concepts * 2 slots (micro + reinforcement) = 4 consumed by the loop;
+    // a 5th is left over for final_challenge.
+    const exercises = ['ejercicio-1', 'ejercicio-2', 'ejercicio-3', 'ejercicio-4', 'ejercicio-final']
+      .map((statement, i) => makeExercise(statement, `r${i}`));
+    const slides = buildSummarySlides(ko, distractors, [], exercises);
+
+    const final = slides.find((s) => s.type === 'final_challenge');
+    expect(final?.question).toBe('ejercicio-final');
+  });
+
+  it('falls back to the boss distractor for final_challenge when the pool is exhausted', () => {
+    const slides = buildSummarySlides(ko, distractors, [], []);
+    const final = slides.find((s) => s.type === 'final_challenge');
+    expect(final?.question).toBe(distractors.c2.question); // c2 is the hardest concept (difficulty 4)
   });
 });

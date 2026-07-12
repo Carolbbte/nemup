@@ -71,6 +71,10 @@ export interface SummarySlide {
   options?: string[] | null;
   correctAnswer?: string | null;
   wrongAnswerHints?: Record<string, string> | null;
+  // Guiding hint for a generated exercise (exerciseGenerator.ts) — shown
+  // without revealing the answer. Frontend rendering (a "Pista" button) is
+  // pending; the field is populated so the data is ready when it lands.
+  hint?: string;
   // worked_example only — statement/answer copied verbatim from the source
   // material (never computed), steps omitted when the model's derivation
   // failed safety validation upstream (see procedural.ts's B-mínima fallback).

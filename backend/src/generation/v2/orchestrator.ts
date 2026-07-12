@@ -5,6 +5,7 @@ import type { GeneratedSession, SessionConfig } from '../../types.js';
 import { buildKnowledgeObject } from './comprehension.js';
 import { generateDistractors } from './distractors.js';
 import { buildWorkedExampleSteps } from './procedural.js';
+import { generateExercises, isExercisableSubject } from './exerciseGenerator.js';
 import { buildFlashcards, buildQuestions, buildDesafio, buildSummarySlides } from './assemble.js';
 
 /**
@@ -48,6 +49,34 @@ export async function generateSessionV2(
       : '[v2] Modo conceptual — sin ejemplos resueltos detectados en el material.',
   );
 
+  // Generated-exercise trigger: subject-based, not an AI-judged field on the
+  // KnowledgeObject — see exerciseGenerator.ts's isExercisableSubject for why
+  // (avoids the same run-to-run inconsistency workedExamples had). Independent
+  // of isProceduralMode above — generated exercises are ADDED on top of any
+  // material-derived worked examples, not a replacement for them.
+  const shouldGenerateExercises = isExercisableSubject(ko.subject ?? '');
+  if (!ko.subject) {
+    console.warn(`[v2][exerciseGenerator] ko.subject vino vacío — no se generarán ejercicios aunque el material lo amerite (topic="${ko.topic}").`);
+  }
+  let exercises = shouldGenerateExercises
+    ? await generateExercises(ko.concepts, ko.subject ?? '')
+    : [];
+
+  // ===== PUNTO DE EXTENSIÓN: capa de validación (Fase futura) =====
+  // Hoy `exercises` pasa directo, sin verificar que correctAnswer sea
+  // matemáticamente correcta — riesgo de producto asumido en esta fase (ver
+  // nota en exerciseGenerator.ts). FASE FUTURA: descomentar la línea
+  // siguiente cuando exista un verificador (math.js para álgebra, o un
+  // segundo LLM) — no requiere tocar el generador ni assemble.ts:
+  // exercises = await validateExercises(exercises);
+  // ================================================================
+
+  console.log(
+    shouldGenerateExercises
+      ? `[v2] Ejercicios generados: ${exercises.length} (subject="${ko.subject}")`
+      : `[v2] Material no ejercitable (subject="${ko.subject ?? ''}") — Misión con preguntas conceptuales.`,
+  );
+
   const classification = classifyContent(transcription);
   const wordCount = transcription.split(/\s+/).filter(Boolean).length;
 
@@ -59,7 +88,7 @@ export async function generateSessionV2(
     summary: {
       id: randomUUID(),
       title: ko.topic || 'Resumen del material',
-      slides: buildSummarySlides(ko, distractors, workedExampleResults),
+      slides: buildSummarySlides(ko, distractors, workedExampleResults, exercises),
       sourceQuotes: [],
     },
     groundingScore: 0, // placeholder — replaced below with the real validateGrounding() result

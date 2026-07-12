@@ -23,6 +23,7 @@ import type { Flashcard, MultipleChoiceQuestion, DifficultyLevel, SummarySlide }
 import type { KnowledgeConcept, KnowledgeObject } from './types.js';
 import type { DistractorSet } from './distractors.js';
 import type { WorkedExampleResult } from './procedural.js';
+import type { GeneratedExercise } from './exerciseGenerator.js';
 
 // ── Desafío local type mirror — matches shared/desafio.ts field-for-field ───
 // (same rootDir-avoidance duplication desafioAdapter.ts already uses)
@@ -542,29 +543,83 @@ export function buildReinforcementFromTrait(
   };
 }
 
+/** Common shape produced by either a real DistractorSet or a GeneratedExercise. */
+interface InteractiveFields {
+  question: string;
+  options: string[];
+  correctAnswer: string;
+  wrongAnswerHints?: Record<string, string>;
+  hint?: string;
+}
+
+function fieldsFromDistractorSet(d: DistractorSet): InteractiveFields {
+  const { options, correctAnswer } = shuffleWithLetterAnswer(d.correctText, d.distractors);
+  return { question: d.question, options, correctAnswer };
+}
+
+/**
+ * Maps each distractor's explanation to the LETTER it landed on after
+ * shuffling — not its original text position — so it lines up with
+ * `wrongAnswerHints`'s existing convention (keyed by option letter, per
+ * desafioAdapter.ts/desafioService.ts's legacy v1 usage) regardless of how
+ * the options were reordered.
+ */
+function buildWrongAnswerHints(options: string[], distractors: GeneratedExercise['distractors']): Record<string, string> {
+  const hints: Record<string, string> = {};
+  distractors.forEach((d) => {
+    const idx = options.indexOf(d.text);
+    if (idx >= 0) hints[SUMMARY_LETTERS[idx]] = d.explanation;
+  });
+  return hints;
+}
+
+function fieldsFromExercise(ex: GeneratedExercise): InteractiveFields {
+  const { options, correctAnswer } = shuffleWithLetterAnswer(ex.correctAnswer, ex.distractors.map((d) => d.text));
+  return {
+    question: ex.statement,
+    options,
+    correctAnswer,
+    wrongAnswerHints: buildWrongAnswerHints(options, ex.distractors),
+    hint: ex.hint,
+  };
+}
+
 export function buildSummarySlides(
   ko: KnowledgeObject,
   distractors: Record<string, DistractorSet>,
   workedExampleResults: WorkedExampleResult[] = [],
+  generatedExercises: GeneratedExercise[] = [],
 ): SummarySlide[] {
   if (ko.concepts.length === 0) return [];
 
   const slides: SummarySlide[] = [];
+  // Pool consumed in order, not mapped to a specific concept — the generated
+  // exercises already share the document's subject/concepts, so which exact
+  // concept "gets" which exercise doesn't matter pedagogically. Empty when
+  // shouldGenerateExercises was false upstream, so every `nextExercise()`
+  // call below returns undefined and every slide falls through to the exact
+  // pre-existing distractor/trait-based behavior — conceptual material is
+  // untouched.
+  const exercisePool = [...generatedExercises];
+  const nextExercise = (): GeneratedExercise | undefined => exercisePool.shift();
 
   for (const concept of ko.concepts) {
     const d = distractors[concept.id];
     if (!d) continue; // no generated question — skip this concept's loop, keep the rest intact
 
-    const micro = shuffleWithLetterAnswer(d.correctText, d.distractors);
+    const microEx = nextExercise();
+    const micro = microEx ? fieldsFromExercise(microEx) : fieldsFromDistractorSet(d);
     slides.push({
       type: 'micro_challenge',
       emoji: '🧠',
       title: `¿Qué sabes de ${concept.name}?`,
       definition: 'Responde antes de ver la respuesta — así el concepto se queda contigo.',
       example: '',
-      question: d.question,
+      question: micro.question,
       options: micro.options,
       correctAnswer: micro.correctAnswer,
+      ...(micro.wrongAnswerHints ? { wrongAnswerHints: micro.wrongAnswerHints } : {}),
+      ...(micro.hint ? { hint: micro.hint } : {}),
     });
 
     slides.push({
@@ -575,24 +630,41 @@ export function buildSummarySlides(
       example: concept.example ?? '',
     });
 
-    // A DIFFERENT question than the micro's, not the same one reshuffled — a
-    // recognition question derived from distinctiveTrait, no second AI call.
-    // Dropped entirely (no reinforcement_challenge for this concept) when
-    // there isn't enough raw material for a real one — one question per
-    // concept beats two identical ones.
-    const traitQuestion = buildReinforcementFromTrait(concept, ko.concepts);
-    if (traitQuestion) {
-      const reinforcement = shuffleWithLetterAnswer(traitQuestion.correctText, traitQuestion.distractors);
+    // A DIFFERENT question than the micro's, not the same one reshuffled.
+    // Prefers a generated exercise (also guaranteed distinct); falls back to
+    // the distinctiveTrait-derived recognition question, dropped entirely
+    // when neither is available — one question per concept beats two
+    // identical ones.
+    const reinforcementEx = nextExercise();
+    if (reinforcementEx) {
+      const r = fieldsFromExercise(reinforcementEx);
       slides.push({
         type: 'reinforcement_challenge',
         emoji: '🎯',
         title: 'Refuerzo',
         definition: `Aplica lo que acabas de aprender sobre ${concept.name}.`,
         example: '',
-        question: traitQuestion.question,
-        options: reinforcement.options,
-        correctAnswer: reinforcement.correctAnswer,
+        question: r.question,
+        options: r.options,
+        correctAnswer: r.correctAnswer,
+        ...(r.wrongAnswerHints ? { wrongAnswerHints: r.wrongAnswerHints } : {}),
+        ...(r.hint ? { hint: r.hint } : {}),
       });
+    } else {
+      const traitQuestion = buildReinforcementFromTrait(concept, ko.concepts);
+      if (traitQuestion) {
+        const reinforcement = shuffleWithLetterAnswer(traitQuestion.correctText, traitQuestion.distractors);
+        slides.push({
+          type: 'reinforcement_challenge',
+          emoji: '🎯',
+          title: 'Refuerzo',
+          definition: `Aplica lo que acabas de aprender sobre ${concept.name}.`,
+          example: '',
+          question: traitQuestion.question,
+          options: reinforcement.options,
+          correctAnswer: reinforcement.correctAnswer,
+        });
+      }
     }
   }
 
@@ -626,7 +698,22 @@ export function buildSummarySlides(
 
   const bossConcept = ko.concepts.reduce((max, c) => (c.difficulty > max.difficulty ? c : max));
   const bossDistractor = distractors[bossConcept.id];
-  if (bossDistractor) {
+  const bossEx = nextExercise();
+  if (bossEx) {
+    const boss = fieldsFromExercise(bossEx);
+    slides.push({
+      type: 'final_challenge',
+      emoji: '🏆',
+      title: `Desafío final: ${bossConcept.name}`,
+      definition: 'Demuestra que dominas el concepto más exigente de esta sesión.',
+      example: '',
+      question: boss.question,
+      options: boss.options,
+      correctAnswer: boss.correctAnswer,
+      ...(boss.wrongAnswerHints ? { wrongAnswerHints: boss.wrongAnswerHints } : {}),
+      ...(boss.hint ? { hint: boss.hint } : {}),
+    });
+  } else if (bossDistractor) {
     const boss = shuffleWithLetterAnswer(bossDistractor.correctText, bossDistractor.distractors);
     slides.push({
       type: 'final_challenge',
