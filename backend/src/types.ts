@@ -53,8 +53,8 @@ export type SummarySlideType =
   | 'compare' | 'partial_summary' | 'final_challenge'
   // Structured mission screens
   | 'mission' | 'main_concept' | 'micro_challenge' | 'reinforcement_challenge' | 'comprehension' | 'key_relation'
-  | 'process_flow' | 'application' | 'victory' | 'challenge' | 'decide' | 'order_sequence' | 'quiz_transition'
-  | 'worked_example';
+  | 'process_flow' | 'application' | 'victory' | 'challenge' | 'decide' | 'order_sequence'
+  | 'worked_example' | 'worked_example_intro';
 
 export type IllustrationType = 'educational' | 'diagram' | 'concept' | 'timeline' | 'map' | 'process' | 'comparison';
 

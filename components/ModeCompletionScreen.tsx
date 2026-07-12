@@ -1,7 +1,7 @@
 import { UNIFIED_PROGRESS_BAR } from '@/config/features';
 import { useDailySession } from '@/contexts/DailySessionContext';
 import type { DailyMode } from '@/contexts/DailySessionContext';
-import { palette, semantic } from '@/theme/colors';
+import { palette, paletteExtras, semantic } from '@/theme/colors';
 import { ChevronLeft, X } from 'lucide-react-native';
 import { useEffect, type ReactNode } from 'react';
 import { Pressable, ScrollView, StatusBar, StyleSheet, Text, View } from 'react-native';
@@ -31,6 +31,12 @@ type Props = {
   onContinue: () => void;
   onBack: () => void;
   sessionCompletedCount?: number;
+  // Misión-only enhancements — omitted (falsy) by Quiz/Tarjetas, which stay
+  // visually identical to before. `celebratory` gives the icon+title a
+  // bouncier pop-in instead of the plain fade+rise; `streakCount` (when
+  // celebratory and >= 2) shows a streak badge next to the title.
+  celebratory?: boolean;
+  streakCount?: number;
 };
 
 export default function ModeCompletionScreen({
@@ -44,6 +50,8 @@ export default function ModeCompletionScreen({
   onContinue,
   onBack,
   sessionCompletedCount,
+  celebratory,
+  streakCount,
 }: Props) {
   const insets = useSafeAreaInsets();
   const { dailySession } = useDailySession();
@@ -59,12 +67,18 @@ export default function ModeCompletionScreen({
     opacity:   entryOp.value,
     transform: [{ translateY: entryY.value }],
   }));
+  const heroScale = useSharedValue(celebratory ? 0.5 : 1);
+  const heroStyle = useAnimatedStyle(() => ({ transform: [{ scale: heroScale.value }] }));
 
   useEffect(() => {
     entryY.value  = 36;
     entryOp.value = 0;
     entryY.value  = withSpring(0, { damping: 22, stiffness: 180 });
     entryOp.value = withTiming(1, { duration: 420 });
+    if (celebratory) {
+      heroScale.value = 0.5;
+      heroScale.value = withSpring(1, { damping: 9, stiffness: 200 });
+    }
   }, []);
 
   return (
@@ -84,8 +98,16 @@ export default function ModeCompletionScreen({
       )}
       <Animated.View style={[{ flex: 1 }, entryStyle]}>
         <ScrollView contentContainerStyle={s.scroll}>
-          {iconNode}
-          <Text style={s.title}>{title}</Text>
+          <Animated.View style={[{ alignItems: 'center' }, heroStyle]}>
+            {iconNode}
+            {celebratory && !!streakCount && streakCount >= 2 && (
+              <View style={s.streakBadge}>
+                <Text style={s.streakBadgeEmoji}>🔥</Text>
+                <Text style={s.streakBadgeText}>{streakCount}</Text>
+              </View>
+            )}
+            <Text style={s.title}>{title}</Text>
+          </Animated.View>
           <View style={s.tileRow}>
             {tiles.map(({ label, value, valueColor }) => (
               <View key={label} style={s.tile}>
@@ -113,6 +135,9 @@ const s = StyleSheet.create({
   screenTitle:{ fontSize: 15, fontWeight: '700', color: semantic.textPrimary, textAlign: 'center' },
   scroll:     { alignItems: 'center', paddingHorizontal: 24, paddingTop: 36, paddingBottom: 32 },
   title:      { fontSize: 26, fontWeight: '900', color: semantic.textPrimary, textAlign: 'center', marginTop: 12, marginBottom: 28 },
+  streakBadge:      { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: 'rgba(255,144,0,0.12)', borderWidth: 1, borderColor: 'rgba(255,144,0,0.3)', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 100, marginTop: 10 },
+  streakBadgeEmoji: { fontSize: 14 },
+  streakBadgeText:  { fontSize: 14, fontWeight: '800', color: paletteExtras.naranjaOscuro },
   tileRow:    { flexDirection: 'row', gap: 8, marginBottom: 16, width: '100%' },
   tile:       { flex: 1, alignItems: 'center', backgroundColor: palette.blanco, borderRadius: 14, paddingVertical: 16, paddingHorizontal: 8, borderWidth: 1, borderColor: palette.bordeClaro },
   tileVal:    { fontSize: 20, fontWeight: '900', color: semantic.textPrimary, marginBottom: 4 },

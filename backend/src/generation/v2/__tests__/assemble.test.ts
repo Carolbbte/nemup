@@ -195,19 +195,24 @@ describe('buildSummarySlides — worked examples in Misión', () => {
     expect(withDefault.some((s) => s.type === 'worked_example')).toBe(false);
   });
 
-  it('inserts a transition slide + one worked_example per result, after all concepts and before application', () => {
+  it('inserts a transition slide + one worked_example per result, after all concepts and before final_challenge', () => {
     const slides = buildSummarySlides(ko, distractors, [
       { statement: '2m − 5n + 6m − m + 11n', answer: '7m + 6n', steps: ['Agrupa términos en m', 'Agrupa términos en n'] },
     ]);
 
     const lastConceptTripleIdx = slides.findIndex((s) => s.type === 'reinforcement_challenge' && s.title === 'Refuerzo' && s.definition?.includes('Términos semejantes'));
-    const applicationIdx = slides.findIndex((s) => s.type === 'application');
+    const finalChallengeIdx = slides.findIndex((s) => s.type === 'final_challenge');
     const workedIdx = slides.findIndex((s) => s.type === 'worked_example');
     const transitionIdx = slides.findIndex((s) => s.title === 'Veamos cómo se resuelve');
 
     expect(transitionIdx).toBeGreaterThan(lastConceptTripleIdx);
+    // Not 'main_concept' — a transition screen shouldn't be counted as a
+    // taught concept anywhere that type drives that logic (victory's concept
+    // list, the concept-card color rotation).
+    expect(slides[transitionIdx].type).toBe('worked_example_intro');
     expect(workedIdx).toBeGreaterThan(transitionIdx);
-    expect(applicationIdx).toBeGreaterThan(workedIdx);
+    expect(finalChallengeIdx).toBeGreaterThan(workedIdx);
+    expect(slides.some((s) => s.type === 'application')).toBe(false);
 
     const workedSlide = slides[workedIdx];
     expect(workedSlide.statement).toBe('2m − 5n + 6m − m + 11n');

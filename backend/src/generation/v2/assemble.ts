@@ -676,8 +676,14 @@ export function buildSummarySlides(
   // slide is still included with just statement/answer, never fabricating
   // a path, same as buildDesafio already does.
   if (workedExampleResults.length > 0) {
+    // A dedicated type, NOT 'main_concept' — this is a transition screen, not
+    // a real taught concept. Giving it 'main_concept' used to make it count
+    // as one everywhere that type is treated as "a concept the student saw"
+    // (victory's concept list, the concept-card color rotation), which is
+    // exactly why "Veamos cómo se resuelve" was showing up as a concept on
+    // the Misión-complete screen.
     slides.push({
-      type: 'main_concept',
+      type: 'worked_example_intro',
       emoji: '✏️',
       title: 'Veamos cómo se resuelve',
       definition: 'Estos son ejercicios resueltos paso a paso del material.',
@@ -687,14 +693,6 @@ export function buildSummarySlides(
       slides.push(buildWorkedExampleSummarySlide(result));
     });
   }
-
-  slides.push({
-    type: 'application',
-    emoji: '🚀',
-    title: 'Aplícalo',
-    definition: 'Repasa lo aprendido antes del desafío final.',
-    example: '',
-  });
 
   const bossConcept = ko.concepts.reduce((max, c) => (c.difficulty > max.difficulty ? c : max));
   const bossDistractor = distractors[bossConcept.id];

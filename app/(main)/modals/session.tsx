@@ -17,6 +17,7 @@ import {
   Layers,
   RefreshCw,
   RotateCcw,
+  WandSparkles,
   X,
   Zap,
 } from 'lucide-react-native';
@@ -59,7 +60,7 @@ type Option  = { id: string; text: string };
 type Question = { id: string; text: string; options: Option[]; correctOptionId: string; explanation: string; sourceQuote: string };
 type Flashcard = { id: string; front: string; back: string };
 type SummarySlideType = 'concept' | 'key_fact' | 'important' | 'remember' | 'example' | 'curiosity' | 'wow_fact'
-  | 'mission' | 'main_concept' | 'micro_challenge' | 'reinforcement_challenge' | 'comprehension' | 'key_relation' | 'mini_quiz' | 'process_flow' | 'application' | 'common_error' | 'final_challenge' | 'victory' | 'challenge' | 'decide' | 'order_sequence' | 'quiz_transition' | 'worked_example';
+  | 'mission' | 'main_concept' | 'micro_challenge' | 'reinforcement_challenge' | 'comprehension' | 'key_relation' | 'mini_quiz' | 'process_flow' | 'application' | 'common_error' | 'final_challenge' | 'victory' | 'challenge' | 'decide' | 'order_sequence' | 'worked_example' | 'worked_example_intro';
 type IllustrationType = 'educational' | 'diagram' | 'concept' | 'timeline' | 'map' | 'process' | 'comparison';
 // `hint` (generated-exercise guiding hint, exerciseGenerator.ts) and
 // `wrongAnswerHints` already arrive from the backend but have no renderer
@@ -417,7 +418,7 @@ function buildSummarySlides(backendSlides: BackendSlide[], questions: Question[]
   const MISSION_MODEL_TYPES = new Set([
     'mission', 'main_concept', 'micro_challenge', 'reinforcement_challenge', 'comprehension',
     'key_relation', 'process_flow', 'application', 'victory', 'challenge', 'decide',
-    'order_sequence', 'quiz_transition', 'final_challenge', 'mini_quiz',
+    'order_sequence', 'final_challenge', 'mini_quiz',
   ]);
   if (backendSlides.some(s => MISSION_MODEL_TYPES.has(s.type))) {
     const INTER = ['micro_challenge', 'reinforcement_challenge', 'comprehension', 'mini_quiz', 'final_challenge', 'decide', 'order_sequence'];
@@ -568,22 +569,11 @@ function buildSummarySlides(backendSlides: BackendSlide[], questions: Question[]
       }
     }
 
-    // 5c. "Preparado para el Quiz" — inject quiz_transition right before victory
-    const vcIdx2 = reordered.findIndex(s => s.type === 'victory');
-    if (vcIdx2 !== -1 && reordered[vcIdx2 - 1]?.type !== 'quiz_transition') {
-      reordered.splice(vcIdx2, 0, {
-        type: 'quiz_transition' as SummarySlideType,
-        emoji: '🚀', title: 'Preparado para el Quiz',
-        definition: 'Ya dominaste los conceptos principales. Ahora podrás ponerlos a prueba en el Quiz.',
-        example: '', connector: null, question: null, options: null, correctAnswer: null, wrongAnswerHints: null,
-      } as BackendSlide);
-    }
-
     // 5d. Challenge First: preserve backend-generated order for the middle section.
     // Pairs are generated as [micro_challenge → main_concept] by the backend; sorting would break them.
-    // Only purpose here is to detect the tail boundary (handled already in 5b/5c).
+    // Only purpose here is to detect the tail boundary (handled already in 5b).
     // Head: mission → first [micro_challenge → main_concept] pair
-    const TAIL_ANCHOR = new Set(['final_challenge', 'quiz_transition', 'victory']);
+    const TAIL_ANCHOR = new Set(['final_challenge', 'victory']);
 
     let middleStart = 0;
     if (reordered[middleStart]?.type === 'mission') middleStart++;
@@ -1656,7 +1646,10 @@ export default function SessionPlayerScreen() {
     const isLast            = summaryIdx >= slides.length - 1;
     const slideQuizAnswered = slide?.type === 'quiz' ? quizAnswers[summaryIdx] : undefined;
     // Stats for victory screen — computed once, used in victory card renderer and CTA button
-    const V_CONCEPT          = ['main_concept', 'key_relation', 'process_flow', 'application', 'common_error', 'challenge'];
+    // 'application' excluded — it's a transition screen, not a taught concept
+    // (and no longer generated at all — see assemble.ts). 'worked_example_intro'
+    // is excluded for the same reason (see its type comment in assemble.ts).
+    const V_CONCEPT          = ['main_concept', 'key_relation', 'process_flow', 'common_error', 'challenge'];
     const V_INTER            = ['micro_challenge', 'reinforcement_challenge', 'comprehension', 'mini_quiz', 'final_challenge', 'decide', 'order_sequence', 'common_error', 'application', 'challenge', 'wow_fact'];
     const vConcepts          = slides.filter(s => V_CONCEPT.includes(s.type)).length;
     const vInterTotal        = slides.filter((s, i) => V_INTER.includes(s.type) && !!(s as BackendSlide).correctAnswer).length;
@@ -1685,7 +1678,7 @@ export default function SessionPlayerScreen() {
     if (MODE_COMPLETION_REDESIGN && isLast && slide?.type === 'victory') {
       const tiempoMs    = missionStartRef.current ? Date.now() - missionStartRef.current : 0;
       const tiempoStr   = formatMissionTime(tiempoMs);
-      const V_CONCEPT_LOCAL = ['main_concept', 'key_relation', 'process_flow', 'application', 'common_error', 'challenge'];
+      const V_CONCEPT_LOCAL = ['main_concept', 'key_relation', 'process_flow', 'common_error', 'challenge'];
       const vConceptsLocal  = missionSlides.filter(s => V_CONCEPT_LOCAL.includes(s.type)).length;
       const V_INTER_LOCAL   = ['micro_challenge', 'comprehension', 'mini_quiz', 'final_challenge', 'decide', 'order_sequence', 'common_error', 'application', 'challenge', 'wow_fact'];
       const vInterLocal     = missionSlides.filter(s => V_INTER_LOCAL.includes(s.type) && !!(s as BackendSlide).correctAnswer).length;
@@ -1694,11 +1687,13 @@ export default function SessionPlayerScreen() {
       const newSetAfterMision    = new Set([...completedModes, 'summary']);
       const remainingAfterMision = LOCAL_MODE_ORDER.filter(m => !newSetAfterMision.has(m));
       const nextLocalMision      = remainingAfterMision[0] ?? null;
+      // Generic label — the Quiz/Tarjetas auto-chain still happens via
+      // onContinueMision below, but the button no longer names the specific
+      // next mode (Quiz is reached from the mode-select menu, not "sold"
+      // from here).
       const continueLabelMision  = newSetAfterMision.size >= 3
         ? '¡Ver sesión completa! →'
-        : nextLocalMision
-          ? `Continuar con ${LOCAL_MODE_LABEL[nextLocalMision]} →`
-          : 'Continuar →';
+        : 'Continuar →';
 
       const onContinueMision = () => {
         const newSet = new Set([...completedModes, 'summary']);
@@ -1729,6 +1724,8 @@ export default function SessionPlayerScreen() {
           onContinue={onContinueMision}
           onBack={() => setPhase('mode-select')}
           sessionCompletedCount={newSetAfterMision.size}
+          celebratory
+          streakCount={missionStreak}
         />
       );
     }
@@ -1752,13 +1749,19 @@ export default function SessionPlayerScreen() {
         // Every concept triple is micro_challenge -> main_concept ->
         // reinforcement_challenge, always in that order — reinforcement_challenge
         // is always the LAST slide of a triple, so the slide right after it is
-        // always the START of a fresh triple (or 'application'/end of mission),
+        // always the START of a fresh triple (or the end-of-mission slides),
         // never another reinforcement. Anchoring on main_concept instead (tried
         // first) still collides: main_concept is always immediately followed by
         // ITS OWN reinforcement one slide later, so inserting right after ANY
         // main_concept — even skipping ahead to the 2nd one — still drops the
         // requeue right before some concept's reinforcement.
-        let insertAt = prev.length; // no reinforcement_challenge ahead — append at the end of the mission
+        // No reinforcement_challenge ahead — fall back to right before victory,
+        // NEVER prev.length: victory is always the last slide the backend
+        // builds, and appending after it broke the MODE_COMPLETION_REDESIGN
+        // check (`isLast && slide.type === 'victory'`), silently dropping the
+        // student into the older, unreviewed victory renderer instead.
+        const victoryIdx = prev.findIndex((s) => (s as BackendSlide).type === 'victory');
+        let insertAt = victoryIdx !== -1 ? victoryIdx : prev.length;
         for (let i = summaryIdx + 1; i < prev.length; i++) {
           if ((prev[i] as BackendSlide).type === 'reinforcement_challenge') {
             insertAt = i + 1;
@@ -2026,32 +2029,62 @@ export default function SessionPlayerScreen() {
                 </View>
               );
               })()
+            ) : slide?.type === 'worked_example_intro' ? (
+              // Transition into the worked_example screens — same icon-box
+              // card language as main_concept's insight, but a fixed brand
+              // color (not the rotating CONCEPT_PALETTES) since this isn't
+              // part of the concept sequence.
+              <View style={[sum.conceptTarjeta, { backgroundColor: CONCEPT_PALETTES[0].bg, borderColor: CONCEPT_PALETTES[0].border }]}>
+                <View style={[sum.conceptIconBox, { backgroundColor: BRAND }]}>
+                  <Text style={sum.conceptIconEmoji}>{slide?.emoji || '✏️'}</Text>
+                </View>
+                <Text style={[sum.conceptKicker, { color: CONCEPT_PALETTES[0].accent }]}>REPASO</Text>
+                <Text style={sum.conceptTitle}>{formatMath(slide.title)}</Text>
+                {!!slide.definition && (
+                  <View style={sum.conceptCard}>
+                    <Text style={sum.conceptCardText}>{formatMath(slide.definition)}</Text>
+                  </View>
+                )}
+              </View>
             ) : slide?.type === 'worked_example' ? (
               // Statement/answer are copied verbatim from the source material
               // (never computed) — steps are omitted when the model's
               // derivation failed safety validation upstream, same rule as
               // Desafío's worked_example rendering.
               <>
-                <Text style={sum.quizQuestionFull}>{slide.title || 'Así se resuelve'}</Text>
-                <View style={sum.conceptCard}>
-                  <Text style={sum.conceptCardLabel}>📝 PROBLEMA</Text>
-                  <Text style={sum.conceptCardText}>{formatMath(slide.statement)}</Text>
+                <View style={sum.weHeaderRow}>
+                  <View style={sum.weIconBox}>
+                    <WandSparkles size={22} color={palette.blanco} strokeWidth={2} />
+                  </View>
+                  <View>
+                    <Text style={sum.weKicker}>PASO A PASO</Text>
+                    <Text style={sum.weTitle}>{slide.title || 'Así se resuelve'}</Text>
+                  </View>
+                </View>
+                <View style={sum.weProblemBox}>
+                  <Text style={sum.weProblemLabel}>RESUELVE ESTO</Text>
+                  <Text style={sum.weProblemText}>{formatMath(slide.statement)}</Text>
                 </View>
                 {!!slide.steps?.length && (
-                  <View style={sum.stepsContainer}>
+                  <View style={sum.weStepsContainer}>
                     {slide.steps.map((step, i) => (
-                      <View key={i} style={sum.stepRow}>
-                        <View style={sum.stepBadge}>
-                          <Text style={sum.stepBadgeText}>{i + 1}</Text>
+                      <View key={i} style={sum.weStepRow}>
+                        <View style={sum.weStepCircle}>
+                          <Text style={sum.weStepCircleText}>{i + 1}</Text>
                         </View>
-                        <Text style={sum.stepContent}>{formatMath(step)}</Text>
+                        <Text style={sum.weStepContent}>{formatMath(step)}</Text>
                       </View>
                     ))}
                   </View>
                 )}
-                <View style={sum.exampleBox}>
-                  <Text style={sum.exampleLabel}>{slide.steps?.length ? '✅ Se reduce a' : '✅ Resultado'}</Text>
-                  <Text style={sum.exampleText}>{formatMath(slide.answer)}</Text>
+                <View style={sum.weResultBox}>
+                  <View style={sum.weResultCheck}>
+                    <Check size={16} color={palette.blanco} strokeWidth={3} />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={sum.weResultLabel}>{slide.steps?.length ? 'SE REDUCE A' : 'RESULTADO'}</Text>
+                    <Text style={sum.weResultText}>{formatMath(slide.answer)}</Text>
+                  </View>
                 </View>
               </>
             ) : slide?.type === 'comprehension' ? (
@@ -2630,32 +2663,6 @@ export default function SessionPlayerScreen() {
                   )}
                 </View>
               </View>
-            ) : slide?.type === 'quiz_transition' ? ((() => {
-              const hasFinalChallenge = missionSlides.some(s => s.type === 'final_challenge');
-              const hasApplication    = missionSlides.some(s => s.type === 'application');
-              const hasCommonError    = missionSlides.some(s => s.type === 'common_error');
-              const checkItems = [
-                'Conceptos aprendidos',
-                hasCommonError ? 'Errores comunes identificados' : 'Patrones identificados',
-                hasApplication ? 'Aplicaciones vistas' : 'Ejemplos practicados',
-                ...(hasFinalChallenge ? ['Mini reto completado'] : []),
-              ];
-              return (
-                <View style={sum.qtCard}>
-                  <Text style={sum.qtEmoji}>🚀</Text>
-                  <Text style={sum.qtTitle}>{(slide as BackendSlide).title || 'Preparado para el Quiz'}</Text>
-                  <Text style={sum.qtSub}>{(slide as BackendSlide).definition || 'Ya dominaste los conceptos principales. Ahora ponlos a prueba.'}</Text>
-                  <View style={sum.qtChecklist}>
-                    {checkItems.map((item, i) => (
-                      <View key={i} style={sum.qtCheckRow}>
-                        <Text style={sum.qtCheckIcon}>✓</Text>
-                        <Text style={sum.qtCheckText}>{item}</Text>
-                      </View>
-                    ))}
-                  </View>
-                </View>
-              );
-            })()
             ) : slide?.type === 'victory' ? ((() => {
               // Labels per spec: Dominado / Buen dominio / Vas avanzando / Necesita más práctica
               const masteryConfig = masteryLevel === 'mastered'
@@ -2822,12 +2829,14 @@ export default function SessionPlayerScreen() {
                       </View>
                     )}
 
-                    {/* Repasa: concept titles from wrong slides — no truncated question text */}
+                    {/* Repasa: concept titles from wrong slides — deduped, since a
+                        requeued clone of the same question shares its title with
+                        the original, otherwise showing "X · X" when both are missed. */}
                     {wrongSlides.length > 0 && (
                       <View style={[sum.reflectionBlock, { backgroundColor: 'rgba(108,77,255,0.06)', borderColor: 'rgba(108,77,255,0.18)' }]}>
                         <Text style={[sum.reflectionText, { color: semantic.textTertiary }]}>
                           {'Repasa: '}
-                          {wrongSlides.map(w => w.s.title).filter(Boolean).join(' · ')}
+                          {[...new Set(wrongSlides.map(w => w.s.title).filter(Boolean))].join(' · ')}
                         </Text>
                       </View>
                     )}
@@ -4114,6 +4123,26 @@ const sum = StyleSheet.create({
   stepBadgeResult:{ backgroundColor: paletteExtras.esmeralda },
   stepBadgeText:  { fontSize: 10, fontWeight: '900', color: palette.blanco, letterSpacing: 0.5 },
   stepContent:    { flex: 1, fontSize: SM ? 13 : 14, color: semantic.textPrimary, lineHeight: 20, fontWeight: '500' },
+
+  // "Así se resuelve" (worked_example) — Duolingo-style redesign, distinct
+  // from the shared step/example styles above so main_concept's own
+  // procedural rendering is untouched.
+  weHeaderRow:     { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 18 },
+  weIconBox:       { width: 44, height: 44, borderRadius: 14, backgroundColor: BRAND, alignItems: 'center', justifyContent: 'center' },
+  weKicker:        { fontSize: 12, fontWeight: '800', letterSpacing: 1, color: BRAND, marginBottom: 2 },
+  weTitle:         { fontSize: SM ? 20 : 22, fontWeight: '800', color: semantic.textPrimary },
+  weProblemBox:    { backgroundColor: '#1A2340', borderRadius: 16, padding: SM ? 16 : 20, marginBottom: 16, alignItems: 'center' },
+  weProblemLabel:  { fontSize: 11, fontWeight: '800', color: 'rgba(255,255,255,0.5)', letterSpacing: 1, marginBottom: 8 },
+  weProblemText:   { fontSize: SM ? 17 : 19, fontWeight: '700', color: palette.blanco, textAlign: 'center', fontFamily: 'monospace', lineHeight: SM ? 24 : 27 },
+  weStepsContainer:{ gap: 10, marginBottom: 16 },
+  weStepRow:       { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  weStepCircle:    { width: 30, height: 30, borderRadius: 15, backgroundColor: BRAND, alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
+  weStepCircleText:{ fontSize: 14, fontWeight: '800', color: palette.blanco },
+  weStepContent:   { flex: 1, fontSize: SM ? 14 : 15, color: semantic.textPrimary, lineHeight: 20, fontWeight: '500' },
+  weResultBox:     { flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: paletteExtras.verdeSuaveBg, borderRadius: 16, padding: SM ? 14 : 16, borderWidth: 1.5, borderColor: semantic.success },
+  weResultCheck:   { width: 30, height: 30, borderRadius: 15, backgroundColor: semantic.success, alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
+  weResultLabel:   { fontSize: 10, fontWeight: '800', color: paletteExtras.verdeTextoOscuro, letterSpacing: 0.8, marginBottom: 2 },
+  weResultText:    { fontSize: SM ? 17 : 19, fontWeight: '800', color: paletteExtras.verdeTextoOscuro },
   stepContentResult: { color: paletteExtras.esmeraldaOscuro, fontWeight: '700' },
 
   // Key relation card (now "Regla fácil")
@@ -4222,16 +4251,6 @@ const sum = StyleSheet.create({
   patternArrowRow:     { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: SM ? 6 : 8, gap: 8 },
   patternArrowGlyph:   { fontSize: SM ? 18 : 22, color: paletteExtras.violetaPattern, fontWeight: '900' },
   patternArrowLabel:   { fontSize: SM ? 11 : 12, fontWeight: '700', color: paletteExtras.violetaPattern, fontStyle: 'italic' },
-
-  // Quiz Transition card
-  qtCard:      { backgroundColor: palette.blanco, borderRadius: 28, padding: SM ? 22 : 28, alignItems: 'center' },
-  qtEmoji:     { fontSize: SM ? 48 : 60, marginBottom: 10 },
-  qtTitle:     { fontSize: SM ? 20 : 24, fontWeight: '900', color: semantic.textPrimary, textAlign: 'center', letterSpacing: -0.5, marginBottom: 8 },
-  qtSub:       { fontSize: SM ? 13 : 15, color: semantic.textSecondary, textAlign: 'center', lineHeight: SM ? 20 : 22, fontWeight: '500', marginBottom: 20 },
-  qtChecklist: { alignSelf: 'stretch', backgroundColor: palette.crema, borderRadius: 16, padding: SM ? 14 : 18, gap: 10, borderWidth: 1, borderColor: palette.bordeClaro },
-  qtCheckRow:  { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  qtCheckIcon: { fontSize: SM ? 15 : 17, color: paletteExtras.esmeralda, fontWeight: '900', width: 22, textAlign: 'center' },
-  qtCheckText: { fontSize: SM ? 13 : 15, fontWeight: '600', color: semantic.textPrimary, flex: 1 },
 
   // Victory card
   victoryCard:      { backgroundColor: palette.blanco, borderRadius: 28, padding: SM ? 22 : 28, alignItems: 'center' },
