@@ -63,13 +63,14 @@ o reconocer una propiedad) — el que tenga más sentido para ese concepto, no f
 Cada ejercicio debe incluir exactamente 3 distractores plausibles, cada uno con una explicación breve del error
 conceptual o de cálculo que produciría esa respuesta incorrecta, y una pista que oriente el método sin revelar
 la respuesta.
-Si un concepto tiene "ejemplo avanzado" además del ejemplo básico, genera AL MENOS uno de sus ejercicios en ese
-nivel de dificultad (no te quedes solo en la versión simple) — el material distingue ambos niveles a propósito.
+Si un concepto tiene ejemplos avanzados además del ejemplo básico, genera UN ejercicio por CADA ejemplo avanzado
+listado — son variantes distintas a propósito (ej. una con paréntesis, otra con paréntesis Y fracciones), nunca
+cubras solo una y descartes el resto ni te quedes solo en la versión simple.
 Responde exactamente la cantidad de ítems solicitada, distribuidos entre los conceptos listados (algunos pueden
 tener más de un ejercicio si tiene sentido).`;
 
 function buildUserPrompt(
-  concepts: Pick<KnowledgeConcept, 'name' | 'definition' | 'example' | 'advancedExample'>[],
+  concepts: Pick<KnowledgeConcept, 'name' | 'definition' | 'example' | 'advancedExamples'>[],
   subject: string,
   itemCount: number,
 ): string {
@@ -86,7 +87,13 @@ Pista: "Agrupa por separado los términos con x y los términos con y antes de o
 kind: "calculation"
 
 CONCEPTOS (genera ${itemCount} ejercicio(s) en total, con al menos uno por concepto):
-${concepts.map((c, i) => `${i + 1}. "${c.name}" — definición: ${c.definition}${c.example ? ` — ejemplo: ${c.example}` : ''}${c.advancedExample ? ` — ejemplo avanzado: ${c.advancedExample}` : ''}`).join('\n')}`;
+${concepts.map((c, i) => {
+    const examplePart = c.example ? ` — ejemplo: ${c.example}` : '';
+    const advancedPart = c.advancedExamples.length > 0
+      ? ` — ejemplos avanzados (uno distinto de otro, cubre TODOS con al menos un ejercicio cada uno): ${c.advancedExamples.map((e) => `"${e}"`).join('; ')}`
+      : '';
+    return `${i + 1}. "${c.name}" — definición: ${c.definition}${examplePart}${advancedPart}`;
+  }).join('\n')}`;
 }
 
 /** Chunks + flattens newlines before logging, same convention as comprehension.ts/distractors.ts. */
@@ -157,7 +164,7 @@ async function generateExercisesForChunk(
   if (concepts.length === 0 || itemCount <= 0) return [];
 
   const userPrompt = buildUserPrompt(
-    concepts.map(({ name, definition, example, advancedExample }) => ({ name, definition, example, advancedExample })),
+    concepts.map(({ name, definition, example, advancedExamples }) => ({ name, definition, example, advancedExamples })),
     subject,
     itemCount,
   );
@@ -222,11 +229,19 @@ export async function generateExercises(
     chunks.push(concepts.slice(i, i + MAX_CONCEPTS_PER_CALL));
   }
 
-  // +1 on the first chunk only, reserved for the mission's final_challenge
-  // boss slide so it isn't left without a generated exercise of its own.
+  // Baseline EXERCISES_PER_CONCEPT slots per concept, plus one EXTRA slot for
+  // each advanced example beyond the first — otherwise a concept with 2+
+  // distinct "Desafío" variants (e.g. parentheses-only vs. parentheses+
+  // fractions) has nowhere to put the second one and it gets silently
+  // dropped, same failure this field exists to prevent. +1 on the first
+  // chunk only, reserved for the mission's final_challenge boss slide so it
+  // isn't left without a generated exercise of its own.
+  const itemCountFor = (chunk: KnowledgeConcept[]) =>
+    chunk.reduce((sum, c) => sum + EXERCISES_PER_CONCEPT + Math.max(0, c.advancedExamples.length - 1), 0);
+
   const results = await Promise.all(
     chunks.map((chunk, idx) =>
-      generateExercisesForChunk(chunk, subject, chunk.length * EXERCISES_PER_CONCEPT + (idx === 0 ? 1 : 0)),
+      generateExercisesForChunk(chunk, subject, itemCountFor(chunk) + (idx === 0 ? 1 : 0)),
     ),
   );
   return results.flat();

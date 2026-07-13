@@ -25,14 +25,17 @@ export interface KnowledgeConcept {
   /** A concrete example illustrating the concept, or null if none applies. */
   example: string | null;
   /**
-   * A harder/more advanced example of the SAME concept, or null if the
-   * material only shows one difficulty tier. Exists because a document can
-   * teach a concept at multiple levels (e.g. "reduce like terms" then a
-   * separate "Desafío" section adding parentheses/fractions) — `example`
-   * alone only ever captures the first tier, silently dropping the harder
-   * one and starving exerciseGenerator.ts of any signal that it exists.
+   * Harder/more advanced examples of the SAME concept — plural because a
+   * document can show MULTIPLE distinct harder variants for one concept
+   * (e.g. a "Desafío" section with one exercise that adds parentheses and
+   * another that adds parentheses AND fractions). A singular field here
+   * would force a choice between them, silently dropping whichever variant
+   * lost and starving exerciseGenerator.ts of any signal it existed — this
+   * is exactly what happened before: two concepts both grabbed the same
+   * first "Desafío" item, and the fraction-bearing one was never captured
+   * anywhere. Empty array if the material only shows one difficulty tier.
    */
-  advancedExample: string | null;
+  advancedExamples: string[];
   /** Short study tips or mnemonics associated with this concept. */
   tips: string[];
   /** Difficulty rating of this concept, from 1 (easiest) to 5 (hardest). */
