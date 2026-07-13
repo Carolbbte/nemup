@@ -10,6 +10,7 @@ import * as Haptics from 'expo-haptics';
 import { useFocusEffect, useRouter } from 'expo-router';
 import {
   ArrowLeft,
+  Brain,
   Check,
   CheckCircle,
   ChevronLeft,
@@ -26,7 +27,6 @@ import { LinearGradient } from 'expo-linear-gradient';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Dimensions,
-  Image,
   Pressable,
   ScrollView,
   StatusBar,
@@ -1365,6 +1365,14 @@ export default function SessionPlayerScreen() {
 
   const finalAccuracy = questions.length > 0 ? Math.round((correctCount / questions.length) * 100) : 100;
 
+  // Real concept count — summarySlides.length counts every SLIDE (micro_challenge,
+  // main_concept, reinforcement, worked examples, closing screens...), not
+  // concepts. Only these types map 1:1 to a real taught concept (assemble.ts
+  // emits exactly one main_concept per concept); same list the victory screen's
+  // V_CONCEPT_LOCAL already uses, so this can't drift from that count.
+  const CONCEPT_SLIDE_TYPES = ['main_concept', 'key_relation', 'process_flow', 'common_error', 'challenge'];
+  const realConceptCount = summarySlides.filter(s => CONCEPT_SLIDE_TYPES.includes(s.type)).length;
+
   // ── Unified progress bar — derived from existing state, no new useState ──────
   const _misionTotal    = missionSlides.length;
   const _misionDone     = completedModes.has('summary')    ? _misionTotal    : summaryIdx;
@@ -1429,7 +1437,7 @@ export default function SessionPlayerScreen() {
               <View style={lob.metricDiv} />
               <View style={lob.metricItem}>
                 <Text style={lob.metricEmoji}>🧠</Text>
-                <Text style={lob.metricVal}>{summarySlides.length}</Text>
+                <Text style={lob.metricVal}>{realConceptCount}</Text>
                 <Text style={lob.metricLbl}>conceptos</Text>
               </View>
               <View style={lob.metricDiv} />
@@ -1583,7 +1591,7 @@ export default function SessionPlayerScreen() {
                   </View>
                 </View>
                 <Text style={mds.missionTitle}>Misión</Text>
-                <Text style={mds.missionDesc}>{summarySlides.length} conceptos clave</Text>
+                <Text style={mds.missionDesc}>{realConceptCount} conceptos clave</Text>
                 <View style={mds.cardFoot}>
                   <View style={mds.missionCta}>
                     <Text style={mds.missionCtaText}>Empezar →</Text>
@@ -1598,21 +1606,21 @@ export default function SessionPlayerScreen() {
             {/* Quiz */}
             <Pressable onPress={() => goMode('quiz')} style={{ flex: 1 }} android_ripple={{ color: 'rgba(0,0,0,0.05)' }}>
               {({ pressed }) => (
-                <View style={[mds.secondaryCard, { borderBottomWidth: 4, borderBottomColor: QUIZ_COLOR }, pressed && { opacity: 0.9 }]}>
+                <View style={[mds.secondaryCard, { backgroundColor: QUIZ_BG, borderBottomWidth: 4, borderBottomColor: QUIZ_COLOR }, pressed && { opacity: 0.9 }]}>
                   {completedModes.has('quiz') && (
                     <View style={[mds.cornerCheck, { backgroundColor: QUIZ_COLOR }]}>
                       <Check size={12} color={palette.blanco} strokeWidth={3} />
                     </View>
                   )}
-                  <View style={[mds.secondaryMascotRing, { backgroundColor: QUIZ_BG }]}>
-                    <Image source={require('@/assets/images/lupa.png')} style={mds.secondaryMascot} resizeMode="contain" />
+                  <View style={[mds.secondaryIconBox, { backgroundColor: QUIZ_COLOR }]}>
+                    <Brain size={26} color={palette.blanco} strokeWidth={2} />
                   </View>
-                  <View style={[mds.secondaryXpBadge, { backgroundColor: QUIZ_BG }]}>
+                  <View style={[mds.secondaryXpBadge, { backgroundColor: palette.blanco }]}>
                     <Text style={[mds.secondaryXpText, { color: QUIZ_COLOR }]}>+{quizXp} XP</Text>
                   </View>
                   <Text style={[mds.secondaryTitle, { color: QUIZ_COLOR }]}>Quiz</Text>
                   <Text style={mds.secondaryDesc}>{questions.length} preguntas</Text>
-                  <View style={[mds.arrowAccent, { backgroundColor: QUIZ_BG }]}>
+                  <View style={[mds.arrowAccent, { backgroundColor: palette.blanco }]}>
                     <ChevronRight size={14} color={QUIZ_COLOR} strokeWidth={2.5} />
                   </View>
                 </View>
@@ -1622,21 +1630,21 @@ export default function SessionPlayerScreen() {
             {/* Tarjetas */}
             <Pressable onPress={() => goMode('flashcards')} style={{ flex: 1 }} android_ripple={{ color: 'rgba(0,0,0,0.05)' }}>
               {({ pressed }) => (
-                <View style={[mds.secondaryCard, { borderBottomWidth: 4, borderBottomColor: TEAL_COLOR }, pressed && { opacity: 0.9 }]}>
+                <View style={[mds.secondaryCard, { backgroundColor: TEAL_BG, borderBottomWidth: 4, borderBottomColor: TEAL_COLOR }, pressed && { opacity: 0.9 }]}>
                   {completedModes.has('flashcards') && (
                     <View style={[mds.cornerCheck, { backgroundColor: TEAL_COLOR }]}>
                       <Check size={12} color={palette.blanco} strokeWidth={3} />
                     </View>
                   )}
-                  <View style={[mds.secondaryMascotRing, { backgroundColor: palette.tealTarjetasBg }]}>
-                    <Image source={require('@/assets/images/cartas.png')} style={mds.secondaryMascot} resizeMode="contain" />
+                  <View style={[mds.secondaryIconBox, { backgroundColor: TEAL_COLOR }]}>
+                    <Layers size={26} color={palette.blanco} strokeWidth={2} />
                   </View>
-                  <View style={[mds.secondaryXpBadge, { backgroundColor: TEAL_BG }]}>
+                  <View style={[mds.secondaryXpBadge, { backgroundColor: palette.blanco }]}>
                     <Text style={[mds.secondaryXpText, { color: TEAL_COLOR }]}>+{cardsXp} XP</Text>
                   </View>
                   <Text style={[mds.secondaryTitle, { color: TEAL_COLOR }]}>Tarjetas</Text>
                   <Text style={mds.secondaryDesc}>{flashcards.length} tarjetas</Text>
-                  <View style={[mds.arrowAccent, { backgroundColor: TEAL_BG }]}>
+                  <View style={[mds.arrowAccent, { backgroundColor: palette.blanco }]}>
                     <ChevronRight size={14} color={TEAL_COLOR} strokeWidth={2.5} />
                   </View>
                 </View>
@@ -3854,7 +3862,7 @@ export default function SessionPlayerScreen() {
     const totalXp  = xpEarned + (completedModes.has('summary') ? XP_PER_SUMMARY * summarySlides.length : 0)
                                + (completedModes.has('flashcards') ? XP_PER_CARD * flashcards.length : 0);
     const achievements = [
-      completedModes.has('summary')    && { e: '📚', title: 'Maestro del resumen',   desc: `Leíste ${summarySlides.length} conceptos` },
+      completedModes.has('summary')    && { e: '📚', title: 'Maestro del resumen',   desc: `Leíste ${realConceptCount} conceptos` },
       maxStreak >= 3                   && { e: '🔥', title: `Racha de ${maxStreak}`, desc: 'Respondiste en cadena' },
       completedModes.size >= 3         && { e: '🎖️', title: 'Aprendiz constante',    desc: 'Completaste los 3 modos' },
       finalAccuracy >= 80              && { e: '🎯', title: 'Precisión élite',        desc: `${finalAccuracy}% de aciertos` },
@@ -4008,10 +4016,12 @@ const mds = StyleSheet.create({
   missionCta:     { alignSelf: 'flex-start', backgroundColor: palette.blanco, borderRadius: 100, paddingVertical: 6, paddingHorizontal: 14 },
   missionCtaText: { fontSize: 13, fontWeight: '800', color: '#5B3FBF' },
 
-  secondaryCard:      { backgroundColor: palette.blanco, borderRadius: 18, borderWidth: 1, borderColor: palette.bordeClaro, padding: SM ? 12 : 14, minHeight: SM ? 160 : 180 },
-  secondaryMascotRing:{ width: 52, height: 52, borderRadius: 26, alignItems: 'center', justifyContent: 'center', alignSelf: 'center', marginBottom: 8 },
-  secondaryMascot:    { width: SM ? 30 : 34, height: SM ? 30 : 34 },
-  cornerCheck:        { position: 'absolute', top: 8, right: 8, width: 22, height: 22, borderRadius: 11, alignItems: 'center', justifyContent: 'center' },
+  // backgroundColor overridden per-card (QUIZ_BG/TEAL_BG) — a subtle tint of
+  // that mode's color, distinct from Misión's solid gradient so it stays the
+  // clear protagonist.
+  secondaryCard:    { backgroundColor: palette.blanco, borderRadius: 18, borderWidth: 1, borderColor: palette.bordeClaro, padding: SM ? 12 : 14, minHeight: SM ? 160 : 180 },
+  secondaryIconBox: { width: 48, height: 48, borderRadius: 14, alignItems: 'center', justifyContent: 'center', alignSelf: 'center', marginBottom: 8 },
+  cornerCheck:      { position: 'absolute', top: 8, right: 8, width: 22, height: 22, borderRadius: 11, alignItems: 'center', justifyContent: 'center' },
   secondaryXpBadge:   { borderRadius: 100, paddingVertical: 3, paddingHorizontal: 8, alignSelf: 'flex-start', marginBottom: 6 },
   secondaryXpText:    { fontSize: 11, fontWeight: '800' },
   secondaryTitle:     { fontSize: SM ? 16 : 18, fontWeight: '900', marginBottom: 3 },
