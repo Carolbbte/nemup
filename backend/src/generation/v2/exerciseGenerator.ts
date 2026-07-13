@@ -77,7 +77,11 @@ Cada concepto listado abajo indica EXACTAMENTE cuántos ejercicios generar y de 
 avanzada específica, o práctica adicional) — respeta esa cantidad al pie de la letra: nunca fusiones, omitas ni
 agregues ítems de los indicados.
 Cada ejercicio pedido tiene una etiqueta [id="..."] — el campo "slotId" de tu respuesta para ese ejercicio DEBE
-ser EXACTAMENTE esa etiqueta. Así identificamos cuál ejercicio es cuál sin depender del orden en que respondas.`;
+ser EXACTAMENTE esa etiqueta. Así identificamos cuál ejercicio es cuál sin depender del orden en que respondas.
+NOTACIÓN MATEMÁTICA: escribe todo en texto plano, NUNCA en LaTeX. Prohibido usar backslash o comandos LaTeX
+(nada de \\frac, \\left, \\right, \\(...\\), \\[...\\], ni llaves {} para agrupar). Fracciones: "2/3", nunca
+"\\frac{2}{3}". Exponentes: "x^2" o "x²", nunca en llaves. Estas reglas aplican a TODO texto que escribas:
+enunciado, respuesta correcta, distractores y pista.`;
 
 type SlotKind = 'base' | 'variant' | 'practice';
 

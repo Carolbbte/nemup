@@ -37,7 +37,10 @@ Para cada concepto que se te entregue, genera UNA pregunta de opción múltiple 
 exactamente 3 distractores (opciones incorrectas) del mismo dominio temático.
 Los distractores deben ser plausibles: alguien que no domine el concepto podría dudar entre ellos y la
 respuesta correcta. Nunca uses distractores obviamente falsos, absurdos o "trampa" por ambigüedad de redacción.
-Responde los ítems en el MISMO ORDEN en que se listan los conceptos, uno por concepto, sin omitir ninguno.`;
+Responde los ítems en el MISMO ORDEN en que se listan los conceptos, uno por concepto, sin omitir ninguno.
+NOTACIÓN MATEMÁTICA: escribe todo en texto plano, NUNCA en LaTeX. Prohibido usar backslash o comandos LaTeX
+(nada de \\frac, \\left, \\right, \\(...\\), \\[...\\], ni llaves {} para agrupar). Fracciones: "2/3", nunca
+"\\frac{2}{3}". Exponentes: "x^2" o "x²", nunca en llaves.`;
 
 type ConceptInput = Pick<KnowledgeConcept, 'name' | 'definition' | 'distinctiveTrait'>;
 

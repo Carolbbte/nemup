@@ -24,7 +24,10 @@ NUNCA cuestionas, corriges ni recalculas la respuesta que se te entrega — se t
 por definición. Tu única tarea es describir el camino lógico/algebraico que conecta el enunciado con ella,
 en pasos cortos que un estudiante de enseñanza media pueda seguir. Si no puedes justificar el camino exacto,
 igual debes indicar en "resultShown" a qué resultado llegas tú siguiendo tu propio razonamiento — nunca copies
-la respuesta dada sin haber razonado el camino.`;
+la respuesta dada sin haber razonado el camino.
+NOTACIÓN MATEMÁTICA: escribe todo en texto plano, NUNCA en LaTeX. Prohibido usar backslash o comandos LaTeX
+(nada de \\frac, \\left, \\right, \\(...\\), \\[...\\], ni llaves {} para agrupar). Fracciones: "2/3", nunca
+"\\frac{2}{3}". Exponentes: "x^2" o "x²", nunca en llaves.`;
 
 function buildUserPrompt(examples: WorkedExample[]): string {
   return `EJERCICIOS YA RESUELTOS (enunciado y respuesta correcta, en este orden — responde en el mismo orden,
