@@ -593,6 +593,13 @@ export function buildSummarySlides(
   if (ko.concepts.length === 0) return [];
 
   const slides: SummarySlide[] = [];
+  // exerciseGenerator.ts places its single hardest-difficulty exercise LAST
+  // on purpose (see generateExercises's boss selection) so final_challenge
+  // gets it deliberately — reserved here BEFORE the per-concept loop can
+  // consume it, rather than hoping whatever's left in the pool by the time
+  // we reach final_challenge happens to be the hard one.
+  const exercisePool = [...generatedExercises];
+  const bossExercise = exercisePool.length > 0 ? exercisePool.pop() : undefined;
   // Pool consumed in order, not mapped to a specific concept — the generated
   // exercises already share the document's subject/concepts, so which exact
   // concept "gets" which exercise doesn't matter pedagogically. Empty when
@@ -600,7 +607,6 @@ export function buildSummarySlides(
   // call below returns undefined and every slide falls through to the exact
   // pre-existing distractor/trait-based behavior — conceptual material is
   // untouched.
-  const exercisePool = [...generatedExercises];
   const nextExercise = (): GeneratedExercise | undefined => exercisePool.shift();
 
   for (const concept of ko.concepts) {
@@ -696,7 +702,7 @@ export function buildSummarySlides(
 
   const bossConcept = ko.concepts.reduce((max, c) => (c.difficulty > max.difficulty ? c : max));
   const bossDistractor = distractors[bossConcept.id];
-  const bossEx = nextExercise();
+  const bossEx = bossExercise;
   if (bossEx) {
     const boss = fieldsFromExercise(bossEx);
     slides.push({

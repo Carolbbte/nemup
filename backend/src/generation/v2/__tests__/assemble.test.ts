@@ -269,8 +269,13 @@ describe('buildSummarySlides — generated exercises', () => {
   });
 
   it('uses a generated exercise for micro_challenge instead of the distractor set, when available', () => {
+    // A 2nd exercise is included because the LAST array element is always
+    // reserved for final_challenge first (see the dedicated boss-reservation
+    // tests below) — with only 1 exercise, it would be reserved as the boss
+    // instead of reaching micro_challenge at all.
     const ex = makeExercise('Reduce: 3a + 2a', '5a');
-    const slides = buildSummarySlides(ko, distractors, [], [ex]);
+    const reserve = makeExercise('reservado-para-boss', 'rb');
+    const slides = buildSummarySlides(ko, distractors, [], [ex, reserve]);
     const micro = slides.find((s) => s.type === 'micro_challenge');
 
     expect(micro?.question).toBe('Reduce: 3a + 2a');
@@ -281,7 +286,8 @@ describe('buildSummarySlides — generated exercises', () => {
 
   it('maps wrongAnswerHints to the letter each distractor landed on after shuffling', () => {
     const ex = makeExercise('Reduce: 3a + 2a', '5a');
-    const slides = buildSummarySlides(ko, distractors, [], [ex]);
+    const reserve = makeExercise('reservado-para-boss', 'rb');
+    const slides = buildSummarySlides(ko, distractors, [], [ex, reserve]);
     const micro = slides.find((s) => s.type === 'micro_challenge')!;
 
     expect(Object.keys(micro.wrongAnswerHints ?? {})).toHaveLength(3);
@@ -296,34 +302,58 @@ describe('buildSummarySlides — generated exercises', () => {
   it('consumes the pool in order (micro then reinforcement) across concepts, falling back once exhausted', () => {
     const ex1 = makeExercise('ejercicio-1', 'r1');
     const ex2 = makeExercise('ejercicio-2', 'r2');
-    const slides = buildSummarySlides(ko, distractors, [], [ex1, ex2]);
+    const boss = makeExercise('ejercicio-boss', 'rb');
+    // 3rd exercise is reserved for final_challenge before the loop runs —
+    // only ex1/ex2 remain for micro/reinforcement.
+    const slides = buildSummarySlides(ko, distractors, [], [ex1, ex2, boss]);
 
     const micros = slides.filter((s) => s.type === 'micro_challenge');
     const reinforcements = slides.filter((s) => s.type === 'reinforcement_challenge');
+    const final = slides.find((s) => s.type === 'final_challenge');
 
-    // c1's triple consumes both exercises (micro, then reinforcement); c2's
-    // triple finds the pool empty and falls back to its usual sources.
+    // c1's triple consumes both remaining exercises (micro, then
+    // reinforcement); c2's triple finds the pool empty and falls back to
+    // its usual sources.
     expect(micros[0].question).toBe('ejercicio-1');
     expect(reinforcements[0].question).toBe('ejercicio-2');
     expect(micros[1].question).toBe(distractors.c2.question);
     expect(reinforcements[1].question).not.toBe('ejercicio-1');
     expect(reinforcements[1].question).not.toBe('ejercicio-2');
+    expect(final?.question).toBe('ejercicio-boss');
   });
 
-  it('uses a leftover exercise for final_challenge when the pool still has one after the concept loop', () => {
-    // 2 concepts * 2 slots (micro + reinforcement) = 4 consumed by the loop;
-    // a 5th is left over for final_challenge.
-    const exercises = ['ejercicio-1', 'ejercicio-2', 'ejercicio-3', 'ejercicio-4', 'ejercicio-final']
-      .map((statement, i) => makeExercise(statement, `r${i}`));
-    const slides = buildSummarySlides(ko, distractors, [], exercises);
+  describe('final_challenge boss reservation', () => {
+    it('always reserves the LAST array element for final_challenge, before the per-concept loop can consume it', () => {
+      // 2 concepts * 2 slots (micro + reinforcement) = 4 — exactly enough for
+      // the loop — plus a 5th, which must be reserved for final_challenge
+      // rather than left to chance as a "leftover".
+      const exercises = ['ejercicio-1', 'ejercicio-2', 'ejercicio-3', 'ejercicio-4', 'ejercicio-final']
+        .map((statement, i) => makeExercise(statement, `r${i}`));
+      const slides = buildSummarySlides(ko, distractors, [], exercises);
 
-    const final = slides.find((s) => s.type === 'final_challenge');
-    expect(final?.question).toBe('ejercicio-final');
-  });
+      const final = slides.find((s) => s.type === 'final_challenge');
+      expect(final?.question).toBe('ejercicio-final');
+      // None of the loop's slides accidentally picked up the reserved one.
+      const others = slides.filter((s) => s.type === 'micro_challenge' || s.type === 'reinforcement_challenge');
+      expect(others.some((s) => s.question === 'ejercicio-final')).toBe(false);
+    });
 
-  it('falls back to the boss distractor for final_challenge when the pool is exhausted', () => {
-    const slides = buildSummarySlides(ko, distractors, [], []);
-    const final = slides.find((s) => s.type === 'final_challenge');
-    expect(final?.question).toBe(distractors.c2.question); // c2 is the hardest concept (difficulty 4)
+    it('reserves the boss even when the pool has fewer exercises than the loop needs', () => {
+      // Only 1 exercise total: reserved for final_challenge, leaving zero
+      // for the loop — both c1 and c2 fall back to their usual sources.
+      const only = makeExercise('unico-ejercicio', 'ru');
+      const slides = buildSummarySlides(ko, distractors, [], [only]);
+
+      const final = slides.find((s) => s.type === 'final_challenge');
+      const micros = slides.filter((s) => s.type === 'micro_challenge');
+      expect(final?.question).toBe('unico-ejercicio');
+      expect(micros.every((s) => s.question !== 'unico-ejercicio')).toBe(true);
+    });
+
+    it('falls back to the boss distractor for final_challenge when the pool is exhausted', () => {
+      const slides = buildSummarySlides(ko, distractors, [], []);
+      const final = slides.find((s) => s.type === 'final_challenge');
+      expect(final?.question).toBe(distractors.c2.question); // c2 is the hardest concept (difficulty 4)
+    });
   });
 });
