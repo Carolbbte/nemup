@@ -2,6 +2,7 @@ import OpenAI from 'openai';
 import { config } from '../../config.js';
 import { withOpenAIRetry } from '../../services/openaiRetry.js';
 import { recordUsage } from '../../services/usageTracking.js';
+import { sanitizeMathText } from '../../services/mathNotation.js';
 import type { KnowledgeConcept } from './types.js';
 
 const openai = new OpenAI({ apiKey: config.openai_api_key });
@@ -30,6 +31,19 @@ export function isValidDistractorSet(item: DistractorSet | null | undefined): it
     item.distractors.length === 3 &&
     item.distractors.every((d) => !!d?.trim())
   );
+}
+
+/** Defensive normalization applied to every model-authored string field —
+ * the SYSTEM_PROMPT forbids LaTeX, but prompt compliance alone isn't
+ * reliable enough (the model still occasionally emits \frac{}{} etc.), so
+ * this converts any that slips through to the plain-text notation MathText
+ * actually renders. */
+function sanitizeDistractorSet(item: DistractorSet): DistractorSet {
+  return {
+    question: sanitizeMathText(item.question),
+    correctText: sanitizeMathText(item.correctText),
+    distractors: item.distractors?.map(sanitizeMathText),
+  };
 }
 
 const SYSTEM_PROMPT = `Eres un diseñador de preguntas de opción múltiple para estudiantes chilenos de enseñanza media.
@@ -178,7 +192,7 @@ export async function generateDistractors(
 
   const result: Record<string, DistractorSet> = {};
   selected.forEach((concept, i) => {
-    const item = parsed.items[i];
+    const item = parsed.items[i] ? sanitizeDistractorSet(parsed.items[i]) : parsed.items[i];
     if (isValidDistractorSet(item)) {
       result[concept.id] = item;
     } else {

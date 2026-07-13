@@ -2,6 +2,7 @@ import OpenAI from 'openai';
 import { config } from '../../config.js';
 import { withOpenAIRetry } from '../../services/openaiRetry.js';
 import { recordUsage } from '../../services/usageTracking.js';
+import { sanitizeMathText } from '../../services/mathNotation.js';
 import type { WorkedExample } from './types.js';
 
 const openai = new OpenAI({ apiKey: config.openai_api_key });
@@ -191,8 +192,16 @@ export async function buildWorkedExampleSteps(
 
   const parsed = JSON.parse(raw) as { items: Array<{ steps: string[]; resultShown: string }> };
 
+  // Sanitized before reconciliation too — the SYSTEM_PROMPT forbids LaTeX but
+  // prompt compliance alone isn't reliable, and an un-sanitized resultShown
+  // would also spuriously fail resultsMatch() against the material's plain-
+  // text answer even when they're mathematically identical.
   const results = examples.map((example, i) =>
-    reconcileWorkedExample(example, parsed.items[i].steps, parsed.items[i].resultShown),
+    reconcileWorkedExample(
+      example,
+      parsed.items[i].steps.map(sanitizeMathText),
+      sanitizeMathText(parsed.items[i].resultShown),
+    ),
   );
 
   const validatedCount = results.filter((r) => r.steps !== null).length;

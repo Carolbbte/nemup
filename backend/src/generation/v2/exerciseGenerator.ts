@@ -2,6 +2,7 @@ import OpenAI from 'openai';
 import { config } from '../../config.js';
 import { withOpenAIRetry } from '../../services/openaiRetry.js';
 import { recordUsage } from '../../services/usageTracking.js';
+import { sanitizeMathText } from '../../services/mathNotation.js';
 import type { KnowledgeConcept } from './types.js';
 
 const openai = new OpenAI({ apiKey: config.openai_api_key });
@@ -52,6 +53,24 @@ export interface RawGeneratedExercise extends GeneratedExercise {
  * guarantees types but not non-empty content, same reasoning as
  * distractors.ts's isValidDistractorSet.
  */
+/** Defensive normalization applied to every model-authored string field —
+ * the SYSTEM_PROMPT forbids LaTeX, but prompt compliance alone isn't
+ * reliable enough (the model still occasionally emits \frac{}{} etc.), so
+ * this converts any that slips through to the plain-text notation MathText
+ * actually renders. */
+function sanitizeExercise(item: RawGeneratedExercise): RawGeneratedExercise {
+  return {
+    ...item,
+    statement: sanitizeMathText(item.statement),
+    correctAnswer: sanitizeMathText(item.correctAnswer),
+    hint: sanitizeMathText(item.hint),
+    distractors: item.distractors?.map((d) => ({
+      text: sanitizeMathText(d.text),
+      explanation: sanitizeMathText(d.explanation),
+    })),
+  };
+}
+
 export function isValidGeneratedExercise(item: RawGeneratedExercise | null | undefined): item is RawGeneratedExercise {
   return (
     !!item?.slotId?.trim() &&
@@ -382,6 +401,7 @@ async function generateBatch(
 
     const difficultyById = new Map(slots.map((s) => [s.id, s.difficulty]));
     return parsed.items
+      .map(sanitizeExercise)
       .filter((item) => {
         const ok = isValidGeneratedExercise(item) && difficultyById.has(item.slotId);
         if (!ok) console.warn(`[ExerciseGenerator] ejercicio con forma inválida o slotId desconocido descartado (slotId="${item?.slotId}").`);
