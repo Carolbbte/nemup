@@ -1556,11 +1556,16 @@ export default function SessionPlayerScreen() {
         >
           {/* Hero */}
           <View style={mds.hero}>
-            <Animated.Image
-              source={require('@/assets/images/saludoInicialHola.png')}
-              style={[mds.heroMascot, modeSelectMascotStyle]}
-              resizeMode="contain"
-            />
+            {/* Fixed-size box keeps the row's layout height/position unchanged;
+                the image itself is larger and overflows it (default overflow:
+                visible), so it reads bigger without shifting anything below. */}
+            <View style={mds.heroMascotBox}>
+              <Animated.Image
+                source={require('@/assets/images/saludoInicialHola.png')}
+                style={[mds.heroMascot, modeSelectMascotStyle]}
+                resizeMode="contain"
+              />
+            </View>
             <View style={{ flex: 1 }}>
               <Text style={mds.heroTitle}>¿Por dónde empezamos hoy?</Text>
               <Text style={mds.heroSub}>Elige un modo para comenzar</Text>
@@ -3991,8 +3996,12 @@ const lob = StyleSheet.create({
 
 // ── Mode select ────────────────────────────────────────────────────
 const mds = StyleSheet.create({
-  hero:      { flexDirection: 'row', alignItems: 'center', gap: 12, marginTop: 4, marginBottom: 8 },
-  heroMascot:{ width: 64, height: 64 },
+  hero:         { flexDirection: 'row', alignItems: 'center', gap: 12, marginTop: 4, marginBottom: 8 },
+  // Layout box stays the original 64x64 footprint (so the row's height/the
+  // text next to it don't move) — the image inside is bigger and overflows
+  // it, centered via negative offsets equal to half the size difference.
+  heroMascotBox:{ width: 64, height: 64 },
+  heroMascot:   { position: 'absolute', width: 84, height: 84, top: -10, left: -10 },
   heroTitle: { fontSize: SM ? 20 : 23, fontWeight: '900', color: semantic.textPrimary, letterSpacing: -0.5, marginBottom: 3 },
   heroSub:   { fontSize: 13, color: semantic.textSecondary, fontWeight: '500' },
 
