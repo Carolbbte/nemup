@@ -18,3 +18,7 @@ export const MODE_COMPLETION_REDESIGN      = true;
 export const DAILY_SESSION_LOGIC           = true;
 export const DASHBOARD_REDESIGN            = true;
 export const DESAFIO_MODE                  = true;
+// Gates the Desafío card in session.tsx's mode-select dashboard specifically
+// (separate from DESAFIO_MODE, which is unused/orphaned). Flip to true to
+// bring it back — the Desafío code itself is untouched.
+export const SHOW_DESAFIO_MODE             = false;

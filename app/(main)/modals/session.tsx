@@ -1,6 +1,6 @@
 import ModeCompletionScreen from '@/components/ModeCompletionScreen';
 import UnifiedProgressBar from '@/components/UnifiedProgressBar';
-import { DAILY_SESSION_LOGIC, FIXED_QUIZ_FEEDBACK, MAX_ATTEMPTS_PER_QUESTION, MODE_COMPLETION_REDESIGN, NEUTRAL_MISSION_COMPLETION, SHOW_GEMS, UNIFIED_PROGRESS_BAR, UNIFIED_QUIZ_COMPLETION } from '@/config/features';
+import { DAILY_SESSION_LOGIC, FIXED_QUIZ_FEEDBACK, MAX_ATTEMPTS_PER_QUESTION, MODE_COMPLETION_REDESIGN, NEUTRAL_MISSION_COMPLETION, SHOW_DESAFIO_MODE, SHOW_GEMS, UNIFIED_PROGRESS_BAR, UNIFIED_QUIZ_COMPLETION } from '@/config/features';
 import type { DailyMode } from '@/contexts/DailySessionContext';
 import { useDailySession } from '@/contexts/DailySessionContext';
 import { palette, paletteExtras, semantic } from '@/theme/colors';
@@ -14,6 +14,7 @@ import {
   CheckCircle,
   ChevronLeft,
   ChevronRight,
+  Compass,
   Layers,
   RefreshCw,
   RotateCcw,
@@ -21,9 +22,11 @@ import {
   X,
   Zap,
 } from 'lucide-react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Dimensions,
+  Image,
   Pressable,
   ScrollView,
   StatusBar,
@@ -905,6 +908,10 @@ export default function SessionPlayerScreen() {
   const optEnterStyles   = [optEnterStyle0, optEnterStyle1, optEnterStyle2, optEnterStyle3, optEnterStyle4];
   const optEnterArr      = [optEnter0, optEnter1, optEnter2, optEnter3, optEnter4];
 
+  // Mode-select dashboard — mascot pop-in on entry.
+  const modeSelectMascotSV    = useSharedValue(0.5);
+  const modeSelectMascotStyle = useAnimatedStyle(() => ({ transform: [{ scale: modeSelectMascotSV.value }] }));
+
   // Summary mode micro-reward animation
   const summaryRewardOpSV = useSharedValue(0);
   const summaryRewardYSV  = useSharedValue(8);
@@ -946,6 +953,12 @@ export default function SessionPlayerScreen() {
     transform: [{ translateY: resultEntryY.value }],
   }));
   const progressFillStyle = useAnimatedStyle(() => ({ width: `${progressSV.value * 100}%` as any }));
+
+  useEffect(() => {
+    if (phase !== 'mode-select') return;
+    modeSelectMascotSV.value = 0.5;
+    modeSelectMascotSV.value = withSpring(1, { damping: 9, stiffness: 200 });
+  }, [phase]);
 
   useEffect(() => {
     if (phase !== 'summary') return;
@@ -1483,6 +1496,12 @@ export default function SessionPlayerScreen() {
     const QUIZ_BG    = 'rgba(59,130,246,0.08)';
     const TEAL_COLOR = palette.tealTarjetas;
     const TEAL_BG    = 'rgba(0,194,168,0.08)';
+    // No formal "morado" token exists in theme/colors.ts (those were migrated
+    // to blue — see its own comment) — this matches CONCEPT_PALETTES's own
+    // purple family already used elsewhere in this file, and is reused for
+    // both the Misión gradient and its progress-bar segment below.
+    const MISSION_PURPLE      = '#7B4DD8';
+    const MISSION_PURPLE_DARK = '#3D4D9E';
     const missionXp  = XP_PER_SUMMARY * Math.max(summarySlides.length, 1);
     const quizXp     = XP_PER_CORRECT * Math.max(questions.length, 1);
     const cardsXp    = XP_PER_CARD * Math.max(flashcards.length, 1);
@@ -1502,7 +1521,26 @@ export default function SessionPlayerScreen() {
           <View style={{ width: 36 }} />
         </View>
         {UNIFIED_PROGRESS_BAR && (
-          <UnifiedProgressBar progress={globalPct} showCurrentMode={false} />
+          <View style={mds.modeProgressWrap}>
+            <View style={mds.modeProgressBar}>
+              {(['summary', 'quiz', 'flashcards'] as const).map((key) => {
+                const modeColor = key === 'summary' ? MISSION_PURPLE : key === 'quiz' ? QUIZ_COLOR : TEAL_COLOR;
+                const done = completedModes.has(key);
+                return (
+                  <View
+                    key={key}
+                    style={[
+                      mds.modeProgressSeg,
+                      { borderColor: modeColor, backgroundColor: done ? modeColor : 'rgba(0,0,0,0.03)' },
+                    ]}
+                  />
+                );
+              })}
+            </View>
+            <Text style={mds.modeProgressLabel}>
+              {completedModes.size >= 3 ? '¡Completaste todo! 🔥' : `Tu progreso de hoy · ${completedModes.size}/3`}
+            </Text>
+          </View>
         )}
         <ScrollView
           contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: insets.bottom + 24, gap: 10 }}
@@ -1510,14 +1548,26 @@ export default function SessionPlayerScreen() {
         >
           {/* Hero */}
           <View style={mds.hero}>
-            <Text style={mds.heroTitle}>🚀 Tu misión está lista</Text>
-            <Text style={mds.heroSub}>{session.estimatedDuration} min para completarla</Text>
+            <Animated.Image
+              source={require('@/assets/images/saludoInicialHola.png')}
+              style={[mds.heroMascot, modeSelectMascotStyle]}
+              resizeMode="contain"
+            />
+            <View style={{ flex: 1 }}>
+              <Text style={mds.heroTitle}>¿Por dónde empezamos hoy?</Text>
+              <Text style={mds.heroSub}>Elige un modo para comenzar</Text>
+            </View>
           </View>
 
           {/* Primary mode — Misión */}
           <Pressable onPress={() => goMode('summary')} android_ripple={{ color: 'rgba(0,0,0,0.08)' }}>
             {({ pressed }) => (
-              <View style={[mds.missionCard, pressed && { opacity: 0.93 }]}>
+              <LinearGradient
+                colors={[BRAND, MISSION_PURPLE]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={[mds.missionCard, { borderBottomWidth: 5, borderBottomColor: MISSION_PURPLE_DARK }, pressed && { opacity: 0.93 }]}
+              >
                 {completedModes.has('summary') && (
                   <View style={mds.doneBadge}>
                     <Check size={10} color={BRAND} strokeWidth={3} />
@@ -1525,20 +1575,21 @@ export default function SessionPlayerScreen() {
                   </View>
                 )}
                 <View style={mds.cardTop}>
-                  <Text style={mds.missionEmoji}>🎯</Text>
+                  <View style={mds.missionIconBox}>
+                    <Compass size={26} color={palette.blanco} strokeWidth={2} />
+                  </View>
                   <View style={mds.missionXpBadge}>
                     <Text style={mds.missionXpText}>+{missionXp} XP</Text>
                   </View>
                 </View>
                 <Text style={mds.missionTitle}>Misión</Text>
-                <Text style={mds.missionDesc}>Lee y comprende los conceptos clave</Text>
+                <Text style={mds.missionDesc}>{summarySlides.length} conceptos clave</Text>
                 <View style={mds.cardFoot}>
-                  <Text style={mds.missionDetail}>{summarySlides.length} conceptos</Text>
-                  <View style={mds.arrowLight}>
-                    <ChevronRight size={16} color={palette.blanco} strokeWidth={2.5} />
+                  <View style={mds.missionCta}>
+                    <Text style={mds.missionCtaText}>Empezar →</Text>
                   </View>
                 </View>
-              </View>
+              </LinearGradient>
             )}
           </Pressable>
 
@@ -1547,20 +1598,20 @@ export default function SessionPlayerScreen() {
             {/* Quiz */}
             <Pressable onPress={() => goMode('quiz')} style={{ flex: 1 }} android_ripple={{ color: 'rgba(0,0,0,0.05)' }}>
               {({ pressed }) => (
-                <View style={[mds.secondaryCard, pressed && { opacity: 0.9 }]}>
+                <View style={[mds.secondaryCard, { borderBottomWidth: 4, borderBottomColor: QUIZ_COLOR }, pressed && { opacity: 0.9 }]}>
                   {completedModes.has('quiz') && (
-                    <View style={[mds.doneBadge, { backgroundColor: QUIZ_BG }]}>
-                      <Check size={10} color={QUIZ_COLOR} strokeWidth={3} />
-                      <Text style={[mds.doneBadgeText, { color: QUIZ_COLOR }]}>Listo</Text>
+                    <View style={[mds.cornerCheck, { backgroundColor: QUIZ_COLOR }]}>
+                      <Check size={12} color={palette.blanco} strokeWidth={3} />
                     </View>
                   )}
-                  <Text style={mds.secondaryEmoji}>🧠</Text>
+                  <View style={[mds.secondaryMascotRing, { backgroundColor: QUIZ_BG }]}>
+                    <Image source={require('@/assets/images/lupa.png')} style={mds.secondaryMascot} resizeMode="contain" />
+                  </View>
                   <View style={[mds.secondaryXpBadge, { backgroundColor: QUIZ_BG }]}>
                     <Text style={[mds.secondaryXpText, { color: QUIZ_COLOR }]}>+{quizXp} XP</Text>
                   </View>
                   <Text style={[mds.secondaryTitle, { color: QUIZ_COLOR }]}>Quiz</Text>
-                  <Text style={mds.secondaryDesc}>Pon a prueba lo que aprendiste</Text>
-                  <Text style={mds.secondaryDetail}>{questions.length} preguntas</Text>
+                  <Text style={mds.secondaryDesc}>{questions.length} preguntas</Text>
                   <View style={[mds.arrowAccent, { backgroundColor: QUIZ_BG }]}>
                     <ChevronRight size={14} color={QUIZ_COLOR} strokeWidth={2.5} />
                   </View>
@@ -1571,20 +1622,20 @@ export default function SessionPlayerScreen() {
             {/* Tarjetas */}
             <Pressable onPress={() => goMode('flashcards')} style={{ flex: 1 }} android_ripple={{ color: 'rgba(0,0,0,0.05)' }}>
               {({ pressed }) => (
-                <View style={[mds.secondaryCard, pressed && { opacity: 0.9 }]}>
+                <View style={[mds.secondaryCard, { borderBottomWidth: 4, borderBottomColor: TEAL_COLOR }, pressed && { opacity: 0.9 }]}>
                   {completedModes.has('flashcards') && (
-                    <View style={[mds.doneBadge, { backgroundColor: TEAL_BG }]}>
-                      <Check size={10} color={TEAL_COLOR} strokeWidth={3} />
-                      <Text style={[mds.doneBadgeText, { color: TEAL_COLOR }]}>Listo</Text>
+                    <View style={[mds.cornerCheck, { backgroundColor: TEAL_COLOR }]}>
+                      <Check size={12} color={palette.blanco} strokeWidth={3} />
                     </View>
                   )}
-                  <Text style={mds.secondaryEmoji}>🃏</Text>
+                  <View style={[mds.secondaryMascotRing, { backgroundColor: palette.tealTarjetasBg }]}>
+                    <Image source={require('@/assets/images/cartas.png')} style={mds.secondaryMascot} resizeMode="contain" />
+                  </View>
                   <View style={[mds.secondaryXpBadge, { backgroundColor: TEAL_BG }]}>
                     <Text style={[mds.secondaryXpText, { color: TEAL_COLOR }]}>+{cardsXp} XP</Text>
                   </View>
                   <Text style={[mds.secondaryTitle, { color: TEAL_COLOR }]}>Tarjetas</Text>
-                  <Text style={mds.secondaryDesc}>Memoriza con tarjetas interactivas</Text>
-                  <Text style={mds.secondaryDetail}>{flashcards.length} tarjetas</Text>
+                  <Text style={mds.secondaryDesc}>{flashcards.length} tarjetas</Text>
                   <View style={[mds.arrowAccent, { backgroundColor: TEAL_BG }]}>
                     <ChevronRight size={14} color={TEAL_COLOR} strokeWidth={2.5} />
                   </View>
@@ -1594,7 +1645,7 @@ export default function SessionPlayerScreen() {
           </View>
 
           {/* Desafío mode — only shown when backend generated it */}
-          {!!session.desafio && (
+          {SHOW_DESAFIO_MODE && !!session.desafio && (
             <Pressable onPress={() => router.push('/modals/desafio' as any)} android_ripple={{ color: 'rgba(0,0,0,0.06)' }}>
               {({ pressed }) => (
                 <View style={[mds.desafioCard, pressed && { opacity: 0.92 }]}>
@@ -1622,7 +1673,7 @@ export default function SessionPlayerScreen() {
             <Text style={mds.rewardStar}>⭐</Text>
             <View style={{ flex: 1 }}>
               <Text style={mds.rewardTitle}>Completa los 3 modos</Text>
-              <Text style={mds.rewardSub}>Gana +{session.xpReward} XP · Aumenta tu progreso más rápido</Text>
+              <Text style={mds.rewardSub}>Gana +{session.xpReward} XP · Completa los 3 para dominar el tema 🔥</Text>
             </View>
           </View>
         </ScrollView>
@@ -3932,25 +3983,39 @@ const lob = StyleSheet.create({
 
 // ── Mode select ────────────────────────────────────────────────────
 const mds = StyleSheet.create({
-  hero:      { marginTop: 4, marginBottom: 8 },
-  heroTitle: { fontSize: SM ? 22 : 26, fontWeight: '900', color: semantic.textPrimary, letterSpacing: -0.5, marginBottom: 3 },
-  heroSub:   { fontSize: 14, color: semantic.textSecondary, fontWeight: '500' },
+  hero:      { flexDirection: 'row', alignItems: 'center', gap: 12, marginTop: 4, marginBottom: 8 },
+  heroMascot:{ width: 64, height: 64 },
+  heroTitle: { fontSize: SM ? 20 : 23, fontWeight: '900', color: semantic.textPrimary, letterSpacing: -0.5, marginBottom: 3 },
+  heroSub:   { fontSize: 13, color: semantic.textSecondary, fontWeight: '500' },
 
-  missionCard:    { backgroundColor: BRAND, borderRadius: 20, padding: SM ? 16 : 20 },
-  missionEmoji:   { fontSize: SM ? 34 : 40, marginBottom: 4 },
+  // "X/3 modos completados" — replaces the old UnifiedProgressBar usage here,
+  // which split a single continuous percentage into 3 zones that didn't
+  // correspond to which mode was actually done (see session.tsx history).
+  modeProgressWrap:  { paddingHorizontal: 20, paddingTop: 4, paddingBottom: 8 },
+  modeProgressBar:   { flexDirection: 'row', gap: 4, height: 8, marginBottom: 6 },
+  // borderColor: fill/border colors supplied at the call site (gradient +
+  // borderBottomColor use local consts not available to this StyleSheet).
+  modeProgressSeg:   { flex: 1, borderRadius: 4, borderWidth: 1.5 },
+  modeProgressLabel: { fontSize: 12, fontWeight: '700', color: semantic.textSecondary, textAlign: 'center' },
+
+  // backgroundColor comes from the LinearGradient wrapping this style.
+  missionCard:    { borderRadius: 20, padding: SM ? 16 : 20 },
+  missionIconBox: { width: 48, height: 48, borderRadius: 14, backgroundColor: 'rgba(255,255,255,0.2)', alignItems: 'center', justifyContent: 'center' },
   missionXpBadge: { backgroundColor: 'rgba(255,255,255,0.2)', borderRadius: 100, paddingVertical: 3, paddingHorizontal: 10 },
   missionXpText:  { color: palette.blanco, fontSize: 12, fontWeight: '800' },
   missionTitle:   { fontSize: SM ? 20 : 24, fontWeight: '900', color: palette.blanco, marginBottom: 3, marginTop: 4 },
   missionDesc:    { fontSize: 13, color: 'rgba(255,255,255,0.8)', marginBottom: 12 },
-  missionDetail:  { fontSize: 12, color: 'rgba(255,255,255,0.65)' },
+  missionCta:     { alignSelf: 'flex-start', backgroundColor: palette.blanco, borderRadius: 100, paddingVertical: 6, paddingHorizontal: 14 },
+  missionCtaText: { fontSize: 13, fontWeight: '800', color: '#5B3FBF' },
 
-  secondaryCard:    { backgroundColor: palette.blanco, borderRadius: 18, borderWidth: 1, borderColor: palette.bordeClaro, padding: SM ? 12 : 14, minHeight: SM ? 160 : 180 },
-  secondaryEmoji:   { fontSize: SM ? 26 : 30, marginBottom: 6 },
-  secondaryXpBadge: { borderRadius: 100, paddingVertical: 3, paddingHorizontal: 8, alignSelf: 'flex-start', marginBottom: 6 },
-  secondaryXpText:  { fontSize: 11, fontWeight: '800' },
-  secondaryTitle:   { fontSize: SM ? 16 : 18, fontWeight: '900', marginBottom: 3 },
-  secondaryDesc:    { fontSize: 11, color: semantic.textSecondary, lineHeight: 16, marginBottom: 4 },
-  secondaryDetail:  { fontSize: 11, color: semantic.textTertiary, marginBottom: 8 },
+  secondaryCard:      { backgroundColor: palette.blanco, borderRadius: 18, borderWidth: 1, borderColor: palette.bordeClaro, padding: SM ? 12 : 14, minHeight: SM ? 160 : 180 },
+  secondaryMascotRing:{ width: 52, height: 52, borderRadius: 26, alignItems: 'center', justifyContent: 'center', alignSelf: 'center', marginBottom: 8 },
+  secondaryMascot:    { width: SM ? 30 : 34, height: SM ? 30 : 34 },
+  cornerCheck:        { position: 'absolute', top: 8, right: 8, width: 22, height: 22, borderRadius: 11, alignItems: 'center', justifyContent: 'center' },
+  secondaryXpBadge:   { borderRadius: 100, paddingVertical: 3, paddingHorizontal: 8, alignSelf: 'flex-start', marginBottom: 6 },
+  secondaryXpText:    { fontSize: 11, fontWeight: '800' },
+  secondaryTitle:     { fontSize: SM ? 16 : 18, fontWeight: '900', marginBottom: 3 },
+  secondaryDesc:      { fontSize: 11, color: semantic.textSecondary, lineHeight: 16, marginBottom: 4 },
 
   cardTop:  { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 4 },
   cardFoot: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 8 },
