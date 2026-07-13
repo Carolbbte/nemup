@@ -280,21 +280,6 @@ export default function HomeScreen() {
           {lastSession !== null && (
             <UploadApuntesButton onPress={() => router.push('/modals/upload' as any)} />
           )}
-          {DESAFIO_MODE && hasDesafio && (
-            <Pressable
-              style={nd.desafioCard}
-              onPress={() => router.push('/modals/desafio' as any)}
-            >
-              <View style={nd.desafioIconWrap}>
-                <Text style={nd.desafioEmoji}>⚔️</Text>
-              </View>
-              <View style={{ flex: 1 }}>
-                <Text style={nd.desafioTitle}>Desafío disponible</Text>
-                <Text style={nd.desafioSub}>Pon a prueba lo que aprendiste</Text>
-              </View>
-              <ChevronRight size={18} color={palette.azul} strokeWidth={2.2} />
-            </Pressable>
-          )}
         </ScrollView>
       </SafeAreaView>
     );
