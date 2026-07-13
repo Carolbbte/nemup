@@ -24,6 +24,15 @@ export interface KnowledgeConcept {
   definition: string;
   /** A concrete example illustrating the concept, or null if none applies. */
   example: string | null;
+  /**
+   * A harder/more advanced example of the SAME concept, or null if the
+   * material only shows one difficulty tier. Exists because a document can
+   * teach a concept at multiple levels (e.g. "reduce like terms" then a
+   * separate "Desafío" section adding parentheses/fractions) — `example`
+   * alone only ever captures the first tier, silently dropping the harder
+   * one and starving exerciseGenerator.ts of any signal that it exists.
+   */
+  advancedExample: string | null;
   /** Short study tips or mnemonics associated with this concept. */
   tips: string[];
   /** Difficulty rating of this concept, from 1 (easiest) to 5 (hardest). */

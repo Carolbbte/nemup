@@ -24,6 +24,11 @@ INSTRUCCIONES:
 2. simpleExplanation: máximo 25 palabras, en lenguaje natural para un adolescente de 14-18 años.
 3. definition: formal y precisa, tomada del material — no inventes contenido ajeno a él.
 4. example: un ejemplo concreto tomado o inferido del material, o null si no aplica.
+4b. advancedExample: si el material presenta el MISMO concepto en un nivel de dificultad
+    mayor (ej. una sección "Desafío", con paréntesis, fracciones, o más pasos que el ejemplo
+    básico), copia o infiere ESE ejemplo más avanzado aquí — distinto del de "example".
+    Si el material solo muestra un nivel de dificultad para este concepto, devuelve null.
+    No inventes un ejemplo avanzado que el material no sugiera.
 5. tips: 1-3 frases cortas de estudio o mnemotecnia.
 6. difficulty: 1 (más fácil) a 5 (más difícil), relativo a los demás conceptos de esta lista.
 7. distinctiveTrait: un rasgo VERDADERO para este concepto y FALSO para TODOS los demás conceptos de la lista.

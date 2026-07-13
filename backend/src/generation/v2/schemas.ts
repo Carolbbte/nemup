@@ -22,6 +22,7 @@ const knowledgeConceptSchema: JsonSchema = {
     'simpleExplanation',
     'definition',
     'example',
+    'advancedExample',
     'tips',
     'difficulty',
     'distinctiveTrait',
@@ -47,6 +48,10 @@ const knowledgeConceptSchema: JsonSchema = {
     example: {
       type: ['string', 'null'],
       description: 'A concrete example illustrating the concept, or null if none applies.',
+    },
+    advancedExample: {
+      type: ['string', 'null'],
+      description: 'A harder/more advanced example of the same concept (e.g. from a "Desafío" section), or null if the material only shows one difficulty tier.',
     },
     tips: {
       type: 'array',
