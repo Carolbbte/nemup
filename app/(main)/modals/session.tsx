@@ -1751,13 +1751,40 @@ export default function SessionPlayerScreen() {
       const newSetAfterMision    = new Set([...completedModes, 'summary']);
       const remainingAfterMision = LOCAL_MODE_ORDER.filter(m => !newSetAfterMision.has(m));
       const nextLocalMision      = remainingAfterMision[0] ?? null;
-      // Generic label — the Quiz/Tarjetas auto-chain still happens via
-      // onContinueMision below, but the button no longer names the specific
-      // next mode (Quiz is reached from the mode-select menu, not "sold"
-      // from here).
       const continueLabelMision  = newSetAfterMision.size >= 3
         ? '¡Ver sesión completa! →'
+        : nextLocalMision
+        ? `Siguiente: ${LOCAL_MODE_LABEL[nextLocalMision]} →`
         : 'Continuar →';
+
+      // Praise balloon: names the hardest concept of the mission (nearest
+      // concept slide preceding the first wrong interactive answer) so it
+      // doesn't read as generic — falls back to the document's topic when
+      // nothing was answered wrong (or nothing was answered at all) rather
+      // than showing nothing.
+      const wrongSlidesLocal = missionSlides
+        .map((s, i) => ({ s: s as BackendSlide, i }))
+        .filter(({ s, i }) => V_INTER_LOCAL.includes(s.type) && !!s.correctAnswer && !!quizAnswers[i] && quizAnswers[i] !== s.correctAnswer);
+      const hardestConceptName = (() => {
+        if (wrongSlidesLocal.length === 0) return null;
+        for (let j = wrongSlidesLocal[0].i; j >= 0; j--) {
+          const s = missionSlides[j] as BackendSlide;
+          if (V_CONCEPT_LOCAL.includes(s.type) && s.title) return s.title;
+        }
+        return null;
+      })();
+      const nombreConcepto = hardestConceptName ?? session?.topic ?? '';
+      // No false praise when it went badly (NEUTRAL_MISSION_COMPLETION):
+      // "mastered" gets the strong claim, "needs_practice" gets an honest
+      // nudge, everything else (including mastery not computed yet on the
+      // very first render) gets the neutral-positive default.
+      const praiseLineMision = nombreConcepto
+        ? masteryLevel === 'mastered'
+          ? `¡Dominaste ${nombreConcepto}!`
+          : masteryLevel === 'needs_practice'
+          ? `Sigamos practicando ${nombreConcepto}.`
+          : `¡Buen trabajo con ${nombreConcepto}!`
+        : undefined;
 
       const onContinueMision = () => {
         const newSet = new Set([...completedModes, 'summary']);
@@ -1790,6 +1817,8 @@ export default function SessionPlayerScreen() {
           sessionCompletedCount={newSetAfterMision.size}
           celebratory
           streakCount={missionStreak}
+          praiseLine={praiseLineMision}
+          accuracy={{ correct: vCorrectLocal, total: vInterLocal }}
         />
       );
     }

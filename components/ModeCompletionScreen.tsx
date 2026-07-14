@@ -1,10 +1,13 @@
+import UnifiedProgressBar from '@/components/UnifiedProgressBar';
 import { UNIFIED_PROGRESS_BAR } from '@/config/features';
-import { useDailySession } from '@/contexts/DailySessionContext';
 import type { DailyMode } from '@/contexts/DailySessionContext';
-import { palette, semantic } from '@/theme/colors';
-import { ChevronLeft, X } from 'lucide-react-native';
-import { useEffect, useState, type ReactNode } from 'react';
+import { useDailySession } from '@/contexts/DailySessionContext';
+import { palette, paletteExtras, semantic } from '@/theme/colors';
+import { LinearGradient } from 'expo-linear-gradient';
+import { Brain, ChevronLeft, Clock, Target, X } from 'lucide-react-native';
+import { useEffect, useState, type ComponentType, type ReactNode } from 'react';
 import { Image, Pressable, ScrollView, StatusBar, StyleSheet, Text, View } from 'react-native';
+import ConfettiCannon from 'react-native-confetti-cannon';
 import Animated, {
   runOnJS,
   useAnimatedReaction,
@@ -16,14 +19,26 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import UnifiedProgressBar from '@/components/UnifiedProgressBar';
-import ConfettiCannon from 'react-native-confetti-cannon';
 
 const BRAND = palette.azul;
 
 // Confetti is decorative, not a UI accent — a wider mix than the brand
 // palette reads more like a celebration than the app's usual blue/green.
 const CONFETTI_COLORS = [palette.azul, palette.verdeXP, palette.ambar, '#8B5BD6', '#F5C518', palette.rojoError];
+
+// Mirrors `mds`'s MISSION_PURPLE / MISSION_PURPLE_DARK in session.tsx's
+// mode-select screen — no formal "morado" token exists in theme/colors.ts
+// (see that file's own comment on the same pair), so the identical literal
+// is reused here rather than inventing a new one, to keep the Misión
+// gradient consistent across both screens.
+const MISSION_PURPLE      = '#7B4DD8';
+const MISSION_PURPLE_DARK = '#3D4D9E';
+// Same accent pair session.tsx's mode-select cards use for Quiz/Tarjetas —
+// reused here so the completion screen's tiles read as the same "language".
+const QUIZ_COLOR = paletteExtras.azulQuiz;
+const QUIZ_BG     = 'rgba(59,130,246,0.08)';
+const TEAL_COLOR  = palette.tealTarjetas;
+const TEAL_BG     = 'rgba(0,194,168,0.08)';
 
 const ALL_MODES: DailyMode[] = ['mision', 'quiz', 'tarjetas'];
 
@@ -46,6 +61,12 @@ type Props = {
   // celebratory and >= 2) shows a streak badge next to the title.
   celebratory?: boolean;
   streakCount?: number;
+  // Celebratory-only, all optional — omitted entirely when the caller
+  // doesn't have the data yet, in which case the corresponding UI piece
+  // just doesn't render (no placeholder, no "0%").
+  praiseLine?: string;
+  accuracy?: { correct: number; total: number };
+  levelProgress?: { level: number; pctToNext: number };
 };
 
 export default function ModeCompletionScreen({
@@ -61,6 +82,9 @@ export default function ModeCompletionScreen({
   sessionCompletedCount,
   celebratory,
   streakCount,
+  praiseLine,
+  accuracy,
+  levelProgress,
 }: Props) {
   const insets = useSafeAreaInsets();
   const { dailySession } = useDailySession();
@@ -79,7 +103,7 @@ export default function ModeCompletionScreen({
   const heroScale = useSharedValue(celebratory ? 0.5 : 1);
   const heroStyle = useAnimatedStyle(() => ({ transform: [{ scale: heroScale.value }] }));
 
-  // Celebratory-only extras (mascot pop, XP count-up, staggered trophies) —
+  // Celebratory-only extras (mascot pop, XP count-up, staggered tiles) —
   // the shared values below are inert (never animated) when !celebratory,
   // so this adds no behavior to Quiz/Tarjetas.
   const mascotScale = useSharedValue(0.5);
@@ -131,54 +155,101 @@ export default function ModeCompletionScreen({
   }, []);
 
   if (celebratory) {
-    const trophies: { key: string; emoji: string; value: string; label: string; bg: string; border: string }[] = [];
-    if (!!streakCount && streakCount >= 1) {
-      trophies.push({ key: 'racha', emoji: '🔥', value: String(streakCount), label: 'racha', bg: 'rgba(255,144,0,0.12)', border: 'rgba(255,144,0,0.3)' });
+    // First tile: precisión when we have a real denominator, otherwise the
+    // "enfocado" (time) tile — never a misleading "0%".
+    const hasAccuracy   = !!accuracy && accuracy.total > 0;
+    const accuracyPct   = hasAccuracy ? Math.round((accuracy!.correct / accuracy!.total) * 100) : null;
+    const isPerfectRound = hasAccuracy && accuracy!.correct === accuracy!.total;
+
+    const metricTiles: { key: string; Icon: ComponentType<{ size: number; color: string; strokeWidth: number }>; value: string; sub: string; bg: string; accent: string; emphasize?: boolean }[] = [];
+    if (accuracyPct !== null) {
+      metricTiles.push({
+        key: 'precision',
+        Icon: Target,
+        value: `${accuracyPct}%`,
+        sub: isPerfectRound ? '¡Sin errores!' : `precisión · ${accuracy!.correct}/${accuracy!.total}`,
+        bg: TEAL_BG,
+        accent: TEAL_COLOR,
+        emphasize: isPerfectRound,
+      });
+    } else if (timeTile) {
+      metricTiles.push({
+        key: 'tiempo',
+        Icon: Clock,
+        value: timeTile.value,
+        sub: 'enfocado',
+        bg: semantic.modeMisionBg,
+        accent: BRAND,
+      });
     }
     if (conceptTile) {
-      trophies.push({ key: 'conceptos', emoji: '🧠', value: conceptTile.value, label: 'conceptos', bg: '#EEF3FF', border: '#C9D8F5' });
-    }
-    if (timeTile) {
-      trophies.push({ key: 'tiempo', emoji: '⏱️', value: timeTile.value, label: 'enfocado', bg: palette.blanco, border: palette.bordeClaro });
+      metricTiles.push({
+        key: 'conceptos',
+        Icon: Brain,
+        value: conceptTile.value,
+        sub: 'conceptos',
+        bg: QUIZ_BG,
+        accent: QUIZ_COLOR,
+      });
     }
 
     return (
       <SafeAreaView style={s.page} edges={['top']}>
         <StatusBar barStyle="dark-content" backgroundColor={palette.crema} />
-        <View style={s.topBar}>
-          <Pressable onPress={onBack} style={s.iconBtn} hitSlop={10}>
-            <ChevronLeft size={18} color={semantic.textPrimary} strokeWidth={2.5} />
-          </Pressable>
-          <Text style={s.screenTitle}>{screenTitle}</Text>
-          <Pressable onPress={onBack} style={s.iconBtn} hitSlop={10}>
-            <X size={16} color={semantic.textPrimary} strokeWidth={2.5} />
+        <View style={s.topBarCeleb}>
+          <Pressable onPress={onBack} style={s.closeBtn} hitSlop={10}>
+            <X size={18} color={semantic.textPrimary} strokeWidth={2.5} />
           </Pressable>
         </View>
         {UNIFIED_PROGRESS_BAR && (
-          <UnifiedProgressBar progress={progress} currentMode={ALL_MODES.includes(mode as any) ? mode as any : null} />
+          <>
+            <UnifiedProgressBar progress={progress} currentMode={ALL_MODES.includes(mode as any) ? mode as any : null} />
+            <Text style={s.progressLabel}>{`Tu progreso de hoy · ${completedCount}/3`}</Text>
+          </>
         )}
         <Animated.View style={[{ flex: 1 }, entryStyle]}>
           <ScrollView contentContainerStyle={s.scroll}>
-            <Animated.View style={mascotStyle}>
+            <Animated.View style={[{ width: '100%', alignItems: 'center' }, mascotStyle]}>
               <Image
                 source={require('@/assets/images/metaAlcanzada.png')}
                 style={s.mascotImg}
                 resizeMode="contain"
               />
             </Animated.View>
+            {!!praiseLine && (
+              <View style={s.praiseBalloon}>
+                <View style={s.praiseBalloonTail} />
+                <Text style={s.praiseBalloonText}>{praiseLine}</Text>
+              </View>
+            )}
             <Text style={s.title}>{`¡${title}!`}</Text>
 
-            <View style={s.xpBox}>
+            <LinearGradient
+              colors={[BRAND, MISSION_PURPLE]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={s.xpBox}
+            >
               <Text style={s.xpBoxLabel}>XP GANADO</Text>
               <Text style={s.xpBoxValue}>{`+${xpDisplay}`}</Text>
-            </View>
+              {!!levelProgress && (
+                <View style={s.levelProgressWrap}>
+                  <View style={s.levelProgressTrack}>
+                    <View style={[s.levelProgressFill, { width: `${Math.max(0, Math.min(100, levelProgress.pctToNext))}%` }]} />
+                  </View>
+                  <Text style={s.levelProgressLabel}>{`${levelProgress.pctToNext}% al Nivel ${levelProgress.level + 1}`}</Text>
+                </View>
+              )}
+            </LinearGradient>
 
-            <View style={s.tileRow}>
-              {trophies.map((t, i) => (
-                <Animated.View key={t.key} style={[s.trophy, { backgroundColor: t.bg, borderColor: t.border }, statStyles[i]]}>
-                  <Text style={s.trophyEmoji}>{t.emoji}</Text>
-                  <Text style={s.trophyVal}>{t.value}</Text>
-                  <Text style={s.trophyLbl}>{t.label}</Text>
+            <View style={s.metricTileRow}>
+              {metricTiles.map((t, i) => (
+                <Animated.View key={t.key} style={[s.metricTile, { backgroundColor: t.bg, borderBottomColor: t.accent }, statStyles[i]]}>
+                  <View style={[s.metricIconBox, { backgroundColor: t.accent }]}>
+                    <t.Icon size={18} color={palette.blanco} strokeWidth={2.2} />
+                  </View>
+                  <Text style={[s.metricValue, { color: t.accent }]}>{t.value}</Text>
+                  <Text style={[s.metricSub, t.emphasize && { color: t.accent, fontWeight: '800' }]}>{t.sub}</Text>
                 </Animated.View>
               ))}
             </View>
@@ -253,15 +324,33 @@ const s = StyleSheet.create({
   cta:        { height: 54, borderRadius: 28, alignItems: 'center', justifyContent: 'center', backgroundColor: BRAND },
   ctaTxt:     { fontSize: 16, fontWeight: '800', color: palette.blanco, letterSpacing: 0.2 },
 
-  // Celebratory-only (Misión) — mascot, XP count-up box, colored trophy
-  // chips, and a "physical key" volume CTA distinct from the plain `cta`.
-  mascotImg:    { width: '100%', height: 130, marginBottom: 8 },
-  xpBox:        { backgroundColor: semantic.success, borderRadius: 18, paddingVertical: 16, paddingHorizontal: 28, alignItems: 'center', marginBottom: 20 },
+  // Celebratory-only (Misión) — clean single-X header, "today's progress"
+  // anchor, mascot, praise balloon, gradient XP card, dashboard-style
+  // metric tiles, and a "physical key" volume CTA distinct from the plain
+  // `cta`.
+  topBarCeleb: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 10, minHeight: 48 },
+  closeBtn:    { width: 38, height: 38, alignItems: 'center', justifyContent: 'center', borderRadius: 14, backgroundColor: palette.blanco, borderWidth: 1, borderColor: palette.bordeClaro },
+  progressLabel: { fontSize: 12, fontWeight: '700', color: semantic.textSecondary, textAlign: 'center', marginTop: 6, marginBottom: 2 },
+
+  mascotImg: { width: '100%', height: 130, marginBottom: 8 },
+
+  praiseBalloon:     { backgroundColor: paletteExtras.moradoSuaveBg, borderRadius: 16, paddingVertical: 10, paddingHorizontal: 16, marginTop: 16, marginBottom: 4, maxWidth: '92%', position: 'relative' },
+  praiseBalloonTail: { position: 'absolute', top: -6, alignSelf: 'center', width: 12, height: 12, backgroundColor: paletteExtras.moradoSuaveBg, transform: [{ rotate: '45deg' }] },
+  praiseBalloonText: { fontSize: 14, fontWeight: '700', color: MISSION_PURPLE_DARK, textAlign: 'center' },
+
+  xpBox:        { borderRadius: 18, paddingVertical: 16, paddingHorizontal: 28, alignItems: 'center', marginBottom: 20, width: '100%', borderBottomWidth: 5, borderBottomColor: MISSION_PURPLE_DARK },
   xpBoxLabel:   { fontSize: 11, fontWeight: '800', color: 'rgba(255,255,255,0.75)', letterSpacing: 1, marginBottom: 2 },
   xpBoxValue:   { fontSize: 34, fontWeight: '900', color: palette.blanco, letterSpacing: -0.5 },
-  trophy:       { flex: 1, alignItems: 'center', borderRadius: 14, paddingVertical: 14, paddingHorizontal: 6, borderWidth: 1.5 },
-  trophyEmoji:  { fontSize: 20, marginBottom: 4 },
-  trophyVal:    { fontSize: 18, fontWeight: '900', color: semantic.textPrimary, marginBottom: 2 },
-  trophyLbl:    { fontSize: 11, fontWeight: '600', color: semantic.textTertiary, textAlign: 'center' },
+  levelProgressWrap:  { width: '100%', marginTop: 12, alignItems: 'center' },
+  levelProgressTrack: { width: '100%', height: 6, borderRadius: 3, backgroundColor: 'rgba(255,255,255,0.28)', overflow: 'hidden', marginBottom: 6 },
+  levelProgressFill:  { height: '100%', borderRadius: 3, backgroundColor: palette.blanco },
+  levelProgressLabel: { fontSize: 11, fontWeight: '700', color: 'rgba(255,255,255,0.9)' },
+
+  metricTileRow: { flexDirection: 'row', gap: 10, width: '100%' },
+  metricTile:    { flex: 1, alignItems: 'center', borderRadius: 16, borderWidth: 1, borderColor: palette.bordeClaro, borderBottomWidth: 3, paddingVertical: 14, paddingHorizontal: 8 },
+  metricIconBox: { width: 36, height: 36, borderRadius: 12, alignItems: 'center', justifyContent: 'center', marginBottom: 8 },
+  metricValue:   { fontSize: 20, fontWeight: '900', marginBottom: 2 },
+  metricSub:     { fontSize: 11, fontWeight: '600', color: semantic.textTertiary, textAlign: 'center' },
+
   ctaVolume:    { height: 54, borderRadius: 28, alignItems: 'center', justifyContent: 'center', backgroundColor: BRAND, borderBottomWidth: 4, borderBottomColor: 'rgba(0,0,0,0.18)' },
 });
