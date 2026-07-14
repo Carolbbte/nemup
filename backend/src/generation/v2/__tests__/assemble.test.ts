@@ -29,7 +29,7 @@ describe('shuffleWithLetterAnswer', () => {
 
 const makeConcept = (id: string, name: string, distinctiveTrait: string): KnowledgeConcept => ({
   id, name, distinctiveTrait,
-  simpleExplanation: '', definition: '', example: null, advancedExamples: [], tips: [], difficulty: 1, sourceQuote: '',
+  simpleExplanation: '', definition: '', example: null, hook: null, advancedExamples: [], tips: [], difficulty: 1, sourceQuote: '',
 });
 
 describe('buildReinforcementFromTrait (no-AI second question)', () => {
@@ -94,6 +94,7 @@ const ko: KnowledgeObject = {
       simpleExplanation: 'Un número junto a una letra.',
       definition: 'Un término algebraico combina un coeficiente y una parte literal.',
       example: '5x²',
+      hook: null,
       advancedExamples: [],
       tips: [],
       difficulty: 2,
@@ -106,6 +107,7 @@ const ko: KnowledgeObject = {
       simpleExplanation: 'Términos con la misma parte literal.',
       definition: 'Dos términos son semejantes cuando comparten la misma parte literal.',
       example: '3x y 5x',
+      hook: null,
       advancedExamples: [],
       tips: [],
       difficulty: 4,

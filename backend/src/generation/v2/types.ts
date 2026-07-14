@@ -25,6 +25,15 @@ export interface KnowledgeConcept {
   /** A concrete example illustrating the concept, or null if none applies. */
   example: string | null;
   /**
+   * A short (≤20 words), teen-relatable everyday hook or analogy connecting
+   * this concept to a teenager's life (e.g. for "evolution": a family recipe
+   * each generation tweaks) — purely an engagement device, never a source of
+   * truth. Must be a CORRECT analogy that doesn't distort the concept; null
+   * when no honest one applies rather than forcing a misleading comparison.
+   * `definition`/`example` remain the actual anchor to the material.
+   */
+  hook: string | null;
+  /**
    * Harder/more advanced examples of the SAME concept — plural because a
    * document can show MULTIPLE distinct harder variants for one concept
    * (e.g. a "Desafío" section with one exercise that adds parentheses and

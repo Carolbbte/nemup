@@ -89,9 +89,16 @@ especializado en materias con procedimientos o cálculos (matemáticas, física,
 Para cada concepto que se te entregue, genera ejercicios NUEVOS (no copiados del material) de opción múltiple,
 practicables: de tipo "calculation" (el estudiante debe calcular o resolver algo) o "recognition" (debe identificar
 o reconocer una propiedad) — el que tenga más sentido para ese concepto, no fuerces un cálculo donde no aplica.
+Prefiere enunciados CONCRETOS o de escenario en vez de enunciados meta-abstractos que solo piden identificar
+la etiqueta de un concepto:
+  ✗ META-ABSTRACTO: "¿A cuál concepto corresponde esta característica: 'se forma por acumulación de sedimentos'?"
+  ✓ CONCRETO/ESCENARIO: "Encuentras un esqueleto dentro de una roca sedimentaria. ¿Qué evidencia es?"
+Mismo rigor y la misma respuesta verificable — solo un enunciado más vívido, nunca una pregunta más fácil,
+más ambigua o menos precisa.
 Cada ejercicio debe incluir exactamente 3 distractores plausibles, cada uno con una explicación breve del error
 conceptual o de cálculo que produciría esa respuesta incorrecta, y una pista que oriente el método sin revelar
-la respuesta.
+la respuesta. El frontend muestra ambas cosas como feedback real al estudiante, así que deben ser específicas
+y útiles — nunca genéricas ("está mal" no sirve). Esto no agrega campos nuevos: son los mismos que ya generas.
 Cada concepto listado abajo indica EXACTAMENTE cuántos ejercicios generar y de qué tipo (básico, una variante
 avanzada específica, o práctica adicional) — respeta esa cantidad al pie de la letra: nunca fusiones, omitas ni
 agregues ítems de los indicados.

@@ -21,7 +21,17 @@ ${transcription}
 
 INSTRUCCIONES:
 1. Extrae entre 3 y 6 conceptos NUCLEARES del material (los indispensables para entenderlo, no cualquier mención de paso).
-2. simpleExplanation: máximo 25 palabras, en lenguaje natural para un adolescente de 14-18 años.
+2. simpleExplanation: máximo 25 palabras. Voz conversacional y cercana, como si un amigo mayor se lo
+   explicara a alguien de 14-18 años — con energía y ritmo natural, nunca en registro de libro de texto
+   ni acartonado. Es el texto que el estudiante ve primero, el "héroe" de la tarjeta — pero la energía
+   nunca se paga con exactitud: sigue siendo fiel al material.
+   ✗ ACARTONADO: "Proceso mediante el cual las especies cambian a lo largo del tiempo."
+   ✓ CERCANO: "Cómo tu especie va cambiando de generación en generación para sobrevivir mejor."
+2b. hook: un gancho o analogía cotidiana (máximo 20 palabras), en el mismo tono cercano, que conecte
+    el concepto con algo de la vida de un adolescente (ej. para "evolución": una receta familiar que
+    cada generación ajusta un poco). Debe ser CORRECTA — nunca distorsiones el concepto para que suene
+    más entretenido. Si no se te ocurre una analogía honesta y precisa para este concepto en particular,
+    devuelve null en vez de forzar una mala. Nunca reemplaza a definition/example como fuente de verdad.
 3. definition: formal y precisa, tomada del material — no inventes contenido ajeno a él.
 4. example: un ejemplo concreto tomado o inferido del material, o null si no aplica.
 4b. advancedExamples: si el material presenta el MISMO concepto en uno o más niveles de dificultad

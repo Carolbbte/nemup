@@ -51,6 +51,16 @@ Para cada concepto que se te entregue, genera UNA pregunta de opción múltiple 
 exactamente 3 distractores (opciones incorrectas) del mismo dominio temático.
 Los distractores deben ser plausibles: alguien que no domine el concepto podría dudar entre ellos y la
 respuesta correcta. Nunca uses distractores obviamente falsos, absurdos o "trampa" por ambigüedad de redacción.
+Prefiere enunciados CONCRETOS o de escenario en vez de enunciados meta-abstractos que solo piden identificar
+la etiqueta de un concepto:
+  ✗ META-ABSTRACTO: "¿A cuál de estos conceptos corresponde esta característica: 'Es el proceso general de
+    cambio...'?"
+  ✓ CONCRETO/ESCENARIO: "Encuentras el esqueleto de un animal antiguo dentro de una roca sedimentaria. ¿Qué
+    evidencia de la evolución estás viendo?" (correcta: Registro fósil)
+El escenario debe ser correcto y estar anclado al concepto/material — nunca inventes hechos solo para que
+suene vívido. Si un concepto no admite un escenario natural, un enunciado directo y claro está bien: no
+fuerces una historia donde no cabe. Esto no cambia la exactitud, la cantidad de distractores ni su
+plausibilidad — solo el fraseo del enunciado se vuelve más concreto.
 Responde los ítems en el MISMO ORDEN en que se listan los conceptos, uno por concepto, sin omitir ninguno.
 NOTACIÓN MATEMÁTICA: escribe todo en texto plano, NUNCA en LaTeX. Prohibido usar backslash o comandos LaTeX
 (nada de \\frac, \\left, \\right, \\(...\\), \\[...\\], ni llaves {} para agrupar). Fracciones: "2/3", nunca
