@@ -2433,11 +2433,11 @@ export default function SessionPlayerScreen() {
                         item.isArrow ? (
                           <View key={i} style={sum.patternArrowRow}>
                             <Text style={sum.patternArrowGlyph}>↓</Text>
-                            {item.text !== '↓' && <Text style={sum.patternArrowLabel}>{item.text}</Text>}
+                            {item.text !== '↓' && <MathText style={sum.patternArrowLabel}>{item.text}</MathText>}
                           </View>
                         ) : (
                           <View key={i} style={[sum.patternNode, i === chain.length - 1 && sum.patternNodeFinal]}>
-                            <Text style={[sum.patternNodeText, i === chain.length - 1 && sum.patternNodeTextFinal]}>{item.text}</Text>
+                            <MathText style={[sum.patternNodeText, i === chain.length - 1 && sum.patternNodeTextFinal]}>{item.text}</MathText>
                           </View>
                         )
                       )}
