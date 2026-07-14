@@ -44,6 +44,7 @@ import {
 } from 'react-native';
 import Animated, {
   Easing,
+  runOnJS,
   useAnimatedStyle,
   useSharedValue,
   withDelay,
@@ -176,6 +177,65 @@ function Spinner({ size = 22, color = BRAND }: { size?: number; color?: string }
     <Animated.View style={animStyle}>
       <Loader2 size={size} color={color} strokeWidth={2.5} />
     </Animated.View>
+  );
+}
+
+// ── Indeterminate sliding bar — NOT a percentage ───────────────────
+// A fixed-width segment that loops left→right. Deliberately not driven by
+// any progress value (there isn't one to drive it with) — purely decorative
+// "something is happening" activity, same honesty rule as Spinner above.
+function IndeterminateBar() {
+  const x = useSharedValue(-30);
+  useEffect(() => {
+    x.value = withRepeat(
+      withSequence(
+        withTiming(100, { duration: 1100, easing: Easing.inOut(Easing.ease) }),
+        withTiming(-30, { duration: 0 }),
+      ), -1, false,
+    );
+  }, []);
+  const segStyle = useAnimatedStyle(() => ({ left: `${x.value}%` as any }));
+  return (
+    <View style={s1.indetTrack}>
+      <Animated.View style={[s1.indetSeg, segStyle]} />
+    </View>
+  );
+}
+
+// ── Rotating encouragement/tips — never a stage claim ──────────────
+// Real study tips/encouragement, cycled on a timer so the wait feels alive.
+// None of these describe backend progress — that's the whole point.
+const WAIT_TIPS = [
+  { emoji: '🌱', title: '¡Sigue así!',        text: 'Cada segundo que esperas, tu futuro yo te lo agradecerá.' },
+  { emoji: '🧠', title: '¿Sabías que...?',     text: 'Repasar activamente (no solo releer) mejora la retención hasta el doble.' },
+  { emoji: '💧', title: 'Aprovecha la pausa',  text: 'Estira un poco o toma agua — vuelves más concentrado.' },
+];
+
+function RotatingTip() {
+  const idxRef = useRef(0);
+  const [idx, setIdx] = useState(0);
+  const op = useSharedValue(1);
+  useEffect(() => {
+    const t = setInterval(() => {
+      op.value = withTiming(0, { duration: 200 }, (done) => {
+        if (!done) return;
+        idxRef.current = (idxRef.current + 1) % WAIT_TIPS.length;
+        runOnJS(setIdx)(idxRef.current);
+        op.value = withTiming(1, { duration: 260 });
+      });
+    }, 4200);
+    return () => clearInterval(t);
+  }, []);
+  const fadeStyle = useAnimatedStyle(() => ({ opacity: op.value }));
+  const tip = WAIT_TIPS[idx];
+  return (
+    <>
+      <Text style={s1.tipEmoji}>{tip.emoji}</Text>
+      <Animated.View style={[{ flex: 1 }, fadeStyle]}>
+        <Text style={s1.tipTitle}>{tip.title}</Text>
+        <Text style={s1.tipText}>{tip.text}</Text>
+      </Animated.View>
+    </>
   );
 }
 
@@ -592,7 +652,7 @@ export default function UploadFlowScreen() {
             </View>
           </View>
 
-          {/* Ahora estamos: estado real del backend + spinner indeterminado (sin % inventado) */}
+          {/* Ahora estamos: estado real del backend + spinner y barra indeterminados (sin % inventado) */}
           <View style={s1.nowCard}>
             <View style={s1.nowCardTop}>
               <View style={s1.nowIconWrap}>
@@ -603,15 +663,36 @@ export default function UploadFlowScreen() {
                 <Text style={s1.nowDesc}>{statusCopy.desc}</Text>
               </View>
             </View>
+            <IndeterminateBar />
+            {/* En cola / Generando — los únicos dos estados reales que reporta
+                el backend, nunca un % ni una etapa inventada. */}
+            <View style={s1.phaseRow}>
+              <View style={[s1.phasePill, jobStatus === 'pending' && s1.phasePillActive]}>
+                <Text style={[s1.phaseText, jobStatus === 'pending' && s1.phaseTextActive]}>En cola</Text>
+              </View>
+              <View style={[s1.phasePill, jobStatus !== 'pending' && s1.phasePillActive]}>
+                <Text style={[s1.phaseText, jobStatus !== 'pending' && s1.phaseTextActive]}>Generando</Text>
+              </View>
+            </View>
           </View>
 
-          {/* Tip banner */}
+          {/* Tu sesión incluirá — anticipatorio, sin XP por modo (aún no se conoce) */}
+          <Text style={s1.includesTitle}>Tu sesión incluirá</Text>
+          <View style={s1.includesRow}>
+            {SESSION_ITEMS.map(({ Icon, label, bg, color }) => (
+              <View key={label} style={[s1.includesCard, { backgroundColor: bg }]}>
+                <View style={[s1.includesIconWrap, { backgroundColor: color }]}>
+                  <Icon size={18} color={palette.blanco} strokeWidth={2} />
+                </View>
+                <Text style={s1.includesLabel}>{label}</Text>
+                <Text style={s1.includesSub}>preparando…</Text>
+              </View>
+            ))}
+          </View>
+
+          {/* Tip banner — rota entre ánimo/tips reales, nunca una etapa */}
           <View style={s1.tipBanner}>
-            <Text style={s1.tipEmoji}>🌱</Text>
-            <View style={{ flex: 1 }}>
-              <Text style={s1.tipTitle}>¡Sigue así!</Text>
-              <Text style={s1.tipText}>Cada segundo que esperas, tu futuro yo te lo agradecerá.</Text>
-            </View>
+            <RotatingTip />
             <View style={s1.xpBox}>
               <Text style={s1.xpBoxLabel}>Ganas</Text>
               <Text style={s1.xpBoxValue}>⚡ +10 XP</Text>
@@ -991,13 +1072,36 @@ const s1 = StyleSheet.create({
   floatBadge2: { top: 50, right: -10, backgroundColor: palette.verdeXP },
   floatBadge3: { bottom: 6, right: 4, backgroundColor: palette.ambar },
 
-  // "Ahora estamos" card (incluye la barra de progreso)
+  // "Ahora estamos" card — estado real (spinner + barra indeterminada, sin %)
   nowCard:      { backgroundColor: palette.blanco, borderRadius: 20, borderWidth: 1, borderColor: palette.bordeClaro, padding: 16, marginBottom: 12 },
   nowCardTop:   { flexDirection: 'row', alignItems: 'flex-start', gap: 12, marginBottom: 14 },
-  nowIconWrap:  { width: 36, height: 36, borderRadius: 18, backgroundColor: palette.azulClaro, alignItems: 'center', justifyContent: 'center' },
+  // borderRadius 14 (squircle) en vez de círculo — mismo lenguaje de "cuadro
+  // de ícono de color" que usan las tarjetas de modo del dashboard.
+  nowIconWrap:  { width: 36, height: 36, borderRadius: 14, backgroundColor: palette.azulClaro, alignItems: 'center', justifyContent: 'center' },
   nowIconEmoji: { fontSize: 17 },
   nowValue:     { fontSize: 16, fontWeight: '800', color: BRAND, marginBottom: 4 },
   nowDesc:      { fontSize: 12, color: semantic.textSecondary, lineHeight: 17 },
+
+  // Barra indeterminada — un segmento fijo que se desliza en loop, nunca un
+  // ancho derivado de un %.
+  indetTrack: { height: 5, borderRadius: 99, backgroundColor: palette.crema, overflow: 'hidden' },
+  indetSeg:   { position: 'absolute', top: 0, bottom: 0, width: '30%', borderRadius: 99, backgroundColor: BRAND },
+
+  // Fase real (pending/processing) — nunca un tercer estado inventado.
+  phaseRow:        { flexDirection: 'row', gap: 6, marginTop: 12 },
+  phasePill:       { flex: 1, alignItems: 'center', paddingVertical: 5, borderRadius: 10, backgroundColor: palette.crema },
+  phasePillActive: { backgroundColor: palette.azulClaro },
+  phaseText:       { fontSize: 10, fontWeight: '700', color: semantic.textTertiary },
+  phaseTextActive: { color: BRAND },
+
+  // "Tu sesión incluirá" — anticipatorio: mismas tarjetas/colores de modo
+  // que SESSION_ITEMS (Screen 0), atenuadas y sin XP (aún no se conoce).
+  includesTitle:    { fontSize: 14, fontWeight: '800', color: semantic.textPrimary, marginBottom: 10 },
+  includesRow:      { flexDirection: 'row', gap: 8, marginBottom: 14 },
+  includesCard:     { flex: 1, alignItems: 'center', gap: 6, borderRadius: 16, paddingVertical: 14, paddingHorizontal: 6, opacity: 0.6 },
+  includesIconWrap: { width: 32, height: 32, borderRadius: 11, alignItems: 'center', justifyContent: 'center' },
+  includesLabel:    { fontSize: 12, fontWeight: '800', color: semantic.textPrimary },
+  includesSub:      { fontSize: 10, fontWeight: '600', color: semantic.textTertiary, fontStyle: 'italic' },
 
   tipBanner:  { flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: paletteExtras.verdeChipBg, borderRadius: 18, padding: 14, marginBottom: 12 },
   tipEmoji:   { fontSize: 22 },
