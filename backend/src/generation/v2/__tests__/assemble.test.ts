@@ -43,8 +43,11 @@ describe('buildReinforcementFromTrait (no-AI second question)', () => {
     expect(result).not.toBeNull();
     expect(result!.correctText).toBe('Monomio');
     expect(result!.question).toContain('Es el único con un solo término.');
-    expect(result!.distractors).toEqual(['Binomio', 'Trinomio']);
+    // Order isn't guaranteed — the pool is shuffled so repeated calls don't
+    // always surface the same distractors in the same order.
+    expect(result!.distractors.slice().sort()).toEqual(['Binomio', 'Trinomio']);
     expect(result!.distractors).not.toContain('Monomio');
+    expect(result!.usedExample).toBe(false);
   });
 
   it('caps distractors at 3 even with more concepts available', () => {
@@ -72,6 +75,7 @@ describe('buildReinforcementFromTrait (no-AI second question)', () => {
     expect(result!.correctText).toBe('5x²');
     expect(result!.distractors).toEqual(['3x y 5x']);
     expect(result!.question).toContain('ejemplo');
+    expect(result!.usedExample).toBe(true);
   });
 
   it('falls back to the trait question when the concept has an example but no OTHER concept does', () => {
@@ -81,6 +85,23 @@ describe('buildReinforcementFromTrait (no-AI second question)', () => {
     expect(result).not.toBeNull();
     expect(result!.correctText).toBe('Monomio');
     expect(result!.distractors).toEqual(['Binomio']);
+    expect(result!.usedExample).toBe(false);
+  });
+
+  it('skips the example branch when preferExample=false, even if both concepts have examples', () => {
+    const withExample = (id: string, name: string, trait: string, example: string): KnowledgeConcept => ({
+      ...makeConcept(id, name, trait),
+      example,
+    });
+    const concepts = [
+      withExample('c1', 'Término algebraico', 'Es el único formado por coeficiente y parte literal.', '5x²'),
+      withExample('c2', 'Términos semejantes', 'Es el único que compara partes literales.', '3x y 5x'),
+    ];
+    const result = buildReinforcementFromTrait(concepts[0], concepts, false);
+    expect(result).not.toBeNull();
+    expect(result!.usedExample).toBe(false);
+    expect(result!.correctText).toBe('Término algebraico');
+    expect(result!.question).toContain('pista');
   });
 });
 

@@ -516,15 +516,25 @@ function buildWorkedExampleSummarySlide(result: WorkedExampleResult): SummarySli
  * conceptos" instruction means this only happens if the model under-delivers
  * concepts) — callers must drop the reinforcement_challenge slide in that
  * case rather than fabricate distractors.
+ *
+ * `preferExample` (default true) lets a caller force the riddle branch even
+ * when an example-based question would otherwise be available — used by
+ * buildSummarySlides to cap how many concepts in one session get the
+ * example-match framing, since that branch's distractor pool overlaps
+ * heavily across concepts in short documents and started feeling cloned.
+ * The distractor pool for BOTH branches is shuffled before slicing, so two
+ * concepts that land in the same branch don't surface the same 3 options in
+ * the same order either.
  */
 export function buildReinforcementFromTrait(
   concept: KnowledgeConcept,
   allConcepts: KnowledgeConcept[],
-): { question: string; correctText: string; distractors: string[] } | null {
+  preferExample: boolean = true,
+): { question: string; correctText: string; distractors: string[]; usedExample: boolean } | null {
   const others = allConcepts.filter((c) => c.id !== concept.id);
   if (others.length === 0) return null;
 
-  if (concept.example && concept.example.trim().length > 0) {
+  if (preferExample && concept.example && concept.example.trim().length > 0) {
     const otherExamples = others
       .map((c) => c.example)
       .filter((e): e is string => !!e && e.trim().length > 0 && e !== concept.example);
@@ -533,7 +543,8 @@ export function buildReinforcementFromTrait(
       return {
         question: `¿Cuál de estas opciones es un ejemplo de "${concept.name}"?`,
         correctText: concept.example,
-        distractors: otherExamples.slice(0, 3),
+        distractors: shuffleArray(otherExamples).slice(0, 3),
+        usedExample: true,
       };
     }
   }
@@ -541,7 +552,8 @@ export function buildReinforcementFromTrait(
   return {
     question: `¿Qué concepto reconoces por esta pista?\n"${concept.distinctiveTrait}"`,
     correctText: concept.name,
-    distractors: others.map((c) => c.name).slice(0, 3),
+    distractors: shuffleArray(others.map((c) => c.name)).slice(0, 3),
+    usedExample: false,
   };
 }
 
@@ -611,26 +623,62 @@ export function buildSummarySlides(
   // untouched.
   const nextExercise = (): GeneratedExercise | undefined => exercisePool.shift();
 
-  for (const concept of ko.concepts) {
+  // Caps how many concepts in one session get the "¿cuál de estas opciones
+  // es un ejemplo de X?" framing from buildReinforcementFromTrait — with
+  // few concepts, that branch's distractor pool overlaps so heavily across
+  // concepts it started reading as a cloned question. Once the cap is hit,
+  // later concepts fall through to the (now-shuffled, riddle-framed) trait
+  // branch instead — still a real, ungenerated second question, just not
+  // the example-match framing every time.
+  const MAX_EXAMPLE_MATCH_PER_SESSION = 2;
+  let exampleMatchUsed = 0;
+
+  // Fill-blank: intercalates ONE genuinely different interaction format
+  // instead of every concept's reinforcement being another multiple-choice
+  // question — reuses the exact sentence/choice builders buildDesafio
+  // already relies on (buildFillBlank + pickFillBlankChoices), just
+  // packaged as a SummarySlide. Picks the first concept (in document order)
+  // for which real decoy choices can be built from sibling concept names
+  // (pickFillBlankChoices needs >=2 OTHER names); every other concept's
+  // reinforcement is completely untouched. If no concept has enough
+  // siblings, fill_blank is simply never emitted — no fabrication.
+  const allConceptNames = ko.concepts.map((c) => c.name);
+  const fillBlankConceptId = ko.concepts.find(
+    (c, i) => pickFillBlankChoices(c.name, allConceptNames, i) !== null,
+  )?.id ?? null;
+
+  ko.concepts.forEach((concept, conceptIdx) => {
     const d = distractors[concept.id];
-    if (!d) continue; // no generated question — skip this concept's loop, keep the rest intact
+    if (!d) return; // no generated question — skip this concept's loop, keep the rest intact
+
+    // Alternates which slide opens the concept's block. Breaks the rigid
+    // "concept → its question → next concept" rhythm at roughly half the
+    // concept boundaries: today every block ends on a challenge slide
+    // (reinforcement_challenge) and the next always opens on one too
+    // (micro_challenge) — two challenge-shaped slides touching every single
+    // time. Starting odd-indexed concepts with the card instead means that
+    // boundary becomes challenge → card (a breather) rather than
+    // challenge → challenge.
+    const cardFirst = conceptIdx % 2 === 1;
 
     const microEx = nextExercise();
     const micro = microEx ? fieldsFromExercise(microEx) : fieldsFromDistractorSet(d);
-    slides.push({
+    const microSlide: SummarySlide = {
       type: 'micro_challenge',
       emoji: '🧠',
-      title: `¿Qué sabes de ${concept.name}?`,
-      definition: 'Responde antes de ver la respuesta — así el concepto se queda contigo.',
+      title: cardFirst ? `Practica: ${concept.name}` : `¿Qué sabes de ${concept.name}?`,
+      definition: cardFirst
+        ? 'Ya viste este concepto — ponlo en práctica.'
+        : 'Responde antes de ver la respuesta — así el concepto se queda contigo.',
       example: '',
       question: micro.question,
       options: micro.options,
       correctAnswer: micro.correctAnswer,
       ...(micro.wrongAnswerHints ? { wrongAnswerHints: micro.wrongAnswerHints } : {}),
       ...(micro.hint ? { hint: micro.hint } : {}),
-    });
+    };
 
-    slides.push({
+    const cardSlide: SummarySlide = {
       type: 'main_concept',
       emoji: '💡',
       title: concept.name,
@@ -639,9 +687,40 @@ export function buildSummarySlides(
       hook: concept.hook,
       formalDefinition: concept.definition,
       ...(concept.tips[0] ? { tip: concept.tips[0] } : {}),
-    });
+    };
+
+    slides.push(...(cardFirst ? [cardSlide, microSlide] : [microSlide, cardSlide]));
 
     // A DIFFERENT question than the micro's, not the same one reshuffled.
+    // This concept's slot is reserved for the intercalated fill_blank
+    // format when it's the chosen one — checked BEFORE touching the
+    // exercise pool, so a generated exercise is never silently consumed
+    // and dropped for a concept that ends up not using it.
+    if (concept.id === fillBlankConceptId) {
+      const picked = pickFillBlankChoices(concept.name, allConceptNames, conceptIdx);
+      if (picked) {
+        slides.push({
+          type: 'fill_blank',
+          emoji: '📝',
+          title: 'Completa la frase',
+          definition: `Aplica lo que acabas de aprender sobre ${concept.name}.`,
+          example: '',
+          blankSentence: buildFillBlank(concept),
+          blankChoices: picked.choices,
+          blankAnswer: picked.correctAnswer,
+          // Mirrors blankAnswer — session.tsx's own answer evaluator uses
+          // blankAnswer (per the instruction), but the shared
+          // renderChallengeFeedback panel (deliberately left untouched)
+          // was written before fill_blank existed and only ever reads
+          // `correctAnswer`. Setting both to the same letter is the
+          // no-code-change way to keep that shared panel correct here too.
+          correctAnswer: picked.correctAnswer,
+          blankExplanation: concept.definition,
+        });
+      }
+      return;
+    }
+
     // Prefers a generated exercise (also guaranteed distinct); falls back to
     // the distinctiveTrait-derived recognition question, dropped entirely
     // when neither is available — one question per concept beats two
@@ -662,8 +741,10 @@ export function buildSummarySlides(
         ...(r.hint ? { hint: r.hint } : {}),
       });
     } else {
-      const traitQuestion = buildReinforcementFromTrait(concept, ko.concepts);
+      const allowExample = exampleMatchUsed < MAX_EXAMPLE_MATCH_PER_SESSION;
+      const traitQuestion = buildReinforcementFromTrait(concept, ko.concepts, allowExample);
       if (traitQuestion) {
+        if (traitQuestion.usedExample) exampleMatchUsed++;
         const reinforcement = shuffleWithLetterAnswer(traitQuestion.correctText, traitQuestion.distractors);
         slides.push({
           type: 'reinforcement_challenge',
@@ -677,7 +758,7 @@ export function buildSummarySlides(
         });
       }
     }
-  }
+  });
 
   // Worked examples: solved exercises from the material, placed after all
   // concepts are taught and before the application/final challenge — concept

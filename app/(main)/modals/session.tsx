@@ -1,4 +1,9 @@
 import ModeCompletionScreen from '@/components/ModeCompletionScreen';
+// fill_blank rendering reused as-is from Desafío (presentational, no state
+// of its own — see FillBlankContent's own doc comment). Misión wires its
+// own letter-based answer flow to it; desafio.tsx's own logic is untouched.
+import { FillBlankContent } from './desafio';
+import type { DesafioSlide } from '@/shared/desafio';
 import UnifiedProgressBar from '@/components/UnifiedProgressBar';
 import { DAILY_SESSION_LOGIC, FIXED_QUIZ_FEEDBACK, MAX_ATTEMPTS_PER_QUESTION, MODE_COMPLETION_REDESIGN, NEUTRAL_MISSION_COMPLETION, SHOW_DESAFIO_MODE, SHOW_GEMS, UNIFIED_PROGRESS_BAR, UNIFIED_QUIZ_COMPLETION } from '@/config/features';
 import type { DailyMode } from '@/contexts/DailySessionContext';
@@ -66,14 +71,18 @@ type Option  = { id: string; text: string };
 type Question = { id: string; text: string; options: Option[]; correctOptionId: string; explanation: string; sourceQuote: string };
 type Flashcard = { id: string; front: string; back: string };
 type SummarySlideType = 'concept' | 'key_fact' | 'important' | 'remember' | 'example' | 'curiosity' | 'wow_fact'
-  | 'mission' | 'main_concept' | 'micro_challenge' | 'reinforcement_challenge' | 'comprehension' | 'key_relation' | 'mini_quiz' | 'process_flow' | 'application' | 'common_error' | 'final_challenge' | 'victory' | 'challenge' | 'decide' | 'order_sequence' | 'worked_example' | 'worked_example_intro';
+  | 'mission' | 'main_concept' | 'micro_challenge' | 'reinforcement_challenge' | 'comprehension' | 'key_relation' | 'mini_quiz' | 'process_flow' | 'application' | 'common_error' | 'final_challenge' | 'victory' | 'challenge' | 'decide' | 'order_sequence' | 'worked_example' | 'worked_example_intro' | 'fill_blank';
 type IllustrationType = 'educational' | 'diagram' | 'concept' | 'timeline' | 'map' | 'process' | 'comparison';
 // `hook`/`formalDefinition`/`tip` — main_concept only, populated by
 // assemble.ts from the concept's own hook/definition/tips[0]. All optional:
 // older cached sessions (generated before these existed) simply omit them,
 // and the renderer falls back to today's behavior (no hook line, no tip
 // box, no formal-definition toggle) rather than breaking.
-type BackendSlide = { type: SummarySlideType; emoji: string; title: string; definition: string; example: string; visualHint?: string; illustrationType?: IllustrationType; connector?: string | null; question?: string | null; options?: string[] | null; correctAnswer?: string | null; wrongAnswerHints?: Record<string, string> | null; hint?: string; hook?: string | null; formalDefinition?: string; tip?: string; requeued?: boolean; requeuedFrom?: string | null; statement?: string; answer?: string; steps?: string[] };
+// `blankSentence`/`blankChoices`/`blankAnswer`/`blankExplanation` —
+// fill_blank only, same shape Desafío's DesafioSlide already uses for the
+// same fields (see FillBlankContent) — the answer is still a LETTER
+// (blankAnswer), evaluated exactly like any other Misión MC slide.
+type BackendSlide = { type: SummarySlideType; emoji: string; title: string; definition: string; example: string; visualHint?: string; illustrationType?: IllustrationType; connector?: string | null; question?: string | null; options?: string[] | null; correctAnswer?: string | null; wrongAnswerHints?: Record<string, string> | null; hint?: string; hook?: string | null; formalDefinition?: string; tip?: string; blankSentence?: string; blankChoices?: { letter: string; text: string }[]; blankAnswer?: string; blankExplanation?: string; requeued?: boolean; requeuedFrom?: string | null; statement?: string; answer?: string; steps?: string[] };
 type LegacySection = { heading: string; content: string; keyPoints: string[] };
 type Session = {
   id?: string; userId?: string;
@@ -1893,15 +1902,18 @@ export default function SessionPlayerScreen() {
         const requeuedSlide: SummarySlide = { ...wrongSlide, requeued: true, requeuedFrom: wrongSlide.question ?? null } as SummarySlide;
 
         // Anchor on the next reinforcement_challenge, NOT the next main_concept.
-        // Every concept triple is micro_challenge -> main_concept ->
-        // reinforcement_challenge, always in that order — reinforcement_challenge
-        // is always the LAST slide of a triple, so the slide right after it is
-        // always the START of a fresh triple (or the end-of-mission slides),
-        // never another reinforcement. Anchoring on main_concept instead (tried
-        // first) still collides: main_concept is always immediately followed by
-        // ITS OWN reinforcement one slide later, so inserting right after ANY
-        // main_concept — even skipping ahead to the 2nd one — still drops the
-        // requeue right before some concept's reinforcement.
+        // Each concept's triple can open with either micro_challenge or
+        // main_concept first (assemble.ts alternates this per concept to
+        // break up the format rhythm), but reinforcement_challenge — or,
+        // for the one intercalated concept, fill_blank — is always the LAST
+        // slide of the triple regardless of that ordering, so the slide
+        // right after it is always the START of a fresh triple (or the
+        // end-of-mission slides), never another reinforcement. Anchoring on
+        // main_concept instead (tried first) still collides: main_concept
+        // is always immediately adjacent to ITS OWN reinforcement (before
+        // or after, depending on the alternation), so inserting right after
+        // ANY main_concept — even skipping ahead to the 2nd one — still
+        // risks landing right before some concept's reinforcement.
         // No reinforcement_challenge ahead — fall back to right before victory,
         // NEVER prev.length: victory is always the last slide the backend
         // builds, and appending after it broke the MODE_COMPLETION_REDESIGN
@@ -2407,6 +2419,34 @@ export default function SessionPlayerScreen() {
                         <Text style={sum.introDef}>Este contenido no tiene opciones disponibles — desliza para continuar.</Text>
                       )}
                       {renderChallengeFeedback(slide as BackendSlide, answered, firstName, summaryIdx)}
+                  </>
+                );
+              })()
+            ) : slide?.type === 'fill_blank' ? (
+              // Presentational component reused as-is from Desafío — the
+              // answer is still a LETTER (blankAnswer), wired to the exact
+              // same quizAnswers/streak/requeue/feedback path every other
+              // Misión challenge slide already uses.
+              (() => {
+                const answered = quizAnswers[summaryIdx];
+                const isCorrect = answered === slide.blankAnswer;
+                return (
+                  <>
+                    <FillBlankContent
+                      slide={slide as unknown as DesafioSlide}
+                      selection={answered ?? null}
+                      blocked={!!answered}
+                      answer={answered ? { value: answered, correct: isCorrect } : undefined}
+                      onSelect={(letter: string) => {
+                        if (answered) return;
+                        const correct = letter === slide.blankAnswer;
+                        missionStreakRef.current = correct ? missionStreakRef.current + 1 : 0;
+                        setMissionStreak(missionStreakRef.current);
+                        setQuizAnswers(prev => ({ ...prev, [summaryIdx]: letter }));
+                        if (!correct) insertCorrectiveSlide(slide as BackendSlide, letter);
+                      }}
+                    />
+                    {renderChallengeFeedback(slide as BackendSlide, answered, firstName, summaryIdx)}
                   </>
                 );
               })()

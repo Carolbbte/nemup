@@ -257,7 +257,10 @@ function MultipleChoiceContent({
 
 // ── Fill blank content ────────────────────────────────────────────────────────
 
-function FillBlankContent({
+// Exported so session.tsx (Misión) can reuse this presentational component
+// for its own intercalated fill_blank slide — it has no state of its own,
+// and Misión wires its own letter-based answer flow to `onSelect`/`answer`.
+export function FillBlankContent({
   slide, selection, onSelect, answer, blocked,
 }: {
   slide: DesafioSlide; selection: string | null;

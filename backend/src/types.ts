@@ -54,7 +54,7 @@ export type SummarySlideType =
   // Structured mission screens
   | 'mission' | 'main_concept' | 'micro_challenge' | 'reinforcement_challenge' | 'comprehension' | 'key_relation'
   | 'process_flow' | 'application' | 'victory' | 'challenge' | 'decide' | 'order_sequence'
-  | 'worked_example' | 'worked_example_intro';
+  | 'worked_example' | 'worked_example_intro' | 'fill_blank';
 
 export type IllustrationType = 'educational' | 'diagram' | 'concept' | 'timeline' | 'map' | 'process' | 'comparison';
 
@@ -84,6 +84,16 @@ export interface SummarySlide {
   formalDefinition?: string;
   // main_concept only, first of KnowledgeConcept.tips when non-empty.
   tip?: string;
+  // fill_blank only — same builders buildDesafio already uses
+  // (buildFillBlank/pickFillBlankChoices in assemble.ts), just packaged as
+  // a SummarySlide instead of a DesafioSlide. The answer is still a LETTER
+  // (blankAnswer), evaluated the exact same way as any other Misión
+  // multiple-choice slide (letter === slide.blankAnswer) — no new answer
+  // model needed.
+  blankSentence?: string;
+  blankChoices?: { letter: string; text: string }[];
+  blankAnswer?: string;
+  blankExplanation?: string;
   // worked_example only — statement/answer copied verbatim from the source
   // material (never computed), steps omitted when the model's derivation
   // failed safety validation upstream (see procedural.ts's B-mínima fallback).
