@@ -634,6 +634,9 @@ export function buildSummarySlides(
       title: concept.name,
       definition: concept.simpleExplanation,
       example: concept.example ?? '',
+      hook: concept.hook,
+      formalDefinition: concept.definition,
+      ...(concept.tips[0] ? { tip: concept.tips[0] } : {}),
     });
 
     // A DIFFERENT question than the micro's, not the same one reshuffled.

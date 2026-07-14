@@ -71,10 +71,19 @@ export interface SummarySlide {
   options?: string[] | null;
   correctAnswer?: string | null;
   wrongAnswerHints?: Record<string, string> | null;
-  // Guiding hint for a generated exercise (exerciseGenerator.ts) — shown
-  // without revealing the answer. Frontend rendering (a "Pista" button) is
-  // pending; the field is populated so the data is ready when it lands.
+  // Guiding hint for a generated exercise (exerciseGenerator.ts) — shown on
+  // a wrong answer, without revealing the correct one.
   hint?: string;
+  // main_concept only, from KnowledgeConcept.hook — a short, teen-relatable
+  // analogy shown in mascot voice above the card. Null/absent on older
+  // cached sessions or when comprehension.ts had no honest analogy.
+  hook?: string | null;
+  // main_concept only, from KnowledgeConcept.definition (the FORMAL one —
+  // `definition` on this slide holds simpleExplanation instead, see
+  // assemble.ts). Shown behind a collapsed "Ver definición formal" toggle.
+  formalDefinition?: string;
+  // main_concept only, first of KnowledgeConcept.tips when non-empty.
+  tip?: string;
   // worked_example only — statement/answer copied verbatim from the source
   // material (never computed), steps omitted when the model's derivation
   // failed safety validation upstream (see procedural.ts's B-mínima fallback).
