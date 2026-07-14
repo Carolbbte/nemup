@@ -497,10 +497,12 @@ function buildWorkedExampleSummarySlide(result: WorkedExampleResult): SummarySli
  * Prefers an example-based question ("¿cuál de estas opciones es un ejemplo
  * de X?") using each concept's own `example` field — concrete and, for
  * procedural material (math, formulas), still expression/number-based rather
- * than pure vocabulary. Only falls back to the abstract trait-matching
- * question ("¿a cuál de estos conceptos corresponde...?") when the concept
- * or its siblings don't have a usable `example` (comprehension.ts documents
- * `example` as nullable — "o null si no aplica").
+ * than pure vocabulary. Only falls back to the trait-matching question,
+ * framed as a guessing riddle ("¿Qué concepto reconoces por esta pista?")
+ * rather than the meta-academic "¿a cuál de estos conceptos corresponde...?"
+ * phrasing this used to have, when the concept or its siblings don't have a
+ * usable `example` (comprehension.ts documents `example` as nullable —
+ * "o null si no aplica").
  *
  * `distinctiveTrait` is explicitly extracted to be true for this concept and
  * false for every other one in the same document (see KnowledgeConcept's doc
@@ -537,7 +539,7 @@ export function buildReinforcementFromTrait(
   }
 
   return {
-    question: `¿A cuál de estos conceptos corresponde esta característica: "${concept.distinctiveTrait}"?`,
+    question: `¿Qué concepto reconoces por esta pista?\n"${concept.distinctiveTrait}"`,
     correctText: concept.name,
     distractors: others.map((c) => c.name).slice(0, 3),
   };
