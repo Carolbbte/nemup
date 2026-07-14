@@ -6,6 +6,7 @@ import SessionHeroCard from '@/components/dashboard/SessionHeroCard';
 import SessionProgressCard from '@/components/dashboard/SessionProgressCard';
 import StatsStrip from '@/components/dashboard/StatsStrip';
 import UploadApuntesButton from '@/components/dashboard/UploadApuntesButton';
+import WeekStreakCard from '@/components/dashboard/WeekStreakCard';
 import { useDailySession } from '@/contexts/DailySessionContext';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
@@ -54,6 +55,12 @@ const LEVEL      = 12;
 const CURRENT_XP = 0;
 const GEM_COUNT  = 340;
 const LEAGUE_POS: number = 3;
+
+// Mirrors session.tsx's XP_PER_CORRECT / XP_PER_CARD (mode-select screen) —
+// not exported from there, so the same literals are reused here to derive
+// the same per-mode XP shown on the "Tu sesión incluye" cards.
+const XP_PER_CORRECT = 15;
+const XP_PER_CARD    = 5;
 
 // ── Mensajes de identidad ─────────────────────────────────────────
 const IDENTITY_MSGS = [
@@ -146,6 +153,7 @@ export default function HomeScreen() {
 
   const [lastSession, setLastSession] = useState<{
     subject: string; topic: string; xpReward: number; estimatedDuration: number;
+    quizXp: number; cardsXp: number; hasDesafio: boolean;
   } | null>(null);
 
   const [sessionProgress, setSessionProgress] = useState<{
@@ -165,7 +173,12 @@ export default function HomeScreen() {
       if (rawSession) {
         try {
           const p = JSON.parse(rawSession);
-          setLastSession({ subject: p.subject, topic: p.topic, xpReward: p.xpReward, estimatedDuration: p.estimatedDuration });
+          setLastSession({
+            subject: p.subject, topic: p.topic, xpReward: p.xpReward, estimatedDuration: p.estimatedDuration,
+            quizXp: XP_PER_CORRECT * (p.questions?.length ?? 0),
+            cardsXp: XP_PER_CARD * (p.flashcards?.length ?? 0),
+            hasDesafio: !!p.desafio,
+          });
         } catch {}
       }
       if (rawProgress) {
@@ -195,6 +208,11 @@ export default function HomeScreen() {
   const completedCount = Object.values(dailySession.completedModes).filter(Boolean).length;
   const isFullyComplete = (['mision', 'quiz', 'tarjetas'] as const).every(m => dailySession.completedModes[m]);
   const isInProgress = lastSession !== null && !isFullyComplete && completedCount > 0;
+  // "Sesión lista" — a session was generated but nothing started yet. Kept
+  // distinct from isInProgress so the new "incluye"/racha sections don't
+  // also show once the session is fully complete (isFullyComplete implies
+  // !isInProgress too, but isn't "ready").
+  const isReady = lastSession !== null && !isFullyComplete && completedCount === 0;
 
   const missionsDone = lastSession ? 1 : 0;
   const dailyTasks = [
@@ -245,11 +263,13 @@ export default function HomeScreen() {
             hasNotification={false}
             isFirstTime={lastSession === null}
           />
-          <StatsStrip
-            streakDays={dailySession.streak}
-            xp={CURRENT_XP}
-            sessionsCompleted={0}
-          />
+          {!isReady && (
+            <StatsStrip
+              streakDays={dailySession.streak}
+              xp={CURRENT_XP}
+              sessionsCompleted={0}
+            />
+          )}
           {lastSession === null ? (
             <View style={nd.emptyHeroWrap}>
               <SessionHeroCard
@@ -273,6 +293,18 @@ export default function HomeScreen() {
                 <>
                   <UnlocksCard />
                   <SessionProgressCard completedCount={completedCount} totalXp={lastSession?.xpReward ?? 0} />
+                </>
+              )}
+              {isReady && (
+                <>
+                  <UnlocksCard
+                    title="Tu sesión incluye"
+                    variant="included"
+                    quizXp={lastSession.quizXp}
+                    cardsXp={lastSession.cardsXp}
+                    showDesafio={lastSession.hasDesafio}
+                  />
+                  <WeekStreakCard streakDays={dailySession.streak} />
                 </>
               )}
             </>
@@ -621,7 +653,7 @@ const s = StyleSheet.create({
 // ── New dashboard styles ──────────────────────────────────────────
 const nd = StyleSheet.create({
   page:    { flex: 1, backgroundColor: palette.crema },
-  content: { paddingHorizontal: 20, paddingTop: 14, flexGrow: 1 },
+  content: { paddingHorizontal: 20, paddingTop: SM ? 8 : 10, flexGrow: 1 },
   emptyHeroWrap:  { flex: 1, justifyContent: 'center' },
   desafioCard: {
     flexDirection: 'row',
