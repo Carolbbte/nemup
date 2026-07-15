@@ -1,8 +1,8 @@
 import ModeCompletionScreen from '@/components/ModeCompletionScreen';
-// fill_blank/match_pairs rendering reused as-is from Desafío (both
+// fill_blank/match_pairs/classify rendering reused as-is from Desafío (all
 // presentational, no state of their own). Misión wires its own answer flow
 // to each; desafio.tsx's own handlers/logic are untouched.
-import { FillBlankContent, MatchPairsContent } from './desafio';
+import { FillBlankContent, MatchPairsContent, ClassifyContent } from './desafio';
 import type { DesafioSlide } from '@/shared/desafio';
 import UnifiedProgressBar from '@/components/UnifiedProgressBar';
 import { DAILY_SESSION_LOGIC, FIXED_QUIZ_FEEDBACK, MAX_ATTEMPTS_PER_QUESTION, MODE_COMPLETION_REDESIGN, NEUTRAL_MISSION_COMPLETION, SHOW_DESAFIO_MODE, SHOW_GEMS, UNIFIED_PROGRESS_BAR, UNIFIED_QUIZ_COMPLETION } from '@/config/features';
@@ -71,7 +71,7 @@ type Option  = { id: string; text: string };
 type Question = { id: string; text: string; options: Option[]; correctOptionId: string; explanation: string; sourceQuote: string };
 type Flashcard = { id: string; front: string; back: string };
 type SummarySlideType = 'concept' | 'key_fact' | 'important' | 'remember' | 'example' | 'curiosity' | 'wow_fact'
-  | 'mission' | 'main_concept' | 'micro_challenge' | 'reinforcement_challenge' | 'comprehension' | 'key_relation' | 'mini_quiz' | 'process_flow' | 'application' | 'common_error' | 'final_challenge' | 'victory' | 'challenge' | 'decide' | 'order_sequence' | 'worked_example' | 'worked_example_intro' | 'fill_blank' | 'match_pairs';
+  | 'mission' | 'main_concept' | 'micro_challenge' | 'reinforcement_challenge' | 'comprehension' | 'key_relation' | 'mini_quiz' | 'process_flow' | 'application' | 'common_error' | 'final_challenge' | 'victory' | 'challenge' | 'decide' | 'order_sequence' | 'worked_example' | 'worked_example_intro' | 'fill_blank' | 'match_pairs' | 'classify';
 type IllustrationType = 'educational' | 'diagram' | 'concept' | 'timeline' | 'map' | 'process' | 'comparison';
 // `hook`/`formalDefinition`/`tip` — main_concept only, populated by
 // assemble.ts from the concept's own hook/definition/tips[0]. All optional:
@@ -86,7 +86,10 @@ type IllustrationType = 'educational' | 'diagram' | 'concept' | 'timeline' | 'ma
 // DesafioSlide already uses for `pairs` — the answer is NOT a letter, it's
 // a Record<string,string> mapping each pair's left id to the right id the
 // student matched (see quizAnswers' type and renderChallengeFeedback).
-type BackendSlide = { type: SummarySlideType; emoji: string; title: string; definition: string; example: string; visualHint?: string; illustrationType?: IllustrationType; connector?: string | null; question?: string | null; options?: string[] | null; correctAnswer?: string | null; wrongAnswerHints?: Record<string, string> | null; hint?: string; hook?: string | null; formalDefinition?: string; tip?: string; blankSentence?: string; blankChoices?: { letter: string; text: string }[]; blankAnswer?: string; blankExplanation?: string; pairs?: { id: string; left: string; right: string }[]; pairsPrompt?: string; requeued?: boolean; requeuedFrom?: string | null; statement?: string; answer?: string; steps?: string[] };
+// `classifyPrompt`/`classifyCategories`/`classifyItems` — classify only,
+// same shape Desafío's DesafioSlide already uses. The answer is an object
+// mapping each item's id to the assigned category.
+type BackendSlide = { type: SummarySlideType; emoji: string; title: string; definition: string; example: string; visualHint?: string; illustrationType?: IllustrationType; connector?: string | null; question?: string | null; options?: string[] | null; correctAnswer?: string | null; wrongAnswerHints?: Record<string, string> | null; hint?: string; hook?: string | null; formalDefinition?: string; tip?: string; blankSentence?: string; blankChoices?: { letter: string; text: string }[]; blankAnswer?: string; blankExplanation?: string; pairs?: { id: string; left: string; right: string }[]; pairsPrompt?: string; classifyPrompt?: string; classifyCategories?: string[]; classifyItems?: { id: string; text: string; category: string }[]; requeued?: boolean; requeuedFrom?: string | null; statement?: string; answer?: string; steps?: string[] };
 type LegacySection = { heading: string; content: string; keyPoints: string[] };
 type Session = {
   id?: string; userId?: string;
@@ -924,6 +927,17 @@ export default function SessionPlayerScreen() {
   const hadPairErrorRef = useRef(false);
   const [pairsCleanRun, setPairsCleanRun] = useState<Record<number, boolean>>({});
 
+  // classify — indulgent by construction, no shared-component changes
+  // needed: ClassifyContent only locks editing when `answer` is truthy, so
+  // a failed "Verificar" just never sets it, leaving every item freely
+  // reassignable. `classifyAssigned` is the live in-progress mapping;
+  // `classifyFailedAttempt` is a transient hint shown after a wrong
+  // verify, cleared as soon as the student changes any assignment.
+  const [classifyAssigned, setClassifyAssigned] = useState<Record<string, string>>({});
+  const [classifyFailedAttempt, setClassifyFailedAttempt] = useState(false);
+  const hadClassifyErrorRef = useRef(false);
+  const [classifyCleanRun, setClassifyCleanRun] = useState<Record<number, boolean>>({});
+
   // Quiz
   const [quizIdx, setQuizIdx]             = useState(0);
   const [quizStep, setQuizStep]           = useState<QuizStep>('answering');
@@ -1182,6 +1196,7 @@ export default function SessionPlayerScreen() {
   useEffect(() => { setOrderTaps([]); }, [summaryIdx]);
   useEffect(() => { setShowFormalDef(false); }, [summaryIdx]);
   useEffect(() => { setPairsSelectedLeft(null); setPairsMatched({}); setPairEvals({}); hadPairErrorRef.current = false; }, [summaryIdx]);
+  useEffect(() => { setClassifyAssigned({}); setClassifyFailedAttempt(false); hadClassifyErrorRef.current = false; }, [summaryIdx]);
 
   // Compute mastery when the victory slide is shown (mission model only)
   useEffect(() => {
@@ -1974,7 +1989,7 @@ export default function SessionPlayerScreen() {
         // builds, and appending after it broke the MODE_COMPLETION_REDESIGN
         // check (`isLast && slide.type === 'victory'`), silently dropping the
         // student into the older, unreviewed victory renderer instead.
-        const TAIL_TYPES = ['reinforcement_challenge', 'fill_blank', 'match_pairs'];
+        const TAIL_TYPES = ['reinforcement_challenge', 'fill_blank', 'match_pairs', 'classify'];
         const victoryIdx = prev.findIndex((s) => (s as BackendSlide).type === 'victory');
         let insertAt = victoryIdx !== -1 ? victoryIdx : prev.length;
         for (let i = summaryIdx + 1; i < prev.length; i++) {
@@ -2587,6 +2602,82 @@ export default function SessionPlayerScreen() {
                       shuffleSeed={summaryIdx}
                       answer={answeredPairs ? { value: answeredPairs, correct: true } : undefined}
                     />
+                    {!!answered && (
+                      <View style={sum.feedbackRow}>
+                        <Image source={require('@/assets/images/enfocado.png')} style={sum.feedbackMascot} resizeMode="contain" />
+                        <View style={[sum.feedbackBubble, sum.feedbackBubbleCorrect]}>
+                          <View style={[sum.feedbackBubbleTail, sum.feedbackBubbleTailCorrect]} />
+                          <Text style={sum.feedbackTitleCorrect}>
+                            {cleanRun ? CORRECT_REINFORCEMENT[summaryIdx % CORRECT_REINFORCEMENT.length] : '¡Lo lograste!'}
+                          </Text>
+                          {!cleanRun && <Text style={sum.feedbackText}>La próxima, sin errores.</Text>}
+                        </View>
+                      </View>
+                    )}
+                  </>
+                );
+              })()
+            ) : slide?.type === 'classify' ? (
+              // Presentational component reused as-is from Desafío —
+              // indulgent by construction, with ZERO changes needed to
+              // ClassifyContent itself: it only locks editing once `answer`
+              // is truthy, and a truthy `answer` is only ever passed once
+              // every item is genuinely correct, so a failed "Verificar"
+              // just leaves every item freely reassignable — no dead end.
+              // The CTA here is Misión's own "Verificar" (classify has no
+              // per-tap evaluation like match_pairs — Desafío's own version
+              // is submit-based too), not Desafío's screen-level CTA.
+              (() => {
+                const bSlide = slide as BackendSlide;
+                const items = bSlide.classifyItems ?? [];
+                const answered = quizAnswers[summaryIdx];
+                const answeredMap = answered && typeof answered !== 'string' ? answered : undefined;
+                const allAssigned = items.length > 0 && items.every((it) => !!classifyAssigned[it.id]);
+                const cleanRun = classifyCleanRun[summaryIdx] ?? true;
+
+                const handleAssign = (updated: Record<string, string>) => {
+                  setClassifyAssigned(updated);
+                  setClassifyFailedAttempt(false);
+                };
+
+                const handleVerify = () => {
+                  if (!allAssigned || answered) return;
+                  const allCorrect = items.every((it) => classifyAssigned[it.id] === it.category);
+                  if (allCorrect) {
+                    const runWasClean = !hadClassifyErrorRef.current;
+                    missionStreakRef.current = runWasClean ? missionStreakRef.current + 1 : 0;
+                    setMissionStreak(missionStreakRef.current);
+                    setClassifyCleanRun(prev => ({ ...prev, [summaryIdx]: runWasClean }));
+                    setQuizAnswers(prev => ({ ...prev, [summaryIdx]: classifyAssigned }));
+                    if (!runWasClean) insertCorrectiveSlide(bSlide, 'classify');
+                  } else {
+                    hadClassifyErrorRef.current = true;
+                    setClassifyFailedAttempt(true);
+                  }
+                };
+
+                return (
+                  <>
+                    <ClassifyContent
+                      slide={bSlide as unknown as DesafioSlide}
+                      assigned={answeredMap ?? classifyAssigned}
+                      onAssign={handleAssign}
+                      answer={answeredMap ? { value: answeredMap, correct: true } : undefined}
+                    />
+                    {!answered && (
+                      <>
+                        {classifyFailedAttempt && (
+                          <Text style={sum.classifyRetryHint}>Algunos quedaron mal — corrige y vuelve a intentar.</Text>
+                        )}
+                        <Pressable
+                          onPress={handleVerify}
+                          disabled={!allAssigned}
+                          style={[g.ctaBtn, { marginTop: 16, backgroundColor: allAssigned ? BRAND : palette.crema }]}
+                        >
+                          <Text style={allAssigned ? g.ctaText : g.ctaTextOff}>Verificar</Text>
+                        </Pressable>
+                      </>
+                    )}
                     {!!answered && (
                       <View style={sum.feedbackRow}>
                         <Image source={require('@/assets/images/enfocado.png')} style={sum.feedbackMascot} resizeMode="contain" />
@@ -4540,6 +4631,10 @@ const sum = StyleSheet.create({
   feedbackHintRow:        { marginTop: 8, paddingTop: 8, borderTopWidth: 1, borderTopColor: 'rgba(220,38,38,0.15)' },
   feedbackHintLabel:      { fontSize: 10, fontWeight: '800' as const, color: palette.rojoErrorDark, letterSpacing: 0.6, marginBottom: 3, textTransform: 'uppercase' as const },
   feedbackHintText:       { fontSize: 12.5, color: palette.rojoErrorDark, lineHeight: 18, fontWeight: '500' as const },
+
+  // classify — transient "try again" hint after a failed Verificar tap,
+  // while the board is still freely editable (no dead end).
+  classifyRetryHint: { fontSize: 12.5, color: palette.rojoErrorDark, fontWeight: '600' as const, textAlign: 'center' as const, marginTop: 12 },
 
   comprehensionCtx: { backgroundColor: 'rgba(22,119,242,0.05)', borderRadius: 12, padding: SM ? 10 : 12, marginBottom: 10, borderWidth: 1, borderColor: 'rgba(22,119,242,0.1)' },
   comprehensionCtxText: { fontSize: SM ? 16 : 18, fontWeight: '800', color: BRAND, textAlign: 'center', letterSpacing: -0.2 },

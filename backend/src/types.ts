@@ -54,7 +54,7 @@ export type SummarySlideType =
   // Structured mission screens
   | 'mission' | 'main_concept' | 'micro_challenge' | 'reinforcement_challenge' | 'comprehension' | 'key_relation'
   | 'process_flow' | 'application' | 'victory' | 'challenge' | 'decide' | 'order_sequence'
-  | 'worked_example' | 'worked_example_intro' | 'fill_blank' | 'match_pairs';
+  | 'worked_example' | 'worked_example_intro' | 'fill_blank' | 'match_pairs' | 'classify';
 
 export type IllustrationType = 'educational' | 'diagram' | 'concept' | 'timeline' | 'map' | 'process' | 'comparison';
 
@@ -103,6 +103,19 @@ export interface SummarySlide {
   // see session.tsx for how this is shown instead).
   pairs?: { id: string; left: string; right: string }[];
   pairsPrompt?: string;
+  // classify only — same shape Desafío's DesafioSlide already uses for
+  // classifyItems/classifyCategories (built by buildClassify, reused
+  // as-is; items are shuffled by assemble.ts before being assigned ids, to
+  // avoid the source's category-grouped ordering handing out the answer).
+  // The answer is an object mapping each item's id to the category the
+  // student assigned it to, evaluated by items.every(i => value[i.id] ===
+  // i.category). `classifyExplanation` (declared on Desafío's DesafioSlide)
+  // is deliberately NOT included here — nothing in the Misión reads it,
+  // since its object-answer feedback is intentionally simple (no
+  // per-item explanation), same as match_pairs.
+  classifyPrompt?: string;
+  classifyCategories?: string[];
+  classifyItems?: { id: string; text: string; category: string }[];
   // worked_example only — statement/answer copied verbatim from the source
   // material (never computed), steps omitted when the model's derivation
   // failed safety validation upstream (see procedural.ts's B-mínima fallback).

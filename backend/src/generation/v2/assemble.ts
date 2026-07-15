@@ -658,6 +658,27 @@ export function buildSummarySlides(
   const matchPairsResult = buildMatchPairs(ko);
   const matchPairsConceptId = matchPairsResult ? ko.concepts[ko.concepts.length - 1].id : null;
 
+  // Classify: same "at most once per session" treatment, using buildClassify
+  // (needs >=2 categories with items, >=3 items total — same requirement
+  // buildDesafio already enforces via ko.categories, independent of
+  // ko.concepts). Anchored to the MIDDLE concept so it can never collide
+  // with fill_blank (first) or match_pairs (last): whenever match_pairs is
+  // active (requires >=3 concepts), floor(N/2) is provably distinct from
+  // both 0 and N-1. If categories happen to be eligible with too few
+  // concepts for that to hold, the collision is checked explicitly below
+  // and classify is simply skipped rather than risk overwriting another
+  // format's slot — no fabrication either way.
+  const classifyResult = buildClassify(ko);
+  const classifyConceptIdCandidate = classifyResult
+    ? ko.concepts[Math.floor(ko.concepts.length / 2)]?.id ?? null
+    : null;
+  const classifyConceptId = classifyResult
+    && classifyConceptIdCandidate
+    && classifyConceptIdCandidate !== fillBlankConceptId
+    && classifyConceptIdCandidate !== matchPairsConceptId
+    ? classifyConceptIdCandidate
+    : null;
+
   ko.concepts.forEach((concept, conceptIdx) => {
     const d = distractors[concept.id];
     if (!d) return; // no generated question — skip this concept's loop, keep the rest intact
@@ -703,10 +724,30 @@ export function buildSummarySlides(
     slides.push(...(cardFirst ? [cardSlide, microSlide] : [microSlide, cardSlide]));
 
     // A DIFFERENT question than the micro's, not the same one reshuffled.
-    // This concept's slot is reserved for the intercalated fill_blank or
-    // match_pairs format when it's the chosen one — checked BEFORE touching
-    // the exercise pool, so a generated exercise is never silently consumed
-    // and dropped for a concept that ends up not using it.
+    // This concept's slot is reserved for the intercalated fill_blank,
+    // match_pairs, or classify format when it's the chosen one — checked
+    // BEFORE touching the exercise pool, so a generated exercise is never
+    // silently consumed and dropped for a concept that ends up not using it.
+    if (concept.id === classifyConceptId && classifyResult) {
+      // Shuffled here (not in buildClassify, which buildDesafio also calls)
+      // so this is 100% local to the Misión's own slide construction — zero
+      // risk to Desafío. buildClassify's items come flatMap'd category by
+      // category (see its own source), i.e. block-grouped in the source
+      // order — rendered as-is, that clusters same-category items together
+      // and quietly hints the answer before the student reads anything.
+      const shuffledItems = shuffleArray(classifyResult.items);
+      slides.push({
+        type: 'classify',
+        emoji: '🗂️',
+        title: 'Clasifica cada elemento',
+        definition: '',
+        example: '',
+        classifyPrompt: classifyResult.prompt,
+        classifyCategories: classifyResult.categories,
+        classifyItems: shuffledItems.map((it, idx) => ({ id: `item-${idx}`, text: it.text, category: it.category })),
+      });
+      return;
+    }
     if (concept.id === matchPairsConceptId && matchPairsResult) {
       slides.push({
         type: 'match_pairs',

@@ -583,7 +583,13 @@ const mp = StyleSheet.create({
 
 // ── Classify content ──────────────────────────────────────────────────────────
 
-function ClassifyContent({
+// Exported so session.tsx (Misión) can reuse this presentational component
+// for its own intercalated classify slide — same pattern as FillBlankContent
+// / MatchPairsContent. No new props needed: `onAssign`/`answer` are already
+// a clean enough contract that Misión's own indulgent "verify, and if wrong
+// keep editing" flow needs zero changes here — it just never passes a
+// truthy `answer` until every item is actually correct.
+export function ClassifyContent({
   slide, assigned, onAssign, answer,
 }: {
   slide: DesafioSlide;
