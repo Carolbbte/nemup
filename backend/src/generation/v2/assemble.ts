@@ -598,6 +598,44 @@ function fieldsFromExercise(ex: GeneratedExercise): InteractiveFields {
   };
 }
 
+// Mission-only pairs source — NOT buildMatchPairs (that stays exactly as
+// Desafío uses it; not called from here at all). buildMatchPairs pairs each
+// concept's name with its distinctiveTrait via shortenPairRight, which for
+// the Misión produced near-duplicate fragments: distinctiveTrait is written
+// in a homogeneous "Es el único que..." register (see comprehension.ts's
+// own instruction #7), and shortenPairRight's 6-word cap chopped that down
+// mid-sentence ("...que estudia", "...que describe", "...que se") — hard to
+// tell apart and not a real description of the concept. `example` is
+// concrete and distinct per concept, so it's used instead, with a
+// clause-boundary trim (never mid-word) only as a safety net for a
+// genuinely long example — the render is expected to wrap short/medium
+// ones untouched.
+const MISION_PAIR_MAX_LEN = 90;
+function clauseTrim(text: string): string {
+  const trimmed = text.trim();
+  if (trimmed.length <= MISION_PAIR_MAX_LEN) return trimmed;
+  const window = trimmed.slice(0, MISION_PAIR_MAX_LEN);
+  const clauseBoundary = Math.max(window.lastIndexOf('. '), window.lastIndexOf(', '), window.lastIndexOf('; '));
+  if (clauseBoundary > 20) return window.slice(0, clauseBoundary).trim();
+  const lastSpace = window.lastIndexOf(' ');
+  return (lastSpace > 20 ? window.slice(0, lastSpace) : window).trim();
+}
+
+function buildMisionMatchPairs(concepts: KnowledgeConcept[]): MatchPairsResult | null {
+  const pairs = concepts
+    .filter((c) => !!c.example && c.example.trim().length > 0)
+    .map((c) => ({ left: c.name.trim(), right: clauseTrim(c.example!) }))
+    .filter((p) => p.left.length > 0 && p.right.length > 0)
+    // Same cap buildMatchPairs itself uses — MatchPairsContent/its color
+    // palette and layout are sized for this, on both Desafío and Misión.
+    .slice(0, 3);
+
+  // <3 usable examples — omit the format entirely rather than topping up
+  // with distinctiveTrait fragments; a missing match_pairs is better than
+  // a barely-distinguishable one.
+  return pairs.length >= 3 ? { prompt: 'Relaciona cada concepto con su ejemplo', pairs } : null;
+}
+
 export function buildSummarySlides(
   ko: KnowledgeObject,
   distractors: Record<string, DistractorSet>,
@@ -647,15 +685,17 @@ export function buildSummarySlides(
     (c, i) => pickFillBlankChoices(c.name, allConceptNames, i) !== null,
   )?.id ?? null;
 
-  // Match-pairs: also intercalated at most once per session, using EVERY
-  // concept's name/distinctiveTrait (buildMatchPairs needs >=3 valid pairs —
-  // same requirement buildDesafio already enforces). Since it isn't tied to
-  // one specific concept's content, it's anchored to the LAST concept's
+  // Match-pairs: also intercalated at most once per session, using
+  // buildMisionMatchPairs (name ↔ example, NOT buildMatchPairs's name ↔
+  // distinctiveTrait — see that function's own comment) across every
+  // concept's example (needs >=3 usable ones, same requirement buildDesafio
+  // enforces for its own trait-based pairs). Since it isn't tied to one
+  // specific concept's content, it's anchored to the LAST concept's
   // reinforcement slot rather than the first (fillBlankConceptId's pick) —
-  // buildMatchPairs already requires >=3 concepts, so "first" and "last"
-  // are always different concepts, guaranteeing the two intercalated
+  // needing >=3 concepts with a usable example still means "first" and
+  // "last" are always different concepts, guaranteeing the two intercalated
   // formats never collide on the same slot.
-  const matchPairsResult = buildMatchPairs(ko);
+  const matchPairsResult = buildMisionMatchPairs(ko.concepts);
   const matchPairsConceptId = matchPairsResult ? ko.concepts[ko.concepts.length - 1].id : null;
 
   // Classify: same "at most once per session" treatment, using buildClassify
@@ -753,7 +793,7 @@ export function buildSummarySlides(
         type: 'match_pairs',
         emoji: '🔗',
         title: 'Relaciona los conceptos',
-        definition: 'Relaciona cada concepto con lo que lo distingue.',
+        definition: matchPairsResult.prompt,
         example: '',
         pairs: matchPairsResult.pairs.map((p, idx) => ({ id: `pair-${idx}`, left: p.left, right: p.right })),
         pairsPrompt: matchPairsResult.prompt,
