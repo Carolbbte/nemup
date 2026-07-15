@@ -379,8 +379,58 @@ function MatchChipLeft({
 
 // ── Match pairs content ───────────────────────────────────────────────────────
 
-function MatchPairsContent({
+// Deterministic seeded shuffle of [0..n-1] that GUARANTEES a true
+// derangement (no index maps to itself) — a plain Fisher-Yates can, by
+// chance, leave one or more positions unmoved, which for match_pairs means
+// an option would render directly across from its own correct pair. Used
+// only by the opt-in `shuffleSeed` path below (see its own comment) — the
+// Desafío default path is untouched and never calls this.
+function seededDerangement(n: number, seed: number): number[] {
+  let state = seed >>> 0;
+  const rand = () => {
+    state = (state + 0x6d2b79f5) >>> 0;
+    let t = state;
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+
+  const order = Array.from({ length: n }, (_, i) => i);
+  for (let i = n - 1; i > 0; i--) {
+    const j = Math.floor(rand() * (i + 1));
+    [order[i], order[j]] = [order[j], order[i]];
+  }
+  // Fixup pass — swapping a fixed point with its neighbor can never create a
+  // NEW fixed point (the permutation's values are all distinct, so the
+  // neighbor's old value can't equal the fixed point's own index, and vice
+  // versa), so one left-to-right pass always eliminates every fixed point.
+  for (let i = 0; i < n; i++) {
+    if (order[i] === i) {
+      const swapWith = (i + 1) % n;
+      [order[i], order[swapWith]] = [order[swapWith], order[i]];
+    }
+  }
+  return order;
+}
+
+// Exported so session.tsx (Misión) can reuse this presentational component
+// for its own intercalated match_pairs slide — same pattern as
+// FillBlankContent. Misión writes its own (simpler) per-pair orchestration
+// instead of reusing handlePairMatchedImmediate (see session.tsx).
+export function MatchPairsContent({
   slide, selectedLeft, onSelectLeft, matched, pairEvals, onPairMatchedImmediate, answer,
+  // Optional, defaults to Desafío's own existing copy — Desafío's own call
+  // site doesn't pass this, so it renders identically to before. Misión
+  // passes its own prompt instead of showing a second, separate heading.
+  promptText = 'Conecta conceptos ⚡',
+  // Optional. When omitted, the right column shuffles exactly as before
+  // (Desafío's own modular shift keyed off slide.conceptIndex — untouched).
+  // Misión's slide has no real conceptIndex (undefined → NaN → shift 0,
+  // leaving the right column unshifted and the exercise pre-solved by
+  // position), so it passes a real seed here instead, which switches to a
+  // guaranteed derangement (see seededDerangement) — stable across
+  // re-renders and requeues as long as the same seed is passed.
+  shuffleSeed,
 }: {
   slide: DesafioSlide;
   selectedLeft: string | null;
@@ -389,15 +439,20 @@ function MatchPairsContent({
   pairEvals: Record<string, 'correct' | 'wrong' | 'corrected'>;
   onPairMatchedImmediate: (leftId: string, rightId: string) => void;
   answer: SlideAnswer | undefined;
+  promptText?: string;
+  shuffleSeed?: number;
 }) {
   const revealed = !!answer;
   const pairs    = slide.pairs ?? [];
 
   const shuffledRight: DesafioPair[] = useMemo(() => {
     if (pairs.length <= 1) return pairs;
+    if (shuffleSeed !== undefined) {
+      return seededDerangement(pairs.length, shuffleSeed).map((i) => pairs[i]);
+    }
     const shift = ((slide.conceptIndex + 1) % pairs.length + pairs.length) % pairs.length;
     return [...pairs.slice(shift), ...pairs.slice(0, shift)];
-  }, [pairs, slide.conceptIndex]);
+  }, [pairs, slide.conceptIndex, shuffleSeed]);
 
   const matchedMap = revealed ? answer.value as Record<string, string> : matched;
 
@@ -428,7 +483,7 @@ function MatchPairsContent({
   return (
     <View style={[c.root, { backgroundColor: palette.crema }]}>
       <Text style={mp.badgeLabel}>🧠 {slideTypeLabel(slide.type, slide.isRetry, slide.isSpacedRepetition)}</Text>
-      <Text style={mp.prompt}>Conecta conceptos ⚡</Text>
+      <Text style={mp.prompt}>{promptText}</Text>
       {/* Row-based layout: each row pairs one left chip with one right target.
           alignItems:'stretch' makes both cards share the same height per row. */}
       <View style={mp.rows}>

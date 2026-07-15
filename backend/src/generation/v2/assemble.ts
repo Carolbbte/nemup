@@ -647,6 +647,17 @@ export function buildSummarySlides(
     (c, i) => pickFillBlankChoices(c.name, allConceptNames, i) !== null,
   )?.id ?? null;
 
+  // Match-pairs: also intercalated at most once per session, using EVERY
+  // concept's name/distinctiveTrait (buildMatchPairs needs >=3 valid pairs —
+  // same requirement buildDesafio already enforces). Since it isn't tied to
+  // one specific concept's content, it's anchored to the LAST concept's
+  // reinforcement slot rather than the first (fillBlankConceptId's pick) —
+  // buildMatchPairs already requires >=3 concepts, so "first" and "last"
+  // are always different concepts, guaranteeing the two intercalated
+  // formats never collide on the same slot.
+  const matchPairsResult = buildMatchPairs(ko);
+  const matchPairsConceptId = matchPairsResult ? ko.concepts[ko.concepts.length - 1].id : null;
+
   ko.concepts.forEach((concept, conceptIdx) => {
     const d = distractors[concept.id];
     if (!d) return; // no generated question — skip this concept's loop, keep the rest intact
@@ -692,10 +703,22 @@ export function buildSummarySlides(
     slides.push(...(cardFirst ? [cardSlide, microSlide] : [microSlide, cardSlide]));
 
     // A DIFFERENT question than the micro's, not the same one reshuffled.
-    // This concept's slot is reserved for the intercalated fill_blank
-    // format when it's the chosen one — checked BEFORE touching the
-    // exercise pool, so a generated exercise is never silently consumed
+    // This concept's slot is reserved for the intercalated fill_blank or
+    // match_pairs format when it's the chosen one — checked BEFORE touching
+    // the exercise pool, so a generated exercise is never silently consumed
     // and dropped for a concept that ends up not using it.
+    if (concept.id === matchPairsConceptId && matchPairsResult) {
+      slides.push({
+        type: 'match_pairs',
+        emoji: '🔗',
+        title: 'Relaciona los conceptos',
+        definition: 'Relaciona cada concepto con lo que lo distingue.',
+        example: '',
+        pairs: matchPairsResult.pairs.map((p, idx) => ({ id: `pair-${idx}`, left: p.left, right: p.right })),
+        pairsPrompt: matchPairsResult.prompt,
+      });
+      return;
+    }
     if (concept.id === fillBlankConceptId) {
       const picked = pickFillBlankChoices(concept.name, allConceptNames, conceptIdx);
       if (picked) {

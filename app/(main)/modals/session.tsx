@@ -1,8 +1,8 @@
 import ModeCompletionScreen from '@/components/ModeCompletionScreen';
-// fill_blank rendering reused as-is from Desafío (presentational, no state
-// of its own — see FillBlankContent's own doc comment). Misión wires its
-// own letter-based answer flow to it; desafio.tsx's own logic is untouched.
-import { FillBlankContent } from './desafio';
+// fill_blank/match_pairs rendering reused as-is from Desafío (both
+// presentational, no state of their own). Misión wires its own answer flow
+// to each; desafio.tsx's own handlers/logic are untouched.
+import { FillBlankContent, MatchPairsContent } from './desafio';
 import type { DesafioSlide } from '@/shared/desafio';
 import UnifiedProgressBar from '@/components/UnifiedProgressBar';
 import { DAILY_SESSION_LOGIC, FIXED_QUIZ_FEEDBACK, MAX_ATTEMPTS_PER_QUESTION, MODE_COMPLETION_REDESIGN, NEUTRAL_MISSION_COMPLETION, SHOW_DESAFIO_MODE, SHOW_GEMS, UNIFIED_PROGRESS_BAR, UNIFIED_QUIZ_COMPLETION } from '@/config/features';
@@ -71,7 +71,7 @@ type Option  = { id: string; text: string };
 type Question = { id: string; text: string; options: Option[]; correctOptionId: string; explanation: string; sourceQuote: string };
 type Flashcard = { id: string; front: string; back: string };
 type SummarySlideType = 'concept' | 'key_fact' | 'important' | 'remember' | 'example' | 'curiosity' | 'wow_fact'
-  | 'mission' | 'main_concept' | 'micro_challenge' | 'reinforcement_challenge' | 'comprehension' | 'key_relation' | 'mini_quiz' | 'process_flow' | 'application' | 'common_error' | 'final_challenge' | 'victory' | 'challenge' | 'decide' | 'order_sequence' | 'worked_example' | 'worked_example_intro' | 'fill_blank';
+  | 'mission' | 'main_concept' | 'micro_challenge' | 'reinforcement_challenge' | 'comprehension' | 'key_relation' | 'mini_quiz' | 'process_flow' | 'application' | 'common_error' | 'final_challenge' | 'victory' | 'challenge' | 'decide' | 'order_sequence' | 'worked_example' | 'worked_example_intro' | 'fill_blank' | 'match_pairs';
 type IllustrationType = 'educational' | 'diagram' | 'concept' | 'timeline' | 'map' | 'process' | 'comparison';
 // `hook`/`formalDefinition`/`tip` — main_concept only, populated by
 // assemble.ts from the concept's own hook/definition/tips[0]. All optional:
@@ -82,7 +82,11 @@ type IllustrationType = 'educational' | 'diagram' | 'concept' | 'timeline' | 'ma
 // fill_blank only, same shape Desafío's DesafioSlide already uses for the
 // same fields (see FillBlankContent) — the answer is still a LETTER
 // (blankAnswer), evaluated exactly like any other Misión MC slide.
-type BackendSlide = { type: SummarySlideType; emoji: string; title: string; definition: string; example: string; visualHint?: string; illustrationType?: IllustrationType; connector?: string | null; question?: string | null; options?: string[] | null; correctAnswer?: string | null; wrongAnswerHints?: Record<string, string> | null; hint?: string; hook?: string | null; formalDefinition?: string; tip?: string; blankSentence?: string; blankChoices?: { letter: string; text: string }[]; blankAnswer?: string; blankExplanation?: string; requeued?: boolean; requeuedFrom?: string | null; statement?: string; answer?: string; steps?: string[] };
+// `pairs`/`pairsPrompt` — match_pairs only, same shape Desafío's
+// DesafioSlide already uses for `pairs` — the answer is NOT a letter, it's
+// a Record<string,string> mapping each pair's left id to the right id the
+// student matched (see quizAnswers' type and renderChallengeFeedback).
+type BackendSlide = { type: SummarySlideType; emoji: string; title: string; definition: string; example: string; visualHint?: string; illustrationType?: IllustrationType; connector?: string | null; question?: string | null; options?: string[] | null; correctAnswer?: string | null; wrongAnswerHints?: Record<string, string> | null; hint?: string; hook?: string | null; formalDefinition?: string; tip?: string; blankSentence?: string; blankChoices?: { letter: string; text: string }[]; blankAnswer?: string; blankExplanation?: string; pairs?: { id: string; left: string; right: string }[]; pairsPrompt?: string; requeued?: boolean; requeuedFrom?: string | null; statement?: string; answer?: string; steps?: string[] };
 type LegacySection = { heading: string; content: string; keyPoints: string[] };
 type Session = {
   id?: string; userId?: string;
@@ -683,9 +687,17 @@ function buildSummarySlides(backendSlides: BackendSlide[], questions: Question[]
 // guaranteed on older cached sessions, so both render conditionally.
 const CORRECT_REINFORCEMENT = ['¡Eso es!', '¡Exacto!', '¡Perfecto!', '¡Así se hace!'];
 
-function renderChallengeFeedback(slide: BackendSlide, answered: string | undefined, firstName: string, seed: number) {
+function renderChallengeFeedback(
+  slide: BackendSlide,
+  answered: string | Record<string, string> | undefined,
+  firstName: string,
+  seed: number,
+) {
   if (!answered) return null;
-  const isCorrect = answered === slide.correctAnswer;
+  const isObjectAnswer = typeof answered !== 'string';
+  const isCorrect = isObjectAnswer
+    ? (slide.pairs ?? []).every((p) => answered[p.id] === p.id + '_r')
+    : answered === slide.correctAnswer;
 
   if (isCorrect) {
     return (
@@ -694,6 +706,22 @@ function renderChallengeFeedback(slide: BackendSlide, answered: string | undefin
         <View style={[sum.feedbackBubble, sum.feedbackBubbleCorrect]}>
           <View style={[sum.feedbackBubbleTail, sum.feedbackBubbleTailCorrect]} />
           <Text style={sum.feedbackTitleCorrect}>{CORRECT_REINFORCEMENT[seed % CORRECT_REINFORCEMENT.length]}</Text>
+        </View>
+      </View>
+    );
+  }
+
+  // Object-shaped answer (match_pairs, and future classify) — no "chosen
+  // letter" to look up a distractor explanation for, so this stays a
+  // simple, honest nudge instead of fabricating one.
+  if (isObjectAnswer) {
+    return (
+      <View style={sum.feedbackRow}>
+        <Image source={require('@/assets/images/enfocado.png')} style={sum.feedbackMascot} resizeMode="contain" />
+        <View style={[sum.feedbackBubble, sum.feedbackBubbleWrong]}>
+          <View style={[sum.feedbackBubbleTail, sum.feedbackBubbleTailWrong]} />
+          <Text style={sum.feedbackTitleWrong}>{`¡Casi, ${firstName}!`}</Text>
+          <Text style={sum.feedbackText}>Revisa los que quedaron mal.</Text>
         </View>
       </View>
     );
@@ -865,11 +893,36 @@ export default function SessionPlayerScreen() {
 
   // Summary
   const [summaryIdx, setSummaryIdx] = useState(0);
-  const [quizAnswers, setQuizAnswers] = useState<Record<number, string>>({});
+  // A slide's answer is either a LETTER (MC/fill_blank — unchanged from
+  // before) or, for match_pairs, an object mapping each pair's left id to
+  // the right id the student matched it to. Every existing MC/fill_blank
+  // read site compares this against a `string` (slide.correctAnswer /
+  // slide.blankAnswer / a tapped letter), which still type-checks and
+  // behaves identically since string is a member of this union.
+  const [quizAnswers, setQuizAnswers] = useState<Record<number, string | Record<string, string>>>({});
   // "Ver definición formal" toggle on the main_concept card — collapsed by
   // default, reset whenever the slide changes so the next concept starts
   // collapsed too.
   const [showFormalDef, setShowFormalDef] = useState(false);
+
+  // match_pairs — own, simple orchestration (NOT desafio.tsx's handlers,
+  // which are fused with streak/energy/retry/auto-advance). `pairsMatched`/
+  // `pairEvals` track the LIVE interaction before the slide is fully
+  // answered; once answered, the render branch derives evals straight from
+  // the stored quizAnswers entry instead (so revisiting an already-answered
+  // slide still shows correct ✓/✗ per pair).
+  const [pairsSelectedLeft, setPairsSelectedLeft] = useState<string | null>(null);
+  const [pairsMatched, setPairsMatched] = useState<Record<string, string>>({});
+  const [pairEvals, setPairEvals] = useState<Record<string, 'correct' | 'wrong'>>({});
+  // Indulgent match_pairs: a wrong tap never locks a pair — it flashes ✗
+  // then unlocks so the student always finishes with every pair correct
+  // (no dead-end board). `hadPairErrorRef` remembers whether ANY wrong tap
+  // happened during the current attempt (for streak/requeue + which
+  // feedback copy to show); `pairsCleanRun` freezes that verdict per slide
+  // index at the moment the board is completed, since by definition the
+  // FINAL stored answer is always fully correct under this model.
+  const hadPairErrorRef = useRef(false);
+  const [pairsCleanRun, setPairsCleanRun] = useState<Record<number, boolean>>({});
 
   // Quiz
   const [quizIdx, setQuizIdx]             = useState(0);
@@ -1128,6 +1181,7 @@ export default function SessionPlayerScreen() {
   // Reset order taps when slide changes
   useEffect(() => { setOrderTaps([]); }, [summaryIdx]);
   useEffect(() => { setShowFormalDef(false); }, [summaryIdx]);
+  useEffect(() => { setPairsSelectedLeft(null); setPairsMatched({}); setPairEvals({}); hadPairErrorRef.current = false; }, [summaryIdx]);
 
   // Compute mastery when the victory slide is shown (mission model only)
   useEffect(() => {
@@ -1901,28 +1955,30 @@ export default function SessionPlayerScreen() {
 
         const requeuedSlide: SummarySlide = { ...wrongSlide, requeued: true, requeuedFrom: wrongSlide.question ?? null } as SummarySlide;
 
-        // Anchor on the next reinforcement_challenge, NOT the next main_concept.
-        // Each concept's triple can open with either micro_challenge or
+        // Anchor on the next "tail" slide (reinforcement_challenge, or —
+        // for the at-most-one intercalated concept per format —
+        // fill_blank/match_pairs), NOT the next main_concept. Each
+        // concept's triple can open with either micro_challenge or
         // main_concept first (assemble.ts alternates this per concept to
-        // break up the format rhythm), but reinforcement_challenge — or,
-        // for the one intercalated concept, fill_blank — is always the LAST
-        // slide of the triple regardless of that ordering, so the slide
-        // right after it is always the START of a fresh triple (or the
-        // end-of-mission slides), never another reinforcement. Anchoring on
-        // main_concept instead (tried first) still collides: main_concept
-        // is always immediately adjacent to ITS OWN reinforcement (before
-        // or after, depending on the alternation), so inserting right after
-        // ANY main_concept — even skipping ahead to the 2nd one — still
-        // risks landing right before some concept's reinforcement.
-        // No reinforcement_challenge ahead — fall back to right before victory,
-        // NEVER prev.length: victory is always the last slide the backend
+        // break up the format rhythm), but its tail slide is always the
+        // LAST slide of the triple regardless of that ordering, so the
+        // slide right after it is always the START of a fresh triple (or
+        // the end-of-mission slides), never another tail slide. Anchoring
+        // on main_concept instead (tried first) still collides:
+        // main_concept is always immediately adjacent to ITS OWN tail slide
+        // (before or after, depending on the alternation), so inserting
+        // right after ANY main_concept — even skipping ahead to the 2nd
+        // one — still risks landing right before some concept's tail.
+        // No tail slide ahead — fall back to right before victory, NEVER
+        // prev.length: victory is always the last slide the backend
         // builds, and appending after it broke the MODE_COMPLETION_REDESIGN
         // check (`isLast && slide.type === 'victory'`), silently dropping the
         // student into the older, unreviewed victory renderer instead.
+        const TAIL_TYPES = ['reinforcement_challenge', 'fill_blank', 'match_pairs'];
         const victoryIdx = prev.findIndex((s) => (s as BackendSlide).type === 'victory');
         let insertAt = victoryIdx !== -1 ? victoryIdx : prev.length;
         for (let i = summaryIdx + 1; i < prev.length; i++) {
-          if ((prev[i] as BackendSlide).type === 'reinforcement_challenge') {
+          if (TAIL_TYPES.includes((prev[i] as BackendSlide).type)) {
             insertAt = i + 1;
             break;
           }
@@ -2434,7 +2490,7 @@ export default function SessionPlayerScreen() {
                   <>
                     <FillBlankContent
                       slide={slide as unknown as DesafioSlide}
-                      selection={answered ?? null}
+                      selection={(answered as string | undefined) ?? null}
                       blocked={!!answered}
                       answer={answered ? { value: answered, correct: isCorrect } : undefined}
                       onSelect={(letter: string) => {
@@ -2447,6 +2503,102 @@ export default function SessionPlayerScreen() {
                       }}
                     />
                     {renderChallengeFeedback(slide as BackendSlide, answered, firstName, summaryIdx)}
+                  </>
+                );
+              })()
+            ) : slide?.type === 'match_pairs' ? (
+              // Presentational component reused as-is from Desafío — but the
+              // orchestration is new and simple, NOT Desafío's
+              // handlePairMatchedImmediate (fused with energy/combo/retry
+              // and its own auto-advance timers). Indulgent: a wrong tap
+              // flashes ✗ then unlocks instead of locking permanently, so
+              // the student always finishes with a fully-correct board —
+              // never a dead end. Whether any wrong tap happened along the
+              // way still drives streak/requeue and which feedback copy
+              // shows, via pairsCleanRun. No setTimeout auto-advance —
+              // finishing shows the same feedback-panel + Continue pattern
+              // the rest of the Misión already uses.
+              (() => {
+                const bSlide = slide as BackendSlide;
+                const pairs = bSlide.pairs ?? [];
+                const answered = quizAnswers[summaryIdx];
+                const answeredPairs = answered && typeof answered !== 'string' ? answered : undefined;
+                // Once answered, derive per-pair state straight from the
+                // stored (always fully-correct) answer — so revisiting an
+                // already-answered slide shows every pair as correct
+                // instead of resetting to blank.
+                const effectiveEvals: Record<string, 'correct' | 'wrong'> = answeredPairs
+                  ? Object.fromEntries(pairs.map((p) => [p.id, 'correct' as const]))
+                  : pairEvals;
+                const cleanRun = pairsCleanRun[summaryIdx] ?? true;
+
+                const handlePairTap = (leftId: string, rightId: string) => {
+                  if (answered) return;
+                  const correct = rightId === leftId + '_r';
+                  setPairsSelectedLeft(null);
+
+                  if (correct) {
+                    const newMatched = { ...pairsMatched, [leftId]: rightId };
+                    const newEvals = { ...pairEvals, [leftId]: 'correct' as const };
+                    setPairsMatched(newMatched);
+                    setPairEvals(newEvals);
+
+                    if (pairs.every((p) => newEvals[p.id] === 'correct')) {
+                      const runWasClean = !hadPairErrorRef.current;
+                      missionStreakRef.current = runWasClean ? missionStreakRef.current + 1 : 0;
+                      setMissionStreak(missionStreakRef.current);
+                      setPairsCleanRun(prev => ({ ...prev, [summaryIdx]: runWasClean }));
+                      setQuizAnswers(prev => ({ ...prev, [summaryIdx]: newMatched }));
+                      if (!runWasClean) insertCorrectiveSlide(bSlide, 'match_pairs');
+                    }
+                    return;
+                  }
+
+                  // Wrong: brief ✗ flash (same visual language as Desafío's
+                  // own wrong state), then unlock — never a permanent dead
+                  // end. Remembered for streak/requeue + feedback copy.
+                  hadPairErrorRef.current = true;
+                  setPairEvals(prev => ({ ...prev, [leftId]: 'wrong' }));
+                  setTimeout(() => {
+                    setPairEvals(prev => {
+                      const { [leftId]: _dropped, ...rest } = prev;
+                      return rest;
+                    });
+                  }, 500);
+                };
+
+                return (
+                  <>
+                    <MatchPairsContent
+                      slide={bSlide as unknown as DesafioSlide}
+                      selectedLeft={pairsSelectedLeft}
+                      onSelectLeft={setPairsSelectedLeft}
+                      matched={pairsMatched}
+                      pairEvals={effectiveEvals}
+                      onPairMatchedImmediate={handlePairTap}
+                      promptText={bSlide.definition || undefined}
+                      // Misión's slide has no real conceptIndex (Desafío's
+                      // own shuffle source), so a real seed is required here
+                      // to get an actual shuffle instead of a no-op one —
+                      // see MatchPairsContent's own doc comment. summaryIdx
+                      // is stable across re-renders of this slide and
+                      // naturally differs for a requeued retry copy (which
+                      // lands at a different index).
+                      shuffleSeed={summaryIdx}
+                      answer={answeredPairs ? { value: answeredPairs, correct: true } : undefined}
+                    />
+                    {!!answered && (
+                      <View style={sum.feedbackRow}>
+                        <Image source={require('@/assets/images/enfocado.png')} style={sum.feedbackMascot} resizeMode="contain" />
+                        <View style={[sum.feedbackBubble, sum.feedbackBubbleCorrect]}>
+                          <View style={[sum.feedbackBubbleTail, sum.feedbackBubbleTailCorrect]} />
+                          <Text style={sum.feedbackTitleCorrect}>
+                            {cleanRun ? CORRECT_REINFORCEMENT[summaryIdx % CORRECT_REINFORCEMENT.length] : '¡Lo lograste!'}
+                          </Text>
+                          {!cleanRun && <Text style={sum.feedbackText}>La próxima, sin errores.</Text>}
+                        </View>
+                      </View>
+                    )}
                   </>
                 );
               })()

@@ -54,7 +54,7 @@ export type SummarySlideType =
   // Structured mission screens
   | 'mission' | 'main_concept' | 'micro_challenge' | 'reinforcement_challenge' | 'comprehension' | 'key_relation'
   | 'process_flow' | 'application' | 'victory' | 'challenge' | 'decide' | 'order_sequence'
-  | 'worked_example' | 'worked_example_intro' | 'fill_blank';
+  | 'worked_example' | 'worked_example_intro' | 'fill_blank' | 'match_pairs';
 
 export type IllustrationType = 'educational' | 'diagram' | 'concept' | 'timeline' | 'map' | 'process' | 'comparison';
 
@@ -94,6 +94,15 @@ export interface SummarySlide {
   blankChoices?: { letter: string; text: string }[];
   blankAnswer?: string;
   blankExplanation?: string;
+  // match_pairs only — same shape Desafío's DesafioSlide already uses for
+  // `pairs` (built by buildMatchPairs, reused as-is). The answer is NOT a
+  // letter — it's an object mapping each pair's left id to the right id the
+  // student matched it to, evaluated by pairs.every(p => value[p.id] ===
+  // p.id + '_r'). `pairsPrompt` carries the Misión's own instruction line
+  // (Desafío's reused renderer hardcodes its own, unrelated prompt text —
+  // see session.tsx for how this is shown instead).
+  pairs?: { id: string; left: string; right: string }[];
+  pairsPrompt?: string;
   // worked_example only — statement/answer copied verbatim from the source
   // material (never computed), steps omitted when the model's derivation
   // failed safety validation upstream (see procedural.ts's B-mínima fallback).
