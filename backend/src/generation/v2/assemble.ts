@@ -622,6 +622,10 @@ function buildMisionMatchPairs(concepts: KnowledgeConcept[]): MatchPairsResult |
   // <3 usable examples — omit the format entirely rather than topping up
   // with distinctiveTrait fragments; a missing match_pairs is better than
   // a barely-distinguishable one.
+  // TEMP diagnostic — confirming whether a "match_pairs missing" report is
+  // case (a) (this session genuinely had <3 concepts with a usable example)
+  // or case (b) (emission itself regressed). Safe to remove once resolved.
+  console.log(`[buildMisionMatchPairs] ${concepts.length} concepts total, ${pairs.length} usable examples (need >=3) — emitting: ${pairs.length >= 3}`);
   return pairs.length >= 3 ? { prompt: 'Relaciona cada concepto con su ejemplo', pairs } : null;
 }
 
