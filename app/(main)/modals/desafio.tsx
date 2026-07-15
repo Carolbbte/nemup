@@ -262,17 +262,28 @@ function MultipleChoiceContent({
 // and Misión wires its own letter-based answer flow to `onSelect`/`answer`.
 export function FillBlankContent({
   slide, selection, onSelect, answer, blocked,
+  // Optional, defaults to true (Desafío's own call site doesn't pass this,
+  // so it keeps showing its type-label + emoji header exactly as before).
+  // Misión hides it — 'fill_blank' isn't a real DesafioSlideType, so the
+  // label is always empty there, leaving an orphan emoji with nothing next
+  // to it; Misión renders its own icon+label header instead.
+  showHeader = true,
 }: {
   slide: DesafioSlide; selection: string | null;
   onSelect: (letter: string) => void; answer: SlideAnswer | undefined;
   blocked: boolean;
+  showHeader?: boolean;
 }) {
   const revealed = !!answer;
 
   return (
     <View style={c.root}>
-      <Text style={c.typeLabel}>{slideTypeLabel(slide.type, slide.isRetry, slide.isSpacedRepetition)}</Text>
-      <Text style={c.emoji}>{slideEmoji(slide)}</Text>
+      {showHeader && (
+        <>
+          <Text style={c.typeLabel}>{slideTypeLabel(slide.type, slide.isRetry, slide.isSpacedRepetition)}</Text>
+          <Text style={c.emoji}>{slideEmoji(slide)}</Text>
+        </>
+      )}
       <View style={fb.sentenceBox}>
         <Text style={fb.sentenceText}>{slide.blankSentence}</Text>
       </View>
@@ -305,12 +316,20 @@ const fb = StyleSheet.create({
 
 function MatchChipLeft({
   pair, isSel, evalState, color, onPress,
+  // All optional, all default to Desafío's current exact values — Misión
+  // passes real overrides for its own (often longer) concept names, which
+  // at the default fontSize/numberOfLines were breaking mid-word.
+  textStyle, numberOfLines = 3, chipBackgroundColor, chipBorderColor,
 }: {
   pair: DesafioPair;
   isSel: boolean;
   evalState: 'idle' | 'correct' | 'wrong' | 'corrected';
   color: string | null;
   onPress: () => void;
+  textStyle?: object;
+  numberOfLines?: number;
+  chipBackgroundColor?: string;
+  chipBorderColor?: string;
 }) {
   const scale  = useSharedValue(1);
   const shakeX = useSharedValue(0);
@@ -359,6 +378,7 @@ function MatchChipLeft({
       <Animated.View style={[
         mp.chip,
         { flex: 1 },
+        (chipBackgroundColor || chipBorderColor) ? { backgroundColor: chipBackgroundColor, borderColor: chipBorderColor } : null,
         !isLocked && isSel && mp.chipSelected,
         !isLocked && color ? { borderColor: color, borderWidth: 2, backgroundColor: color + '15' } : null,
         isCorr && mp.chipCorrect,
@@ -370,7 +390,7 @@ function MatchChipLeft({
             {isCorr ? '✓' : '✗'}
           </Text>
         ) : null}
-        <Text style={mp.chipText} numberOfLines={3}>{pair.left}</Text>
+        <Text style={[mp.chipText, textStyle]} numberOfLines={numberOfLines}>{pair.left}</Text>
         {!isLocked && color && <View style={[mp.connector, { backgroundColor: color }]} />}
       </Animated.View>
     </Pressable>
@@ -431,6 +451,22 @@ export function MatchPairsContent({
   // guaranteed derangement (see seededDerangement) — stable across
   // re-renders and requeues as long as the same seed is passed.
   shuffleSeed,
+  // Optional, all default to Desafío's exact current look. Misión's own
+  // concept names run longer than Desafío's own left-side content, which
+  // at the defaults (16px, 3 lines) was breaking mid-word — Misión passes
+  // a smaller/roomier textStyle+numberOfLines instead. The badge header
+  // (🧠 + an empty type label, since 'match_pairs' isn't a real
+  // DesafioSlideType) reads as an orphan emoji outside Desafío's own
+  // vocabulary, so Misión hides it (showHeader=false) and renders its own
+  // header instead. chipBackgroundColor/chipBorderColor/targetBorderColor
+  // let Misión swap the purple Desafío palette for its own blue one
+  // without touching the shared stylesheet.
+  showHeader = true,
+  leftChipTextStyle,
+  leftChipNumberOfLines = 3,
+  chipBackgroundColor,
+  chipBorderColor,
+  targetBorderColor,
 }: {
   slide: DesafioSlide;
   selectedLeft: string | null;
@@ -439,6 +475,12 @@ export function MatchPairsContent({
   pairEvals: Record<string, 'correct' | 'wrong' | 'corrected'>;
   onPairMatchedImmediate: (leftId: string, rightId: string) => void;
   answer: SlideAnswer | undefined;
+  showHeader?: boolean;
+  leftChipTextStyle?: object;
+  leftChipNumberOfLines?: number;
+  chipBackgroundColor?: string;
+  chipBorderColor?: string;
+  targetBorderColor?: string;
   promptText?: string;
   shuffleSeed?: number;
 }) {
@@ -482,7 +524,9 @@ export function MatchPairsContent({
 
   return (
     <View style={[c.root, { backgroundColor: palette.crema }]}>
-      <Text style={mp.badgeLabel}>🧠 {slideTypeLabel(slide.type, slide.isRetry, slide.isSpacedRepetition)}</Text>
+      {showHeader && (
+        <Text style={mp.badgeLabel}>🧠 {slideTypeLabel(slide.type, slide.isRetry, slide.isSpacedRepetition)}</Text>
+      )}
       <Text style={mp.prompt}>{promptText}</Text>
       {/* Row-based layout: each row pairs one left chip with one right target.
           alignItems:'stretch' makes both cards share the same height per row. */}
@@ -499,10 +543,15 @@ export function MatchPairsContent({
                 evalState={pairEvals[leftPair.id] ?? 'idle'}
                 color={getLeftColor(leftPair.id)}
                 onPress={() => handleLeftPress(leftPair.id)}
+                textStyle={leftChipTextStyle}
+                numberOfLines={leftChipNumberOfLines}
+                chipBackgroundColor={chipBackgroundColor}
+                chipBorderColor={chipBorderColor}
               />
               <Pressable
                 style={[
                   mp.target,
+                  targetBorderColor ? { borderColor: targetBorderColor } : null,
                   hasSelected && mp.targetActive,
                   !revealed && rightColor ? { borderColor: rightColor, borderWidth: 2 } : null,
                 ]}
@@ -591,11 +640,17 @@ const mp = StyleSheet.create({
 // truthy `answer` until every item is actually correct.
 export function ClassifyContent({
   slide, assigned, onAssign, answer,
+  // Optional, defaults to true (Desafío's own call site doesn't pass this,
+  // unchanged). Misión hides it for the same reason as the other two
+  // formats — 'classify' isn't a real DesafioSlideType, so the label is
+  // always empty there.
+  showHeader = true,
 }: {
   slide: DesafioSlide;
   assigned: Record<string, string>;
   onAssign: (updated: Record<string, string>) => void;
   answer: SlideAnswer | undefined;
+  showHeader?: boolean;
 }) {
   const revealed   = !!answer;
   const items      = slide.classifyItems ?? [];
@@ -604,7 +659,9 @@ export function ClassifyContent({
 
   return (
     <View style={c.root}>
-      <Text style={c.typeLabel}>{slideTypeLabel(slide.type, slide.isRetry, slide.isSpacedRepetition)}</Text>
+      {showHeader && (
+        <Text style={c.typeLabel}>{slideTypeLabel(slide.type, slide.isRetry, slide.isSpacedRepetition)}</Text>
+      )}
       <Text style={cl.prompt}>{slide.classifyPrompt ?? 'Clasifica cada expresión'}</Text>
       {items.map((item) => {
         const chosen = revMap[item.id];

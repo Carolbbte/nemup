@@ -690,6 +690,23 @@ function buildSummarySlides(backendSlides: BackendSlide[], questions: Question[]
 // guaranteed on older cached sessions, so both render conditionally.
 const CORRECT_REINFORCEMENT = ['¡Eso es!', '¡Exacto!', '¡Perfecto!', '¡Así se hace!'];
 
+// Display-only clamp for match_pairs' right-column text (concept.example,
+// now passed through in full by assemble.ts — see its own comment). Never
+// touches the underlying pair data used for matching/evaluation (that's
+// keyed by id, not text) — this only shortens what's rendered, at a real
+// word boundary, stripping trailing punctuation so it never leaves a
+// dangling comma before the ellipsis.
+const MATCH_PAIR_RIGHT_MAX_CHARS = 60;
+function clampAtWordBoundary(text: string, maxChars: number): string {
+  const trimmed = text.trim();
+  if (trimmed.length <= maxChars) return trimmed;
+  let cut = trimmed.slice(0, maxChars);
+  const lastSpace = cut.lastIndexOf(' ');
+  if (lastSpace > 0) cut = cut.slice(0, lastSpace);
+  cut = cut.replace(/[,;:.\s]+$/, '');
+  return `${cut}…`;
+}
+
 function renderChallengeFeedback(
   slide: BackendSlide,
   answered: string | Record<string, string> | undefined,
@@ -2503,11 +2520,18 @@ export default function SessionPlayerScreen() {
                 const isCorrect = answered === slide.blankAnswer;
                 return (
                   <>
+                    <View style={sum.formatHeaderRow}>
+                      <View style={[sum.formatIconBox, { backgroundColor: BRAND }]}>
+                        <Text style={sum.formatIconEmoji}>{slide.emoji || '📝'}</Text>
+                      </View>
+                      <Text style={[sum.formatKicker, { color: BRAND }]}>Completa la frase</Text>
+                    </View>
                     <FillBlankContent
                       slide={slide as unknown as DesafioSlide}
                       selection={(answered as string | undefined) ?? null}
                       blocked={!!answered}
                       answer={answered ? { value: answered, correct: isCorrect } : undefined}
+                      showHeader={false}
                       onSelect={(letter: string) => {
                         if (answered) return;
                         const correct = letter === slide.blankAnswer;
@@ -2582,16 +2606,42 @@ export default function SessionPlayerScreen() {
                   }, 500);
                 };
 
+                // Display-only: clamp the right column's text at a real word
+                // boundary for rendering — the underlying `pairs` (used by
+                // handlePairTap/evaluation above, keyed by id) is untouched.
+                const displaySlide = {
+                  ...bSlide,
+                  pairs: pairs.map((p) => ({ ...p, right: clampAtWordBoundary(p.right, MATCH_PAIR_RIGHT_MAX_CHARS) })),
+                };
+
                 return (
                   <>
+                    <View style={sum.formatHeaderRow}>
+                      <View style={[sum.formatIconBox, { backgroundColor: palette.tealTarjetas }]}>
+                        <Text style={sum.formatIconEmoji}>{bSlide.emoji || '🔗'}</Text>
+                      </View>
+                      <Text style={[sum.formatKicker, { color: palette.tealTarjetas }]}>Relaciona</Text>
+                    </View>
                     <MatchPairsContent
-                      slide={bSlide as unknown as DesafioSlide}
+                      slide={displaySlide as unknown as DesafioSlide}
                       selectedLeft={pairsSelectedLeft}
                       onSelectLeft={setPairsSelectedLeft}
                       matched={pairsMatched}
                       pairEvals={effectiveEvals}
                       onPairMatchedImmediate={handlePairTap}
                       promptText={bSlide.definition || undefined}
+                      showHeader={false}
+                      // Misión's own concept names run longer than
+                      // Desafío's, which at the defaults (16px, 3 lines)
+                      // broke mid-word — smaller text + one more line fits
+                      // them without touching Desafío's own sizing.
+                      leftChipTextStyle={{ fontSize: 14, lineHeight: 18 }}
+                      leftChipNumberOfLines={4}
+                      // Desafío's purple palette swapped for the Misión's
+                      // own blue tint (existing tokens, no new hexes).
+                      chipBackgroundColor={palette.azulClaro}
+                      chipBorderColor={palette.bordeClaro}
+                      targetBorderColor={palette.bordeClaro}
                       // Misión's slide has no real conceptIndex (Desafío's
                       // own shuffle source), so a real seed is required here
                       // to get an actual shuffle instead of a no-op one —
@@ -2658,11 +2708,18 @@ export default function SessionPlayerScreen() {
 
                 return (
                   <>
+                    <View style={sum.formatHeaderRow}>
+                      <View style={[sum.formatIconBox, { backgroundColor: palette.ambar }]}>
+                        <Text style={sum.formatIconEmoji}>{bSlide.emoji || '🗂️'}</Text>
+                      </View>
+                      <Text style={[sum.formatKicker, { color: paletteExtras.ambarIntermedio }]}>Clasifica</Text>
+                    </View>
                     <ClassifyContent
                       slide={bSlide as unknown as DesafioSlide}
                       assigned={answeredMap ?? classifyAssigned}
                       onAssign={handleAssign}
                       answer={answeredMap ? { value: answeredMap, correct: true } : undefined}
+                      showHeader={false}
                     />
                     {!answered && (
                       <>
@@ -3572,14 +3629,24 @@ export default function SessionPlayerScreen() {
           {safeRender(() => {
             const bs = slide as BackendSlide | undefined;
             const MISSION_QUIZ_TYPES = new Set(['micro_challenge', 'reinforcement_challenge', 'comprehension', 'mini_quiz', 'final_challenge', 'decide']);
+            // fill_blank's answer/choices live in blankAnswer/blankChoices,
+            // not correctAnswer/options, so the check below misses it
+            // entirely — it fell through to the always-enabled generic
+            // "Siguiente →" instead of gating on an actual answer like
+            // every MC type does. Recognized here explicitly so it gets the
+            // same "Elige una opción" → answer → feedback → "Continuar"
+            // flow. match_pairs/classify aren't included — their answers
+            // are objects, not letters, and already have their own
+            // in-content Verificar/complete-the-board flows.
+            const isFillBlankInteractive = slide?.type === 'fill_blank' && !!bs?.blankChoices?.length;
             // Requires non-empty options too — a slide with a question but no options
             // (should not happen post quality-pass, but kept as a defensive fallback)
             // must never soft-lock the "Elige una opción" CTA with nothing to tap.
-            const isMissionInteractive = (MISSION_QUIZ_TYPES.has(slide?.type ?? '') ||
+            const isMissionInteractive = isFillBlankInteractive || ((MISSION_QUIZ_TYPES.has(slide?.type ?? '') ||
               (['common_error', 'wow_fact', 'application', 'challenge'].includes(slide?.type ?? '') && !!bs?.question))
-              && !!bs?.options?.length;
+              && !!bs?.options?.length);
             const missionAnswered = isMissionInteractive ? quizAnswers[summaryIdx] : undefined;
-            const missionCorrect  = !!missionAnswered && missionAnswered === bs?.correctAnswer;
+            const missionCorrect  = !!missionAnswered && missionAnswered === (isFillBlankInteractive ? bs?.blankAnswer : bs?.correctAnswer);
             const _seed = (summaryIdx * 2654435761) >>> 0;
             // `_seed ^ 0xDEAD` runs through ToInt32 (signed) — for any _seed >= 2^31
             // (roughly half of all summaryIdx values) that yields a NEGATIVE result,
@@ -4635,6 +4702,17 @@ const sum = StyleSheet.create({
   // classify — transient "try again" hint after a failed Verificar tap,
   // while the board is still freely editable (no dead end).
   classifyRetryHint: { fontSize: 12.5, color: palette.rojoErrorDark, fontWeight: '600' as const, textAlign: 'center' as const, marginTop: 12 },
+
+  // Shared header for the three Desafío-borrowed formats (fill_blank/
+  // match_pairs/classify) — replaces each component's own internal
+  // type-label+emoji row (hidden via showHeader=false), which read as an
+  // orphan emoji since none of these are real DesafioSlideType values.
+  // Same "colored rounded icon box" language as main_concept's own
+  // conceptIconBox, just sized for an inline header instead of a hero.
+  formatHeaderRow:  { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 16 },
+  formatIconBox:    { width: 32, height: 32, borderRadius: 11, alignItems: 'center', justifyContent: 'center' },
+  formatIconEmoji:  { fontSize: 16 },
+  formatKicker:     { fontSize: 12, fontWeight: '800' as const, letterSpacing: 0.8, textTransform: 'uppercase' as const },
 
   comprehensionCtx: { backgroundColor: 'rgba(22,119,242,0.05)', borderRadius: 12, padding: SM ? 10 : 12, marginBottom: 10, borderWidth: 1, borderColor: 'rgba(22,119,242,0.1)' },
   comprehensionCtxText: { fontSize: SM ? 16 : 18, fontWeight: '800', color: BRAND, textAlign: 'center', letterSpacing: -0.2 },
