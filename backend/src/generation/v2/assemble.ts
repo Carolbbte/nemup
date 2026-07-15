@@ -606,25 +606,14 @@ function fieldsFromExercise(ex: GeneratedExercise): InteractiveFields {
 // own instruction #7), and shortenPairRight's 6-word cap chopped that down
 // mid-sentence ("...que estudia", "...que describe", "...que se") — hard to
 // tell apart and not a real description of the concept. `example` is
-// concrete and distinct per concept, so it's used instead, with a
-// clause-boundary trim (never mid-word) only as a safety net for a
-// genuinely long example — the render is expected to wrap short/medium
-// ones untouched.
-const MISION_PAIR_MAX_LEN = 90;
-function clauseTrim(text: string): string {
-  const trimmed = text.trim();
-  if (trimmed.length <= MISION_PAIR_MAX_LEN) return trimmed;
-  const window = trimmed.slice(0, MISION_PAIR_MAX_LEN);
-  const clauseBoundary = Math.max(window.lastIndexOf('. '), window.lastIndexOf(', '), window.lastIndexOf('; '));
-  if (clauseBoundary > 20) return window.slice(0, clauseBoundary).trim();
-  const lastSpace = window.lastIndexOf(' ');
-  return (lastSpace > 20 ? window.slice(0, lastSpace) : window).trim();
-}
-
+// concrete and distinct per concept, so it's used instead, passed through
+// in FULL — no length cap here. How a long example is displayed (wrap,
+// clamp with "…" at a word boundary, etc.) is a presentation concern for
+// the render, not something to solve by cutting the data.
 function buildMisionMatchPairs(concepts: KnowledgeConcept[]): MatchPairsResult | null {
   const pairs = concepts
     .filter((c) => !!c.example && c.example.trim().length > 0)
-    .map((c) => ({ left: c.name.trim(), right: clauseTrim(c.example!) }))
+    .map((c) => ({ left: c.name.trim(), right: c.example!.trim() }))
     .filter((p) => p.left.length > 0 && p.right.length > 0)
     // Same cap buildMatchPairs itself uses — MatchPairsContent/its color
     // palette and layout are sized for this, on both Desafío and Misión.
