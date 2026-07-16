@@ -1089,7 +1089,7 @@ export default function SessionPlayerScreen() {
   const conceptMascotSV    = useSharedValue(0.8);
   const conceptBubbleOpSV  = useSharedValue(0);
   const conceptBubbleYSV   = useSharedValue(8);
-  const conceptMascotStyle = useAnimatedStyle(() => ({ transform: [{ scale: conceptMascotSV.value }] }));
+  const conceptMascotStyle = useAnimatedStyle(() => ({ transform: [{ scaleX: -1 }, { scale: conceptMascotSV.value }] }));
   const conceptBubbleStyle = useAnimatedStyle(() => ({ opacity: conceptBubbleOpSV.value, transform: [{ translateY: conceptBubbleYSV.value }] }));
 
   // Summary mode micro-reward animation
@@ -2235,18 +2235,16 @@ export default function SessionPlayerScreen() {
                 {!!slide.hook && (
                   <View style={sum.hookRow}>
                     <Animated.Image source={CONCEPT_MASCOT[slide.type] ?? DEFAULT_CONCEPT_MASCOT} style={[sum.hookMascot, conceptMascotStyle]} resizeMode="contain" />
-                    <Animated.View style={[sum.hookBubble, { backgroundColor: pal.bg }, conceptBubbleStyle]}>
-                      <View style={[sum.hookBubbleTail, { borderRightColor: pal.bg }]} />
+                    <Animated.View style={[sum.hookBubble, { backgroundColor: palette.blanco }, conceptBubbleStyle]}>
+                      <View style={[sum.hookBubbleTail, { borderRightColor: palette.blanco }]} />
                       <MathText style={sum.hookBubbleText}>{slide.hook}</MathText>
                     </Animated.View>
                   </View>
                 )}
-                <View style={[sum.conceptTarjeta, { backgroundColor: pal.bg, borderColor: pal.border, overflow: 'hidden' }]}>
+                <View style={[sum.conceptTarjeta, { backgroundColor: palette.blanco, borderColor: palette.bordeClaro, overflow: 'hidden' }]}>
                     {/* Decorative depth, not more text — two low-opacity
                         circles in the concept's own accent, clipped to the
                         card by overflow:'hidden' above. */}
-                    <View style={[sum.conceptDecorCircle1, { backgroundColor: pal.accent + '80' }]} />
-                    <View style={[sum.conceptDecorCircle2, { backgroundColor: pal.accent + '80' }]} />
                     {/* No icon box here — the mascot in the hook above is the
                         one visual anchor; a second big icon competed with it.
                         The concept's color identity still comes through via
@@ -4729,6 +4727,7 @@ const sum = StyleSheet.create({
     flex: 1, alignSelf: 'center' as const,
     borderRadius: 16, borderTopLeftRadius: 4, paddingVertical: 10, paddingHorizontal: 13,
     position: 'relative' as const,
+    borderWidth: 1, borderColor: palette.bordeClaro,
   },
   // CSS-triangle trick (transparent border sides) instead of a rotated
   // square — reads as an actual pointed tail, not a soft diamond notch.
@@ -4753,7 +4752,7 @@ const sum = StyleSheet.create({
   // left accent stripe, icon/label in the concept's accent, body text in
   // the same neutral slate as the hero line. Accent-dependent colors
   // (stripe/icon/label) are applied inline at the call site.
-  tipBox:   { marginTop: SM ? 10 : 12, flexDirection: 'row' as const, alignItems: 'flex-start' as const, gap: 9, backgroundColor: palette.blanco, borderRadius: 10, padding: SM ? 10 : 11, borderLeftWidth: 3 },
+  tipBox:   { marginTop: SM ? 10 : 12, flexDirection: 'row' as const, alignItems: 'flex-start' as const, gap: 9, backgroundColor: '#F4F5F7', borderRadius: 10, padding: SM ? 10 : 11, borderLeftWidth: 3 },
   tipIcon:  { fontSize: 16, marginTop: 1 },
   tipLabel: { fontSize: 10, fontWeight: '800' as const, letterSpacing: 0.6, marginBottom: 3, textTransform: 'uppercase' as const },
   tipText:  { fontSize: SM ? 13 : 14, color: '#3A4A5E', lineHeight: SM ? 20 : 22, fontWeight: '600' as const },
