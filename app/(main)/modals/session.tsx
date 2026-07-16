@@ -2211,12 +2211,6 @@ export default function SessionPlayerScreen() {
                             <MathText style={sum.conceptCardText}>{(slide.definition)}</MathText>
                           </View>
                         )}
-                        {!!slide.example && (
-                          <View style={sum.conceptExampleBox}>
-                            <Text style={sum.conceptExampleIcon}>📌</Text>
-                            <MathText style={sum.conceptExampleText}>{slide.example}</MathText>
-                          </View>
-                        )}
                       </>
                     ) : isProcedural ? (
                       <>
@@ -2236,12 +2230,6 @@ export default function SessionPlayerScreen() {
                             );
                           })}
                         </View>
-                        {!!slide.example && (
-                          <View style={sum.conceptExampleBox}>
-                            <Text style={sum.conceptExampleIcon}>📌</Text>
-                            <MathText style={sum.conceptExampleText}>{slide.example}</MathText>
-                          </View>
-                        )}
                       </>
                     ) : (
                       // Default: Duolingo-style insight — parse "* bullet" lines
@@ -2262,13 +2250,13 @@ export default function SessionPlayerScreen() {
                         ) : (
                           !!slide.definition && <MathText style={sum.insightFallback}>{(slide.definition)}</MathText>
                         )}
-                        {!!slide.example && (
-                          <View style={sum.conceptExampleBox}>
-                            <Text style={sum.conceptExampleIcon}>📌</Text>
-                            <MathText style={sum.conceptExampleText}>{slide.example}</MathText>
-                          </View>
-                        )}
                       </>
+                    )}
+                    {!!slide.tip && (
+                      <View style={sum.tipBox}>
+                        <Text style={sum.tipLabel}>✨ Tip</Text>
+                        <MathText style={sum.tipText}>{slide.tip}</MathText>
+                      </View>
                     )}
                     {!!slide.formalDefinition && (
                       <>
@@ -4675,14 +4663,11 @@ const sum = StyleSheet.create({
   },
   hookBubbleText:     { fontSize: 12.5, fontWeight: '600' as const, color: paletteExtras.indigoOscuro, lineHeight: 17 },
 
-  // main_concept-only, lighter/secondary treatment for `example` — a small
-  // note beneath the "hero" explanation, never sized to compete with it.
-  // Deliberately separate from the shared exampleBox/exampleLabel/
-  // exampleText (used by key_relation/process_flow/concept/etc.) so this
-  // card's own thinner treatment doesn't change any other slide type.
-  conceptExampleBox:  { marginTop: SM ? 10 : 12, flexDirection: 'row' as const, alignItems: 'flex-start' as const, gap: 7, backgroundColor: 'rgba(17,24,39,0.035)', borderRadius: 12, padding: SM ? 9 : 10 },
-  conceptExampleIcon: { fontSize: 12, marginTop: 1 },
-  conceptExampleText: { flex: 1, fontSize: SM ? 12.5 : 13, color: semantic.textSecondary, lineHeight: SM ? 18 : 19, fontWeight: '500' as const },
+  // Tip box — same top-border-divider language as exampleBox, amber-toned
+  // label to read as a distinct "study tip" rather than another example.
+  tipBox:   { marginTop: SM ? 10 : 12, paddingTop: SM ? 10 : 12, borderTopWidth: 1, borderTopColor: paletteExtras.amarilloBorde },
+  tipLabel: { fontSize: 10, fontWeight: '800' as const, color: paletteExtras.ambarIntermedio, letterSpacing: 0.6, marginBottom: 4, textTransform: 'uppercase' as const },
+  tipText:  { fontSize: SM ? 13 : 14, color: semantic.textPrimary, lineHeight: SM ? 20 : 22, fontWeight: '600' as const },
 
   // "Ver definición formal" — collapsed by default, rigor kept a tap away
   // instead of cluttering the hero card.
