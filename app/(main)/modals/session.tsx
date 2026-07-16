@@ -2250,7 +2250,6 @@ export default function SessionPlayerScreen() {
                         The concept's color identity still comes through via
                         the card tint + the title's own color below, and the
                         emoji rides inline with the title instead. */}
-                    <Text style={[sum.conceptKicker, { color: pal.accent }]}>CONCEPTO CLAVE</Text>
                     <MathText style={[sum.conceptTitle, { color: pal.accent }]}>
                       {`${slide.title}${slide?.emoji ? ' ' + slide.emoji : ''}`}
                     </MathText>
