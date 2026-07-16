@@ -605,27 +605,25 @@ function fieldsFromExercise(ex: GeneratedExercise): InteractiveFields {
 // in a homogeneous "Es el único que..." register (see comprehension.ts's
 // own instruction #7), and shortenPairRight's 6-word cap chopped that down
 // mid-sentence ("...que estudia", "...que describe", "...que se") — hard to
-// tell apart and not a real description of the concept. `example` is
-// concrete and distinct per concept, so it's used instead, passed through
-// in FULL — no length cap here. How a long example is displayed (wrap,
-// clamp with "…" at a word boundary, etc.) is a presentation concern for
-// the render, not something to solve by cutting the data.
+// tell apart and not a real description of the concept. The long `example`
+// isn't usable either — it's a full sentence, which either got clamped mid-
+// sentence (bad UX) or forced the card to grow to fit it (huge, mismatched
+// cards). `exampleShort` (comprehension.ts) is a purpose-built 3-6 word
+// label for exactly this slot — concrete, complete, and short by
+// construction, not by truncating `example` at render time.
 function buildMisionMatchPairs(concepts: KnowledgeConcept[]): MatchPairsResult | null {
   const pairs = concepts
-    .filter((c) => !!c.example && c.example.trim().length > 0)
-    .map((c) => ({ left: c.name.trim(), right: c.example!.trim() }))
+    .filter((c) => !!c.exampleShort && c.exampleShort.trim().length > 0)
+    .map((c) => ({ left: c.name.trim(), right: c.exampleShort!.trim() }))
     .filter((p) => p.left.length > 0 && p.right.length > 0)
     // Same cap buildMatchPairs itself uses — MatchPairsContent/its color
     // palette and layout are sized for this, on both Desafío and Misión.
     .slice(0, 3);
 
-  // <3 usable examples — omit the format entirely rather than topping up
-  // with distinctiveTrait fragments; a missing match_pairs is better than
-  // a barely-distinguishable one.
-  // TEMP diagnostic — confirming whether a "match_pairs missing" report is
-  // case (a) (this session genuinely had <3 concepts with a usable example)
-  // or case (b) (emission itself regressed). Safe to remove once resolved.
-  console.log(`[buildMisionMatchPairs] ${concepts.length} concepts total, ${pairs.length} usable examples (need >=3) — emitting: ${pairs.length >= 3}`);
+  // <3 concepts with a usable exampleShort — omit the format entirely
+  // rather than topping up with distinctiveTrait fragments or falling back
+  // to the long example; a missing match_pairs is better than a
+  // barely-distinguishable or oversized one.
   return pairs.length >= 3 ? { prompt: 'Relaciona cada concepto con su ejemplo', pairs } : null;
 }
 
@@ -679,15 +677,15 @@ export function buildSummarySlides(
   )?.id ?? null;
 
   // Match-pairs: also intercalated at most once per session, using
-  // buildMisionMatchPairs (name ↔ example, NOT buildMatchPairs's name ↔
+  // buildMisionMatchPairs (name ↔ exampleShort, NOT buildMatchPairs's name ↔
   // distinctiveTrait — see that function's own comment) across every
-  // concept's example (needs >=3 usable ones, same requirement buildDesafio
-  // enforces for its own trait-based pairs). Since it isn't tied to one
-  // specific concept's content, it's anchored to the LAST concept's
-  // reinforcement slot rather than the first (fillBlankConceptId's pick) —
-  // needing >=3 concepts with a usable example still means "first" and
-  // "last" are always different concepts, guaranteeing the two intercalated
-  // formats never collide on the same slot.
+  // concept's exampleShort (needs >=3 usable ones, same requirement
+  // buildDesafio enforces for its own trait-based pairs). Since it isn't
+  // tied to one specific concept's content, it's anchored to the LAST
+  // concept's reinforcement slot rather than the first (fillBlankConceptId's
+  // pick) — needing >=3 concepts with a usable exampleShort still means
+  // "first" and "last" are always different concepts, guaranteeing the two
+  // intercalated formats never collide on the same slot.
   const matchPairsResult = buildMisionMatchPairs(ko.concepts);
   const matchPairsConceptId = matchPairsResult ? ko.concepts[ko.concepts.length - 1].id : null;
 

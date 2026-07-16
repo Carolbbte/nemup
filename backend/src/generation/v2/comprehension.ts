@@ -34,6 +34,12 @@ INSTRUCCIONES:
     devuelve null en vez de forzar una mala. Nunca reemplaza a definition/example como fuente de verdad.
 3. definition: formal y precisa, tomada del material — no inventes contenido ajeno a él.
 4. example: un ejemplo concreto tomado o inferido del material, o null si no aplica.
+4a. exampleShort: una etiqueta breve (3-6 palabras) que identifique ese mismo ejemplo, concreta y
+    COMPLETA (nunca una frase cortada a mitad), y distinta entre los conceptos de esta lista — se usa
+    donde el example largo no cabe (tarjetas de relacionar). Ej.: para el ejemplo "El brazo humano y
+    el ala de murciélago son huesos homólogos, con el mismo origen evolutivo pero funciones distintas."
+    → exampleShort="Mano humana vs. ala de murciélago". Si no se te ocurre una etiqueta breve honesta
+    para este ejemplo en particular, devuelve null en vez de forzar una mala o trunca.
 4b. advancedExamples: si el material presenta el MISMO concepto en uno o más niveles de dificultad
     mayores (ej. una sección "Desafío"), incluye AQUÍ CADA VARIANTE DISTINTA por separado — no
     elijas solo una si el material muestra varias. Dos ejercicios "avanzados" que agregan cosas

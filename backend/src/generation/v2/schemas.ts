@@ -22,6 +22,7 @@ const knowledgeConceptSchema: JsonSchema = {
     'simpleExplanation',
     'definition',
     'example',
+    'exampleShort',
     'hook',
     'advancedExamples',
     'tips',
@@ -49,6 +50,10 @@ const knowledgeConceptSchema: JsonSchema = {
     example: {
       type: ['string', 'null'],
       description: 'A concrete example illustrating the concept, or null if none applies.',
+    },
+    exampleShort: {
+      type: ['string', 'null'],
+      description: 'A short (3-6 word) label identifying `example`, concrete and complete (never a mid-sentence truncation), distinct across concepts — used where the full example sentence is too long to display. Null if no honest short label applies.',
     },
     hook: {
       type: ['string', 'null'],

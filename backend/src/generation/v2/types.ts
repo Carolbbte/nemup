@@ -25,6 +25,16 @@ export interface KnowledgeConcept {
   /** A concrete example illustrating the concept, or null if none applies. */
   example: string | null;
   /**
+   * A short (3-6 word) label identifying `example` — concrete and complete
+   * enough to stand alone (e.g. "Mano humana vs. ala de murciélago" for a
+   * long-form example about homologous bones), used where `example`'s full
+   * sentence is too long to display (match_pairs' right-column cards — see
+   * assemble.ts's buildMisionMatchPairs). Null when no honest short label
+   * applies — never a truncation of `example`, and never a substitute for
+   * it as a source of truth (the long form is still what concept cards show).
+   */
+  exampleShort: string | null;
+  /**
    * A short (≤20 words), teen-relatable everyday hook or analogy connecting
    * this concept to a teenager's life (e.g. for "evolution": a family recipe
    * each generation tweaks) — purely an engagement device, never a source of
