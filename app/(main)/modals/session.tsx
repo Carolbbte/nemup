@@ -2242,7 +2242,7 @@ export default function SessionPlayerScreen() {
                     </Animated.View>
                   </View>
                 )}
-                <View style={[sum.conceptTarjeta, { backgroundColor: palette.blanco, borderColor: palette.bordeClaro, overflow: 'hidden' }]}>
+                <View style={[sum.conceptTarjeta, { backgroundColor: pal.bg, borderColor: pal.border, overflow: 'hidden' }]}>
                     {/* Decorative depth, not more text — two low-opacity
                         circles in the concept's own accent, clipped to the
                         card by overflow:'hidden' above. */}
@@ -4725,6 +4725,7 @@ const sum = StyleSheet.create({
   hookMascot:         { width: 145, height: 145, marginTop: -6 },
   hookBubble:         {
     alignSelf: 'flex-start' as const,
+    flexShrink: 1,
     marginTop: 8,
     maxWidth: '80%',
     borderRadius: 22, paddingVertical: 11, paddingHorizontal: 16,
@@ -4762,7 +4763,7 @@ const sum = StyleSheet.create({
   // left accent stripe, icon/label in the concept's accent, body text in
   // the same neutral slate as the hero line. Accent-dependent colors
   // (stripe/icon/label) are applied inline at the call site.
-  tipBox:   { marginTop: SM ? 10 : 12, flexDirection: 'row' as const, alignItems: 'flex-start' as const, gap: 9, backgroundColor: '#F4F5F7', borderRadius: 10, padding: SM ? 10 : 11, borderLeftWidth: 3 },
+  tipBox:   { marginTop: SM ? 10 : 12, flexDirection: 'row' as const, alignItems: 'flex-start' as const, gap: 9, backgroundColor: palette.blanco, borderRadius: 10, padding: SM ? 10 : 11, borderLeftWidth: 3 },
   tipIcon:  { fontSize: 16, marginTop: 1 },
   tipLabel: { fontSize: 10, fontWeight: '800' as const, letterSpacing: 0.6, marginBottom: 3, textTransform: 'uppercase' as const },
   tipText:  { fontSize: SM ? 13 : 14, color: '#3A4A5E', lineHeight: SM ? 20 : 22, fontWeight: '600' as const },
