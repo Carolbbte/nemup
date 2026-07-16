@@ -2212,9 +2212,9 @@ export default function SessionPlayerScreen() {
                           </View>
                         )}
                         {!!slide.example && (
-                          <View style={sum.exampleBox}>
-                            <Text style={sum.exampleLabel}>📌 Ejemplo</Text>
-                            <MathText style={sum.exampleText}>{slide.example}</MathText>
+                          <View style={sum.conceptExampleBox}>
+                            <Text style={sum.conceptExampleIcon}>📌</Text>
+                            <MathText style={sum.conceptExampleText}>{slide.example}</MathText>
                           </View>
                         )}
                       </>
@@ -2237,9 +2237,9 @@ export default function SessionPlayerScreen() {
                           })}
                         </View>
                         {!!slide.example && (
-                          <View style={sum.exampleBox}>
-                            <Text style={sum.exampleLabel}>📌 Ejemplo</Text>
-                            <MathText style={sum.exampleText}>{slide.example}</MathText>
+                          <View style={sum.conceptExampleBox}>
+                            <Text style={sum.conceptExampleIcon}>📌</Text>
+                            <MathText style={sum.conceptExampleText}>{slide.example}</MathText>
                           </View>
                         )}
                       </>
@@ -2263,18 +2263,12 @@ export default function SessionPlayerScreen() {
                           !!slide.definition && <MathText style={sum.insightFallback}>{(slide.definition)}</MathText>
                         )}
                         {!!slide.example && (
-                          <View style={sum.exampleBox}>
-                            <Text style={sum.exampleLabel}>📌 Ejemplo</Text>
-                            <MathText style={sum.exampleText}>{slide.example}</MathText>
+                          <View style={sum.conceptExampleBox}>
+                            <Text style={sum.conceptExampleIcon}>📌</Text>
+                            <MathText style={sum.conceptExampleText}>{slide.example}</MathText>
                           </View>
                         )}
                       </>
-                    )}
-                    {!!slide.tip && (
-                      <View style={sum.tipBox}>
-                        <Text style={sum.tipLabel}>✨ Tip</Text>
-                        <MathText style={sum.tipText}>{slide.tip}</MathText>
-                      </View>
                     )}
                     {!!slide.formalDefinition && (
                       <>
@@ -4657,19 +4651,38 @@ const sum = StyleSheet.create({
   insightLineMain:  { fontSize: SM ? 18 : 19, fontWeight: '700' as const, color: semantic.textPrimary, lineHeight: SM ? 25 : 27, letterSpacing: -0.2 },
   insightFallback:  { fontSize: SM ? 18 : 19, fontWeight: '700' as const, color: semantic.textPrimary, lineHeight: SM ? 25 : 27 },
 
-  // Hook line — mascot + speech bubble above the concept card, same tinted
-  // bubble+tail language as ModeCompletionScreen's praise balloon.
-  hookRow:            { flexDirection: 'row', alignItems: 'flex-start', gap: 8, marginBottom: 10, paddingHorizontal: 2 },
-  hookMascot:         { width: 54, height: 54, marginTop: 2 },
-  hookBubble:         { flex: 1, backgroundColor: paletteExtras.moradoSuaveBg, borderRadius: 14, paddingVertical: 8, paddingHorizontal: 12, position: 'relative' as const },
-  hookBubbleTail:     { position: 'absolute' as const, left: -5, top: 20, width: 10, height: 10, backgroundColor: paletteExtras.moradoSuaveBg, transform: [{ rotate: '45deg' }] },
+  // Hook line — mascot + speech bubble above the concept card. The bubble
+  // fill is a warm neutral (trackClaro), deliberately NOT any of
+  // CONCEPT_PALETTES' bg tones (its "azul" bg #EEF3FF is nearly identical to
+  // the old moradoSuaveBg #EDF5FF this used to share) — the bubble must read
+  // as its own distinct surface, not as another concept card.
+  hookRow:            { flexDirection: 'row', alignItems: 'flex-start', gap: 10, marginBottom: 12, paddingHorizontal: 2 },
+  hookMascot:         { width: 68, height: 68, marginTop: 0 },
+  hookBubble:         {
+    flex: 1, alignSelf: 'center' as const, backgroundColor: paletteExtras.trackClaro,
+    borderRadius: 16, borderTopLeftRadius: 4, paddingVertical: 10, paddingHorizontal: 13,
+    position: 'relative' as const,
+  },
+  // CSS-triangle trick (transparent border sides) instead of a rotated
+  // square — reads as an actual pointed tail, not a soft diamond notch.
+  // Points left/toward the mascot, roughly level with its head.
+  hookBubbleTail: {
+    position: 'absolute' as const, left: -8, top: 14, width: 0, height: 0,
+    backgroundColor: 'transparent',
+    borderTopWidth: 7, borderBottomWidth: 7, borderRightWidth: 9,
+    borderTopColor: 'transparent', borderBottomColor: 'transparent',
+    borderRightColor: paletteExtras.trackClaro,
+  },
   hookBubbleText:     { fontSize: 12.5, fontWeight: '600' as const, color: paletteExtras.indigoOscuro, lineHeight: 17 },
 
-  // Tip box — same top-border-divider language as exampleBox, amber-toned
-  // label to read as a distinct "study tip" rather than another example.
-  tipBox:   { marginTop: SM ? 10 : 12, paddingTop: SM ? 10 : 12, borderTopWidth: 1, borderTopColor: paletteExtras.amarilloBorde },
-  tipLabel: { fontSize: 10, fontWeight: '800' as const, color: paletteExtras.ambarIntermedio, letterSpacing: 0.6, marginBottom: 4, textTransform: 'uppercase' as const },
-  tipText:  { fontSize: SM ? 13 : 14, color: semantic.textPrimary, lineHeight: SM ? 20 : 22, fontWeight: '600' as const },
+  // main_concept-only, lighter/secondary treatment for `example` — a small
+  // note beneath the "hero" explanation, never sized to compete with it.
+  // Deliberately separate from the shared exampleBox/exampleLabel/
+  // exampleText (used by key_relation/process_flow/concept/etc.) so this
+  // card's own thinner treatment doesn't change any other slide type.
+  conceptExampleBox:  { marginTop: SM ? 10 : 12, flexDirection: 'row' as const, alignItems: 'flex-start' as const, gap: 7, backgroundColor: 'rgba(17,24,39,0.035)', borderRadius: 12, padding: SM ? 9 : 10 },
+  conceptExampleIcon: { fontSize: 12, marginTop: 1 },
+  conceptExampleText: { flex: 1, fontSize: SM ? 12.5 : 13, color: semantic.textSecondary, lineHeight: SM ? 18 : 19, fontWeight: '500' as const },
 
   // "Ver definición formal" — collapsed by default, rigor kept a tap away
   // instead of cluttering the hero card.
