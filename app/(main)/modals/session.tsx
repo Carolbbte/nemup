@@ -2226,13 +2226,18 @@ export default function SessionPlayerScreen() {
                 {!!slide.hook && (
                   <View style={sum.hookRow}>
                     <Animated.Image source={require('@/assets/images/enfocado.png')} style={[sum.hookMascot, conceptMascotStyle]} resizeMode="contain" />
-                    <Animated.View style={[sum.hookBubble, conceptBubbleStyle]}>
-                      <View style={sum.hookBubbleTail} />
+                    <Animated.View style={[sum.hookBubble, { backgroundColor: pal.bg }, conceptBubbleStyle]}>
+                      <View style={[sum.hookBubbleTail, { borderRightColor: pal.bg }]} />
                       <MathText style={sum.hookBubbleText}>{slide.hook}</MathText>
                     </Animated.View>
                   </View>
                 )}
-                <View style={[sum.conceptTarjeta, { backgroundColor: pal.bg, borderColor: pal.border }]}>
+                <View style={[sum.conceptTarjeta, { backgroundColor: pal.bg, borderColor: pal.border, overflow: 'hidden' }]}>
+                    {/* Decorative depth, not more text — two low-opacity
+                        circles in the concept's own accent, clipped to the
+                        card by overflow:'hidden' above. */}
+                    <View style={[sum.conceptDecorCircle1, { backgroundColor: pal.accent + '80' }]} />
+                    <View style={[sum.conceptDecorCircle2, { backgroundColor: pal.accent + '80' }]} />
                     {/* No icon box here — the mascot in the hook above is the
                         one visual anchor; a second big icon competed with it.
                         The concept's color identity still comes through via
@@ -2311,10 +2316,10 @@ export default function SessionPlayerScreen() {
                       </>
                     )}
                     {!!slide.tip && (
-                      <View style={sum.tipBox}>
+                      <View style={[sum.tipBox, { borderLeftColor: pal.accent }]}>
                         <Text style={sum.tipIcon}>💡</Text>
                         <View style={{ flex: 1 }}>
-                          <Text style={sum.tipLabel}>Dato clave</Text>
+                          <Text style={[sum.tipLabel, { color: pal.accent }]}>Dato clave</Text>
                           <MathText style={sum.tipText}>{slide.tip}</MathText>
                         </View>
                       </View>
@@ -4704,12 +4709,15 @@ const sum = StyleSheet.create({
   insightFallback:  { fontSize: SM ? 18 : 19, fontWeight: '600' as const, color: '#3A4A5E', lineHeight: SM ? 25 : 27 },
 
   // Hook line — mascot + speech bubble above the concept card. Bubble fill
-  // is brand blue (azulClaro) with a dark-blue accent text, giving the
-  // dialogue actual color energy instead of a flat neutral gray.
+  // and tail color are per-concept (pal.bg, applied inline at the call
+  // site — see main_concept's render) so the whole card stays one color
+  // family instead of a fixed blue clashing with a green/amber card. Text
+  // is a neutral dark slate (same tone as insightLineMain), not the
+  // rotating accent — a loud accent on body copy read as "shouting".
   hookRow:            { flexDirection: 'row', alignItems: 'flex-start', gap: 10, marginBottom: 12, paddingHorizontal: 2 },
-  hookMascot:         { width: 96, height: 96, marginTop: 0 },
+  hookMascot:         { width: 114, height: 114, marginTop: 0 },
   hookBubble:         {
-    flex: 1, alignSelf: 'center' as const, backgroundColor: palette.azulClaro,
+    flex: 1, alignSelf: 'center' as const,
     borderRadius: 16, borderTopLeftRadius: 4, paddingVertical: 10, paddingHorizontal: 13,
     position: 'relative' as const,
   },
@@ -4721,16 +4729,25 @@ const sum = StyleSheet.create({
     backgroundColor: 'transparent',
     borderTopWidth: 7, borderBottomWidth: 7, borderRightWidth: 9,
     borderTopColor: 'transparent', borderBottomColor: 'transparent',
-    borderRightColor: palette.azulClaro,
   },
-  hookBubbleText:     { fontSize: 14, fontWeight: '600' as const, color: CONCEPT_PALETTES[0].accent, lineHeight: 19 },
+  hookBubbleText:     { fontSize: 14, fontWeight: '600' as const, color: '#3A4A5E', lineHeight: 19 },
 
-  // Tip callout — a colored, playful box (icon + mini-label + text) instead
-  // of a plain paragraph under a divider line.
-  tipBox:   { marginTop: SM ? 10 : 12, flexDirection: 'row' as const, alignItems: 'flex-start' as const, gap: 9, backgroundColor: palette.ambarBg, borderRadius: 12, padding: SM ? 10 : 11, borderWidth: 1, borderColor: palette.ambar + '40' },
+  // Two low-opacity circles (accent color, ~50% alpha via hex suffix)
+  // behind the card for depth — same "soft glow blob, negative offset,
+  // overflow hidden on the container" language as home.tsx's nemGlow1/2.
+  // Shape-only here; color comes from the per-concept accent, applied
+  // inline at the call site.
+  conceptDecorCircle1: { position: 'absolute' as const, top: -34, right: -26, width: 100, height: 100, borderRadius: 50 },
+  conceptDecorCircle2: { position: 'absolute' as const, bottom: -22, left: -18, width: 64, height: 64, borderRadius: 32 },
+
+  // Tip callout — one color family with the rest of the card: white fill,
+  // left accent stripe, icon/label in the concept's accent, body text in
+  // the same neutral slate as the hero line. Accent-dependent colors
+  // (stripe/icon/label) are applied inline at the call site.
+  tipBox:   { marginTop: SM ? 10 : 12, flexDirection: 'row' as const, alignItems: 'flex-start' as const, gap: 9, backgroundColor: palette.blanco, borderRadius: 10, padding: SM ? 10 : 11, borderLeftWidth: 3 },
   tipIcon:  { fontSize: 16, marginTop: 1 },
-  tipLabel: { fontSize: 10, fontWeight: '800' as const, color: palette.ambarIcon, letterSpacing: 0.6, marginBottom: 3, textTransform: 'uppercase' as const },
-  tipText:  { fontSize: SM ? 13 : 14, color: palette.ambarText, lineHeight: SM ? 20 : 22, fontWeight: '600' as const },
+  tipLabel: { fontSize: 10, fontWeight: '800' as const, letterSpacing: 0.6, marginBottom: 3, textTransform: 'uppercase' as const },
+  tipText:  { fontSize: SM ? 13 : 14, color: '#3A4A5E', lineHeight: SM ? 20 : 22, fontWeight: '600' as const },
 
   // "Ver definición formal" — collapsed by default, rigor kept a tap away
   // instead of cluttering the hero card.
