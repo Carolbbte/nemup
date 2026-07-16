@@ -4722,12 +4722,11 @@ const sum = StyleSheet.create({
   // is a neutral dark slate (same tone as insightLineMain), not the
   // rotating accent — a loud accent on body copy read as "shouting".
   hookRow:            { flexDirection: 'row', alignItems: 'flex-start', gap: 10, marginBottom: 12, paddingHorizontal: 2 },
-  hookMascot:         { width: 145, height: 145, marginTop: -6 },
+  hookMascot:         { width: 122, height: 122, marginTop: -6 },
   hookBubble:         {
+    flex: 1,
     alignSelf: 'flex-start' as const,
-    flexShrink: 1,
     marginTop: 8,
-    maxWidth: '80%',
     borderRadius: 22, paddingVertical: 11, paddingHorizontal: 16,
     position: 'relative' as const,
     borderWidth: 1, borderColor: palette.bordeClaro,
