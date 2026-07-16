@@ -76,6 +76,8 @@ const makeConcept = (id: string, difficulty: number, advancedExamples: string[] 
   example: null,
   exampleShort: null,
   hook: null,
+  emoji: null,
+  keyPhrase: null,
   advancedExamples,
   tips: [],
   difficulty,

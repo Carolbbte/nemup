@@ -44,6 +44,21 @@ export interface KnowledgeConcept {
    */
   hook: string | null;
   /**
+   * A single thematic emoji representing THIS concept's subject (e.g. 🧬 for
+   * "Evolución", 🦴 for "Registro fósil") — never a generic one shared across
+   * every concept (💡/✅/📚). Null when no clear thematic emoji applies.
+   */
+  emoji: string | null;
+  /**
+   * A short (2-5 word) fragment to highlight in color on the concept card —
+   * the single most important idea in `simpleExplanation`. MUST be a LITERAL
+   * substring of `simpleExplanation` (verbatim, not paraphrased) since the
+   * frontend locates it by string search to color it; a non-literal value
+   * simply won't be found and nothing gets highlighted. Null when no clear
+   * fragment is worth highlighting.
+   */
+  keyPhrase: string | null;
+  /**
    * Harder/more advanced examples of the SAME concept — plural because a
    * document can show MULTIPLE distinct harder variants for one concept
    * (e.g. a "Desafío" section with one exercise that adds parentheses and

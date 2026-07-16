@@ -24,6 +24,8 @@ const knowledgeConceptSchema: JsonSchema = {
     'example',
     'exampleShort',
     'hook',
+    'emoji',
+    'keyPhrase',
     'advancedExamples',
     'tips',
     'difficulty',
@@ -58,6 +60,14 @@ const knowledgeConceptSchema: JsonSchema = {
     hook: {
       type: ['string', 'null'],
       description: 'A short (≤20 words) teen-relatable everyday hook/analogy connecting this concept to a teenager\'s life — must be a correct, non-distorting analogy, or null if no honest one applies. Never a substitute for definition/example.',
+    },
+    emoji: {
+      type: ['string', 'null'],
+      description: 'A single thematic emoji representing this concept\'s subject — never a generic one shared across every concept. Null if no clear thematic emoji applies.',
+    },
+    keyPhrase: {
+      type: ['string', 'null'],
+      description: 'A short (2-5 word) fragment to highlight in color — the most important idea in simpleExplanation. MUST be a literal substring of simpleExplanation (verbatim, not paraphrased). Null if no clear fragment is worth highlighting.',
     },
     advancedExamples: {
       type: 'array',

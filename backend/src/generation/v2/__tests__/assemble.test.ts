@@ -29,7 +29,7 @@ describe('shuffleWithLetterAnswer', () => {
 
 const makeConcept = (id: string, name: string, distinctiveTrait: string): KnowledgeConcept => ({
   id, name, distinctiveTrait,
-  simpleExplanation: '', definition: '', example: null, exampleShort: null, hook: null, advancedExamples: [], tips: [], difficulty: 1, sourceQuote: '',
+  simpleExplanation: '', definition: '', example: null, exampleShort: null, hook: null, emoji: null, keyPhrase: null, advancedExamples: [], tips: [], difficulty: 1, sourceQuote: '',
 });
 
 describe('buildReinforcementFromTrait (no-AI second question)', () => {
@@ -117,6 +117,8 @@ const ko: KnowledgeObject = {
       example: '5x²',
       exampleShort: '5x²',
       hook: null,
+      emoji: null,
+      keyPhrase: null,
       advancedExamples: [],
       tips: [],
       difficulty: 2,
@@ -131,6 +133,8 @@ const ko: KnowledgeObject = {
       example: '3x y 5x',
       exampleShort: '3x y 5x',
       hook: null,
+      emoji: null,
+      keyPhrase: null,
       advancedExamples: [],
       tips: [],
       difficulty: 4,
