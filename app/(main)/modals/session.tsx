@@ -737,7 +737,7 @@ function renderChallengeFeedback(
   if (isCorrect) {
     return (
       <View style={sum.feedbackRow}>
-        <Image source={require('@/assets/images/enfocado.png')} style={sum.feedbackMascot} resizeMode="contain" />
+        <Image source={require('@/assets/images/metaAlcanzada.png')} style={sum.feedbackMascot} resizeMode="contain" />
         <View style={[sum.feedbackBubble, sum.feedbackBubbleCorrect]}>
           <View style={[sum.feedbackBubbleTail, sum.feedbackBubbleTailCorrect]} />
           <Text style={sum.feedbackTitleCorrect}>{CORRECT_REINFORCEMENT[seed % CORRECT_REINFORCEMENT.length]}</Text>
@@ -752,7 +752,7 @@ function renderChallengeFeedback(
   if (isObjectAnswer) {
     return (
       <View style={sum.feedbackRow}>
-        <Image source={require('@/assets/images/enfocado.png')} style={sum.feedbackMascot} resizeMode="contain" />
+        <Image source={require('@/assets/images/tuPuedes.png')} style={sum.feedbackMascot} resizeMode="contain" />
         <View style={[sum.feedbackBubble, sum.feedbackBubbleWrong]}>
           <View style={[sum.feedbackBubbleTail, sum.feedbackBubbleTailWrong]} />
           <Text style={sum.feedbackTitleWrong}>{`¡Casi, ${firstName}!`}</Text>
@@ -765,7 +765,7 @@ function renderChallengeFeedback(
   const wrongExplanation = slide.wrongAnswerHints?.[answered];
   return (
     <View style={sum.feedbackRow}>
-      <Image source={require('@/assets/images/enfocado.png')} style={sum.feedbackMascot} resizeMode="contain" />
+      <Image source={require('@/assets/images/tuPuedes.png')} style={sum.feedbackMascot} resizeMode="contain" />
       <View style={[sum.feedbackBubble, sum.feedbackBubbleWrong]}>
         <View style={[sum.feedbackBubbleTail, sum.feedbackBubbleTailWrong]} />
         <Text style={sum.feedbackTitleWrong}>{`¡Casi, ${firstName}!`}</Text>
@@ -797,6 +797,16 @@ const LOCAL_MODE_TO_DAILY: Record<LocalMode, DailyMode> = { summary: 'mision', q
 const LOCAL_MODE_TO_PHASE: Record<LocalMode, Phase>     = { summary: 'summary', quiz: 'quiz', flashcards: 'flashcards' };
 
 const SESSION_PROGRESS_KEY = 'nemup_session_progress';
+
+// Pose de mascota según el tipo de tarjeta de concepto.
+const CONCEPT_MASCOT: Record<string, any> = {
+  main_concept:  require('@/assets/images/saludoInicial.png'),  // señala hacia la tarjeta
+  key_relation:  require('@/assets/images/lupa.png'),
+  process_flow:  require('@/assets/images/enfocado.png'),
+  common_error:  require('@/assets/images/pensativo.png'),
+  challenge:     require('@/assets/images/tuPuedes.png'),
+};
+const DEFAULT_CONCEPT_MASCOT = require('@/assets/images/lupa.png');
 
 export default function SessionPlayerScreen() {
   const router  = useRouter();
@@ -2210,13 +2220,12 @@ export default function SessionPlayerScreen() {
               const defLines = (slide.definition ?? '').split(/\\n|\n/).map(l => l.trim()).filter(Boolean);
               const isProcedural = defLines.length >= 3 && defLines.some(l => STEP_RE.test(l));
               const hasConnector = !!slide.connector?.includes('↓');
-              // Rotate color by CONCEPT order (not slide order) — count only
-              // concept-type slides up to and including this one, so
-              // interleaved questions never skip or repeat a color.
-              const conceptOrder = slides
-                .slice(0, summaryIdx + 1)
-                .filter(s => V_CONCEPT.includes(s.type)).length - 1;
-              const pal = CONCEPT_PALETTES[Math.max(0, conceptOrder) % CONCEPT_PALETTES.length];
+              // Color estable por misión: toda la sesión mantiene un mismo tema
+              // (estilo Duolingo), y misiones distintas se ven distintas entre sí.
+              const missionColorIdx = skillPath?.missions?.findIndex(
+                m => m.sessionId === currentSessionId
+              ) ?? -1;
+              const pal = CONCEPT_PALETTES[Math.max(0, missionColorIdx) % CONCEPT_PALETTES.length];
               return (
                 // Wrapped in its own ScrollView so a longer concept (hook +
                 // card + example + tip + formal-definition toggle) is never
@@ -2225,7 +2234,7 @@ export default function SessionPlayerScreen() {
                 <ScrollView style={{ flex: 1 }} contentContainerStyle={{ flexGrow: 1, paddingBottom: 24 }} showsVerticalScrollIndicator={false}>
                 {!!slide.hook && (
                   <View style={sum.hookRow}>
-                    <Animated.Image source={require('@/assets/images/enfocado.png')} style={[sum.hookMascot, conceptMascotStyle]} resizeMode="contain" />
+                    <Animated.Image source={CONCEPT_MASCOT[slide.type] ?? DEFAULT_CONCEPT_MASCOT} style={[sum.hookMascot, conceptMascotStyle]} resizeMode="contain" />
                     <Animated.View style={[sum.hookBubble, { backgroundColor: pal.bg }, conceptBubbleStyle]}>
                       <View style={[sum.hookBubbleTail, { borderRightColor: pal.bg }]} />
                       <MathText style={sum.hookBubbleText}>{slide.hook}</MathText>
@@ -2698,7 +2707,7 @@ export default function SessionPlayerScreen() {
                     />
                     {!!answered && (
                       <View style={sum.feedbackRow}>
-                        <Image source={require('@/assets/images/enfocado.png')} style={sum.feedbackMascot} resizeMode="contain" />
+                        <Image source={require('@/assets/images/metaAlcanzada.png')} style={sum.feedbackMascot} resizeMode="contain" />
                         <View style={[sum.feedbackBubble, sum.feedbackBubbleCorrect]}>
                           <View style={[sum.feedbackBubbleTail, sum.feedbackBubbleTailCorrect]} />
                           <Text style={sum.feedbackTitleCorrect}>
@@ -2781,7 +2790,7 @@ export default function SessionPlayerScreen() {
                     )}
                     {!!answered && (
                       <View style={sum.feedbackRow}>
-                        <Image source={require('@/assets/images/enfocado.png')} style={sum.feedbackMascot} resizeMode="contain" />
+                        <Image source={require('@/assets/images/metaAlcanzada.png')} style={sum.feedbackMascot} resizeMode="contain" />
                         <View style={[sum.feedbackBubble, sum.feedbackBubbleCorrect]}>
                           <View style={[sum.feedbackBubbleTail, sum.feedbackBubbleTailCorrect]} />
                           <Text style={sum.feedbackTitleCorrect}>
@@ -4715,7 +4724,7 @@ const sum = StyleSheet.create({
   // is a neutral dark slate (same tone as insightLineMain), not the
   // rotating accent — a loud accent on body copy read as "shouting".
   hookRow:            { flexDirection: 'row', alignItems: 'flex-start', gap: 10, marginBottom: 12, paddingHorizontal: 2 },
-  hookMascot:         { width: 114, height: 114, marginTop: 0 },
+  hookMascot:         { width: 145, height: 145, marginTop: -6 },
   hookBubble:         {
     flex: 1, alignSelf: 'center' as const,
     borderRadius: 16, borderTopLeftRadius: 4, paddingVertical: 10, paddingHorizontal: 13,
