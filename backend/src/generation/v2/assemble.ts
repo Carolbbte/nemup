@@ -162,13 +162,18 @@ export function buildQuestions(
 
 // ── 3. Fill-blank sentence ────────────────────────────────────────────────────
 
+// Category-neutral on purpose — an anchor like "La evidencia denominada ___"
+// asserts a category (evidence/process/mechanism/phenomenon/structure) that's
+// wrong for any concept that isn't actually that category (e.g. "La evidencia
+// denominada Evolución..." — evolution is the process, not a piece of
+// evidence). Every anchor here works for ANY concept regardless of what kind
+// of thing it is.
 const BLANK_ANCHORS = [
-  'La evidencia denominada ___',
-  'El proceso llamado ___',
+  'El concepto ___',
+  'El concepto denominado ___',
   'El concepto conocido como ___',
-  'La estructura de tipo ___',
-  'El mecanismo denominado ___',
-  'El fenómeno llamado ___',
+  'El término denominado ___',
+  'La idea llamada ___',
 ];
 
 function decapitalize(s: string): string {
@@ -180,7 +185,7 @@ function decapitalize(s: string): string {
  * predicate is the concept's `distinctiveTrait` — true only for this concept,
  * per how `comprehension.ts` instructs the model to write it. The anchor is
  * picked deterministically from `concept.name` so the same concept always
- * gets the same anchor, and different concepts vary across the 6 options.
+ * gets the same anchor, and different concepts vary across BLANK_ANCHORS.
  */
 export function buildFillBlank(concept: KnowledgeConcept): string {
   const hash = [...concept.name].reduce((acc, ch) => acc + ch.charCodeAt(0), 0);
@@ -533,6 +538,28 @@ export function buildReinforcementFromTrait(
 ): { question: string; correctText: string; distractors: string[]; usedExample: boolean } | null {
   const others = allConcepts.filter((c) => c.id !== concept.id);
   if (others.length === 0) return null;
+
+  // Prefers exampleShort over the long example — options built from full
+  // sentences ran 3-4 lines each. Requires the correct concept AND at least
+  // 3 OTHER concepts to have a usable exampleShort (never fewer, unlike the
+  // long-example branch below) — anything short of that would mean some
+  // options come out short and others don't get built at all, so it falls
+  // through to the long-example branch instead, where every option is long
+  // and nothing is mixed.
+  if (preferExample && concept.exampleShort && concept.exampleShort.trim().length > 0) {
+    const otherShorts = others
+      .map((c) => c.exampleShort)
+      .filter((e): e is string => !!e && e.trim().length > 0 && e !== concept.exampleShort);
+
+    if (otherShorts.length >= 3) {
+      return {
+        question: `¿Cuál de estas opciones es un ejemplo de "${concept.name}"?`,
+        correctText: concept.exampleShort,
+        distractors: shuffleArray(otherShorts).slice(0, 3),
+        usedExample: true,
+      };
+    }
+  }
 
   if (preferExample && concept.example && concept.example.trim().length > 0) {
     const otherExamples = others
