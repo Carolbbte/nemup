@@ -2167,7 +2167,11 @@ export default function SessionPlayerScreen() {
                 .filter(s => V_CONCEPT.includes(s.type)).length - 1;
               const pal = CONCEPT_PALETTES[Math.max(0, conceptOrder) % CONCEPT_PALETTES.length];
               return (
-                <>
+                // Wrapped in its own ScrollView so a longer concept (hook +
+                // card + example + tip + formal-definition toggle) is never
+                // silently cut under the CTA bar below — slideArea itself is
+                // a plain View with swipe touch handlers, not scrollable.
+                <ScrollView style={{ flex: 1 }} contentContainerStyle={{ flexGrow: 1, paddingBottom: 24 }} showsVerticalScrollIndicator={false}>
                 {!!slide.hook && (
                   <View style={sum.hookRow}>
                     <Image source={require('@/assets/images/enfocado.png')} style={sum.hookMascot} resizeMode="contain" />
@@ -2286,7 +2290,7 @@ export default function SessionPlayerScreen() {
                       </>
                     )}
                 </View>
-                </>
+                </ScrollView>
               );
               })()
             ) : slide?.type === 'worked_example_intro' ? (
@@ -4650,15 +4654,15 @@ const sum = StyleSheet.create({
   insightDot:       { width: 6, height: 6, borderRadius: 3, backgroundColor: 'rgba(108,77,255,0.35)', marginTop: 9 },
   insightDotMain:   { width: 8, height: 8, borderRadius: 4, backgroundColor: BRAND, marginTop: 8 },
   insightLine:      { flex: 1, fontSize: SM ? 15 : 17, fontWeight: '500' as const, color: semantic.textSecondary, lineHeight: SM ? 22 : 26 },
-  insightLineMain:  { fontSize: SM ? 20 : 23, fontWeight: '800' as const, color: semantic.textPrimary, lineHeight: SM ? 28 : 34, letterSpacing: -0.3 },
-  insightFallback:  { fontSize: SM ? 18 : 20, fontWeight: '700' as const, color: semantic.textPrimary, lineHeight: SM ? 26 : 32 },
+  insightLineMain:  { fontSize: SM ? 18 : 19, fontWeight: '700' as const, color: semantic.textPrimary, lineHeight: SM ? 25 : 27, letterSpacing: -0.2 },
+  insightFallback:  { fontSize: SM ? 18 : 19, fontWeight: '700' as const, color: semantic.textPrimary, lineHeight: SM ? 25 : 27 },
 
   // Hook line — mascot + speech bubble above the concept card, same tinted
   // bubble+tail language as ModeCompletionScreen's praise balloon.
   hookRow:            { flexDirection: 'row', alignItems: 'flex-start', gap: 8, marginBottom: 10, paddingHorizontal: 2 },
-  hookMascot:         { width: 32, height: 32, marginTop: 2 },
+  hookMascot:         { width: 54, height: 54, marginTop: 2 },
   hookBubble:         { flex: 1, backgroundColor: paletteExtras.moradoSuaveBg, borderRadius: 14, paddingVertical: 8, paddingHorizontal: 12, position: 'relative' as const },
-  hookBubbleTail:     { position: 'absolute' as const, left: -5, top: 12, width: 10, height: 10, backgroundColor: paletteExtras.moradoSuaveBg, transform: [{ rotate: '45deg' }] },
+  hookBubbleTail:     { position: 'absolute' as const, left: -5, top: 20, width: 10, height: 10, backgroundColor: paletteExtras.moradoSuaveBg, transform: [{ rotate: '45deg' }] },
   hookBubbleText:     { fontSize: 12.5, fontWeight: '600' as const, color: paletteExtras.indigoOscuro, lineHeight: 17 },
 
   // Tip box — same top-border-divider language as exampleBox, amber-toned
