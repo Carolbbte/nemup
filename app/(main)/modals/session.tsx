@@ -2182,11 +2182,15 @@ export default function SessionPlayerScreen() {
                   </View>
                 )}
                 <View style={[sum.conceptTarjeta, { backgroundColor: pal.bg, borderColor: pal.border }]}>
-                    <View style={[sum.conceptIconBox, { backgroundColor: pal.iconBg }]}>
-                      <Text style={sum.conceptIconEmoji}>{slide?.emoji || '💡'}</Text>
-                    </View>
+                    {/* No icon box here — the mascot in the hook above is the
+                        one visual anchor; a second big icon competed with it.
+                        The concept's color identity still comes through via
+                        the card tint + the title's own color below, and the
+                        emoji rides inline with the title instead. */}
                     <Text style={[sum.conceptKicker, { color: pal.accent }]}>CONCEPTO CLAVE</Text>
-                    <MathText style={sum.conceptTitle}>{(slide.title)}</MathText>
+                    <MathText style={[sum.conceptTitle, { color: pal.accent }]}>
+                      {`${slide.title}${slide?.emoji ? ' ' + slide.emoji : ''}`}
+                    </MathText>
                     {hasConnector ? (
                       <>
                         <View style={sum.chainContainer}>
@@ -2254,8 +2258,11 @@ export default function SessionPlayerScreen() {
                     )}
                     {!!slide.tip && (
                       <View style={sum.tipBox}>
-                        <Text style={sum.tipLabel}>✨ Tip</Text>
-                        <MathText style={sum.tipText}>{slide.tip}</MathText>
+                        <Text style={sum.tipIcon}>💡</Text>
+                        <View style={{ flex: 1 }}>
+                          <Text style={sum.tipLabel}>Dato clave</Text>
+                          <MathText style={sum.tipText}>{slide.tip}</MathText>
+                        </View>
                       </View>
                     )}
                     {!!slide.formalDefinition && (
@@ -4636,18 +4643,19 @@ const sum = StyleSheet.create({
   insightDot:       { width: 6, height: 6, borderRadius: 3, backgroundColor: 'rgba(108,77,255,0.35)', marginTop: 9 },
   insightDotMain:   { width: 8, height: 8, borderRadius: 4, backgroundColor: BRAND, marginTop: 8 },
   insightLine:      { flex: 1, fontSize: SM ? 15 : 17, fontWeight: '500' as const, color: semantic.textSecondary, lineHeight: SM ? 22 : 26 },
-  insightLineMain:  { fontSize: SM ? 18 : 19, fontWeight: '700' as const, color: semantic.textPrimary, lineHeight: SM ? 25 : 27, letterSpacing: -0.2 },
-  insightFallback:  { fontSize: SM ? 18 : 19, fontWeight: '700' as const, color: semantic.textPrimary, lineHeight: SM ? 25 : 27 },
+  // Warm dark slate — deliberately NOT semantic.textPrimary/charcoal
+  // (#111827), which at heavy weight read as a "wall of black bold text".
+  // Main_concept-only hero color.
+  insightLineMain:  { fontSize: SM ? 18 : 19, fontWeight: '600' as const, color: '#3A4A5E', lineHeight: SM ? 25 : 27, letterSpacing: -0.1 },
+  insightFallback:  { fontSize: SM ? 18 : 19, fontWeight: '600' as const, color: '#3A4A5E', lineHeight: SM ? 25 : 27 },
 
-  // Hook line — mascot + speech bubble above the concept card. The bubble
-  // fill is a warm neutral (trackClaro), deliberately NOT any of
-  // CONCEPT_PALETTES' bg tones (its "azul" bg #EEF3FF is nearly identical to
-  // the old moradoSuaveBg #EDF5FF this used to share) — the bubble must read
-  // as its own distinct surface, not as another concept card.
+  // Hook line — mascot + speech bubble above the concept card. Bubble fill
+  // is brand blue (azulClaro) with a dark-blue accent text, giving the
+  // dialogue actual color energy instead of a flat neutral gray.
   hookRow:            { flexDirection: 'row', alignItems: 'flex-start', gap: 10, marginBottom: 12, paddingHorizontal: 2 },
-  hookMascot:         { width: 68, height: 68, marginTop: 0 },
+  hookMascot:         { width: 96, height: 96, marginTop: 0 },
   hookBubble:         {
-    flex: 1, alignSelf: 'center' as const, backgroundColor: paletteExtras.trackClaro,
+    flex: 1, alignSelf: 'center' as const, backgroundColor: palette.azulClaro,
     borderRadius: 16, borderTopLeftRadius: 4, paddingVertical: 10, paddingHorizontal: 13,
     position: 'relative' as const,
   },
@@ -4659,15 +4667,16 @@ const sum = StyleSheet.create({
     backgroundColor: 'transparent',
     borderTopWidth: 7, borderBottomWidth: 7, borderRightWidth: 9,
     borderTopColor: 'transparent', borderBottomColor: 'transparent',
-    borderRightColor: paletteExtras.trackClaro,
+    borderRightColor: palette.azulClaro,
   },
-  hookBubbleText:     { fontSize: 12.5, fontWeight: '600' as const, color: paletteExtras.indigoOscuro, lineHeight: 17 },
+  hookBubbleText:     { fontSize: 14, fontWeight: '600' as const, color: CONCEPT_PALETTES[0].accent, lineHeight: 19 },
 
-  // Tip box — same top-border-divider language as exampleBox, amber-toned
-  // label to read as a distinct "study tip" rather than another example.
-  tipBox:   { marginTop: SM ? 10 : 12, paddingTop: SM ? 10 : 12, borderTopWidth: 1, borderTopColor: paletteExtras.amarilloBorde },
-  tipLabel: { fontSize: 10, fontWeight: '800' as const, color: paletteExtras.ambarIntermedio, letterSpacing: 0.6, marginBottom: 4, textTransform: 'uppercase' as const },
-  tipText:  { fontSize: SM ? 13 : 14, color: semantic.textPrimary, lineHeight: SM ? 20 : 22, fontWeight: '600' as const },
+  // Tip callout — a colored, playful box (icon + mini-label + text) instead
+  // of a plain paragraph under a divider line.
+  tipBox:   { marginTop: SM ? 10 : 12, flexDirection: 'row' as const, alignItems: 'flex-start' as const, gap: 9, backgroundColor: palette.ambarBg, borderRadius: 12, padding: SM ? 10 : 11, borderWidth: 1, borderColor: palette.ambar + '40' },
+  tipIcon:  { fontSize: 16, marginTop: 1 },
+  tipLabel: { fontSize: 10, fontWeight: '800' as const, color: palette.ambarIcon, letterSpacing: 0.6, marginBottom: 3, textTransform: 'uppercase' as const },
+  tipText:  { fontSize: SM ? 13 : 14, color: palette.ambarText, lineHeight: SM ? 20 : 22, fontWeight: '600' as const },
 
   // "Ver definición formal" — collapsed by default, rigor kept a tap away
   // instead of cluttering the hero card.
