@@ -2,17 +2,17 @@ import ModeCompletionScreen from '@/components/ModeCompletionScreen';
 // fill_blank/match_pairs/classify rendering reused as-is from Desafío (all
 // presentational, no state of their own). Misión wires its own answer flow
 // to each; desafio.tsx's own handlers/logic are untouched.
-import { FillBlankContent, MatchPairsContent, ClassifyContent } from './desafio';
-import type { DesafioSlide } from '@/shared/desafio';
+import { MathText } from '@/app/utils/formatMath';
 import UnifiedProgressBar from '@/components/UnifiedProgressBar';
 import { DAILY_SESSION_LOGIC, FIXED_QUIZ_FEEDBACK, MAX_ATTEMPTS_PER_QUESTION, MODE_COMPLETION_REDESIGN, NEUTRAL_MISSION_COMPLETION, SHOW_DESAFIO_MODE, SHOW_GEMS, UNIFIED_PROGRESS_BAR, UNIFIED_QUIZ_COMPLETION } from '@/config/features';
 import type { DailyMode } from '@/contexts/DailySessionContext';
 import { useDailySession } from '@/contexts/DailySessionContext';
 import { useOnboarding } from '@/contexts/OnboardingContext';
+import type { DesafioSlide } from '@/shared/desafio';
 import { palette, paletteExtras, semantic } from '@/theme/colors';
-import { MathText } from '@/app/utils/formatMath';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Haptics from 'expo-haptics';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useFocusEffect, useRouter } from 'expo-router';
 import {
   ArrowLeft,
@@ -30,7 +30,6 @@ import {
   X,
   Zap,
 } from 'lucide-react-native';
-import { LinearGradient } from 'expo-linear-gradient';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Dimensions,
@@ -58,6 +57,7 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { ClassifyContent, FillBlankContent, MatchPairsContent } from './desafio';
 
 const { width: SCREEN_W, height: SCREEN_H } = Dimensions.get('window');
 const SM    = SCREEN_H < 740;
@@ -689,23 +689,6 @@ function buildSummarySlides(backendSlides: BackendSlide[], questions: Question[]
 // never rendered anywhere (see BackendSlide's comment). Neither field is
 // guaranteed on older cached sessions, so both render conditionally.
 const CORRECT_REINFORCEMENT = ['¡Eso es!', '¡Exacto!', '¡Perfecto!', '¡Así se hace!'];
-
-// Display-only clamp for match_pairs' right-column text (concept.example,
-// now passed through in full by assemble.ts — see its own comment). Never
-// touches the underlying pair data used for matching/evaluation (that's
-// keyed by id, not text) — this only shortens what's rendered, at a real
-// word boundary, stripping trailing punctuation so it never leaves a
-// dangling comma before the ellipsis.
-const MATCH_PAIR_RIGHT_MAX_CHARS = 60;
-function clampAtWordBoundary(text: string, maxChars: number): string {
-  const trimmed = text.trim();
-  if (trimmed.length <= maxChars) return trimmed;
-  let cut = trimmed.slice(0, maxChars);
-  const lastSpace = cut.lastIndexOf(' ');
-  if (lastSpace > 0) cut = cut.slice(0, lastSpace);
-  cut = cut.replace(/[,;:.\s]+$/, '');
-  return `${cut}…`;
-}
 
 function renderChallengeFeedback(
   slide: BackendSlide,
@@ -2606,16 +2589,14 @@ export default function SessionPlayerScreen() {
                   }, 500);
                 };
 
-                // Display-only: clamp the right column's text at a real word
-                // boundary for rendering — the underlying `pairs` (used by
-                // handlePairTap/evaluation above, keyed by id) is untouched.
-                const displaySlide = {
-                  ...bSlide,
-                  pairs: pairs.map((p) => ({ ...p, right: clampAtWordBoundary(p.right, MATCH_PAIR_RIGHT_MAX_CHARS) })),
-                };
-
                 return (
-                  <>
+                  // The right column now grows to fit the full example text
+                  // (targetMaxHeight="none" above) instead of clamping it,
+                  // so the slide's content can exceed the screen height —
+                  // wrapped in its own ScrollView (slideArea itself is a
+                  // plain View with swipe touch handlers, not scrollable)
+                  // so a long match_pairs slide is still fully reachable.
+                  <ScrollView style={{ flex: 1 }} contentContainerStyle={{ flexGrow: 1 }} showsVerticalScrollIndicator={false}>
                     <View style={sum.formatHeaderRow}>
                       <View style={[sum.formatIconBox, { backgroundColor: palette.tealTarjetas }]}>
                         <Text style={sum.formatIconEmoji}>{bSlide.emoji || '🔗'}</Text>
@@ -2623,7 +2604,7 @@ export default function SessionPlayerScreen() {
                       <Text style={[sum.formatKicker, { color: palette.tealTarjetas }]}>Relaciona</Text>
                     </View>
                     <MatchPairsContent
-                      slide={displaySlide as unknown as DesafioSlide}
+                      slide={bSlide as unknown as DesafioSlide}
                       selectedLeft={pairsSelectedLeft}
                       onSelectLeft={setPairsSelectedLeft}
                       matched={pairsMatched}
@@ -2637,11 +2618,22 @@ export default function SessionPlayerScreen() {
                       // them without touching Desafío's own sizing.
                       leftChipTextStyle={{ fontSize: 14, lineHeight: 18 }}
                       leftChipNumberOfLines={4}
+                      // A single long word (e.g. "Embriología") can still
+                      // not fit at 14px/4 lines — shrink it instead of
+                      // breaking mid-word.
+                      leftChipAdjustsFontSizeToFit
                       // Desafío's purple palette swapped for the Misión's
                       // own blue tint (existing tokens, no new hexes).
                       chipBackgroundColor={palette.azulClaro}
                       chipBorderColor={palette.bordeClaro}
                       targetBorderColor={palette.bordeClaro}
+                      // The Misión wants the full example, not a clamped
+                      // preview — 'none' clears mp.target's baked-in
+                      // maxHeight: 120 (Desafío's own default) so the card
+                      // grows to fit the whole (unclamped) text instead of
+                      // cutting it off. No numberOfLines passed either, so
+                      // targetText renders with no line limit.
+                      targetMaxHeight="none"
                       // Misión's slide has no real conceptIndex (Desafío's
                       // own shuffle source), so a real seed is required here
                       // to get an actual shuffle instead of a no-op one —
@@ -2664,7 +2656,7 @@ export default function SessionPlayerScreen() {
                         </View>
                       </View>
                     )}
-                  </>
+                  </ScrollView>
                 );
               })()
             ) : slide?.type === 'classify' ? (

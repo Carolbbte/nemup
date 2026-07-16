@@ -16,6 +16,18 @@
  * No type switches at SafeAreaView direct-child level. No animations.
  */
 
+import UnifiedProgressBar from '@/components/UnifiedProgressBar';
+import type {
+  DesafioInteractionType,
+  DesafioPair,
+  DesafioSession,
+  DesafioSlide,
+} from '@/shared/desafio';
+import { palette, paletteExtras, semantic } from '@/theme/colors';
+import { Typography } from '@/theme/typography';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useFocusEffect, useRouter } from 'expo-router';
+import { ChevronLeft, X } from 'lucide-react-native';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Pressable,
@@ -25,13 +37,6 @@ import {
   Text,
   View,
 } from 'react-native';
-import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useFocusEffect, useRouter } from 'expo-router';
-import { ChevronLeft, X } from 'lucide-react-native';
-import { palette, paletteExtras, semantic } from '@/theme/colors';
-import { Typography } from '@/theme/typography';
-import UnifiedProgressBar from '@/components/UnifiedProgressBar';
 import Animated, {
   Easing,
   useAnimatedStyle,
@@ -40,12 +45,7 @@ import Animated, {
   withSpring,
   withTiming,
 } from 'react-native-reanimated';
-import type {
-  DesafioSession,
-  DesafioSlide,
-  DesafioInteractionType,
-  DesafioPair,
-} from '@/shared/desafio';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const DESAFIO_KEY  = 'nemup_desafio_session';
 const PAIR_COLORS  = [palette.azul, palette.verde, paletteExtras.cianFuerte] as const;
@@ -320,6 +320,10 @@ function MatchChipLeft({
   // passes real overrides for its own (often longer) concept names, which
   // at the default fontSize/numberOfLines were breaking mid-word.
   textStyle, numberOfLines = 3, chipBackgroundColor, chipBorderColor,
+  // Optional, default false → Desafío identical. When true, a lone word
+  // too long for the chip's width (e.g. "Embriología") shrinks to fit
+  // instead of breaking mid-word.
+  adjustsFontSizeToFit = false,
 }: {
   pair: DesafioPair;
   isSel: boolean;
@@ -330,6 +334,7 @@ function MatchChipLeft({
   numberOfLines?: number;
   chipBackgroundColor?: string;
   chipBorderColor?: string;
+  adjustsFontSizeToFit?: boolean;
 }) {
   const scale  = useSharedValue(1);
   const shakeX = useSharedValue(0);
@@ -390,7 +395,12 @@ function MatchChipLeft({
             {isCorr ? '✓' : '✗'}
           </Text>
         ) : null}
-        <Text style={[mp.chipText, textStyle]} numberOfLines={numberOfLines}>{pair.left}</Text>
+        <Text
+          style={[mp.chipText, textStyle]}
+          numberOfLines={numberOfLines}
+          adjustsFontSizeToFit={adjustsFontSizeToFit}
+          minimumFontScale={adjustsFontSizeToFit ? 0.8 : undefined}
+        >{pair.left}</Text>
         {!isLocked && color && <View style={[mp.connector, { backgroundColor: color }]} />}
       </Animated.View>
     </Pressable>
@@ -467,6 +477,20 @@ export function MatchPairsContent({
   chipBackgroundColor,
   chipBorderColor,
   targetBorderColor,
+  // Optional, default false → Desafío identical (forwards to MatchChipLeft's
+  // own adjustsFontSizeToFit, same reasoning — see that component).
+  leftChipAdjustsFontSizeToFit = false,
+  // Optional, default undefined → Desafío's targetText keeps rendering with
+  // no line clamp at all (identical to before). Misión wants the full
+  // example text, so it doesn't pass this either — kept for any future
+  // caller that does want a line clamp.
+  targetTextNumberOfLines,
+  // Optional, default undefined → mp.target keeps its own baked-in
+  // maxHeight: 120 (Desafío identical). Misión passes 'none' so the card
+  // grows to fit the full (unclamped) example text instead of clipping it —
+  // see mp.target's own comment for why maxHeight existed in the first
+  // place (it wasn't meant to clip real content, just cap runaway height).
+  targetMaxHeight,
 }: {
   slide: DesafioSlide;
   selectedLeft: string | null;
@@ -481,6 +505,9 @@ export function MatchPairsContent({
   chipBackgroundColor?: string;
   chipBorderColor?: string;
   targetBorderColor?: string;
+  leftChipAdjustsFontSizeToFit?: boolean;
+  targetTextNumberOfLines?: number;
+  targetMaxHeight?: number | 'none';
   promptText?: string;
   shuffleSeed?: number;
 }) {
@@ -547,11 +574,15 @@ export function MatchPairsContent({
                 numberOfLines={leftChipNumberOfLines}
                 chipBackgroundColor={chipBackgroundColor}
                 chipBorderColor={chipBorderColor}
+                adjustsFontSizeToFit={leftChipAdjustsFontSizeToFit}
               />
               <Pressable
                 style={[
                   mp.target,
                   targetBorderColor ? { borderColor: targetBorderColor } : null,
+                  targetMaxHeight === 'none' ? { maxHeight: undefined }
+                    : targetMaxHeight !== undefined ? { maxHeight: targetMaxHeight }
+                    : null,
                   hasSelected && mp.targetActive,
                   !revealed && rightColor ? { borderColor: rightColor, borderWidth: 2 } : null,
                 ]}
@@ -559,7 +590,11 @@ export function MatchPairsContent({
                 disabled={revealed || !selectedLeft}
               >
                 {!revealed && rightColor && <View style={[mp.connector, { backgroundColor: rightColor }]} />}
-                <Text style={mp.targetText}>
+                <Text
+                  style={mp.targetText}
+                  numberOfLines={targetTextNumberOfLines}
+                  ellipsizeMode="tail"
+                >
                   {rightPair.right ? rightPair.right.charAt(0).toUpperCase() + rightPair.right.slice(1) : ''}
                 </Text>
               </Pressable>
