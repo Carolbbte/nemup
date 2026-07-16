@@ -78,6 +78,13 @@ export interface SummarySlide {
   // analogy shown in mascot voice above the card. Null/absent on older
   // cached sessions or when comprehension.ts had no honest analogy.
   hook?: string | null;
+  // main_concept only, from KnowledgeConcept.keyPhrase — a short (2-5 word)
+  // fragment of `definition` (which holds simpleExplanation on this slide,
+  // see below) meant to be highlighted in color on the card. The frontend
+  // locates it via a literal substring search — absent/not found means no
+  // highlight, never a crash. Null/absent on older cached sessions or when
+  // comprehension.ts had no clear fragment to highlight.
+  keyPhrase?: string | null;
   // main_concept only, from KnowledgeConcept.definition (the FORMAL one —
   // `definition` on this slide holds simpleExplanation instead, see
   // assemble.ts). Shown behind a collapsed "Ver definición formal" toggle.

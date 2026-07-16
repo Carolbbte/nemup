@@ -2,7 +2,7 @@ import ModeCompletionScreen from '@/components/ModeCompletionScreen';
 // fill_blank/match_pairs/classify rendering reused as-is from Desafío (all
 // presentational, no state of their own). Misión wires its own answer flow
 // to each; desafio.tsx's own handlers/logic are untouched.
-import { MathText } from '@/app/utils/formatMath';
+import { MathText, formatMath } from '@/app/utils/formatMath';
 import UnifiedProgressBar from '@/components/UnifiedProgressBar';
 import { DAILY_SESSION_LOGIC, FIXED_QUIZ_FEEDBACK, MAX_ATTEMPTS_PER_QUESTION, MODE_COMPLETION_REDESIGN, NEUTRAL_MISSION_COMPLETION, SHOW_DESAFIO_MODE, SHOW_GEMS, UNIFIED_PROGRESS_BAR, UNIFIED_QUIZ_COMPLETION } from '@/config/features';
 import type { DailyMode } from '@/contexts/DailySessionContext';
@@ -89,7 +89,7 @@ type IllustrationType = 'educational' | 'diagram' | 'concept' | 'timeline' | 'ma
 // `classifyPrompt`/`classifyCategories`/`classifyItems` — classify only,
 // same shape Desafío's DesafioSlide already uses. The answer is an object
 // mapping each item's id to the assigned category.
-type BackendSlide = { type: SummarySlideType; emoji: string; title: string; definition: string; example: string; visualHint?: string; illustrationType?: IllustrationType; connector?: string | null; question?: string | null; options?: string[] | null; correctAnswer?: string | null; wrongAnswerHints?: Record<string, string> | null; hint?: string; hook?: string | null; formalDefinition?: string; tip?: string; blankSentence?: string; blankChoices?: { letter: string; text: string }[]; blankAnswer?: string; blankExplanation?: string; pairs?: { id: string; left: string; right: string }[]; pairsPrompt?: string; classifyPrompt?: string; classifyCategories?: string[]; classifyItems?: { id: string; text: string; category: string }[]; requeued?: boolean; requeuedFrom?: string | null; statement?: string; answer?: string; steps?: string[] };
+type BackendSlide = { type: SummarySlideType; emoji: string; title: string; definition: string; example: string; visualHint?: string; illustrationType?: IllustrationType; connector?: string | null; question?: string | null; options?: string[] | null; correctAnswer?: string | null; wrongAnswerHints?: Record<string, string> | null; hint?: string; hook?: string | null; keyPhrase?: string | null; formalDefinition?: string; tip?: string; blankSentence?: string; blankChoices?: { letter: string; text: string }[]; blankAnswer?: string; blankExplanation?: string; pairs?: { id: string; left: string; right: string }[]; pairsPrompt?: string; classifyPrompt?: string; classifyCategories?: string[]; classifyItems?: { id: string; text: string; category: string }[]; requeued?: boolean; requeuedFrom?: string | null; statement?: string; answer?: string; steps?: string[] };
 type LegacySection = { heading: string; content: string; keyPoints: string[] };
 type Session = {
   id?: string; userId?: string;
@@ -690,6 +690,38 @@ function buildSummarySlides(backendSlides: BackendSlide[], questions: Question[]
 // guaranteed on older cached sessions, so both render conditionally.
 const CORRECT_REINFORCEMENT = ['¡Eso es!', '¡Exacto!', '¡Perfecto!', '¡Así se hace!'];
 
+// main_concept's hero line only — highlights `keyPhrase` (a literal
+// substring of `text`, from KnowledgeConcept.keyPhrase) in the concept's own
+// accent color. Falls back to the exact current MathText render whenever
+// keyPhrase is absent or not found verbatim, so a bad/stale value never
+// breaks the line, just skips the highlight. Uses a plain nested <Text>
+// instead of MathText for the split case — MathText only accepts a single
+// string child (its own fraction-splitting logic needs that), so highlighting
+// stays on formatMath's exponent conversion and skips fraction rendering,
+// same as the caller (main_concept's biology/plain-text content) already
+// expects per its own guardrail.
+function renderHighlightedExplanation(
+  text: string,
+  keyPhrase: string | null | undefined,
+  accentColor: string,
+  style: any,
+) {
+  const idx = keyPhrase ? text.indexOf(keyPhrase) : -1;
+  if (!keyPhrase || idx === -1) {
+    return <MathText style={style}>{text}</MathText>;
+  }
+  const before = formatMath(text.slice(0, idx));
+  const match  = formatMath(text.slice(idx, idx + keyPhrase.length));
+  const after  = formatMath(text.slice(idx + keyPhrase.length));
+  return (
+    <Text style={style}>
+      {before}
+      <Text style={{ color: accentColor, fontWeight: '800' as const }}>{match}</Text>
+      {after}
+    </Text>
+  );
+}
+
 function renderChallengeFeedback(
   slide: BackendSlide,
   answered: string | Record<string, string> | undefined,
@@ -1041,6 +1073,15 @@ export default function SessionPlayerScreen() {
   const modeSelectMascotSV    = useSharedValue(0.5);
   const modeSelectMascotStyle = useAnimatedStyle(() => ({ transform: [{ scale: modeSelectMascotSV.value }] }));
 
+  // main_concept card — hook mascot pop-in + speech bubble fade/translate,
+  // replayed each time a new main_concept slide is shown (see the
+  // summaryIdx-keyed useEffect below).
+  const conceptMascotSV    = useSharedValue(0.8);
+  const conceptBubbleOpSV  = useSharedValue(0);
+  const conceptBubbleYSV   = useSharedValue(8);
+  const conceptMascotStyle = useAnimatedStyle(() => ({ transform: [{ scale: conceptMascotSV.value }] }));
+  const conceptBubbleStyle = useAnimatedStyle(() => ({ opacity: conceptBubbleOpSV.value, transform: [{ translateY: conceptBubbleYSV.value }] }));
+
   // Summary mode micro-reward animation
   const summaryRewardOpSV = useSharedValue(0);
   const summaryRewardYSV  = useSharedValue(8);
@@ -1195,6 +1236,16 @@ export default function SessionPlayerScreen() {
   // Reset order taps when slide changes
   useEffect(() => { setOrderTaps([]); }, [summaryIdx]);
   useEffect(() => { setShowFormalDef(false); }, [summaryIdx]);
+  // main_concept — replay the mascot pop + bubble entrance for each new card.
+  useEffect(() => {
+    if (missionSlides[summaryIdx]?.type !== 'main_concept') return;
+    conceptMascotSV.value = 0.8;
+    conceptBubbleOpSV.value = 0;
+    conceptBubbleYSV.value = 8;
+    conceptMascotSV.value = withSpring(1, { damping: 10, stiffness: 200 });
+    conceptBubbleOpSV.value = withTiming(1, { duration: 260 });
+    conceptBubbleYSV.value = withTiming(0, { duration: 260 });
+  }, [summaryIdx]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { setPairsSelectedLeft(null); setPairsMatched({}); setPairEvals({}); hadPairErrorRef.current = false; }, [summaryIdx]);
   useEffect(() => { setClassifyAssigned({}); setClassifyFailedAttempt(false); hadClassifyErrorRef.current = false; }, [summaryIdx]);
 
@@ -2174,11 +2225,11 @@ export default function SessionPlayerScreen() {
                 <ScrollView style={{ flex: 1 }} contentContainerStyle={{ flexGrow: 1, paddingBottom: 24 }} showsVerticalScrollIndicator={false}>
                 {!!slide.hook && (
                   <View style={sum.hookRow}>
-                    <Image source={require('@/assets/images/enfocado.png')} style={sum.hookMascot} resizeMode="contain" />
-                    <View style={sum.hookBubble}>
+                    <Animated.Image source={require('@/assets/images/enfocado.png')} style={[sum.hookMascot, conceptMascotStyle]} resizeMode="contain" />
+                    <Animated.View style={[sum.hookBubble, conceptBubbleStyle]}>
                       <View style={sum.hookBubbleTail} />
                       <MathText style={sum.hookBubbleText}>{slide.hook}</MathText>
-                    </View>
+                    </Animated.View>
                   </View>
                 )}
                 <View style={[sum.conceptTarjeta, { backgroundColor: pal.bg, borderColor: pal.border }]}>
@@ -2243,16 +2294,19 @@ export default function SessionPlayerScreen() {
                             {defLines.map((line, i) => {
                               const isBullet = line.startsWith('*');
                               const text = isBullet ? line.slice(1).trim() : line;
+                              const lineStyle = [sum.insightLine, i === 0 && sum.insightLineMain];
                               return (
                                 <View key={i} style={[sum.insightRow, i === 0 && sum.insightRowMain]}>
                                   {isBullet && <View style={[sum.insightDot, i === 0 && sum.insightDotMain]} />}
-                                  <MathText style={[sum.insightLine, i === 0 && sum.insightLineMain]}>{(text)}</MathText>
+                                  {i === 0
+                                    ? renderHighlightedExplanation(text, slide.keyPhrase, pal.accent, lineStyle)
+                                    : <MathText style={lineStyle}>{(text)}</MathText>}
                                 </View>
                               );
                             })}
                           </View>
                         ) : (
-                          !!slide.definition && <MathText style={sum.insightFallback}>{(slide.definition)}</MathText>
+                          !!slide.definition && renderHighlightedExplanation(slide.definition, slide.keyPhrase, pal.accent, sum.insightFallback)
                         )}
                       </>
                     )}
@@ -2268,8 +2322,8 @@ export default function SessionPlayerScreen() {
                     {!!slide.formalDefinition && (
                       <>
                         <Pressable onPress={() => setShowFormalDef(v => !v)} style={sum.formalDefToggle} hitSlop={8}>
-                          <Text style={sum.formalDefToggleText}>{showFormalDef ? 'Ocultar' : 'Ver'} definición formal</Text>
-                          <ChevronDown size={13} color={semantic.textTertiary} strokeWidth={2.5} style={showFormalDef ? { transform: [{ rotate: '180deg' }] } : undefined} />
+                          <Text style={[sum.formalDefToggleText, { color: pal.accent }]}>{showFormalDef ? 'Ocultar' : 'Ver'} definición formal</Text>
+                          <ChevronDown size={13} color={pal.accent} strokeWidth={2.5} style={showFormalDef ? { transform: [{ rotate: '180deg' }] } : undefined} />
                         </Pressable>
                         {showFormalDef && (
                           <View style={sum.formalDefBox}>
@@ -4681,7 +4735,7 @@ const sum = StyleSheet.create({
   // "Ver definición formal" — collapsed by default, rigor kept a tap away
   // instead of cluttering the hero card.
   formalDefToggle:     { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 4, marginTop: 12, paddingVertical: 6 },
-  formalDefToggleText: { fontSize: 11, fontWeight: '700' as const, color: semantic.textTertiary, textTransform: 'uppercase' as const, letterSpacing: 0.4 },
+  formalDefToggleText: { fontSize: 11, fontWeight: '600' as const, color: semantic.textTertiary, textTransform: 'uppercase' as const, letterSpacing: 0.4 },
   formalDefBox:        { marginTop: 2, backgroundColor: 'rgba(0,0,0,0.03)', borderRadius: 10, padding: 10 },
   formalDefText:       { fontSize: 13, color: semantic.textSecondary, lineHeight: 19, fontStyle: 'italic' as const },
 

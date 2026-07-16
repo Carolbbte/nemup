@@ -770,11 +770,15 @@ export function buildSummarySlides(
 
     const cardSlide: SummarySlide = {
       type: 'main_concept',
-      emoji: '💡',
+      // Falls back to the generic 💡 when comprehension.ts had no clear
+      // thematic emoji for this concept (concept.emoji === null) — never a
+      // blank icon.
+      emoji: concept.emoji || '💡',
       title: concept.name,
       definition: concept.simpleExplanation,
       example: concept.example ?? '',
       hook: concept.hook,
+      keyPhrase: concept.keyPhrase,
       formalDefinition: concept.definition,
       ...(concept.tips[0] ? { tip: concept.tips[0] } : {}),
     };
