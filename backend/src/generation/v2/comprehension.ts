@@ -21,19 +21,24 @@ ${transcription}
 
 INSTRUCCIONES:
 1. Extrae entre 3 y 6 conceptos NUCLEARES del material (los indispensables para entenderlo, no cualquier mención de paso).
-2. simpleExplanation: máximo 25 palabras. Voz conversacional y cercana, como si un amigo mayor se lo
-   explicara a alguien de 14-18 años — con energía y ritmo natural, nunca en registro de libro de texto
-   ni acartonado. Es el texto que el estudiante ve primero, el "héroe" de la tarjeta — pero la energía
-   nunca se paga con exactitud: sigue siendo fiel al material.
+2. simpleExplanation: máximo 15 palabras (~2 líneas en la tarjeta). Voz conversacional y cercana, como
+   si un amigo mayor se lo explicara a alguien de 14-18 años — con energía y ritmo natural, nunca en
+   registro de libro de texto ni acartonado. Es el texto que el estudiante ve primero, el "héroe" de la
+   tarjeta — pero la energía nunca se paga con exactitud: sigue siendo fiel al material. Apretado no es
+   incompleto: una idea clara y bien dicha, sin cláusulas de más — no una versión cortada de una frase
+   más larga.
    ✗ ACARTONADO: "Proceso mediante el cual las especies cambian a lo largo del tiempo."
-   ✓ CERCANO: "Cómo tu especie va cambiando de generación en generación para sobrevivir mejor."
+   ✗ DEMASIADO LARGO (más de 15 palabras): "Cómo tu especie va cambiando de generación en generación,
+     poco a poco, para adaptarse mejor y sobrevivir en su ambiente."
+   ✓ CERCANO Y BREVE: "Cómo tu especie cambia de generación en generación para sobrevivir mejor."
 2b. hook: un gancho o analogía cotidiana (máximo 20 palabras), en el mismo tono cercano, que conecte
     el concepto con algo de la vida de un adolescente (ej. para "evolución": una receta familiar que
     cada generación ajusta un poco). Debe ser CORRECTA — nunca distorsiones el concepto para que suene
     más entretenido. Si no se te ocurre una analogía honesta y precisa para este concepto en particular,
     devuelve null en vez de forzar una mala. Nunca reemplaza a definition/example como fuente de verdad.
 3. definition: formal y precisa, tomada del material — no inventes contenido ajeno a él.
-4. example: un ejemplo concreto tomado o inferido del material, o null si no aplica.
+4. example: un ejemplo concreto tomado o inferido del material, o null si no aplica. Máximo ~15
+   palabras, UNA sola frase — concreto y directo, no una explicación adicional del concepto.
 4a. exampleShort: una etiqueta breve (3-6 palabras) que identifique ese mismo ejemplo, concreta y
     COMPLETA (nunca una frase cortada a mitad), y distinta entre los conceptos de esta lista — se usa
     donde el example largo no cabe (tarjetas de relacionar). Ej.: para el ejemplo "El brazo humano y
@@ -48,7 +53,8 @@ INSTRUCCIONES:
     ya elegiste otra para este concepto.
     Si el material solo muestra un nivel de dificultad para este concepto, devuelve [].
     No inventes ejemplos avanzados que el material no sugiera.
-5. tips: 1-3 frases cortas de estudio o mnemotecnia.
+5. tips: UN solo tip de estudio o mnemotecnia, máximo 12 palabras — no un arreglo de varios. Si no se
+   te ocurre uno útil y honesto, devuelve [] en vez de forzar uno genérico.
 6. difficulty: 1 (más fácil) a 5 (más difícil), relativo a los demás conceptos de esta lista.
 7. distinctiveTrait: un rasgo VERDADERO para este concepto y FALSO para TODOS los demás conceptos de la lista.
    Se usa para armar ejercicios de completar y relacionar sin otra llamada a la IA — si el rasgo también
