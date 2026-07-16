@@ -2236,7 +2236,8 @@ export default function SessionPlayerScreen() {
                   <View style={sum.hookRow}>
                     <Animated.Image source={CONCEPT_MASCOT[slide.type] ?? DEFAULT_CONCEPT_MASCOT} style={[sum.hookMascot, conceptMascotStyle]} resizeMode="contain" />
                     <Animated.View style={[sum.hookBubble, { backgroundColor: palette.blanco }, conceptBubbleStyle]}>
-                      <View style={[sum.hookBubbleTail, { borderRightColor: palette.blanco }]} />
+                      <View style={[sum.hookBubbleTailBorder, { borderRightColor: palette.bordeClaro }]} />
+                      <View style={[sum.hookBubbleTailFill, { borderRightColor: palette.blanco }]} />
                       <MathText style={sum.hookBubbleText}>{slide.hook}</MathText>
                     </Animated.View>
                   </View>
@@ -4723,17 +4724,27 @@ const sum = StyleSheet.create({
   hookRow:            { flexDirection: 'row', alignItems: 'flex-start', gap: 10, marginBottom: 12, paddingHorizontal: 2 },
   hookMascot:         { width: 145, height: 145, marginTop: -6 },
   hookBubble:         {
-    flex: 1, alignSelf: 'center' as const,
-    borderRadius: 16, borderTopLeftRadius: 4, paddingVertical: 10, paddingHorizontal: 13,
+    alignSelf: 'flex-start' as const,
+    marginTop: 8,
+    maxWidth: '80%',
+    borderRadius: 22, paddingVertical: 11, paddingHorizontal: 16,
     position: 'relative' as const,
     borderWidth: 1, borderColor: palette.bordeClaro,
   },
   // CSS-triangle trick (transparent border sides) instead of a rotated
   // square — reads as an actual pointed tail, not a soft diamond notch.
-  // Points left/toward the mascot, roughly level with its head.
-  hookBubbleTail: {
-    position: 'absolute' as const, left: -8, top: 14, width: 0, height: 0,
-    backgroundColor: 'transparent',
+  // Two triangles (Border slightly larger, Fill on top) fake an outlined
+  // tail the same way the bubble itself has a border — points left/toward
+  // the mascot, vertically centered on the bubble.
+  hookBubbleTailBorder: {
+    position: 'absolute' as const, left: -10, top: '50%', marginTop: -9,
+    width: 0, height: 0, backgroundColor: 'transparent',
+    borderTopWidth: 9, borderBottomWidth: 9, borderRightWidth: 11,
+    borderTopColor: 'transparent', borderBottomColor: 'transparent',
+  },
+  hookBubbleTailFill: {
+    position: 'absolute' as const, left: -8, top: '50%', marginTop: -7,
+    width: 0, height: 0, backgroundColor: 'transparent',
     borderTopWidth: 7, borderBottomWidth: 7, borderRightWidth: 9,
     borderTopColor: 'transparent', borderBottomColor: 'transparent',
   },
