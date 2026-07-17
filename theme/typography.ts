@@ -2,14 +2,17 @@
  * theme/typography.ts — Sistema de tipografía centralizado NemUp
  *
  * REGLAS DE USO:
- *  Nunito   → toda la UI estructural de aprendizaje (preguntas, opciones, CTA, labels)
- *  Fredoka  → solo UI de recompensa y feedback emocional (XP, streak, celebración)
+ *  Varela Round → toda la UI estructural de aprendizaje (preguntas, opciones, CTA, labels)
+ *  Fredoka      → solo UI de recompensa y feedback emocional (XP, streak, celebración)
  *
  * PESOS PERMITIDOS:
- *  Nunito:  400, 500, 600, 700, 800
+ *  Varela Round: solo 400 (Google Fonts no publica otros cortes — a diferencia
+ *    de Nunito, que sí tenía 400-800, `fontWeight` en los tokens de abajo ya
+ *    no cambia el grosor real del glifo; se mantiene por compatibilidad y
+ *    porque iOS puede aplicar negrita sintética, pero no cuentes con eso).
  *  Fredoka: 700
  *
- * ALCANCE ACTUAL: solo pantallas de Desafío.
+ * ALCANCE ACTUAL: pantallas de Desafío y de Misión.
  */
 
 import { TextStyle } from 'react-native';
@@ -17,7 +20,7 @@ import { TextStyle } from 'react-native';
 // ── Estructural (Nunito) ──────────────────────────────────────────────────────
 
 const challengeSectionLabel: TextStyle = {
-  fontFamily: 'Nunito',
+  fontFamily: 'VarelaRound_400Regular',
   fontWeight: '800',
   fontSize: 14,
   letterSpacing: 2.2,
@@ -25,7 +28,7 @@ const challengeSectionLabel: TextStyle = {
 };
 
 const challengeQuestion: TextStyle = {
-  fontFamily: 'Nunito',
+  fontFamily: 'VarelaRound_400Regular',
   fontWeight: '800',
   fontSize: 20,
   lineHeight: 31,
@@ -33,39 +36,39 @@ const challengeQuestion: TextStyle = {
 };
 
 const challengeOption: TextStyle = {
-  fontFamily: 'Nunito',
+  fontFamily: 'VarelaRound_400Regular',
   fontWeight: '600',
   fontSize: 18,
   lineHeight: 24,
 };
 
 const challengeOptionLetter: TextStyle = {
-  fontFamily: 'Nunito',
+  fontFamily: 'VarelaRound_400Regular',
   fontWeight: '800',
   fontSize: 18,
 };
 
 const challengeExplanation: TextStyle = {
-  fontFamily: 'Nunito',
+  fontFamily: 'VarelaRound_400Regular',
   fontWeight: '500',
   fontSize: 14,
   lineHeight: 24,
 };
 
 const challengeCTA: TextStyle = {
-  fontFamily: 'Nunito',
+  fontFamily: 'VarelaRound_400Regular',
   fontWeight: '800',
   fontSize: 18,
 };
 
 const challengeRewardStats: TextStyle = {
-  fontFamily: 'Nunito',
+  fontFamily: 'VarelaRound_400Regular',
   fontWeight: '800',
   fontSize: 28,
 };
 
 const challengeConceptChip: TextStyle = {
-  fontFamily: 'Nunito',
+  fontFamily: 'VarelaRound_400Regular',
   fontWeight: '700',
   fontSize: 20,
 };

@@ -66,6 +66,19 @@ const BRAND = palette.azul;
 const NEON  = palette.azul;
 const LIME  = palette.verdeXP;
 
+// Applies the Misión's typeface to every style key by default, so ~250+
+// individual Text styles across this file's several StyleSheet.create()
+// blocks didn't each need a manual fontFamily line. A style that already
+// sets its own fontFamily (e.g. weProblemText's 'monospace') wins, since it
+// spreads AFTER this default. Harmless on non-text (View) styles — RN just
+// ignores an unused fontFamily key.
+const MISION_FONT = 'VarelaRound_400Regular';
+function withMisionFont<T extends Record<string, object>>(styles: T): T {
+  return Object.fromEntries(
+    Object.entries(styles).map(([key, style]) => [key, { fontFamily: MISION_FONT, ...style }]),
+  ) as T;
+}
+
 // ── Types ─────────────────────────────────────────────────────────
 type Option  = { id: string; text: string };
 type Question = { id: string; text: string; options: Option[]; correctOptionId: string; explanation: string; sourceQuote: string };
@@ -382,7 +395,7 @@ function FlipCard({ front, back, onFlip }: { front: string; back: string; onFlip
     </Pressable>
   );
 }
-const fcd = StyleSheet.create({
+const fcd = StyleSheet.create(withMisionFont({
   container: { flex: 1, marginHorizontal: 20, marginVertical: 12 },
   face: {
     position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
@@ -396,7 +409,7 @@ const fcd = StyleSheet.create({
   backText:  { fontSize: SM ? 15 : 17, color: semantic.textPrimary, textAlign: 'center', lineHeight: SM ? 24 : 28, fontWeight: '500' },
   hint:      { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 28 },
   hintText:  { fontSize: 12, color: semantic.textTertiary, fontStyle: 'italic' },
-});
+}));
 
 // ── Summary slide style config (for kp-type cards) ───────────────
 const SLIDE_STYLE: Record<string, { accent: string; bg: string; label: string }> = {
@@ -800,7 +813,7 @@ const SESSION_PROGRESS_KEY = 'nemup_session_progress';
 
 // Pose de mascota según el tipo de tarjeta de concepto.
 const CONCEPT_MASCOT: Record<string, any> = {
-  main_concept:  require('@/assets/images/saludoInicial.png'),  // señala hacia la tarjeta
+  main_concept:  require('@/assets/images/tip.png'),
   key_relation:  require('@/assets/images/lupa.png'),
   process_flow:  require('@/assets/images/enfocado.png'),
   common_error:  require('@/assets/images/pensativo.png'),
@@ -1089,7 +1102,7 @@ export default function SessionPlayerScreen() {
   const conceptMascotSV    = useSharedValue(0.8);
   const conceptBubbleOpSV  = useSharedValue(0);
   const conceptBubbleYSV   = useSharedValue(8);
-  const conceptMascotStyle = useAnimatedStyle(() => ({ transform: [{ scaleX: -1 }, { scale: conceptMascotSV.value }] }));
+  const conceptMascotStyle = useAnimatedStyle(() => ({ transform: [{ scale: conceptMascotSV.value }] }));
   const conceptBubbleStyle = useAnimatedStyle(() => ({ opacity: conceptBubbleOpSV.value, transform: [{ translateY: conceptBubbleYSV.value }] }));
 
   // Summary mode micro-reward animation
@@ -4463,7 +4476,7 @@ export default function SessionPlayerScreen() {
 }
 
 // ── Shared styles ──────────────────────────────────────────────────
-const g = StyleSheet.create({
+const g = StyleSheet.create(withMisionFont({
   page:    { flex: 1, backgroundColor: BG },
   scroll:  { paddingHorizontal: 20, paddingTop: 8 },
   topBar:  { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 10, gap: 10 },
@@ -4476,14 +4489,14 @@ const g = StyleSheet.create({
   bottom:  { paddingHorizontal: 20, paddingTop: 12, borderTopWidth: 1, borderTopColor: palette.bordeClaro, backgroundColor: BG },
   ctaBtn:  { paddingVertical: 20, borderRadius: 28, alignItems: 'center', justifyContent: 'center' },
   ctaText: { fontSize: 16, fontWeight: '800', color: palette.blanco },
-  ctaBtnOff:  { paddingVertical: 17, borderRadius: 18, alignItems: 'center', backgroundColor: palette.crema },
-  ctaTextOff: { fontSize: 16, fontWeight: '700', color: semantic.textTertiary },
+  ctaBtnOff:  { paddingVertical: 17, borderRadius: 18, alignItems: 'center', backgroundColor: palette.azulClaro },
+  ctaTextOff: { fontSize: 16, fontWeight: '700', color: BRAND + '80' },
   secBtn:  { paddingVertical: 13, borderRadius: 18, alignItems: 'center', backgroundColor: palette.crema },
   secText: { fontSize: 14, fontWeight: '700', color: semantic.textPrimary },
-});
+}));
 
 // ── Lobby ──────────────────────────────────────────────────────────
-const lob = StyleSheet.create({
+const lob = StyleSheet.create(withMisionFont({
   progressPill:     { backgroundColor: palette.azulClaro, borderRadius: 100, paddingVertical: 5, paddingHorizontal: 12 },
   progressPillText: { fontSize: SM ? 11 : 12, fontWeight: '700', color: BRAND },
 
@@ -4509,10 +4522,10 @@ const lob = StyleSheet.create({
   missionCheckDone:{ backgroundColor: BRAND, borderColor: BRAND },
   missionLabel:    { fontSize: 14, color: semantic.textPrimary, fontWeight: '600', flex: 1 },
   missionLabelDone:{ color: semantic.textTertiary, textDecorationLine: 'line-through' },
-});
+}));
 
 // ── Mode select ────────────────────────────────────────────────────
-const mds = StyleSheet.create({
+const mds = StyleSheet.create(withMisionFont({
   hero:         { flexDirection: 'row', alignItems: 'center', gap: 12, marginTop: 4, marginBottom: 8 },
   // Layout box stays the original 64x64 footprint (so the row's height/the
   // text next to it don't move) — the image inside is bigger and overflows
@@ -4575,10 +4588,10 @@ const mds = StyleSheet.create({
   desafioFoot:    { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 8 },
   desafioDetail:  { fontSize: 12, color: 'rgba(255,255,255,0.5)' },
   desafioArrow:   { width: 28, height: 28, borderRadius: 14, backgroundColor: 'rgba(255,255,255,0.15)', alignItems: 'center', justifyContent: 'center' },
-});
+}));
 
 // ── Summary ────────────────────────────────────────────────────────
-const sum = StyleSheet.create({
+const sum = StyleSheet.create(withMisionFont({
   // Story progress bar — thick single bar
   storyBar:     { flexDirection: 'row', paddingHorizontal: 20, paddingVertical: 8, alignItems: 'center', gap: 10 },
   progressTrack:{ flex: 1, height: 8, borderRadius: 4, backgroundColor: palette.bordeClaro, overflow: 'hidden' },
@@ -4635,7 +4648,7 @@ const sum = StyleSheet.create({
   quizLetter:        { width: 30, height: 30, borderRadius: 8, backgroundColor: 'transparent', alignItems: 'center', justifyContent: 'center', flexShrink: 0, borderWidth: 2, borderColor: palette.azulClaro },
   quizLetterGreen:   { backgroundColor: semantic.success, borderWidth: 0 },
   quizLetterRed:     { backgroundColor: semantic.error, borderWidth: 0 },
-  quizLetterText:    { fontSize: 13, fontWeight: '800', color: semantic.textPrimary },
+  quizLetterText:    { fontSize: 13, fontWeight: '800', color: BRAND },
   quizOptText:       { flex: 1, fontSize: SM ? 15 : 17, color: semantic.textPrimary, fontWeight: '600', lineHeight: 22 },
   quizFeedback:      { marginTop: 12, borderRadius: 14, padding: 12 },
   quizFeedbackOk:    { backgroundColor: 'rgba(22,119,242,0.07)', borderWidth: 1.5, borderColor: 'rgba(22,119,242,0.2)' },
@@ -5027,10 +5040,10 @@ const sum = StyleSheet.create({
   orderItemTxtSelected: { color: semantic.textPrimary, fontWeight: '700' },
   orderSuccessRow:  { marginTop: 12, backgroundColor: 'rgba(5,150,105,0.08)', borderRadius: 10, paddingVertical: 8, paddingHorizontal: 12, borderWidth: 1, borderColor: 'rgba(5,150,105,0.2)', alignSelf: 'stretch', alignItems: 'center' },
   orderSuccessTxt:  { fontSize: 13, fontWeight: '800', color: paletteExtras.esmeraldaOscuro },
-});
+}));
 
 // ── Quiz ───────────────────────────────────────────────────────────
-const qz = StyleSheet.create({
+const qz = StyleSheet.create(withMisionFont({
   statsBar: { flexDirection: 'row', paddingHorizontal: 14, paddingVertical: 6, gap: 7, alignItems: 'center' },
   chip:     { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: palette.blanco, borderRadius: 14, borderWidth: 1, borderColor: palette.bordeClaro, paddingHorizontal: 10, paddingVertical: 7 },
   chipVal:  { fontSize: 15, fontWeight: '900', color: semantic.textPrimary },
@@ -5112,25 +5125,25 @@ const qz = StyleSheet.create({
   // Last-question glow state
   chipLastQ: { borderColor: BRAND },
   lastQChip: { fontSize: 10, fontWeight: '800', color: palette.rojoError, backgroundColor: 'rgba(255,77,109,0.1)', paddingVertical: 3, paddingHorizontal: 8, borderRadius: 100, marginLeft: 6 },
-});
+}));
 
 // ── Flashcard SRS buttons ──────────────────────────────────────────
-const fcs = StyleSheet.create({
+const fcs = StyleSheet.create(withMisionFont({
   srsRow: { flexDirection: 'row', gap: 8, paddingHorizontal: 16, paddingTop: 10 },
   srsBtn: { paddingVertical: 13, borderRadius: 16, alignItems: 'center' },
   srsBtnText: { fontSize: SM ? 10 : 11, fontWeight: '800', color: palette.blanco, textAlign: 'center', lineHeight: 16 },
-});
+}));
 
 // ── Celebration ────────────────────────────────────────────────────
-const cel = StyleSheet.create({
+const cel = StyleSheet.create(withMisionFont({
   row:  { flexDirection: 'row', gap: 12, width: '100%', marginBottom: 16 },
   cell: { flex: 1, backgroundColor: palette.blanco, borderRadius: 18, borderWidth: 1, borderColor: palette.bordeClaro, padding: 16, alignItems: 'center', gap: 4 },
   val:  { fontSize: 20, fontWeight: '900', color: semantic.textPrimary, letterSpacing: -0.5 },
   lbl:  { fontSize: 10, fontWeight: '700', color: semantic.textTertiary, letterSpacing: 0.5 },
-});
+}));
 
 // ── Complete ───────────────────────────────────────────────────────
-const comp = StyleSheet.create({
+const comp = StyleSheet.create(withMisionFont({
   scroll:   { paddingHorizontal: 20, paddingTop: 20, alignItems: 'center' },
   trophy:   { fontSize: SM ? 80 : 96, textAlign: 'center', marginBottom: 8 },
   title:    { fontSize: SM ? 26 : 32, fontWeight: '900', color: semantic.textPrimary, textAlign: 'center', letterSpacing: -0.5, marginBottom: 6 },
@@ -5145,4 +5158,4 @@ const comp = StyleSheet.create({
   achRow:   { flexDirection: 'row', alignItems: 'center', gap: 14, marginBottom: 12 },
   achName:  { fontSize: 14, fontWeight: '700', color: semantic.textPrimary, marginBottom: 2 },
   achDesc:  { fontSize: 12, color: semantic.textTertiary },
-});
+}));
