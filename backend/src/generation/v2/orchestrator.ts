@@ -1,4 +1,7 @@
 import { randomUUID } from 'crypto';
+// Aliased — this module's own `config` parameter (a SessionConfig, below)
+// would otherwise shadow the app-wide config import.
+import { config as appConfig } from '../../config.js';
 import { classifyContent } from '../../services/pedagogicalClassifier.js';
 import { buildGeneratedSession, validateGrounding, type GenerationResult } from '../../services/generationService.js';
 import type { GeneratedSession, SessionConfig } from '../../types.js';
@@ -88,7 +91,7 @@ export async function generateSessionV2(
     summary: {
       id: randomUUID(),
       title: ko.topic || 'Resumen del material',
-      slides: buildSummarySlides(ko, distractors, workedExampleResults, exercises),
+      slides: buildSummarySlides(ko, distractors, workedExampleResults, exercises, appConfig.mission_arc_v2),
       sourceQuotes: [],
     },
     groundingScore: 0, // placeholder — replaced below with the real validateGrounding() result

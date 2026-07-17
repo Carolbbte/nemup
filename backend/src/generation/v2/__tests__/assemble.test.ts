@@ -8,7 +8,7 @@
  * the CTA's wrong-answer feedback path fired on every answer.
  */
 
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { buildSummarySlides, shuffleWithLetterAnswer, buildReinforcementFromTrait } from '../assemble.js';
 import type { KnowledgeObject, KnowledgeConcept } from '../types.js';
 import type { DistractorSet } from '../distractors.js';
@@ -386,5 +386,164 @@ describe('buildSummarySlides — generated exercises', () => {
       const final = slides.find((s) => s.type === 'final_challenge');
       expect(final?.question).toBe(distractors.c2.question); // c2 is the hardest concept (difficulty 4)
     });
+  });
+});
+
+describe('buildSummarySlides — Fase 2: Arco de la misión (MISSION_ARC_V2)', () => {
+  // Deliberately NOT in difficulty order — c1 (mid), c2 (easiest, should be
+  // promoted to front when the flag is on), c3 (hardest, stays the boss).
+  const makeArcConcept = (id: string, name: string, difficulty: number): KnowledgeConcept => ({
+    id, name, difficulty,
+    simpleExplanation: `${name} explicación.`,
+    definition: `${name} definición.`,
+    example: null, exampleShort: null, hook: null, emoji: null, keyPhrase: null,
+    advancedExamples: [], tips: [],
+    distinctiveTrait: `Es el único que distingue a ${name}.`,
+    sourceQuote: `Fuente de ${name}.`,
+  });
+
+  const arcKo: KnowledgeObject = {
+    topic: 'Arco de misión', subject: 'Test',
+    concepts: [
+      makeArcConcept('c1', 'Concepto Medio', 3),
+      makeArcConcept('c2', 'Concepto Fácil', 1),
+      makeArcConcept('c3', 'Concepto Difícil', 5),
+    ],
+    categories: [], workedExamples: [],
+  };
+
+  const makeArcDistractor = (name: string): DistractorSet => ({
+    question: `¿Pregunta sobre ${name}?`,
+    correctText: `Respuesta de ${name}`,
+    distractors: [
+      { text: `Distractor A de ${name}`, explanation: `Explicación A de ${name}.` },
+      { text: `Distractor B de ${name}`, explanation: `Explicación B de ${name}.` },
+      { text: `Distractor C de ${name}`, explanation: `Explicación C de ${name}.` },
+    ],
+  });
+
+  const arcDistractors: Record<string, DistractorSet> = {
+    c1: makeArcDistractor('Concepto Medio'),
+    c2: makeArcDistractor('Concepto Fácil'),
+    c3: makeArcDistractor('Concepto Difícil'),
+  };
+
+  it('is byte-identical to the flag omitted, and to today\'s document order, when off', () => {
+    // buildSummarySlides shuffles options internally (Math.random), so two
+    // independent calls never match by coincidence — pin randomness so both
+    // calls draw the identical sequence, isolating the ONE thing this test
+    // actually checks: that adding the missionArcV2 parameter (defaulted to
+    // false) changed nothing for a caller that doesn't pass it.
+    const randomSpy = vi.spyOn(Math, 'random');
+    randomSpy.mockReturnValue(0.42);
+    const withDefault = buildSummarySlides(arcKo, arcDistractors);
+    randomSpy.mockReturnValue(0.42);
+    const withExplicitFalse = buildSummarySlides(arcKo, arcDistractors, [], [], false);
+    randomSpy.mockRestore();
+    expect(withDefault).toEqual(withExplicitFalse);
+
+    // Document order preserved: c1 (Concepto Medio) is still taught first.
+    const firstMainConcept = withDefault.find((s) => s.type === 'main_concept');
+    expect(firstMainConcept?.title).toBe('Concepto Medio');
+    // No callback slide when the flag is off.
+    expect(withDefault.some((s) => s.title === 'Repaso rápido')).toBe(false);
+  });
+
+  it('Cambio 1: promotes the easiest concept to the front when the flag is on', () => {
+    const slides = buildSummarySlides(arcKo, arcDistractors, [], [], true);
+    const firstMainConcept = slides.find((s) => s.type === 'main_concept');
+    expect(firstMainConcept?.title).toBe('Concepto Fácil');
+  });
+
+  it('Cambio 1: the hardest concept is still the boss regardless of the flag', () => {
+    const off = buildSummarySlides(arcKo, arcDistractors, [], [], false);
+    const on = buildSummarySlides(arcKo, arcDistractors, [], [], true);
+    expect(off.find((s) => s.type === 'final_challenge')?.title).toContain('Concepto Difícil');
+    expect(on.find((s) => s.type === 'final_challenge')?.title).toContain('Concepto Difícil');
+  });
+
+  it('Cambio 1: ties break to the earliest concept in document order', () => {
+    const tiedKo: KnowledgeObject = {
+      ...arcKo,
+      concepts: [
+        makeArcConcept('c1', 'Primero Empatado', 2),
+        makeArcConcept('c2', 'Segundo Empatado', 2),
+        makeArcConcept('c3', 'Concepto Difícil', 5),
+      ],
+    };
+    const tiedDistractors: Record<string, DistractorSet> = {
+      c1: makeArcDistractor('Primero Empatado'),
+      c2: makeArcDistractor('Segundo Empatado'),
+      c3: makeArcDistractor('Concepto Difícil'),
+    };
+    const slides = buildSummarySlides(tiedKo, tiedDistractors, [], [], true);
+    expect(slides.find((s) => s.type === 'main_concept')?.title).toBe('Primero Empatado');
+  });
+
+  it('Cambio 2: inserts a "Repaso rápido" reinforcement_challenge right before final_challenge, not about the boss', () => {
+    const slides = buildSummarySlides(arcKo, arcDistractors, [], [], true);
+    const finalIdx = slides.findIndex((s) => s.type === 'final_challenge');
+    const victoryIdx = slides.findIndex((s) => s.type === 'victory');
+    expect(finalIdx).toBeGreaterThan(-1);
+    expect(victoryIdx).toBe(slides.length - 1); // victory always last
+    expect(finalIdx).toBe(victoryIdx - 1); // final_challenge right before victory
+
+    const callback = slides[finalIdx - 1];
+    expect(callback.type).toBe('reinforcement_challenge');
+    expect(callback.title).toBe('Repaso rápido');
+    expect(callback.definition).not.toContain('Concepto Difícil'); // never the boss's own concept
+  });
+
+  it('Cambio 2: never fabricates — omitted when no earlier concept has a usable question', () => {
+    const soloKo: KnowledgeObject = { ...arcKo, concepts: [makeArcConcept('c1', 'Único', 3)] };
+    const soloDistractors: Record<string, DistractorSet> = { c1: makeArcDistractor('Único') };
+    const slides = buildSummarySlides(soloKo, soloDistractors, [], [], true);
+    // Only concept is also the boss — no earlier concept exists to pull a callback from.
+    expect(slides.some((s) => s.title === 'Repaso rápido')).toBe(false);
+  });
+
+  it('Cambio 2: skips the callback entirely rather than repeating a question word-for-word', () => {
+    // Only 2 concepts, neither with an example/exampleShort/category — so
+    // fill_blank/match_pairs/classify are all ineligible and BOTH concepts
+    // fall through to buildReinforcementFromTrait for their reinforcement
+    // slot. That exhausts the easiest (non-boss) concept's only two possible
+    // question texts (its DistractorSet question via micro_challenge, and
+    // its trait question via reinforcement_challenge) before the callback
+    // stage even runs, and there's no other non-boss concept to fall back
+    // to — so the callback must be omitted, never a literal repeat.
+    const dupKo: KnowledgeObject = {
+      ...arcKo,
+      concepts: [
+        makeArcConcept('c1', 'Concepto Fácil', 1),
+        makeArcConcept('c2', 'Concepto Difícil', 5),
+      ],
+    };
+    const dupDistractors: Record<string, DistractorSet> = {
+      c1: makeArcDistractor('Concepto Fácil'),
+      c2: makeArcDistractor('Concepto Difícil'),
+    };
+    const slides = buildSummarySlides(dupKo, dupDistractors, [], [], true);
+    expect(slides.some((s) => s.title === 'Repaso rápido')).toBe(false);
+    // Sanity check this hit the intended path — Concepto Fácil really did
+    // get a reinforcement_challenge (not fill_blank/match_pairs/classify),
+    // so both its texts really were already used by the time the callback
+    // was attempted.
+    const facilBlock = slides.filter((s) => s.definition?.includes('Concepto Fácil'));
+    expect(facilBlock.some((s) => s.type === 'reinforcement_challenge')).toBe(true);
+  });
+
+  it('Cambio opcional: forces the mission-opener concept (position 0) to cardFirst=true when the flag is on', () => {
+    const slides = buildSummarySlides(arcKo, arcDistractors, [], [], true);
+    // The very first slide of the whole mission is the easiest concept's
+    // card, not its quiz — a confidence opener.
+    expect(slides[0].type).toBe('main_concept');
+    expect(slides[0].title).toBe('Concepto Fácil');
+  });
+
+  it('Cambio opcional: does NOT force cardFirst when the flag is off — conceptIdx % 2 alone decides, unchanged', () => {
+    const slides = buildSummarySlides(arcKo, arcDistractors, [], [], false);
+    // conceptIdx 0 is even -> cardFirst false -> opens with the quiz, same
+    // as before this whole phase existed.
+    expect(slides[0].type).toBe('micro_challenge');
   });
 });

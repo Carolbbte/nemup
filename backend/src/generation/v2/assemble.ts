@@ -625,6 +625,42 @@ function fieldsFromExercise(ex: GeneratedExercise): InteractiveFields {
   };
 }
 
+/**
+ * Fase 2 (MISSION_ARC_V2) — a reusable "callback" question for `concept`,
+ * built ONLY from data already generated (buildReinforcementFromTrait or its
+ * own DistractorSet) — never a new AI call. Tries both trait-question
+ * framings (preferExample true then false — genuinely different wording
+ * from each other and from the concept's raw DistractorSet question), then
+ * the DistractorSet's own question — returning the first one NOT already in
+ * `avoid`. Returns null when every source is exhausted or already shown
+ * (never a fabricated question, and — per explicit product decision — never
+ * a word-for-word repeat either: this callback exists for engagement, and a
+ * literal duplicate reads as broken/repetitive rather than helpful, even
+ * though spaced repetition of the exact same item is pedagogically
+ * defensible on its own). The caller tries the next candidate concept, or
+ * omits the callback slide entirely if none has a fresh variant.
+ */
+function reinforcementCallbackVariant(
+  concept: KnowledgeConcept,
+  allConcepts: KnowledgeConcept[],
+  d: DistractorSet | undefined,
+  avoid: Set<string>,
+): { question: string; options: string[]; correctAnswer: string } | null {
+  for (const preferExample of [true, false]) {
+    const tq = buildReinforcementFromTrait(concept, allConcepts, preferExample);
+    if (!tq || avoid.has(tq.question)) continue;
+    const shuffled = shuffleWithLetterAnswer(tq.correctText, tq.distractors);
+    return { question: tq.question, options: shuffled.options, correctAnswer: shuffled.correctAnswer };
+  }
+
+  if (d && !avoid.has(d.question)) {
+    const fields = fieldsFromDistractorSet(d);
+    return { question: fields.question, options: fields.options, correctAnswer: fields.correctAnswer };
+  }
+
+  return null;
+}
+
 // Mission-only pairs source — NOT buildMatchPairs (that stays exactly as
 // Desafío uses it; not called from here at all). buildMatchPairs pairs each
 // concept's name with its distinctiveTrait via shortenPairRight, which for
@@ -659,10 +695,32 @@ export function buildSummarySlides(
   distractors: Record<string, DistractorSet>,
   workedExampleResults: WorkedExampleResult[] = [],
   generatedExercises: GeneratedExercise[] = [],
+  // Fase 2 — Arco de la misión. Default false so every existing caller (and
+  // every existing test) is byte-identical to before this parameter existed.
+  // The real production value (config.mission_arc_v2) is wired in by the one
+  // caller, orchestrator.ts — kept out of this function on purpose so it
+  // stays a pure, directly-testable function with no env/config coupling.
+  missionArcV2: boolean = false,
 ): SummarySlide[] {
   if (ko.concepts.length === 0) return [];
 
   const slides: SummarySlide[] = [];
+
+  // Cambio 1 (Momentum) — only computed/applied when the flag is on; the
+  // forEach below iterates ko.concepts UNCHANGED when it's off, so nothing
+  // here can alter today's behavior in the off case.
+  // easiestConcept is also Change 2's primary callback candidate, so it's
+  // computed once here regardless of which change ends up using it.
+  let conceptTraversalOrder = ko.concepts;
+  let easiestConcept = ko.concepts[0];
+  if (missionArcV2) {
+    easiestConcept = ko.concepts.reduce((min, c) => (c.difficulty < min.difficulty ? c : min));
+    conceptTraversalOrder = [easiestConcept, ...ko.concepts.filter((c) => c.id !== easiestConcept.id)];
+  }
+  // Populated during the loop below, ONLY when missionArcV2 is on — lets the
+  // Cambio 2 callback avoid repeating a question word-for-word when a fresh
+  // variant is available. Never read/written when the flag is off.
+  const usedQuestionTexts = new Set<string>();
   // exerciseGenerator.ts places its single hardest-difficulty exercise LAST
   // on purpose (see generateExercises's boss selection) so final_challenge
   // gets it deliberately — reserved here BEFORE the per-concept loop can
@@ -737,7 +795,7 @@ export function buildSummarySlides(
     ? classifyConceptIdCandidate
     : null;
 
-  ko.concepts.forEach((concept, conceptIdx) => {
+  conceptTraversalOrder.forEach((concept, conceptIdx) => {
     const d = distractors[concept.id];
     if (!d) return; // no generated question — skip this concept's loop, keep the rest intact
 
@@ -749,7 +807,14 @@ export function buildSummarySlides(
     // time. Starting odd-indexed concepts with the card instead means that
     // boundary becomes challenge → card (a breather) rather than
     // challenge → challenge.
-    const cardFirst = conceptIdx % 2 === 1;
+    // Fase 2 (MISSION_ARC_V2) only: the mission's very first concept
+    // (conceptIdx 0 of the momentum-reordered traversal — always the
+    // easiest one) is forced to open with the card instead of the quiz — a
+    // confidence opener, read the easy concept before being tested on it.
+    // Doesn't disturb the alternation's own purpose: concept 1's cardFirst
+    // is still true on its own (1 % 2 === 1), so the challenge → card
+    // breather at the concept 0→1 boundary still happens regardless.
+    const cardFirst = missionArcV2 && conceptIdx === 0 ? true : conceptIdx % 2 === 1;
 
     const microEx = nextExercise();
     const micro = microEx ? fieldsFromExercise(microEx) : fieldsFromDistractorSet(d);
@@ -767,6 +832,7 @@ export function buildSummarySlides(
       ...(micro.wrongAnswerHints ? { wrongAnswerHints: micro.wrongAnswerHints } : {}),
       ...(micro.hint ? { hint: micro.hint } : {}),
     };
+    if (missionArcV2) usedQuestionTexts.add(micro.question);
 
     const cardSlide: SummarySlide = {
       type: 'main_concept',
@@ -866,6 +932,7 @@ export function buildSummarySlides(
         ...(r.wrongAnswerHints ? { wrongAnswerHints: r.wrongAnswerHints } : {}),
         ...(r.hint ? { hint: r.hint } : {}),
       });
+      if (missionArcV2) usedQuestionTexts.add(r.question);
     } else {
       const allowExample = exampleMatchUsed < MAX_EXAMPLE_MATCH_PER_SESSION;
       const traitQuestion = buildReinforcementFromTrait(concept, ko.concepts, allowExample);
@@ -882,6 +949,7 @@ export function buildSummarySlides(
           options: reinforcement.options,
           correctAnswer: reinforcement.correctAnswer,
         });
+        if (missionArcV2) usedQuestionTexts.add(traitQuestion.question);
       }
     }
   });
@@ -915,6 +983,40 @@ export function buildSummarySlides(
   const bossConcept = ko.concepts.reduce((max, c) => (c.difficulty > max.difficulty ? c : max));
   const bossDistractor = distractors[bossConcept.id];
   const bossEx = bossExercise;
+
+  // Cambio 2 (Callback espaciado) — a single reinforcement_challenge pulled
+  // from an earlier, already-taught concept (never the boss's — that
+  // question is reserved for final_challenge right after this), right
+  // before the mission's final stretch. Tries easiestConcept first (freshest
+  // in the student's mind at the START, now the furthest away in time),
+  // then falls back to the earliest-in-document-order concept that still
+  // has a usable question. Omitted entirely if none do — never fabricated.
+  if (missionArcV2) {
+    const callbackCandidates = [
+      // Single-concept sessions have easiestConcept === bossConcept — no
+      // earlier concept exists in that case, so it's excluded here too
+      // rather than accidentally reusing the boss's own question.
+      ...(easiestConcept.id !== bossConcept.id ? [easiestConcept] : []),
+      ...ko.concepts.filter((c) => c.id !== easiestConcept.id && c.id !== bossConcept.id),
+    ];
+    for (const candidate of callbackCandidates) {
+      const variant = reinforcementCallbackVariant(candidate, ko.concepts, distractors[candidate.id], usedQuestionTexts);
+      if (variant) {
+        slides.push({
+          type: 'reinforcement_challenge',
+          emoji: '🎯',
+          title: 'Repaso rápido',
+          definition: `Un vistazo rápido de vuelta a ${candidate.name}.`,
+          example: '',
+          question: variant.question,
+          options: variant.options,
+          correctAnswer: variant.correctAnswer,
+        });
+        break;
+      }
+    }
+  }
+
   if (bossEx) {
     const boss = fieldsFromExercise(bossEx);
     slides.push({

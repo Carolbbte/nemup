@@ -19,6 +19,11 @@ export interface Config {
   redis_url: string;
   /** Feature flag: routes/sessions.ts POST /generate uses the async v2 (queue) pipeline when true, the legacy sync SSE v1 pipeline when false. Togglable via env var, no redeploy needed. */
   use_generation_v2: boolean;
+  /** Feature flag: buildSummarySlides (assemble.ts) uses the Fase 2 mission-arc
+   * ordering (easiest concept first, spaced callback before the boss) when
+   * true; today's exact behavior (byte-identical) when false. Off by
+   * default — togglable via env var, no redeploy needed. */
+  mission_arc_v2: boolean;
 }
 
 export function loadConfig(): Config {
@@ -31,6 +36,7 @@ export function loadConfig(): Config {
     firebase_storage_bucket: process.env.FIREBASE_STORAGE_BUCKET ?? '',
     redis_url: process.env.REDIS_URL ?? 'redis://localhost:6379',
     use_generation_v2: process.env.USE_GENERATION_V2 === 'true',
+    mission_arc_v2: process.env.MISSION_ARC_V2 === 'true',
   };
 
   // Validation
