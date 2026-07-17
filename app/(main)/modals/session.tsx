@@ -804,7 +804,12 @@ function renderChallengeFeedback(
     );
   }
 
-  const wrongExplanation = wrongAnswerFeedbackText(slide, answered);
+  // fill_blank always shows the correct choice highlighted green among the
+  // options right above this bubble — repeating "la respuesta correcta es
+  // X" here is redundant. It also never has a real per-option
+  // wrongAnswerHints (its choices are sibling concept names, not AI
+  // distractors), so this would only ever be the Nivel 1 fallback anyway.
+  const wrongExplanation = slide.type === 'fill_blank' ? undefined : wrongAnswerFeedbackText(slide, answered);
   return (
     <View style={sum.feedbackRow}>
       <Image source={require('@/assets/images/tuPuedes.png')} style={sum.feedbackMascot} resizeMode="contain" />
