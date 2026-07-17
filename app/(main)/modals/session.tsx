@@ -4,7 +4,7 @@ import ModeCompletionScreen from '@/components/ModeCompletionScreen';
 // to each; desafio.tsx's own handlers/logic are untouched.
 import { MathText, formatMath } from '@/app/utils/formatMath';
 import UnifiedProgressBar from '@/components/UnifiedProgressBar';
-import { DAILY_SESSION_LOGIC, FIXED_QUIZ_FEEDBACK, MAX_ATTEMPTS_PER_QUESTION, MODE_COMPLETION_REDESIGN, NEUTRAL_MISSION_COMPLETION, SHOW_DESAFIO_MODE, SHOW_GEMS, UNIFIED_PROGRESS_BAR, UNIFIED_QUIZ_COMPLETION } from '@/config/features';
+import { ADAPTIVE_REQUEUE, DAILY_SESSION_LOGIC, FIXED_QUIZ_FEEDBACK, MAX_ATTEMPTS_PER_QUESTION, MODE_COMPLETION_REDESIGN, NEUTRAL_MISSION_COMPLETION, SHOW_DESAFIO_MODE, SHOW_GEMS, UNIFIED_PROGRESS_BAR, UNIFIED_QUIZ_COMPLETION } from '@/config/features';
 import type { DailyMode } from '@/contexts/DailySessionContext';
 import { useDailySession } from '@/contexts/DailySessionContext';
 import { useOnboarding } from '@/contexts/OnboardingContext';
@@ -2036,6 +2036,7 @@ export default function SessionPlayerScreen() {
     // being requeued a second time (no infinite loop on repeated failures),
     // and doubles as the flag `xpLabel` reads to award reduced XP on it.
     const insertCorrectiveSlide = (wrongSlide: BackendSlide, _selectedKey: string) => {
+      if (!ADAPTIVE_REQUEUE) return; // single control point — see config/features.ts
       if (wrongSlide.requeued) return; // a requeued copy failed again — never requeue twice
 
       setMissionSlides(prev => {

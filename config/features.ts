@@ -22,3 +22,9 @@ export const DESAFIO_MODE                  = true;
 // (separate from DESAFIO_MODE, which is unused/orphaned). Flip to true to
 // bring it back — the Desafío code itself is untouched.
 export const SHOW_DESAFIO_MODE             = false;
+// ADAPTIVE_REQUEUE = true → a wrong answer in the Misión gets cloned and
+// reinserted later in the session for a second try (reduced XP), growing
+// the mission's total slide count. false → a wrong answer just stays wrong,
+// no retry-later clone, mission length stays fixed. Toggled off by request;
+// insertCorrectiveSlide (session.tsx) is the single control point.
+export const ADAPTIVE_REQUEUE              = false;
