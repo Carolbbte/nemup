@@ -146,16 +146,18 @@ const ko: KnowledgeObject = {
   workedExamples: [],
 };
 
+const asDistractors = (texts: string[]) => texts.map((text) => ({ text, explanation: `Explicación de ${text}.` }));
+
 const distractors: Record<string, DistractorSet> = {
   c1: {
     question: '¿Cuál de las siguientes opciones representa un término algebraico?',
     correctText: '3x²',
-    distractors: ['2x - 1', 'x + 2', '5'],
+    distractors: asDistractors(['2x - 1', 'x + 2', '5']),
   },
   c2: {
     question: '¿Cuáles de los siguientes son términos semejantes?',
     correctText: '3x y 5x',
-    distractors: ['3x y 3x²', '3x y 3y', '3 y 5'],
+    distractors: asDistractors(['3x y 3x²', '3x y 3y', '3 y 5']),
   },
 };
 

@@ -11,7 +11,7 @@ const openai = new OpenAI({ apiKey: config.openai_api_key });
 export interface DistractorSet {
   question: string;
   correctText: string;
-  distractors: string[];
+  distractors: { text: string; explanation: string }[];
 }
 
 /**
@@ -29,7 +29,7 @@ export function isValidDistractorSet(item: DistractorSet | null | undefined): it
     !!item?.correctText?.trim() &&
     Array.isArray(item?.distractors) &&
     item.distractors.length === 3 &&
-    item.distractors.every((d) => !!d?.trim())
+    item.distractors.every((d) => !!d?.text?.trim() && !!d?.explanation?.trim())
   );
 }
 
@@ -42,7 +42,10 @@ function sanitizeDistractorSet(item: DistractorSet): DistractorSet {
   return {
     question: sanitizeMathText(item.question),
     correctText: sanitizeMathText(item.correctText),
-    distractors: item.distractors?.map(sanitizeMathText),
+    distractors: item.distractors?.map((d) => ({
+      text: sanitizeMathText(d.text),
+      explanation: sanitizeMathText(d.explanation),
+    })),
   };
 }
 
@@ -61,6 +64,15 @@ El escenario debe ser correcto y estar anclado al concepto/material — nunca in
 suene vívido. Si un concepto no admite un escenario natural, un enunciado directo y claro está bien: no
 fuerces una historia donde no cabe. Esto no cambia la exactitud, la cantidad de distractores ni su
 plausibilidad — solo el fraseo del enunciado se vuelve más concreto.
+Cada distractor debe incluir además una explicación BREVE (máximo 20 palabras) de por qué esa opción es
+incorrecta y qué la distingue de la correcta — el error conceptual específico que representa, nunca un
+genérico "está mal" o "no es correcta". Tono amable, nunca de castigo o burla: es una pista para aprender, no
+una corrección punitiva. El frontend la muestra tal cual como feedback real al estudiante después de responder
+mal, así que debe ser específica y útil.
+  ✗ GENÉRICA (prohibida): "Esta opción no es correcta."
+  ✗ CON TONO DE CASTIGO (prohibida): "Incorrecto, deberías haber estudiado mejor este concepto."
+  ✓ ESPECÍFICA Y AMABLE: "Los fósiles muestran restos físicos, no comparan el ADN entre especies vivas — eso
+    es bioquímica comparada."
 Responde los ítems en el MISMO ORDEN en que se listan los conceptos, uno por concepto, sin omitir ninguno.
 NOTACIÓN MATEMÁTICA: escribe todo en texto plano, NUNCA en LaTeX. Prohibido usar backslash o comandos LaTeX
 (nada de \\frac, \\left, \\right, \\(...\\), \\[...\\], ni llaves {} para agrupar). Fracciones: "2/3", nunca
@@ -69,19 +81,29 @@ NOTACIÓN MATEMÁTICA: escribe todo en texto plano, NUNCA en LaTeX. Prohibido us
 type ConceptInput = Pick<KnowledgeConcept, 'name' | 'definition' | 'distinctiveTrait'>;
 
 function buildUserPrompt(concepts: ConceptInput[]): string {
-  return `EJEMPLOS DE BUENOS DISTRACTORES:
+  return `EJEMPLOS DE BUENOS DISTRACTORES (con su explicación):
 
 Concepto: "Fotosíntesis" (proceso por el cual las plantas producen glucosa usando luz solar, agua y CO₂)
 Pregunta: "¿Qué producto libera la fotosíntesis como subproducto?"
 Correcta: "Oxígeno"
-Distractores buenos: ["Dióxido de carbono", "Nitrógeno", "Glucosa"] — son productos o reactivos reales de
-procesos biológicos relacionados, no opciones absurdas como "Oro" o "Agua salada".
+Distractores buenos:
+  - "Dióxido de carbono" — explicación: "Es lo que la planta consume para la fotosíntesis, no lo que libera."
+  - "Nitrógeno" — explicación: "No participa en la fotosíntesis — es parte del ciclo del nitrógeno, un
+    proceso distinto."
+  - "Glucosa" — explicación: "La glucosa es el alimento que produce la planta, no el subproducto liberado al
+    ambiente."
+Son productos o reactivos reales de procesos biológicos relacionados, no opciones absurdas como "Oro" o "Agua
+salada".
 
 Concepto: "Monomio" (expresión algebraica de un solo término)
 Pregunta: "¿Cuál de las siguientes expresiones es un monomio?"
 Correcta: "5x²"
-Distractores buenos: ["3x + 2", "x² - 1", "2x/y + 5"] — son expresiones algebraicas reales con más de un
-término: el mismo tipo de confusión que tendría un estudiante que no domina el concepto.
+Distractores buenos:
+  - "3x + 2" — explicación: "Tiene dos términos separados por una suma — un monomio es un solo término."
+  - "x² - 1" — explicación: "También tiene dos términos — le falta ser una sola expresión sin sumas ni restas."
+  - "2x/y + 5" — explicación: "Combina una división entre variables con una suma — dos términos, no uno."
+Son expresiones algebraicas reales con más de un término: el mismo tipo de confusión que tendría un
+estudiante que no domina el concepto.
 
 CONCEPTOS A PROCESAR (en este orden, una pregunta por cada uno):
 ${concepts.map((c, i) => `${i + 1}. "${c.name}" — definición: ${c.definition} — rasgo distintivo: ${c.distinctiveTrait}`).join('\n')}`;
@@ -134,8 +156,16 @@ function buildDistractorsSchema(itemCount: number) {
               type: 'array',
               minItems: 3,
               maxItems: 3,
-              items: { type: 'string' },
-              description: 'Exactamente 3 opciones incorrectas, plausibles y del mismo dominio.',
+              items: {
+                type: 'object',
+                additionalProperties: false,
+                required: ['text', 'explanation'],
+                properties: {
+                  text: { type: 'string', description: 'Texto de la opción incorrecta.' },
+                  explanation: { type: 'string', description: 'Por qué esta opción está mal — el error conceptual específico que representa, breve y amable, nunca genérica ni punitiva.' },
+                },
+              },
+              description: 'Exactamente 3 opciones incorrectas, plausibles y del mismo dominio, cada una con su explicación.',
             },
           },
         },

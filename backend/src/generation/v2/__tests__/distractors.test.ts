@@ -15,7 +15,11 @@ import { isValidDistractorSet, type DistractorSet } from '../distractors.js';
 const VALID: DistractorSet = {
   question: '¿Cuál de las siguientes opciones representa un término algebraico?',
   correctText: '3x²',
-  distractors: ['2x - 1', 'x + 2', '5'],
+  distractors: [
+    { text: '2x - 1', explanation: 'Tiene dos términos, no uno.' },
+    { text: 'x + 2', explanation: 'Tiene dos términos, no uno.' },
+    { text: '5', explanation: 'Es solo un número, sin parte literal.' },
+  ],
 };
 
 describe('isValidDistractorSet', () => {
@@ -36,15 +40,19 @@ describe('isValidDistractorSet', () => {
     expect(isValidDistractorSet({ ...VALID, correctText: '   ' })).toBe(false);
   });
 
-  it('rejects when any single distractor is an empty string', () => {
-    expect(isValidDistractorSet({ ...VALID, distractors: ['2x - 1', '', '5'] })).toBe(false);
+  it('rejects when any single distractor has an empty text', () => {
+    expect(isValidDistractorSet({ ...VALID, distractors: [VALID.distractors[0], { text: '', explanation: 'x' }, VALID.distractors[2]] })).toBe(false);
+  });
+
+  it('rejects when any single distractor has an empty explanation', () => {
+    expect(isValidDistractorSet({ ...VALID, distractors: [VALID.distractors[0], { text: '5', explanation: '' }, VALID.distractors[2]] })).toBe(false);
   });
 
   it('rejects when distractors has fewer than 3 entries', () => {
-    expect(isValidDistractorSet({ ...VALID, distractors: ['2x - 1', 'x + 2'] })).toBe(false);
+    expect(isValidDistractorSet({ ...VALID, distractors: VALID.distractors.slice(0, 2) })).toBe(false);
   });
 
   it('rejects when distractors is not an array', () => {
-    expect(isValidDistractorSet({ ...VALID, distractors: undefined as unknown as string[] })).toBe(false);
+    expect(isValidDistractorSet({ ...VALID, distractors: undefined as unknown as DistractorSet['distractors'] })).toBe(false);
   });
 });

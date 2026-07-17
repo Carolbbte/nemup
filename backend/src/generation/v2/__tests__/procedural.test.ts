@@ -108,9 +108,10 @@ describe('buildDesafio — procedural slide insertion', () => {
     workedExamples: [],
   };
 
+  const asDistractors = (texts: string[]) => texts.map((text) => ({ text, explanation: `Explicación de ${text}.` }));
   const distractors: Record<string, DistractorSet> = {
-    c1: { question: '¿Qué es un término algebraico?', correctText: 'Coeficiente + parte literal', distractors: ['Solo un número', 'Solo una letra', 'Una ecuación'] },
-    c2: { question: '¿Cuándo son semejantes dos términos?', correctText: 'Misma parte literal', distractors: ['Mismo coeficiente', 'Mismo signo', 'Mismo exponente solamente'] },
+    c1: { question: '¿Qué es un término algebraico?', correctText: 'Coeficiente + parte literal', distractors: asDistractors(['Solo un número', 'Solo una letra', 'Una ecuación']) },
+    c2: { question: '¿Cuándo son semejantes dos términos?', correctText: 'Misma parte literal', distractors: asDistractors(['Mismo coeficiente', 'Mismo signo', 'Mismo exponente solamente']) },
   };
 
   it('produces the exact same slides when workedExampleResults is omitted vs explicitly empty', () => {

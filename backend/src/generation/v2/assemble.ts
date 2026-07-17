@@ -138,9 +138,9 @@ export function buildQuestions(
 
     const rawOptions = [
       { id: `q${i + 1}-o1`, text: d.correctText },
-      { id: `q${i + 1}-o2`, text: d.distractors[0] },
-      { id: `q${i + 1}-o3`, text: d.distractors[1] },
-      { id: `q${i + 1}-o4`, text: d.distractors[2] },
+      { id: `q${i + 1}-o2`, text: d.distractors[0].text },
+      { id: `q${i + 1}-o3`, text: d.distractors[1].text },
+      { id: `q${i + 1}-o4`, text: d.distractors[2].text },
     ];
     // Resolve correctOptionId BEFORE shuffle, same convention as generationService.
     const correctOptionId = rawOptions[0].id;
@@ -308,7 +308,7 @@ function buildMultipleChoiceSlideFor(
   seed: number,
   type: DesafioSlideType,
 ): DesafioSlide {
-  const { choices, correctAnswer } = toDesafioChoices(d.correctText, d.distractors, seed);
+  const { choices, correctAnswer } = toDesafioChoices(d.correctText, d.distractors.map((x) => x.text), seed);
 
   return {
     type,
@@ -594,8 +594,8 @@ interface InteractiveFields {
 }
 
 function fieldsFromDistractorSet(d: DistractorSet): InteractiveFields {
-  const { options, correctAnswer } = shuffleWithLetterAnswer(d.correctText, d.distractors);
-  return { question: d.question, options, correctAnswer };
+  const { options, correctAnswer } = shuffleWithLetterAnswer(d.correctText, d.distractors.map((x) => x.text));
+  return { question: d.question, options, correctAnswer, wrongAnswerHints: buildWrongAnswerHints(options, d.distractors) };
 }
 
 /**
@@ -930,7 +930,7 @@ export function buildSummarySlides(
       ...(boss.hint ? { hint: boss.hint } : {}),
     });
   } else if (bossDistractor) {
-    const boss = shuffleWithLetterAnswer(bossDistractor.correctText, bossDistractor.distractors);
+    const boss = shuffleWithLetterAnswer(bossDistractor.correctText, bossDistractor.distractors.map((x) => x.text));
     slides.push({
       type: 'final_challenge',
       emoji: '🏆',
@@ -940,6 +940,7 @@ export function buildSummarySlides(
       question: bossDistractor.question,
       options: boss.options,
       correctAnswer: boss.correctAnswer,
+      wrongAnswerHints: buildWrongAnswerHints(boss.options, bossDistractor.distractors),
     });
   }
 
