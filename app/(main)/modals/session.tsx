@@ -735,6 +735,35 @@ function renderHighlightedExplanation(
   );
 }
 
+// The letter's option text — works for both the options-array slides
+// (micro_challenge/reinforcement_challenge/etc.) and fill_blank, which uses
+// blankChoices instead of options.
+function correctAnswerText(bs: BackendSlide): string | undefined {
+  const letter = bs.correctAnswer;
+  if (!letter) return undefined;
+  if (bs.options?.length) {
+    const idx = LETTERS.indexOf(letter);
+    return idx >= 0 ? bs.options[idx] : undefined;
+  }
+  return bs.blankChoices?.find((c) => c.letter === letter)?.text;
+}
+
+// Nivel 1 — never JUST a mood message on a wrong answer: prefers the
+// question's own wrongAnswerHints[letter] (real "why this is wrong",
+// already generated for slides sourced from exerciseGenerator.ts's
+// GeneratedExercise), and when that isn't present (the more common case —
+// most questions come from distractors.ts's plain DistractorSet, which has
+// no per-distractor explanation yet — see Nivel 2), falls back to naming
+// the correct answer specifically rather than showing nothing or a
+// boilerplate line. Never fabricated — only existing slide data.
+function wrongAnswerFeedbackText(bs: BackendSlide | undefined, answeredLetter: string | undefined): string | undefined {
+  if (!bs || !answeredLetter) return undefined;
+  const specific = bs.wrongAnswerHints?.[answeredLetter];
+  if (specific) return specific;
+  const correct = correctAnswerText(bs);
+  return correct ? `La respuesta correcta es "${correct}".` : undefined;
+}
+
 function renderChallengeFeedback(
   slide: BackendSlide,
   answered: string | Record<string, string> | undefined,
@@ -775,7 +804,7 @@ function renderChallengeFeedback(
     );
   }
 
-  const wrongExplanation = slide.wrongAnswerHints?.[answered];
+  const wrongExplanation = wrongAnswerFeedbackText(slide, answered);
   return (
     <View style={sum.feedbackRow}>
       <Image source={require('@/assets/images/tuPuedes.png')} style={sum.feedbackMascot} resizeMode="contain" />
@@ -3730,6 +3759,7 @@ export default function SessionPlayerScreen() {
             // pay less XP than a first-try correct answer — rewards persistence without
             // inflating XP for a question the student already saw once.
             const xpLabel = bs?.requeued ? '+2 XP' : slide?.type === 'final_challenge' ? '+10 XP' : '+5 XP';
+            const wrongFeedback = wrongAnswerFeedbackText(bs, typeof missionAnswered === 'string' ? missionAnswered : undefined);
             const fbActive = isMissionInteractive && !!missionAnswered;
             const showChoose = (slide?.type === 'quiz' && !slideQuizAnswered) || (isMissionInteractive && !missionAnswered);
 
@@ -3747,8 +3777,8 @@ export default function SessionPlayerScreen() {
                     <View style={{ flex: 1 }}>
                       <Text style={sum.mFbTitle}>{(missionCorrect ? celebMsg?.text : errMsg?.text) || (missionCorrect ? '¡Correcto!' : 'Vas aprendiendo.')}</Text>
                       <React.Fragment key={`explanation-${summaryIdx}-${missionCorrect ? 'ok' : 'err'}`}>
-                      {!missionCorrect && !!bs?.definition && (
-                        <MathText style={sum.mFbExpl} numberOfLines={3}>{(bs.definition)}</MathText>
+                      {!missionCorrect && !!wrongFeedback && (
+                        <MathText style={sum.mFbExpl} numberOfLines={3}>{wrongFeedback}</MathText>
                       )}
                       {missionCorrect && !!streakLabel && (
                         <Animated.View style={[sum.mStreakBadge, comboPulseStyle]}><Text style={sum.mStreakText}>{streakLabel}</Text></Animated.View>
