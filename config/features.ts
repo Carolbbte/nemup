@@ -34,4 +34,4 @@ export const ADAPTIVE_REQUEUE              = false;
 // current picker-based ClassifyContent (shared with Desafío), unchanged.
 // Same Record<itemId, category> answer shape either way — scoring/streak/
 // requeue don't change, only the render + its own feedback panel.
-export const CLASSIFY_BUCKETS_UI           = false;
+export const CLASSIFY_BUCKETS_UI           = true;
