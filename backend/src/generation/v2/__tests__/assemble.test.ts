@@ -9,8 +9,8 @@
  */
 
 import { describe, it, expect, vi } from 'vitest';
-import { buildSummarySlides, shuffleWithLetterAnswer, buildReinforcementFromTrait } from '../assemble.js';
-import type { KnowledgeObject, KnowledgeConcept } from '../types.js';
+import { buildSummarySlides, shuffleWithLetterAnswer, buildReinforcementFromTrait, buildClassify } from '../assemble.js';
+import type { KnowledgeObject, KnowledgeConcept, KnowledgeCategory } from '../types.js';
 import type { DistractorSet } from '../distractors.js';
 import type { GeneratedExercise } from '../exerciseGenerator.js';
 
@@ -602,5 +602,93 @@ describe('buildSummarySlides — Fase 2: Arco de la misión (MISSION_ARC_V2)', (
       const match = slides[idx].sub!.match(/^Ya dominaste (\d+) conceptos\.$/);
       expect(Number(match![1])).toBe(mainConceptsSeen);
     });
+  });
+});
+
+describe('buildClassify — defensive cleanup of noisy category extraction', () => {
+  const makeKo = (categories: KnowledgeCategory[]): KnowledgeObject => ({
+    topic: 'Test', subject: 'Test', concepts: [], workedExamples: [], categories,
+  });
+
+  it('passes clean data through unchanged — no umbrella, no duplicates', () => {
+    const ko = makeKo([
+      { name: 'Homólogos', items: ['Brazo humano y ala de murciélago'] },
+      { name: 'Análogos', items: ['Ala de ave', 'Ala de insecto'] },
+      { name: 'Vestigiales', items: ['Cóccix', 'Muela del juicio'] },
+    ]);
+    const result = buildClassify(ko);
+    expect(result).not.toBeNull();
+    expect(result!.categories).toEqual(['Homólogos', 'Análogos', 'Vestigiales']);
+    expect(result!.items).toHaveLength(5);
+  });
+
+  it('drops an umbrella category whose items are ALL duplicated in other categories', () => {
+    const ko = makeKo([
+      { name: 'Tipos de órganos en anatomía comparada', items: ['Brazo humano y ala de murciélago', 'Ala de ave', 'Cóccix'] },
+      { name: 'Homólogos', items: ['Brazo humano y ala de murciélago'] },
+      { name: 'Análogos', items: ['Ala de ave', 'Ala de insecto'] },
+      { name: 'Vestigiales', items: ['Cóccix', 'Muela del juicio'] },
+    ]);
+    const result = buildClassify(ko);
+    expect(result).not.toBeNull();
+    expect(result!.categories).toEqual(['Homólogos', 'Análogos', 'Vestigiales']);
+    expect(result!.categories).not.toContain('Tipos de órganos en anatomía comparada');
+    expect(result!.items).toHaveLength(5);
+    // The umbrella's own items were removed WITH the umbrella, not left
+    // duplicated — each surviving item appears exactly once.
+    const texts = result!.items.map((i) => i.text);
+    expect(new Set(texts).size).toBe(texts.length);
+  });
+
+  it('detects the umbrella case-/accent-insensitively, across its 2+ real subtypes', () => {
+    const ko = makeKo([
+      // Paraguas' items match Homólogos/Análogos, but only via a
+      // different case/accent each time — must still count as overlap.
+      { name: 'Paraguas', items: ['ala de murcielago', 'ALA DE AVE'] },
+      { name: 'Homólogos', items: ['Ala de Murciélago'] },
+      { name: 'Análogos', items: ['Ala de ave', 'Ala de insecto'] },
+    ]);
+    const result = buildClassify(ko);
+    expect(result).not.toBeNull();
+    expect(result!.categories).not.toContain('Paraguas');
+    expect(result!.categories).toEqual(['Homólogos', 'Análogos']);
+  });
+
+  it('drops an item duplicated across two real (non-umbrella) categories, keeping each category\'s other items', () => {
+    const ko = makeKo([
+      { name: 'Categoría A', items: ['Ejemplo compartido', 'Ejemplo único A'] },
+      { name: 'Categoría B', items: ['Ejemplo compartido', 'Ejemplo único B'] },
+      { name: 'Categoría C', items: ['Ejemplo único C'] },
+    ]);
+    const result = buildClassify(ko);
+    expect(result).not.toBeNull();
+    const texts = result!.items.map((i) => i.text);
+    expect(texts).not.toContain('Ejemplo compartido');
+    expect(texts).toEqual(expect.arrayContaining(['Ejemplo único A', 'Ejemplo único B', 'Ejemplo único C']));
+    expect(texts).toHaveLength(3);
+  });
+
+  it('returns null when fewer than 2 categories survive after removing the umbrella', () => {
+    const ko = makeKo([
+      { name: 'Paraguas', items: ['Ejemplo uno', 'Ejemplo dos'] },
+      { name: 'Única clase real', items: ['Ejemplo uno', 'Ejemplo dos'] },
+    ]);
+    // "Paraguas" is an umbrella (both its items duplicate "Única clase real"'s)
+    // — removing it leaves only 1 category, below the >=2 requirement.
+    expect(buildClassify(ko)).toBeNull();
+  });
+
+  it('returns null when fewer than 3 unique items survive after dedup', () => {
+    const ko = makeKo([
+      { name: 'Categoría A', items: ['Compartido 1', 'Compartido 2'] },
+      { name: 'Categoría B', items: ['Compartido 1', 'Compartido 2'] },
+    ]);
+    // Every item is duplicated across both categories -> all dropped -> 0 items left.
+    expect(buildClassify(ko)).toBeNull();
+  });
+
+  it('still returns null for the original <2-category / <3-item cases (no regression)', () => {
+    expect(buildClassify(makeKo([{ name: 'Solo una clase', items: ['a', 'b', 'c'] }]))).toBeNull();
+    expect(buildClassify(makeKo([{ name: 'A', items: ['a'] }, { name: 'B', items: ['b'] }]))).toBeNull();
   });
 });

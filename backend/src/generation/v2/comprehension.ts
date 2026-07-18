@@ -74,22 +74,25 @@ INSTRUCCIONES:
    ✗ VAGO: "Es importante en el tema" (no distingue nada de los demás conceptos).
    ✓ BUENO: "Es el único de los listados que libera oxígeno como subproducto."
 8. categories: incluye una clasificación SOLO si el material agrupa ejemplos CONCRETOS en
-   2 o más clases, con ≥3 ejemplos en total. La forma debe servir para un ejercicio de
-   "arrastra cada ejemplo a su clase":
+   2 o más clases, con ≥3 ejemplos en total. La forma debe servir para "arrastra cada
+   ejemplo a su clase":
      - Cada elemento del arreglo es UNA CLASE, con:
          name: el nombre de la clase.
          items: los EJEMPLOS CONCRETOS del material que pertenecen a esa clase
                 (NUNCA los nombres de las clases).
      - Necesitas ≥2 clases y ≥3 items concretos repartidos entre ellas.
-   Si el material presenta "tipos de X" donde cada tipo tiene sus propios ejemplos, emite
-   CADA TIPO como una clase y sus ejemplos como items.
-   ✓ CORRECTO (órganos homólogos: delfín/murciélago; análogos: alas de ave/insecto;
-     vestigiales: cóccix, muela del juicio):
-       [ {"name":"Homólogos","items":["Aleta de delfín","Ala de murciélago"]},
+     - Cuando un grupo tiene subtipos, emite SOLO los subtipos como clases. NUNCA incluyas
+       la clase paraguas/padre (ej. "Tipos de órganos") como una category.
+     - Cada ejemplo concreto pertenece a EXACTAMENTE UNA clase. Prohibido repetir el mismo
+       item en dos clases.
+     - Usa el término correcto del material (ej. "ala de ave", no "aleta de ave").
+   ✓ CORRECTO (órganos homólogos: brazo humano/ala de murciélago; análogos: ala de ave/
+     ala de insecto; vestigiales: cóccix, muela del juicio):
+       [ {"name":"Homólogos","items":["Brazo humano y ala de murciélago"]},
          {"name":"Análogos","items":["Ala de ave","Ala de insecto"]},
          {"name":"Vestigiales","items":["Cóccix","Muela del juicio"]} ]
-   ✗ INCORRECTO (una sola clase con los tipos como items):
-       [ {"name":"Tipos de órganos","items":["Órganos homólogos","Órganos análogos","Órganos vestigiales"]} ]
+   ✗ INCORRECTO: incluir "Tipos de órganos en anatomía comparada" como category, o poner
+     "Muela del juicio" tanto en el paraguas como en "Vestigiales".
    Si no hay ejemplos concretos que clasificar (solo nombres de tipos), devuelve [].
 9. sourceQuote: un fragmento COPIADO PALABRA POR PALABRA del material (idealmente una oración completa,
    entre 8 y 30 palabras), del que se extrajo este concepto. Debe poder encontrarse LITERALMENTE en el

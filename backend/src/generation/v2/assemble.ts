@@ -223,17 +223,80 @@ export interface ClassifyResult {
   items: Array<{ text: string; category: string }>;
 }
 
-/** Needs ≥2 categories and ≥3 total items across them to be a meaningful exercise — otherwise null. */
-export function buildClassify(ko: KnowledgeObject): ClassifyResult | null {
-  const categories = ko.categories.filter((c) => c.name.trim().length > 0 && c.items.length > 0);
-  if (categories.length < 2) return null;
+/** Normalizes item text for overlap comparison — trim + lowercase + strip accents, so
+ * "Ala de Murciélago" and "ala de murcielago" compare equal. */
+const COMBINING_DIACRITICS_RE = new RegExp('[̀-ͯ]', 'g');
+function normalizeClassifyItem(text: string): string {
+  return text.trim().toLowerCase().normalize('NFD').replace(COMBINING_DIACRITICS_RE, '');
+}
 
-  const items = categories.flatMap((c) => c.items.map((text) => ({ text, category: c.name })));
+/**
+ * Needs ≥2 categories and ≥3 total items across them to be a meaningful exercise —
+ * otherwise null. Also used by Desafío (buildDesafio), so this is a defensive cleanup
+ * of noisy extraction, not new behavior for a clean KnowledgeObject — a category set
+ * with no overlap/duplication passes through unchanged.
+ *
+ * Extraction sometimes sums an "umbrella" category (e.g. "Tipos de órganos") on top of
+ * the real subtype categories instead of replacing it, duplicating concrete items across
+ * both — every element would then have two defensible correct categories. Cleaned up
+ * here, deterministically, by OVERLAP rather than by name (comprehension.ts's prompt
+ * already tells the model never to emit the umbrella, but this is the safety net for
+ * whatever the model actually returns):
+ *   1. Normalize item text for comparison.
+ *   2. A category is an umbrella if EVERY one of its items also appears in some other
+ *      category — drop it entirely.
+ *   3. After removing umbrellas, any item still left in 2+ categories is ambiguous
+ *      (two correct answers) — drop the ITEM (not its whole category) everywhere it's
+ *      duplicated.
+ *   4. Drop categories left with no items.
+ *   5. Re-validate the ≥2 categories / ≥3 unique items requirement on what remains.
+ */
+export function buildClassify(ko: KnowledgeObject): ClassifyResult | null {
+  const initialCategories = ko.categories.filter((c) => c.name.trim().length > 0 && c.items.length > 0);
+  if (initialCategories.length < 2) return null;
+
+  const normalizedByCategory = initialCategories.map((c) => c.items.map(normalizeClassifyItem));
+  // A category is a paraguas only if EVERY one of its items also appears in
+  // some other category, AND those matches span >=2 DISTINCT other
+  // categories — a real umbrella aggregates several subtypes' worth of
+  // items. Requiring >=2 distinct matches (not just "every item has a home
+  // somewhere") matters: a legitimate small category whose one item happens
+  // to ALSO sit in the umbrella would otherwise satisfy "every item overlaps
+  // elsewhere" too (found while testing this against the exact multi-
+  // category shape comprehension.ts's prompt now asks for) and get wrongly
+  // deleted alongside the real umbrella.
+  const isUmbrella = (catIdx: number): boolean => {
+    const items = normalizedByCategory[catIdx];
+    if (items.length === 0) return false;
+    const matchedOtherCategories = new Set<number>();
+    for (const item of items) {
+      const matchIdx = normalizedByCategory.findIndex((other, otherIdx) => otherIdx !== catIdx && other.includes(item));
+      if (matchIdx === -1) return false;
+      matchedOtherCategories.add(matchIdx);
+    }
+    return matchedOtherCategories.size >= 2;
+  };
+  const withoutUmbrellas = initialCategories.filter((_, i) => !isUmbrella(i));
+  if (withoutUmbrellas.length < 2) return null;
+
+  const occurrenceCount = new Map<string, number>();
+  for (const c of withoutUmbrellas) {
+    for (const item of c.items) {
+      const key = normalizeClassifyItem(item);
+      occurrenceCount.set(key, (occurrenceCount.get(key) ?? 0) + 1);
+    }
+  }
+  const deduped = withoutUmbrellas
+    .map((c) => ({ name: c.name, items: c.items.filter((item) => occurrenceCount.get(normalizeClassifyItem(item)) === 1) }))
+    .filter((c) => c.items.length > 0);
+
+  if (deduped.length < 2) return null;
+  const items = deduped.flatMap((c) => c.items.map((text) => ({ text, category: c.name })));
   if (items.length < 3) return null;
 
   return {
     prompt: 'Clasifica cada elemento según su categoría.',
-    categories: categories.map((c) => c.name),
+    categories: deduped.map((c) => c.name),
     items,
   };
 }
