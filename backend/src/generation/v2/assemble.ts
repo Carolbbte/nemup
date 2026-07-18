@@ -795,6 +795,20 @@ export function buildSummarySlides(
     ? classifyConceptIdCandidate
     : null;
 
+  // TEMP-DIAG — remove after diagnosing why classify doesn't show up in the
+  // Evolución mission. No logic changes in this block, read-only.
+  console.log('[TEMP-DIAG][classify] ko.categories:', JSON.stringify(
+    ko.categories.map((c) => ({ name: c.name, itemCount: c.items.length, items: c.items })),
+    null, 2,
+  ));
+  console.log('[TEMP-DIAG][classify] buildClassify(ko) result:', JSON.stringify(classifyResult, null, 2));
+  console.log('[TEMP-DIAG][classify] fillBlankConceptId:', fillBlankConceptId);
+  console.log('[TEMP-DIAG][classify] matchPairsConceptId:', matchPairsConceptId);
+  console.log('[TEMP-DIAG][classify] classifyConceptIdCandidate:', classifyConceptIdCandidate);
+  console.log('[TEMP-DIAG][classify] classifyConceptId (final):', classifyConceptId);
+  console.log('[TEMP-DIAG][classify] ko.concepts (id, name, middle-index target):',
+    JSON.stringify(ko.concepts.map((c, i) => ({ i, id: c.id, name: c.name, isMiddleIdx: i === Math.floor(ko.concepts.length / 2) })), null, 2));
+
   // Fase 2 (MISSION_ARC_V2), Cambio 4 — one non-interactive progress beat
   // inserted at the concept boundary closest to the mission's midpoint,
   // only when there are >=5 taught concepts (fewer and "the middle" isn't
