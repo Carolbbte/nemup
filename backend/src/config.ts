@@ -24,6 +24,13 @@ export interface Config {
    * true; today's exact behavior (byte-identical) when false. Off by
    * default — togglable via env var, no redeploy needed. */
   mission_arc_v2: boolean;
+  /** Feature flag: buildSummarySlides (assemble.ts) drops the generic
+   * reinforcement_challenge fallback in the per-concept loop when true —
+   * concepts without an interactive slot (fill_blank/match_pairs/classify)
+   * end their block at [micro_challenge, main_concept] instead of adding a
+   * second, redundant MC question. Off by default (byte-identical to
+   * before) — togglable via env var, no redeploy needed. */
+  mission_shorten: boolean;
 }
 
 export function loadConfig(): Config {
@@ -37,6 +44,7 @@ export function loadConfig(): Config {
     redis_url: process.env.REDIS_URL ?? 'redis://localhost:6379',
     use_generation_v2: process.env.USE_GENERATION_V2 === 'true',
     mission_arc_v2: process.env.MISSION_ARC_V2 === 'true',
+    mission_shorten: process.env.MISSION_SHORTEN === 'true',
   };
 
   // Validation

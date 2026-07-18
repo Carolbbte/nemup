@@ -605,6 +605,101 @@ describe('buildSummarySlides — Fase 2: Arco de la misión (MISSION_ARC_V2)', (
   });
 });
 
+describe('buildSummarySlides — Fase 3: Acortamiento de la misión (MISSION_SHORTEN)', () => {
+  const makeShortenConcept = (id: string, name: string, difficulty: number): KnowledgeConcept => ({
+    id, name, difficulty,
+    simpleExplanation: `${name}: explicación simple.`,
+    definition: `${name}: definición formal.`,
+    example: `Ejemplo de ${name}.`,
+    exampleShort: `Ej. ${name}`, // enables match_pairs (needs >=3 concepts with one)
+    hook: null, emoji: null, keyPhrase: null,
+    advancedExamples: [], tips: [],
+    distinctiveTrait: `Es el único trait de ${name}.`,
+    sourceQuote: `Fuente sobre ${name}.`,
+  });
+
+  // 6 concepts: c1 -> fill_blank (first eligible), c4 -> classify (middle,
+  // floor(6/2)=3 -> index 3), c6 -> match_pairs (last), boss = hardest
+  // (c6, difficulty 5) — matches match_pairs' own anchor, both land on c6,
+  // which is fine (match_pairs is the "reinforcement slot", boss reservation
+  // is a completely separate pool). c2/c3/c5 get no interactive slot.
+  const shortenConcepts = [
+    makeShortenConcept('c1', 'Concepto Uno', 2),
+    makeShortenConcept('c2', 'Concepto Dos', 3),
+    makeShortenConcept('c3', 'Concepto Tres', 1),
+    makeShortenConcept('c4', 'Concepto Cuatro', 4),
+    makeShortenConcept('c5', 'Concepto Cinco', 3),
+    makeShortenConcept('c6', 'Concepto Seis', 5),
+  ];
+  const shortenKo: KnowledgeObject = {
+    topic: 'Test', subject: 'Test', concepts: shortenConcepts,
+    categories: [
+      { name: 'Clase A', items: ['Ejemplo A1', 'Ejemplo A2'] },
+      { name: 'Clase B', items: ['Ejemplo B1'] },
+    ],
+    workedExamples: [],
+  };
+  const shortenDistractors: Record<string, DistractorSet> = Object.fromEntries(
+    shortenConcepts.map((c) => [c.id, {
+      question: `¿Pregunta sobre ${c.name}?`,
+      correctText: `Respuesta de ${c.name}`,
+      distractors: [
+        { text: 'Distractor A', explanation: `Por qué A está mal para ${c.name}.` },
+        { text: 'Distractor B', explanation: `Por qué B está mal para ${c.name}.` },
+        { text: 'Distractor C', explanation: `Por qué C está mal para ${c.name}.` },
+      ],
+    }]),
+  );
+
+  it('is byte-identical to the flag omitted when off', () => {
+    const randomSpy = vi.spyOn(Math, 'random');
+    randomSpy.mockReturnValue(0.37);
+    const withDefault = buildSummarySlides(shortenKo, shortenDistractors, [], [], false);
+    randomSpy.mockReturnValue(0.37);
+    const withExplicitFalse = buildSummarySlides(shortenKo, shortenDistractors, [], [], false, false);
+    randomSpy.mockRestore();
+    expect(withDefault).toEqual(withExplicitFalse);
+  });
+
+  it('drops the generic reinforcement_challenge for concepts without an interactive slot, standalone (arc off)', () => {
+    const slides = buildSummarySlides(shortenKo, shortenDistractors, [], [], false, true);
+    // c2 ("Concepto Dos") has no interactive slot -> its block must be
+    // exactly [micro_challenge, main_concept], nothing else in between.
+    const c2MicroIdx = slides.findIndex((s) => s.type === 'micro_challenge' && s.title?.includes('Concepto Dos'));
+    const c2CardIdx = slides.findIndex((s) => s.type === 'main_concept' && s.title === 'Concepto Dos');
+    expect(c2MicroIdx).toBeGreaterThan(-1);
+    expect(c2CardIdx).toBeGreaterThan(-1);
+    expect(Math.abs(c2CardIdx - c2MicroIdx)).toBe(1); // adjacent pair, nothing wedged between
+    // No reinforcement_challenge anywhere mentions Concepto Dos/Tres/Cinco —
+    // the only reinforcement_challenge slides left are the boss's neighbors,
+    // if any (none expected here since arc/callback is off).
+    const looseReinforcement = slides.filter((s) => s.type === 'reinforcement_challenge');
+    expect(looseReinforcement).toHaveLength(0);
+  });
+
+  it('keeps all 4 interactive formats, exactly one callback, one boss, and shortens the total — combined with MISSION_ARC_V2', () => {
+    const shortSlides = buildSummarySlides(shortenKo, shortenDistractors, [], [], true, true);
+    const fullSlides = buildSummarySlides(shortenKo, shortenDistractors, [], [], true, false);
+
+    const typesPresent = new Set(shortSlides.map((s) => s.type));
+    expect(typesPresent.has('fill_blank')).toBe(true);
+    expect(typesPresent.has('classify')).toBe(true);
+    expect(typesPresent.has('match_pairs')).toBe(true);
+    expect(typesPresent.has('micro_challenge')).toBe(true);
+
+    expect(shortSlides.filter((s) => s.type === 'final_challenge')).toHaveLength(1);
+    const callbacks = shortSlides.filter((s) => s.type === 'reinforcement_challenge' && s.title === 'Repaso rápido');
+    expect(callbacks).toHaveLength(1);
+    // The ONLY reinforcement_challenge slides left at all are the callback
+    // (Cambio 2 is explicitly preserved) — none of the generic per-concept
+    // ones survived.
+    const allReinforcement = shortSlides.filter((s) => s.type === 'reinforcement_challenge');
+    expect(allReinforcement).toHaveLength(1);
+
+    expect(shortSlides.length).toBeLessThan(fullSlides.length);
+  });
+});
+
 describe('buildClassify — defensive cleanup of noisy category extraction', () => {
   const makeKo = (categories: KnowledgeCategory[]): KnowledgeObject => ({
     topic: 'Test', subject: 'Test', concepts: [], workedExamples: [], categories,

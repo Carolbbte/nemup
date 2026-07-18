@@ -91,7 +91,7 @@ export async function generateSessionV2(
     summary: {
       id: randomUUID(),
       title: ko.topic || 'Resumen del material',
-      slides: buildSummarySlides(ko, distractors, workedExampleResults, exercises, appConfig.mission_arc_v2),
+      slides: buildSummarySlides(ko, distractors, workedExampleResults, exercises, appConfig.mission_arc_v2, appConfig.mission_shorten),
       sourceQuotes: [],
     },
     groundingScore: 0, // placeholder — replaced below with the real validateGrounding() result

@@ -764,6 +764,9 @@ export function buildSummarySlides(
   // caller, orchestrator.ts — kept out of this function on purpose so it
   // stays a pure, directly-testable function with no env/config coupling.
   missionArcV2: boolean = false,
+  // Fase 3 — Acortamiento de la misión. Same reasoning/wiring pattern as
+  // missionArcV2 above (config.mission_shorten, default false).
+  missionShorten: boolean = false,
 ): SummarySlide[] {
   if (ko.concepts.length === 0) return [];
 
@@ -1024,43 +1027,52 @@ export function buildSummarySlides(
       return;
     }
 
-    // Prefers a generated exercise (also guaranteed distinct); falls back to
-    // the distinctiveTrait-derived recognition question, dropped entirely
-    // when neither is available — one question per concept beats two
-    // identical ones.
-    const reinforcementEx = nextExercise();
-    if (reinforcementEx) {
-      const r = fieldsFromExercise(reinforcementEx);
-      slides.push({
-        type: 'reinforcement_challenge',
-        emoji: '🎯',
-        title: 'Refuerzo',
-        definition: `Aplica lo que acabas de aprender sobre ${concept.name}.`,
-        example: '',
-        question: r.question,
-        options: r.options,
-        correctAnswer: r.correctAnswer,
-        ...(r.wrongAnswerHints ? { wrongAnswerHints: r.wrongAnswerHints } : {}),
-        ...(r.hint ? { hint: r.hint } : {}),
-      });
-      if (missionArcV2) usedQuestionTexts.add(r.question);
-    } else {
-      const allowExample = exampleMatchUsed < MAX_EXAMPLE_MATCH_PER_SESSION;
-      const traitQuestion = buildReinforcementFromTrait(concept, ko.concepts, allowExample);
-      if (traitQuestion) {
-        if (traitQuestion.usedExample) exampleMatchUsed++;
-        const reinforcement = shuffleWithLetterAnswer(traitQuestion.correctText, traitQuestion.distractors);
+    // Fase 3 (MISSION_SHORTEN) — this whole generic reinforcement_challenge
+    // (a SECOND MC question for a concept that didn't land an interactive
+    // slot) is what inflates the mission and reads as repetitive. Skipped
+    // entirely when the flag is on: the concept's block simply ends at
+    // [micro_challenge, main_concept] pushed above. Does NOT touch the
+    // Cambio 2 callback's own single reinforcement_challenge (inserted
+    // separately, right before the boss) — that one stays regardless.
+    if (!missionShorten) {
+      // Prefers a generated exercise (also guaranteed distinct); falls back to
+      // the distinctiveTrait-derived recognition question, dropped entirely
+      // when neither is available — one question per concept beats two
+      // identical ones.
+      const reinforcementEx = nextExercise();
+      if (reinforcementEx) {
+        const r = fieldsFromExercise(reinforcementEx);
         slides.push({
           type: 'reinforcement_challenge',
           emoji: '🎯',
           title: 'Refuerzo',
           definition: `Aplica lo que acabas de aprender sobre ${concept.name}.`,
           example: '',
-          question: traitQuestion.question,
-          options: reinforcement.options,
-          correctAnswer: reinforcement.correctAnswer,
+          question: r.question,
+          options: r.options,
+          correctAnswer: r.correctAnswer,
+          ...(r.wrongAnswerHints ? { wrongAnswerHints: r.wrongAnswerHints } : {}),
+          ...(r.hint ? { hint: r.hint } : {}),
         });
-        if (missionArcV2) usedQuestionTexts.add(traitQuestion.question);
+        if (missionArcV2) usedQuestionTexts.add(r.question);
+      } else {
+        const allowExample = exampleMatchUsed < MAX_EXAMPLE_MATCH_PER_SESSION;
+        const traitQuestion = buildReinforcementFromTrait(concept, ko.concepts, allowExample);
+        if (traitQuestion) {
+          if (traitQuestion.usedExample) exampleMatchUsed++;
+          const reinforcement = shuffleWithLetterAnswer(traitQuestion.correctText, traitQuestion.distractors);
+          slides.push({
+            type: 'reinforcement_challenge',
+            emoji: '🎯',
+            title: 'Refuerzo',
+            definition: `Aplica lo que acabas de aprender sobre ${concept.name}.`,
+            example: '',
+            question: traitQuestion.question,
+            options: reinforcement.options,
+            correctAnswer: reinforcement.correctAnswer,
+          });
+          if (missionArcV2) usedQuestionTexts.add(traitQuestion.question);
+        }
       }
     }
     maybeInsertMidpointBeat();
