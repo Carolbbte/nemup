@@ -65,6 +65,15 @@ const BG    = palette.crema;
 const BRAND = palette.azul;
 const NEON  = palette.azul;
 const LIME  = palette.verdeXP;
+// Tactile "3D lip" tokens (Duolingo-style pressables) — CLASSIFY_BUCKETS_UI
+// only. Each *_EDGE is ~15% darker than its matching fill color, used as a
+// solid borderBottomWidth that shrinks + the button sinks on press, instead
+// of a real box-shadow (RN has no equivalent that renders a crisp edge like
+// this). BRAND stays Nemup's blue rather than Duolingo's green — "la
+// tactilidad importa más que el tono" per spec.
+const BRAND_EDGE = '#1365CE';
+const VERDE_EDGE = '#198663';
+const ROJO_EDGE  = palette.rojoErrorDark;
 
 // Applies the Misión's typeface to every style key by default, so ~250+
 // individual Text styles across this file's several StyleSheet.create()
@@ -2888,17 +2897,24 @@ export default function SessionPlayerScreen() {
                       )}
 
                       <View style={sum.classifyPool}>
-                        {items.filter((it) => !assignedMap[it.id]).map((it) => (
-                          <Pressable
-                            key={it.id}
-                            onPress={() => selectFromPool(it.id)}
-                            style={[sum.classifyChip, classifyBucketSelected === it.id && sum.classifyChipSelected]}
-                          >
-                            <Text style={[sum.classifyChipText, classifyBucketSelected === it.id && sum.classifyChipTextSelected]}>
-                              {it.text}
-                            </Text>
-                          </Pressable>
-                        ))}
+                        {items.filter((it) => !assignedMap[it.id]).map((it) => {
+                          const selected = classifyBucketSelected === it.id;
+                          return (
+                            <Pressable
+                              key={it.id}
+                              onPress={() => selectFromPool(it.id)}
+                              style={({ pressed }) => [
+                                sum.classifyChip,
+                                selected && sum.classifyChipSelected,
+                                pressed && sum.classifyChipPressed,
+                              ]}
+                            >
+                              <Text style={[sum.classifyChipText, selected && sum.classifyChipTextSelected]}>
+                                {it.text}
+                              </Text>
+                            </Pressable>
+                          );
+                        })}
                       </View>
 
                       <View style={sum.classifyBucketsCol}>
@@ -2914,7 +2930,9 @@ export default function SessionPlayerScreen() {
                             >
                               <View style={sum.classifyBucketHeaderRow}>
                                 <Text style={sum.classifyBucketName}>{shortLabel(cat)}</Text>
-                                <Text style={sum.classifyBucketCount}>{bucketItems.length}</Text>
+                                <View style={sum.classifyBucketCountPill}>
+                                  <Text style={sum.classifyBucketCount}>{bucketItems.length}</Text>
+                                </View>
                               </View>
                               {bucketItems.length > 0 && (
                                 <View style={sum.classifyBucketChips}>
@@ -2926,11 +2944,12 @@ export default function SessionPlayerScreen() {
                                         key={it.id}
                                         onPress={() => returnToPool(it.id)}
                                         disabled={revealed}
-                                        style={[
+                                        style={({ pressed }) => [
                                           sum.classifyChip,
                                           sum.classifyChipPlaced,
                                           isCorr && sum.classifyChipCorrect,
                                           isWrong && sum.classifyChipWrong,
+                                          !revealed && pressed && sum.classifyChipPressed,
                                         ]}
                                       >
                                         <Text style={[
@@ -2954,9 +2973,15 @@ export default function SessionPlayerScreen() {
                         <Pressable
                           onPress={handleVerifyBuckets}
                           disabled={!allAssigned}
-                          style={[g.ctaBtn, { marginTop: 16, backgroundColor: allAssigned ? BRAND : palette.crema }]}
+                          style={({ pressed }) => [
+                            sum.classifyTactileBtn,
+                            allAssigned ? sum.classifyTactileBtnPrimary : sum.classifyTactileBtnDisabled,
+                            allAssigned && pressed && sum.classifyTactileBtnPressed,
+                          ]}
                         >
-                          <Text style={allAssigned ? g.ctaText : g.ctaTextOff}>Comprobar</Text>
+                          <Text style={[sum.classifyTactileBtnText, !allAssigned && sum.classifyTactileBtnTextDisabled]}>
+                            Comprobar
+                          </Text>
                         </Pressable>
                       )}
 
@@ -2974,9 +2999,13 @@ export default function SessionPlayerScreen() {
                           )}
                           <Pressable
                             onPress={() => (isLast ? completeMode('summary') : goNext())}
-                            style={[sum.classifyResultContinueBtn, allCorrectRevealed ? sum.classifyResultContinueBtnOk : sum.classifyResultContinueBtnErr]}
+                            style={({ pressed }) => [
+                              sum.classifyTactileBtn,
+                              allCorrectRevealed ? sum.classifyTactileBtnOk : sum.classifyTactileBtnErr,
+                              pressed && sum.classifyTactileBtnPressed,
+                            ]}
                           >
-                            <Text style={sum.classifyResultContinueText}>{isLast ? '¡Misión completada! →' : 'Continuar'}</Text>
+                            <Text style={sum.classifyTactileBtnText}>{isLast ? '¡Misión completada! →' : 'Continuar'}</Text>
                           </Pressable>
                         </View>
                       )}
@@ -3945,6 +3974,17 @@ export default function SessionPlayerScreen() {
               inserted/deleted at grandchild depth, which Fabric handles safely. */}
           {safeRender(() => {
             const bs = slide as BackendSlide | undefined;
+            // CLASSIFY_BUCKETS_UI owns its own single action button (Comprobar →
+            // transforms in place into the result bar with Continuar) — this
+            // generic footer must render NOTHING here, or the screen would show
+            // two big CTAs stacked ("Comprobar" here below it, plus this bar's
+            // always-on "Siguiente →", since classify was never wired into
+            // isMissionInteractive below). Flag off is untouched: the old
+            // picker UI keeps relying on this same generic "Siguiente →" as
+            // its only way past classify, exactly as before.
+            if (CLASSIFY_BUCKETS_UI && slide?.type === 'classify') {
+              return <View style={{ height: insets.bottom }} />;
+            }
             const MISSION_QUIZ_TYPES = new Set(['micro_challenge', 'reinforcement_challenge', 'comprehension', 'mini_quiz', 'final_challenge', 'decide']);
             // fill_blank's answer/choices live in blankAnswer/blankChoices,
             // not correctAnswer/options, so the check below misses it
@@ -5071,14 +5111,19 @@ const sum = StyleSheet.create(withMisionFont({
   classifyBucketsProgressText:  { fontSize: 12, fontWeight: '700' as const, color: palette.grisMedio },
 
   classifyPool: { flexDirection: 'row', flexWrap: 'wrap' as const, gap: 8, marginBottom: 14, minHeight: 36 },
+  // Tactile chip: thicker bottom border reads as the "lip" of a physical
+  // tile. classifyChipPressed (applied on top, via Pressable's pressed
+  // state) sinks it 1px and shaves the lip down to 2px — released, it pops
+  // back up. Never applied while `revealed` (locked chips have no press feel).
   classifyChip: {
-    paddingHorizontal: 12, paddingVertical: 8, borderRadius: 18,
-    borderWidth: 1.5, borderColor: palette.bordeClaro, backgroundColor: palette.blanco,
+    paddingHorizontal: 12, paddingVertical: 7, borderRadius: 12,
+    borderWidth: 2, borderBottomWidth: 3, borderColor: palette.bordeClaro, backgroundColor: palette.blanco,
   },
-  classifyChipSelected:   { borderColor: BRAND, backgroundColor: palette.azulClaro },
+  classifyChipSelected:   { borderColor: BRAND, backgroundColor: palette.azulClaro, transform: [{ scale: 1.03 }] },
+  classifyChipPressed:    { transform: [{ translateY: 1 }], borderBottomWidth: 2 },
   classifyChipText:       { fontSize: 13, fontWeight: '600' as const, color: palette.charcoal },
   classifyChipTextSelected: { color: BRAND },
-  classifyChipPlaced:     { paddingVertical: 6 },
+  classifyChipPlaced:     { paddingVertical: 5 },
   classifyChipCorrect:    { borderColor: palette.verde, backgroundColor: paletteExtras.verdeSuaveBg },
   classifyChipWrong:      { borderColor: palette.rojoError, backgroundColor: palette.rojoErrorBg },
   classifyChipTextCorrect: { color: palette.verde },
@@ -5086,27 +5131,42 @@ const sum = StyleSheet.create(withMisionFont({
 
   classifyBucketsCol: { gap: 10 },
   classifyBucketCard: {
-    backgroundColor: palette.blanco, borderRadius: 14, borderWidth: 1.5,
+    backgroundColor: palette.blanco, borderRadius: 14, borderWidth: 2,
     borderColor: palette.bordeClaro, padding: 12,
   },
-  classifyBucketCardReceiving: { borderStyle: 'dashed' as const, borderColor: BRAND, borderWidth: 1.5 },
+  // Dashed border is reserved for this one "ready to receive" moment — never
+  // used at rest, so it stays a clear, single-purpose affordance.
+  classifyBucketCardReceiving: { borderStyle: 'dashed' as const, borderColor: BRAND, borderWidth: 2 },
   classifyBucketHeaderRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 },
-  classifyBucketName:  { fontSize: 13, fontWeight: '800' as const, color: palette.charcoal },
-  classifyBucketCount: { fontSize: 12, fontWeight: '700' as const, color: palette.grisMedio },
+  classifyBucketName:  { fontSize: 14, fontWeight: '700' as const, color: palette.charcoal },
+  classifyBucketCountPill: { backgroundColor: palette.azulClaro, borderRadius: 10, minWidth: 22, paddingHorizontal: 6, paddingVertical: 2, alignItems: 'center' as const },
+  classifyBucketCount: { fontSize: 12, fontWeight: '700' as const, color: BRAND },
   classifyBucketChips: { flexDirection: 'row', flexWrap: 'wrap' as const, gap: 8 },
 
   classifyResultPanel: { borderRadius: 16, padding: 16, marginTop: 16, borderWidth: 1.5, alignItems: 'center' as const, gap: 8 },
   classifyResultPanelOk:  { backgroundColor: paletteExtras.verdeSuaveBg2, borderColor: paletteExtras.verdeChipBorde },
   classifyResultPanelErr: { backgroundColor: palette.rojoErrorBg, borderColor: 'rgba(220,38,38,0.25)' },
-  classifyResultTitleOk:  { fontSize: 17, fontWeight: '800' as const, color: paletteExtras.verdeTextoOscuro },
-  classifyResultTitleErr: { fontSize: 17, fontWeight: '800' as const, color: palette.rojoErrorDark },
+  classifyResultTitleOk:  { fontSize: 17, fontWeight: '800' as const, color: paletteExtras.verdeTextoOscuro, textTransform: 'uppercase' as const, letterSpacing: 0.5 },
+  classifyResultTitleErr: { fontSize: 17, fontWeight: '800' as const, color: palette.rojoErrorDark, textTransform: 'uppercase' as const, letterSpacing: 0.5 },
   classifyResultXpChip:   { backgroundColor: palette.verdeXP, borderRadius: 12, paddingHorizontal: 10, paddingVertical: 4 },
   classifyResultXpText:   { fontSize: 12.5, fontWeight: '800' as const, color: palette.blanco },
   classifyResultCorrectionText: { fontSize: 13, color: palette.rojoErrorDark, fontWeight: '500' as const, textAlign: 'center' as const, lineHeight: 18 },
-  classifyResultContinueBtn:    { alignSelf: 'stretch' as const, borderRadius: 20, paddingVertical: 14, alignItems: 'center' as const, marginTop: 4 },
-  classifyResultContinueBtnOk:  { backgroundColor: palette.verde },
-  classifyResultContinueBtnErr: { backgroundColor: palette.rojoError },
-  classifyResultContinueText:   { fontSize: 15, fontWeight: '800' as const, color: palette.blanco },
+
+  // Tactile primary button — shared shape for Comprobar and the result
+  // panel's Continuar (ok/err). classifyTactileBtnPressed sinks the button
+  // 2px and shaves its lip from 4px to 2px, mimicking a physical button
+  // press instead of RN's flat opacity-fade default.
+  classifyTactileBtn: {
+    alignSelf: 'stretch' as const, borderRadius: 14, paddingVertical: 14,
+    alignItems: 'center' as const, borderBottomWidth: 4, marginTop: 4,
+  },
+  classifyTactileBtnPrimary:  { backgroundColor: BRAND, borderBottomColor: BRAND_EDGE },
+  classifyTactileBtnOk:       { backgroundColor: palette.verde, borderBottomColor: VERDE_EDGE },
+  classifyTactileBtnErr:      { backgroundColor: palette.rojoError, borderBottomColor: ROJO_EDGE },
+  classifyTactileBtnDisabled: { backgroundColor: palette.crema, borderBottomColor: palette.bordeMedio },
+  classifyTactileBtnPressed:  { transform: [{ translateY: 2 }], borderBottomWidth: 2 },
+  classifyTactileBtnText:         { fontSize: 15, fontWeight: '700' as const, color: palette.blanco, textTransform: 'uppercase' as const, letterSpacing: 0.5 },
+  classifyTactileBtnTextDisabled: { color: BRAND + '80' },
 
   // Shared header for the three Desafío-borrowed formats (fill_blank/
   // match_pairs/classify) — replaces each component's own internal
