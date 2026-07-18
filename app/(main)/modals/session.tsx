@@ -4,7 +4,7 @@ import ModeCompletionScreen from '@/components/ModeCompletionScreen';
 // to each; desafio.tsx's own handlers/logic are untouched.
 import { MathText, formatMath } from '@/app/utils/formatMath';
 import UnifiedProgressBar from '@/components/UnifiedProgressBar';
-import { ADAPTIVE_REQUEUE, DAILY_SESSION_LOGIC, FIXED_QUIZ_FEEDBACK, MAX_ATTEMPTS_PER_QUESTION, MODE_COMPLETION_REDESIGN, NEUTRAL_MISSION_COMPLETION, SHOW_DESAFIO_MODE, SHOW_GEMS, UNIFIED_PROGRESS_BAR, UNIFIED_QUIZ_COMPLETION } from '@/config/features';
+import { ADAPTIVE_REQUEUE, CLASSIFY_BUCKETS_UI, DAILY_SESSION_LOGIC, FIXED_QUIZ_FEEDBACK, MAX_ATTEMPTS_PER_QUESTION, MODE_COMPLETION_REDESIGN, NEUTRAL_MISSION_COMPLETION, SHOW_DESAFIO_MODE, SHOW_GEMS, UNIFIED_PROGRESS_BAR, UNIFIED_QUIZ_COMPLETION } from '@/config/features';
 import type { DailyMode } from '@/contexts/DailySessionContext';
 import { useDailySession } from '@/contexts/DailySessionContext';
 import { useOnboarding } from '@/contexts/OnboardingContext';
@@ -769,6 +769,32 @@ function wrongAnswerFeedbackText(bs: BackendSlide | undefined, answeredLetter: s
   return correct ? `La respuesta correcta es "${correct}".` : undefined;
 }
 
+// CLASSIFY_BUCKETS_UI display-only polish: if every category shares the same
+// leading word sequence ("Órganos homólogos" / "Órganos análogos"), strip it
+// from the bucket label ("Homólogos" / "Análogos"). Never touches the actual
+// category string — that's still what gets compared/stored for scoring.
+function classifyCommonCategoryPrefix(categories: string[]): string {
+  if (categories.length < 2) return '';
+  const wordLists = categories.map((c) => c.trim().split(/\s+/));
+  const first = wordLists[0];
+  const common: string[] = [];
+  for (let i = 0; i < first.length; i++) {
+    if (wordLists.every((w) => w[i] === first[i])) common.push(first[i]);
+    else break;
+  }
+  if (common.length === 0) return '';
+  // Never strip a whole category down to nothing — every category must keep
+  // at least one word of its own after the shared prefix is removed.
+  if (wordLists.some((w) => w.length <= common.length)) return '';
+  return common.join(' ');
+}
+
+function classifyShortLabelFn(categories: string[]): (cat: string) => string {
+  const prefix = classifyCommonCategoryPrefix(categories);
+  if (!prefix) return (cat) => cat;
+  return (cat) => (cat.startsWith(prefix) ? cat.slice(prefix.length).trim() : cat);
+}
+
 function renderChallengeFeedback(
   slide: BackendSlide,
   answered: string | Record<string, string> | undefined,
@@ -1031,6 +1057,12 @@ export default function SessionPlayerScreen() {
   const [classifyFailedAttempt, setClassifyFailedAttempt] = useState(false);
   const hadClassifyErrorRef = useRef(false);
   const [classifyCleanRun, setClassifyCleanRun] = useState<Record<number, boolean>>({});
+  // CLASSIFY_BUCKETS_UI only — id of the pool chip currently selected,
+  // awaiting a bucket tap to assign it. Same classifyAssigned/
+  // classifyCleanRun/hadClassifyErrorRef above are reused as-is (identical
+  // Record<itemId, category> shape); this is the only net-new state the
+  // buckets UI needs.
+  const [classifyBucketSelected, setClassifyBucketSelected] = useState<string | null>(null);
 
   // Quiz
   const [quizIdx, setQuizIdx]             = useState(0);
@@ -1309,7 +1341,7 @@ export default function SessionPlayerScreen() {
     conceptBubbleYSV.value = withTiming(0, { duration: 260 });
   }, [summaryIdx]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { setPairsSelectedLeft(null); setPairsMatched({}); setPairEvals({}); hadPairErrorRef.current = false; }, [summaryIdx]);
-  useEffect(() => { setClassifyAssigned({}); setClassifyFailedAttempt(false); hadClassifyErrorRef.current = false; }, [summaryIdx]);
+  useEffect(() => { setClassifyAssigned({}); setClassifyFailedAttempt(false); hadClassifyErrorRef.current = false; setClassifyBucketSelected(null); }, [summaryIdx]);
 
   // Compute mastery when the victory slide is shown (mission model only)
   useEffect(() => {
@@ -2224,7 +2256,7 @@ export default function SessionPlayerScreen() {
               </View>
             ) : slide?.type === 'motivation' ? (
               <View style={sum.motivCard}>
-                <Text style={sum.motivEmoji}>{slide?.emoji || '🎉'}</Text>
+                <Image source={require('@/assets/images/tuPuedes.png')} style={sum.motivMascot} resizeMode="contain" />
                 <Text style={sum.motivMsg}>{slide.message}</Text>
                 <Text style={sum.motivSub}>{slide.sub}</Text>
               </View>
@@ -2772,88 +2804,269 @@ export default function SessionPlayerScreen() {
                 );
               })()
             ) : slide?.type === 'classify' ? (
-              // Presentational component reused as-is from Desafío —
-              // indulgent by construction, with ZERO changes needed to
-              // ClassifyContent itself: it only locks editing once `answer`
-              // is truthy, and a truthy `answer` is only ever passed once
-              // every item is genuinely correct, so a failed "Verificar"
-              // just leaves every item freely reassignable — no dead end.
-              // The CTA here is Misión's own "Verificar" (classify has no
-              // per-tap evaluation like match_pairs — Desafío's own version
-              // is submit-based too), not Desafío's screen-level CTA.
-              (() => {
-                const bSlide = slide as BackendSlide;
-                const items = bSlide.classifyItems ?? [];
-                const answered = quizAnswers[summaryIdx];
-                const answeredMap = answered && typeof answered !== 'string' ? answered : undefined;
-                const allAssigned = items.length > 0 && items.every((it) => !!classifyAssigned[it.id]);
-                const cleanRun = classifyCleanRun[summaryIdx] ?? true;
+              CLASSIFY_BUCKETS_UI ? (
+                // NEW — "toca y manda al cajón" (Duolingo-style). Same
+                // Record<itemId, category> answer shape as the picker UI
+                // below, so scoring/streak/requeue are untouched: this only
+                // replaces the render + its own one-shot feedback panel.
+                (() => {
+                  const bSlide = slide as BackendSlide;
+                  const items = bSlide.classifyItems ?? [];
+                  const categories = bSlide.classifyCategories ?? [];
+                  const answered = quizAnswers[summaryIdx];
+                  const answeredMap = answered && typeof answered !== 'string' ? answered : undefined;
+                  const revealed = !!answeredMap;
+                  const assignedMap = revealed ? answeredMap : classifyAssigned;
+                  const assignedCount = items.filter((it) => !!assignedMap[it.id]).length;
+                  const allAssigned = items.length > 0 && assignedCount === items.length;
+                  const cleanRun = classifyCleanRun[summaryIdx] ?? true;
+                  const shortLabel = classifyShortLabelFn(categories);
 
-                const handleAssign = (updated: Record<string, string>) => {
-                  setClassifyAssigned(updated);
-                  setClassifyFailedAttempt(false);
-                };
+                  const selectFromPool = (itemId: string) => {
+                    if (revealed) return;
+                    setClassifyBucketSelected(prev => (prev === itemId ? null : itemId));
+                  };
 
-                const handleVerify = () => {
-                  if (!allAssigned || answered) return;
-                  const allCorrect = items.every((it) => classifyAssigned[it.id] === it.category);
-                  if (allCorrect) {
-                    const runWasClean = !hadClassifyErrorRef.current;
+                  const assignToBucket = (category: string) => {
+                    if (revealed || !classifyBucketSelected) return;
+                    setClassifyAssigned(prev => ({ ...prev, [classifyBucketSelected]: category }));
+                    setClassifyBucketSelected(null);
+                  };
+
+                  const returnToPool = (itemId: string) => {
+                    if (revealed) return;
+                    setClassifyAssigned(prev => {
+                      const next = { ...prev };
+                      delete next[itemId];
+                      return next;
+                    });
+                    setClassifyBucketSelected(null);
+                  };
+
+                  // One-shot: unlike the picker UI's handleVerify (which only
+                  // locks on a fully-correct attempt, permitting retries),
+                  // this always locks quizAnswers — no retry loop, per spec.
+                  const handleVerifyBuckets = () => {
+                    if (!allAssigned || revealed) return;
+                    const allCorrect = items.every((it) => classifyAssigned[it.id] === it.category);
+                    const runWasClean = allCorrect && !hadClassifyErrorRef.current;
+                    if (!allCorrect) hadClassifyErrorRef.current = true;
                     missionStreakRef.current = runWasClean ? missionStreakRef.current + 1 : 0;
                     setMissionStreak(missionStreakRef.current);
                     setClassifyCleanRun(prev => ({ ...prev, [summaryIdx]: runWasClean }));
                     setQuizAnswers(prev => ({ ...prev, [summaryIdx]: classifyAssigned }));
-                    if (!runWasClean) insertCorrectiveSlide(bSlide, 'classify');
-                  } else {
-                    hadClassifyErrorRef.current = true;
-                    setClassifyFailedAttempt(true);
-                  }
-                };
+                    if (!allCorrect) insertCorrectiveSlide(bSlide, 'classify');
+                  };
 
-                return (
-                  <>
-                    <View style={sum.formatHeaderRow}>
-                      <View style={[sum.formatIconBox, { backgroundColor: palette.ambar }]}>
-                        <Text style={sum.formatIconEmoji}>{bSlide.emoji || '🗂️'}</Text>
+                  const wrongItems = revealed ? items.filter((it) => assignedMap[it.id] !== it.category) : [];
+                  const allCorrectRevealed = revealed && wrongItems.length === 0;
+                  const xpLabel = bSlide.requeued ? '+2 XP' : '+5 XP';
+                  const correctionLine = wrongItems.length === 0 ? '' : (() => {
+                    const named = wrongItems.slice(0, 2).map((it) => `"${it.text}" va en ${it.category}.`).join(' ');
+                    const rest = wrongItems.length - 2;
+                    return rest > 0 ? `${named} +${rest} más.` : named;
+                  })();
+
+                  return (
+                    <>
+                      <View style={sum.formatHeaderRow}>
+                        <View style={[sum.formatIconBox, { backgroundColor: palette.ambar }]}>
+                          <Text style={sum.formatIconEmoji}>{bSlide.emoji || '🗂️'}</Text>
+                        </View>
+                        <Text style={[sum.formatKicker, { color: paletteExtras.ambarIntermedio }]}>Clasifica</Text>
                       </View>
-                      <Text style={[sum.formatKicker, { color: paletteExtras.ambarIntermedio }]}>Clasifica</Text>
-                    </View>
-                    <ClassifyContent
-                      slide={bSlide as unknown as DesafioSlide}
-                      assigned={answeredMap ?? classifyAssigned}
-                      onAssign={handleAssign}
-                      answer={answeredMap ? { value: answeredMap, correct: true } : undefined}
-                      showHeader={false}
-                    />
-                    {!answered && (
-                      <>
-                        {classifyFailedAttempt && (
-                          <Text style={sum.classifyRetryHint}>Algunos quedaron mal — corrige y vuelve a intentar.</Text>
-                        )}
+                      {!revealed && (
+                        <>
+                          <Text style={sum.classifyBucketsPrompt}>{bSlide.classifyPrompt ?? 'Clasifica cada elemento'}</Text>
+                          <View style={sum.classifyBucketsProgressRow}>
+                            <View style={sum.classifyBucketsProgressTrack}>
+                              <View style={[sum.classifyBucketsProgressFill, { width: `${Math.round((assignedCount / Math.max(items.length, 1)) * 100)}%` }]} />
+                            </View>
+                            <Text style={sum.classifyBucketsProgressText}>{assignedCount} / {items.length}</Text>
+                          </View>
+                        </>
+                      )}
+
+                      <View style={sum.classifyPool}>
+                        {items.filter((it) => !assignedMap[it.id]).map((it) => (
+                          <Pressable
+                            key={it.id}
+                            onPress={() => selectFromPool(it.id)}
+                            style={[sum.classifyChip, classifyBucketSelected === it.id && sum.classifyChipSelected]}
+                          >
+                            <Text style={[sum.classifyChipText, classifyBucketSelected === it.id && sum.classifyChipTextSelected]}>
+                              {it.text}
+                            </Text>
+                          </Pressable>
+                        ))}
+                      </View>
+
+                      <View style={sum.classifyBucketsCol}>
+                        {categories.map((cat) => {
+                          const bucketItems = items.filter((it) => assignedMap[it.id] === cat);
+                          const receiving = !revealed && !!classifyBucketSelected;
+                          return (
+                            <Pressable
+                              key={cat}
+                              onPress={() => assignToBucket(cat)}
+                              disabled={revealed || !classifyBucketSelected}
+                              style={[sum.classifyBucketCard, receiving && sum.classifyBucketCardReceiving]}
+                            >
+                              <View style={sum.classifyBucketHeaderRow}>
+                                <Text style={sum.classifyBucketName}>{shortLabel(cat)}</Text>
+                                <Text style={sum.classifyBucketCount}>{bucketItems.length}</Text>
+                              </View>
+                              {bucketItems.length > 0 && (
+                                <View style={sum.classifyBucketChips}>
+                                  {bucketItems.map((it) => {
+                                    const isCorr = revealed && it.category === cat;
+                                    const isWrong = revealed && it.category !== cat;
+                                    return (
+                                      <Pressable
+                                        key={it.id}
+                                        onPress={() => returnToPool(it.id)}
+                                        disabled={revealed}
+                                        style={[
+                                          sum.classifyChip,
+                                          sum.classifyChipPlaced,
+                                          isCorr && sum.classifyChipCorrect,
+                                          isWrong && sum.classifyChipWrong,
+                                        ]}
+                                      >
+                                        <Text style={[
+                                          sum.classifyChipText,
+                                          isCorr && sum.classifyChipTextCorrect,
+                                          isWrong && sum.classifyChipTextWrong,
+                                        ]}>
+                                          {isCorr ? '✓ ' : isWrong ? '✗ ' : ''}{it.text}
+                                        </Text>
+                                      </Pressable>
+                                    );
+                                  })}
+                                </View>
+                              )}
+                            </Pressable>
+                          );
+                        })}
+                      </View>
+
+                      {!revealed && (
                         <Pressable
-                          onPress={handleVerify}
+                          onPress={handleVerifyBuckets}
                           disabled={!allAssigned}
                           style={[g.ctaBtn, { marginTop: 16, backgroundColor: allAssigned ? BRAND : palette.crema }]}
                         >
-                          <Text style={allAssigned ? g.ctaText : g.ctaTextOff}>Verificar</Text>
+                          <Text style={allAssigned ? g.ctaText : g.ctaTextOff}>Comprobar</Text>
                         </Pressable>
-                      </>
-                    )}
-                    {!!answered && (
-                      <View style={sum.feedbackRow}>
-                        <Image source={require('@/assets/images/metaAlcanzada.png')} style={sum.feedbackMascot} resizeMode="contain" />
-                        <View style={[sum.feedbackBubble, sum.feedbackBubbleCorrect]}>
-                          <View style={[sum.feedbackBubbleTail, sum.feedbackBubbleTailCorrect]} />
-                          <Text style={sum.feedbackTitleCorrect}>
-                            {cleanRun ? CORRECT_REINFORCEMENT[summaryIdx % CORRECT_REINFORCEMENT.length] : '¡Lo lograste!'}
+                      )}
+
+                      {revealed && (
+                        <View style={[sum.classifyResultPanel, allCorrectRevealed ? sum.classifyResultPanelOk : sum.classifyResultPanelErr]}>
+                          <Text style={allCorrectRevealed ? sum.classifyResultTitleOk : sum.classifyResultTitleErr}>
+                            {allCorrectRevealed ? (cleanRun ? '¡Perfecto!' : '¡Lo lograste!') : 'Casi'}
                           </Text>
-                          {!cleanRun && <Text style={sum.feedbackText}>La próxima, sin errores.</Text>}
+                          {allCorrectRevealed ? (
+                            <View style={sum.classifyResultXpChip}>
+                              <Text style={sum.classifyResultXpText}>{xpLabel}</Text>
+                            </View>
+                          ) : (
+                            <Text style={sum.classifyResultCorrectionText}>{correctionLine}</Text>
+                          )}
+                          <Pressable
+                            onPress={() => (isLast ? completeMode('summary') : goNext())}
+                            style={[sum.classifyResultContinueBtn, allCorrectRevealed ? sum.classifyResultContinueBtnOk : sum.classifyResultContinueBtnErr]}
+                          >
+                            <Text style={sum.classifyResultContinueText}>{isLast ? '¡Misión completada! →' : 'Continuar'}</Text>
+                          </Pressable>
                         </View>
+                      )}
+                    </>
+                  );
+                })()
+              ) : (
+                // Presentational component reused as-is from Desafío —
+                // indulgent by construction, with ZERO changes needed to
+                // ClassifyContent itself: it only locks editing once `answer`
+                // is truthy, and a truthy `answer` is only ever passed once
+                // every item is genuinely correct, so a failed "Verificar"
+                // just leaves every item freely reassignable — no dead end.
+                // The CTA here is Misión's own "Verificar" (classify has no
+                // per-tap evaluation like match_pairs — Desafío's own version
+                // is submit-based too), not Desafío's screen-level CTA.
+                (() => {
+                  const bSlide = slide as BackendSlide;
+                  const items = bSlide.classifyItems ?? [];
+                  const answered = quizAnswers[summaryIdx];
+                  const answeredMap = answered && typeof answered !== 'string' ? answered : undefined;
+                  const allAssigned = items.length > 0 && items.every((it) => !!classifyAssigned[it.id]);
+                  const cleanRun = classifyCleanRun[summaryIdx] ?? true;
+
+                  const handleAssign = (updated: Record<string, string>) => {
+                    setClassifyAssigned(updated);
+                    setClassifyFailedAttempt(false);
+                  };
+
+                  const handleVerify = () => {
+                    if (!allAssigned || answered) return;
+                    const allCorrect = items.every((it) => classifyAssigned[it.id] === it.category);
+                    if (allCorrect) {
+                      const runWasClean = !hadClassifyErrorRef.current;
+                      missionStreakRef.current = runWasClean ? missionStreakRef.current + 1 : 0;
+                      setMissionStreak(missionStreakRef.current);
+                      setClassifyCleanRun(prev => ({ ...prev, [summaryIdx]: runWasClean }));
+                      setQuizAnswers(prev => ({ ...prev, [summaryIdx]: classifyAssigned }));
+                      if (!runWasClean) insertCorrectiveSlide(bSlide, 'classify');
+                    } else {
+                      hadClassifyErrorRef.current = true;
+                      setClassifyFailedAttempt(true);
+                    }
+                  };
+
+                  return (
+                    <>
+                      <View style={sum.formatHeaderRow}>
+                        <View style={[sum.formatIconBox, { backgroundColor: palette.ambar }]}>
+                          <Text style={sum.formatIconEmoji}>{bSlide.emoji || '🗂️'}</Text>
+                        </View>
+                        <Text style={[sum.formatKicker, { color: paletteExtras.ambarIntermedio }]}>Clasifica</Text>
                       </View>
-                    )}
-                  </>
-                );
-              })()
+                      <ClassifyContent
+                        slide={bSlide as unknown as DesafioSlide}
+                        assigned={answeredMap ?? classifyAssigned}
+                        onAssign={handleAssign}
+                        answer={answeredMap ? { value: answeredMap, correct: true } : undefined}
+                        showHeader={false}
+                      />
+                      {!answered && (
+                        <>
+                          {classifyFailedAttempt && (
+                            <Text style={sum.classifyRetryHint}>Algunos quedaron mal — corrige y vuelve a intentar.</Text>
+                          )}
+                          <Pressable
+                            onPress={handleVerify}
+                            disabled={!allAssigned}
+                            style={[g.ctaBtn, { marginTop: 16, backgroundColor: allAssigned ? BRAND : palette.crema }]}
+                          >
+                            <Text style={allAssigned ? g.ctaText : g.ctaTextOff}>Verificar</Text>
+                          </Pressable>
+                        </>
+                      )}
+                      {!!answered && (
+                        <View style={sum.feedbackRow}>
+                          <Image source={require('@/assets/images/metaAlcanzada.png')} style={sum.feedbackMascot} resizeMode="contain" />
+                          <View style={[sum.feedbackBubble, sum.feedbackBubbleCorrect]}>
+                            <View style={[sum.feedbackBubbleTail, sum.feedbackBubbleTailCorrect]} />
+                            <Text style={sum.feedbackTitleCorrect}>
+                              {cleanRun ? CORRECT_REINFORCEMENT[summaryIdx % CORRECT_REINFORCEMENT.length] : '¡Lo lograste!'}
+                            </Text>
+                            {!cleanRun && <Text style={sum.feedbackText}>La próxima, sin errores.</Text>}
+                          </View>
+                        </View>
+                      )}
+                    </>
+                  );
+                })()
+              )
             ) : slide?.type === 'key_relation' ? (
               (() => {
                 // Build chain from connector (↓-separated) or example (→/↓-separated), else title+definition
@@ -4711,7 +4924,7 @@ const sum = StyleSheet.create(withMisionFont({
 
   // Motivation card
   motivCard:    { backgroundColor: palette.blanco, borderRadius: 28, padding: SM ? 32 : 40, alignItems: 'center' },
-  motivEmoji:   { fontSize: SM ? 64 : 80, marginBottom: 16 },
+  motivMascot:  { width: SM ? 120 : 150, height: SM ? 120 : 150, marginBottom: 16 },
   motivMsg:     { fontSize: SM ? 22 : 26, fontWeight: '900', color: semantic.textPrimary, textAlign: 'center', letterSpacing: -0.5, marginBottom: 8 },
   motivSub:     { fontSize: SM ? 13 : 15, color: semantic.textTertiary, textAlign: 'center', lineHeight: SM ? 20 : 23, fontWeight: '500' },
 
@@ -4848,6 +5061,52 @@ const sum = StyleSheet.create(withMisionFont({
   // classify — transient "try again" hint after a failed Verificar tap,
   // while the board is still freely editable (no dead end).
   classifyRetryHint: { fontSize: 12.5, color: palette.rojoErrorDark, fontWeight: '600' as const, textAlign: 'center' as const, marginTop: 12 },
+
+  // classify — CLASSIFY_BUCKETS_UI only. "Tap item, tap bucket" board:
+  // a pool of unassigned chips up top, one bucket-card per category below.
+  classifyBucketsPrompt: { fontSize: 16, fontWeight: '700' as const, color: palette.charcoal, marginBottom: 10, lineHeight: 22 },
+  classifyBucketsProgressRow:   { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 14 },
+  classifyBucketsProgressTrack: { flex: 1, height: 5, borderRadius: 3, backgroundColor: palette.azulClaro, overflow: 'hidden' as const },
+  classifyBucketsProgressFill:  { height: 5, borderRadius: 3, backgroundColor: BRAND },
+  classifyBucketsProgressText:  { fontSize: 12, fontWeight: '700' as const, color: palette.grisMedio },
+
+  classifyPool: { flexDirection: 'row', flexWrap: 'wrap' as const, gap: 8, marginBottom: 14, minHeight: 36 },
+  classifyChip: {
+    paddingHorizontal: 12, paddingVertical: 8, borderRadius: 18,
+    borderWidth: 1.5, borderColor: palette.bordeClaro, backgroundColor: palette.blanco,
+  },
+  classifyChipSelected:   { borderColor: BRAND, backgroundColor: palette.azulClaro },
+  classifyChipText:       { fontSize: 13, fontWeight: '600' as const, color: palette.charcoal },
+  classifyChipTextSelected: { color: BRAND },
+  classifyChipPlaced:     { paddingVertical: 6 },
+  classifyChipCorrect:    { borderColor: palette.verde, backgroundColor: paletteExtras.verdeSuaveBg },
+  classifyChipWrong:      { borderColor: palette.rojoError, backgroundColor: palette.rojoErrorBg },
+  classifyChipTextCorrect: { color: palette.verde },
+  classifyChipTextWrong:   { color: palette.rojoError },
+
+  classifyBucketsCol: { gap: 10 },
+  classifyBucketCard: {
+    backgroundColor: palette.blanco, borderRadius: 14, borderWidth: 1.5,
+    borderColor: palette.bordeClaro, padding: 12,
+  },
+  classifyBucketCardReceiving: { borderStyle: 'dashed' as const, borderColor: BRAND, borderWidth: 1.5 },
+  classifyBucketHeaderRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 },
+  classifyBucketName:  { fontSize: 13, fontWeight: '800' as const, color: palette.charcoal },
+  classifyBucketCount: { fontSize: 12, fontWeight: '700' as const, color: palette.grisMedio },
+  classifyBucketChips: { flexDirection: 'row', flexWrap: 'wrap' as const, gap: 8 },
+
+  classifyResultPanel: { borderRadius: 16, padding: 16, marginTop: 16, borderWidth: 1.5, alignItems: 'center' as const, gap: 8 },
+  classifyResultPanelOk:  { backgroundColor: paletteExtras.verdeSuaveBg2, borderColor: paletteExtras.verdeChipBorde },
+  classifyResultPanelErr: { backgroundColor: palette.rojoErrorBg, borderColor: 'rgba(220,38,38,0.25)' },
+  classifyResultTitleOk:  { fontSize: 17, fontWeight: '800' as const, color: paletteExtras.verdeTextoOscuro },
+  classifyResultTitleErr: { fontSize: 17, fontWeight: '800' as const, color: palette.rojoErrorDark },
+  classifyResultXpChip:   { backgroundColor: palette.verdeXP, borderRadius: 12, paddingHorizontal: 10, paddingVertical: 4 },
+  classifyResultXpText:   { fontSize: 12.5, fontWeight: '800' as const, color: palette.blanco },
+  classifyResultCorrectionText: { fontSize: 13, color: palette.rojoErrorDark, fontWeight: '500' as const, textAlign: 'center' as const, lineHeight: 18 },
+  classifyResultContinueBtn:    { alignSelf: 'stretch' as const, borderRadius: 20, paddingVertical: 14, alignItems: 'center' as const, marginTop: 4 },
+  classifyResultContinueBtnOk:  { backgroundColor: palette.verde },
+  classifyResultContinueBtnErr: { backgroundColor: palette.rojoError },
+  classifyResultContinueText:   { fontSize: 15, fontWeight: '800' as const, color: palette.blanco },
 
   // Shared header for the three Desafío-borrowed formats (fill_blank/
   // match_pairs/classify) — replaces each component's own internal

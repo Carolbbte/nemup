@@ -28,3 +28,10 @@ export const SHOW_DESAFIO_MODE             = false;
 // no retry-later clone, mission length stays fixed. Toggled off by request;
 // insertCorrectiveSlide (session.tsx) is the single control point.
 export const ADAPTIVE_REQUEUE              = false;
+// CLASSIFY_BUCKETS_UI = true → classify renders as "tap item, tap bucket"
+// (pool of unassigned chips + one bucket card per category), one-shot
+// Comprobar with per-item ✓/✗ reveal, no retry loop. false (default) → the
+// current picker-based ClassifyContent (shared with Desafío), unchanged.
+// Same Record<itemId, category> answer shape either way — scoring/streak/
+// requeue don't change, only the render + its own feedback panel.
+export const CLASSIFY_BUCKETS_UI           = false;
