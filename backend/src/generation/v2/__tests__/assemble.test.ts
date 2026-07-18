@@ -546,4 +546,61 @@ describe('buildSummarySlides — Fase 2: Arco de la misión (MISSION_ARC_V2)', (
     // as before this whole phase existed.
     expect(slides[0].type).toBe('micro_challenge');
   });
+
+  describe('Cambio 4: Beat de progreso a mitad', () => {
+    const makeSixConcepts = () => [
+      makeArcConcept('c1', 'Concepto Uno', 2),
+      makeArcConcept('c2', 'Concepto Dos', 3),
+      makeArcConcept('c3', 'Concepto Tres', 1),
+      makeArcConcept('c4', 'Concepto Cuatro', 4),
+      makeArcConcept('c5', 'Concepto Cinco', 2),
+      makeArcConcept('c6', 'Concepto Seis', 5), // boss
+    ];
+    const sixKo: KnowledgeObject = { ...arcKo, concepts: makeSixConcepts() };
+    const sixDistractors: Record<string, DistractorSet> = Object.fromEntries(
+      makeSixConcepts().map((c) => [c.id, makeArcDistractor(c.name)]),
+    );
+
+    it('never appears when the flag is off, regardless of concept count', () => {
+      const slides = buildSummarySlides(sixKo, sixDistractors, [], [], false);
+      expect(slides.some((s) => s.type === 'motivation')).toBe(false);
+    });
+
+    it('is omitted in sessions with fewer than 5 taught concepts, even with the flag on', () => {
+      const fourKo: KnowledgeObject = { ...arcKo, concepts: makeSixConcepts().slice(0, 4) };
+      const fourDistractors = Object.fromEntries(makeSixConcepts().slice(0, 4).map((c) => [c.id, makeArcDistractor(c.name)]));
+      const slides = buildSummarySlides(fourKo, fourDistractors, [], [], true);
+      expect(slides.some((s) => s.type === 'motivation')).toBe(false);
+    });
+
+    it('inserts exactly one motivation slide at a clean concept boundary, with the expected copy', () => {
+      const slides = buildSummarySlides(sixKo, sixDistractors, [], [], true);
+      const beats = slides.filter((s) => s.type === 'motivation');
+      expect(beats).toHaveLength(1);
+
+      const beat = beats[0];
+      expect(beat.emoji).toBe('🔥');
+      expect(beat.message).toBe('Vas por la mitad.');
+      expect(beat.sub).toMatch(/^Ya dominaste \d+ conceptos\.$/);
+
+      // Clean boundary: never between a micro_challenge/main_concept pair —
+      // the slide right before it must be a "tail" type (a concept's
+      // reinforcement slot, whatever format it took) and the slide right
+      // after it must open a fresh concept's block, never continue one.
+      const idx = slides.findIndex((s) => s.type === 'motivation');
+      const TAIL_TYPES = ['reinforcement_challenge', 'fill_blank', 'match_pairs', 'classify'];
+      const OPENER_TYPES = ['main_concept', 'micro_challenge'];
+      expect(TAIL_TYPES).toContain(slides[idx - 1].type);
+      expect(OPENER_TYPES).toContain(slides[idx + 1].type);
+    });
+
+    it('never fabricates: the "N conceptos" count matches how many concept blocks were actually pushed before it', () => {
+      const slides = buildSummarySlides(sixKo, sixDistractors, [], [], true);
+      const idx = slides.findIndex((s) => s.type === 'motivation');
+      const beforeIt = slides.slice(0, idx);
+      const mainConceptsSeen = beforeIt.filter((s) => s.type === 'main_concept').length;
+      const match = slides[idx].sub!.match(/^Ya dominaste (\d+) conceptos\.$/);
+      expect(Number(match![1])).toBe(mainConceptsSeen);
+    });
+  });
 });

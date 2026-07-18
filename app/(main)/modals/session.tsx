@@ -84,7 +84,12 @@ type Option  = { id: string; text: string };
 type Question = { id: string; text: string; options: Option[]; correctOptionId: string; explanation: string; sourceQuote: string };
 type Flashcard = { id: string; front: string; back: string };
 type SummarySlideType = 'concept' | 'key_fact' | 'important' | 'remember' | 'example' | 'curiosity' | 'wow_fact'
-  | 'mission' | 'main_concept' | 'micro_challenge' | 'reinforcement_challenge' | 'comprehension' | 'key_relation' | 'mini_quiz' | 'process_flow' | 'application' | 'common_error' | 'final_challenge' | 'victory' | 'challenge' | 'decide' | 'order_sequence' | 'worked_example' | 'worked_example_intro' | 'fill_blank' | 'match_pairs' | 'classify';
+  | 'mission' | 'main_concept' | 'micro_challenge' | 'reinforcement_challenge' | 'comprehension' | 'key_relation' | 'mini_quiz' | 'process_flow' | 'application' | 'common_error' | 'final_challenge' | 'victory' | 'challenge' | 'decide' | 'order_sequence' | 'worked_example' | 'worked_example_intro' | 'fill_blank' | 'match_pairs' | 'classify'
+  // Fase 2 (MISSION_ARC_V2, backend) — a single progress beat mid-mission.
+  // Was already a client-only synthesized type (see SummarySlide's own
+  // 'motivation' union member below, made by the legacy quality-pass's
+  // makeMotivation) — this lets a real one arrive FROM the backend too.
+  | 'motivation';
 type IllustrationType = 'educational' | 'diagram' | 'concept' | 'timeline' | 'map' | 'process' | 'comparison';
 // `hook`/`formalDefinition`/`tip` — main_concept only, populated by
 // assemble.ts from the concept's own hook/definition/tips[0]. All optional:
@@ -102,7 +107,7 @@ type IllustrationType = 'educational' | 'diagram' | 'concept' | 'timeline' | 'ma
 // `classifyPrompt`/`classifyCategories`/`classifyItems` — classify only,
 // same shape Desafío's DesafioSlide already uses. The answer is an object
 // mapping each item's id to the assigned category.
-type BackendSlide = { type: SummarySlideType; emoji: string; title: string; definition: string; example: string; visualHint?: string; illustrationType?: IllustrationType; connector?: string | null; question?: string | null; options?: string[] | null; correctAnswer?: string | null; wrongAnswerHints?: Record<string, string> | null; hint?: string; hook?: string | null; keyPhrase?: string | null; formalDefinition?: string; tip?: string; blankSentence?: string; blankChoices?: { letter: string; text: string }[]; blankAnswer?: string; blankExplanation?: string; pairs?: { id: string; left: string; right: string }[]; pairsPrompt?: string; classifyPrompt?: string; classifyCategories?: string[]; classifyItems?: { id: string; text: string; category: string }[]; requeued?: boolean; requeuedFrom?: string | null; statement?: string; answer?: string; steps?: string[] };
+type BackendSlide = { type: SummarySlideType; emoji: string; title: string; definition: string; example: string; visualHint?: string; illustrationType?: IllustrationType; connector?: string | null; question?: string | null; options?: string[] | null; correctAnswer?: string | null; wrongAnswerHints?: Record<string, string> | null; hint?: string; hook?: string | null; keyPhrase?: string | null; formalDefinition?: string; tip?: string; blankSentence?: string; blankChoices?: { letter: string; text: string }[]; blankAnswer?: string; blankExplanation?: string; pairs?: { id: string; left: string; right: string }[]; pairsPrompt?: string; classifyPrompt?: string; classifyCategories?: string[]; classifyItems?: { id: string; text: string; category: string }[]; requeued?: boolean; requeuedFrom?: string | null; statement?: string; answer?: string; steps?: string[]; message?: string; sub?: string };
 type LegacySection = { heading: string; content: string; keyPoints: string[] };
 type Session = {
   id?: string; userId?: string;
@@ -519,7 +524,7 @@ function buildSummarySlides(backendSlides: BackendSlide[], questions: Question[]
     const noRedundant: BackendSlide[] = [];
     const allSeenWords = new Set<string>();
     for (const s of valid) {
-      if (!isInteractive(s) && s.type !== 'mission' && s.type !== 'victory') {
+      if (!isInteractive(s) && s.type !== 'mission' && s.type !== 'victory' && s.type !== 'motivation') {
         const words = keyWords(`${s.title ?? ''} ${s.definition ?? ''} ${s.example ?? ''}`);
         if (allSeenWords.size > 0 && words.size > 0) {
           let hits = 0;

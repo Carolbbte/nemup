@@ -795,6 +795,37 @@ export function buildSummarySlides(
     ? classifyConceptIdCandidate
     : null;
 
+  // Fase 2 (MISSION_ARC_V2), Cambio 4 — one non-interactive progress beat
+  // inserted at the concept boundary closest to the mission's midpoint,
+  // only when there are >=5 taught concepts (fewer and "the middle" isn't
+  // a meaningful beat). Called at each of the loop's exit points below —
+  // all of them fire only AFTER a concept's entire block (its
+  // main_concept/micro_challenge pair + its one reinforcement slot,
+  // whichever format that turned out to be) has already been pushed, so
+  // this can never land inside a challenge-first pair or split any slot.
+  const eligibleConceptCount = conceptTraversalOrder.filter((c) => !!distractors[c.id]).length;
+  const midpointTargetCount = Math.round(eligibleConceptCount / 2);
+  let conceptsCompleted = 0;
+  let midpointBeatInserted = false;
+  const maybeInsertMidpointBeat = () => {
+    conceptsCompleted++;
+    if (!missionArcV2 || eligibleConceptCount < 5 || midpointBeatInserted || conceptsCompleted < midpointTargetCount) return;
+    midpointBeatInserted = true;
+    // title/definition are real, non-empty copy (not literally what the
+    // frontend renders for this type — see message/sub — but required so
+    // this slide behaves like every other one through session.tsx's own
+    // quality-pass pipeline, which expects non-empty title/definition).
+    slides.push({
+      type: 'motivation',
+      emoji: '🔥',
+      title: 'Vas por la mitad.',
+      definition: `Ya dominaste ${conceptsCompleted} conceptos.`,
+      example: '',
+      message: 'Vas por la mitad.',
+      sub: `Ya dominaste ${conceptsCompleted} conceptos.`,
+    });
+  };
+
   conceptTraversalOrder.forEach((concept, conceptIdx) => {
     const d = distractors[concept.id];
     if (!d) return; // no generated question — skip this concept's loop, keep the rest intact
@@ -874,6 +905,7 @@ export function buildSummarySlides(
         classifyCategories: classifyResult.categories,
         classifyItems: shuffledItems.map((it, idx) => ({ id: `item-${idx}`, text: it.text, category: it.category })),
       });
+      maybeInsertMidpointBeat();
       return;
     }
     if (concept.id === matchPairsConceptId && matchPairsResult) {
@@ -886,6 +918,7 @@ export function buildSummarySlides(
         pairs: matchPairsResult.pairs.map((p, idx) => ({ id: `pair-${idx}`, left: p.left, right: p.right })),
         pairsPrompt: matchPairsResult.prompt,
       });
+      maybeInsertMidpointBeat();
       return;
     }
     if (concept.id === fillBlankConceptId) {
@@ -910,6 +943,7 @@ export function buildSummarySlides(
           blankExplanation: concept.definition,
         });
       }
+      maybeInsertMidpointBeat();
       return;
     }
 
@@ -952,6 +986,7 @@ export function buildSummarySlides(
         if (missionArcV2) usedQuestionTexts.add(traitQuestion.question);
       }
     }
+    maybeInsertMidpointBeat();
   });
 
   // Worked examples: solved exercises from the material, placed after all

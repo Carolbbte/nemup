@@ -54,7 +54,12 @@ export type SummarySlideType =
   // Structured mission screens
   | 'mission' | 'main_concept' | 'micro_challenge' | 'reinforcement_challenge' | 'comprehension' | 'key_relation'
   | 'process_flow' | 'application' | 'victory' | 'challenge' | 'decide' | 'order_sequence'
-  | 'worked_example' | 'worked_example_intro' | 'fill_blank' | 'match_pairs' | 'classify';
+  | 'worked_example' | 'worked_example_intro' | 'fill_blank' | 'match_pairs' | 'classify'
+  // Fase 2 (MISSION_ARC_V2) — a single non-interactive progress beat mid-
+  // mission. Already a real type the frontend renders (session.tsx's own
+  // client-side quality pass has synthesized these for the legacy content
+  // path for a while); this is the first time the backend emits one.
+  | 'motivation';
 
 export type IllustrationType = 'educational' | 'diagram' | 'concept' | 'timeline' | 'map' | 'process' | 'comparison';
 
@@ -129,6 +134,14 @@ export interface SummarySlide {
   statement?: string;
   answer?: string;
   steps?: string[];
+  // motivation only — the frontend's render for this type reads message/sub
+  // instead of definition/example (see session.tsx's motivCard). title/
+  // definition/example are still filled with equivalent copy so this slide
+  // satisfies the rest of the frontend's own quality-pass pipeline (which
+  // expects every slide to have non-empty title/definition), even though
+  // the renderer itself never displays them for this type.
+  message?: string;
+  sub?: string;
 }
 
 export interface Summary {
