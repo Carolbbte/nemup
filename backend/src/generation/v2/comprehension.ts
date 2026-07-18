@@ -73,8 +73,24 @@ INSTRUCCIONES:
    es cierto para otro concepto, el ejercicio queda ambiguo.
    ✗ VAGO: "Es importante en el tema" (no distingue nada de los demás conceptos).
    ✓ BUENO: "Es el único de los listados que libera oxígeno como subproducto."
-8. categories: SOLO si el material presenta una clasificación clara con 3 o más ejemplos concretos
-   (ej. tipos de X con ≥3 casos). Si no existe esa clasificación, devuelve [].
+8. categories: incluye una clasificación SOLO si el material agrupa ejemplos CONCRETOS en
+   2 o más clases, con ≥3 ejemplos en total. La forma debe servir para un ejercicio de
+   "arrastra cada ejemplo a su clase":
+     - Cada elemento del arreglo es UNA CLASE, con:
+         name: el nombre de la clase.
+         items: los EJEMPLOS CONCRETOS del material que pertenecen a esa clase
+                (NUNCA los nombres de las clases).
+     - Necesitas ≥2 clases y ≥3 items concretos repartidos entre ellas.
+   Si el material presenta "tipos de X" donde cada tipo tiene sus propios ejemplos, emite
+   CADA TIPO como una clase y sus ejemplos como items.
+   ✓ CORRECTO (órganos homólogos: delfín/murciélago; análogos: alas de ave/insecto;
+     vestigiales: cóccix, muela del juicio):
+       [ {"name":"Homólogos","items":["Aleta de delfín","Ala de murciélago"]},
+         {"name":"Análogos","items":["Ala de ave","Ala de insecto"]},
+         {"name":"Vestigiales","items":["Cóccix","Muela del juicio"]} ]
+   ✗ INCORRECTO (una sola clase con los tipos como items):
+       [ {"name":"Tipos de órganos","items":["Órganos homólogos","Órganos análogos","Órganos vestigiales"]} ]
+   Si no hay ejemplos concretos que clasificar (solo nombres de tipos), devuelve [].
 9. sourceQuote: un fragmento COPIADO PALABRA POR PALABRA del material (idealmente una oración completa,
    entre 8 y 30 palabras), del que se extrajo este concepto. Debe poder encontrarse LITERALMENTE en el
    texto original — no cambies, resumas ni parafrasees ninguna palabra. Esto se usa para verificar que
