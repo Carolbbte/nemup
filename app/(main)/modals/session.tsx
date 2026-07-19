@@ -146,7 +146,7 @@ type Session = {
 };
 type Phase     = 'lobby' | 'mode-select' | 'summary' | 'quiz' | 'flashcards' | 'celebration' | 'complete';
 type QuizStep  = 'answering' | 'correct' | 'wrong';
-
+ 
 // ── Constants ─────────────────────────────────────────────────────
 const LETTERS        = ['A', 'B', 'C', 'D', 'E'];
 const MAX_LIVES      = 3;
@@ -2913,15 +2913,30 @@ export default function SessionPlayerScreen() {
                 // only renders the mascot/progress/pool/buckets.
                 (() => {
                   const cb = classifyBuckets!;
+                  // Classify's board (pool + N bucket cards) can run taller than the
+                  // screen once a slide has several items/categories — unlike the rest
+                  // of Misión's single-question slides, this needs its own scroll so the
+                  // last bucket is never hidden behind the footer. Bottom padding sized
+                  // for the taller of the two footer states (the result panel, once
+                  // revealed, is taller than the plain Comprobar button) + the spec's
+                  // +12 buffer.
                   return (
-                    <>
+                    <ScrollView
+                      style={{ flex: 1 }}
+                      contentContainerStyle={{ paddingBottom: 200 + insets.bottom }}
+                      showsVerticalScrollIndicator={false}
+                    >
                       {!cb.revealed && (
                         <>
+                          {/* indicando.png points down-left with its own hand — placing the
+                              bubble on that side (mascot on the right) makes the gesture read
+                              as "pointing at the instruction" without mirroring the sprite
+                              (which would flip the "N" logo on its hoodie). */}
                           <View style={sum.classifyMascotRow}>
-                            <Image source={require('@/assets/images/indicando.png')} style={sum.classifyMascotImgLg} resizeMode="contain" />
                             <View style={sum.classifyMascotBubble}>
                               <Text style={sum.classifyMascotBubbleText}>Toca un elemento y luego su grupo</Text>
                             </View>
+                            <Image source={require('@/assets/images/indicando.png')} style={sum.classifyMascotImgLg} resizeMode="contain" />
                           </View>
                           <View style={sum.classifyBucketsProgressRow}>
                             <View style={sum.classifyBucketsProgressTrack}>
@@ -3016,7 +3031,7 @@ export default function SessionPlayerScreen() {
                           );
                         })}
                       </View>
-                    </>
+                    </ScrollView>
                   );
                 })()
               ) : (
@@ -3992,7 +4007,7 @@ export default function SessionPlayerScreen() {
             if (CLASSIFY_BUCKETS_UI && slide?.type === 'classify' && classifyBuckets) {
               const cb = classifyBuckets;
               return (
-                <View style={{ paddingHorizontal: 20, paddingTop: 4, paddingBottom: insets.bottom + 12 }}>
+                <View style={[sum.classifyFooter, { paddingBottom: insets.bottom + 12 }]}>
                   {!cb.revealed ? (
                     <Pressable
                       onPress={cb.handleVerifyBuckets}
@@ -5196,16 +5211,16 @@ const sum = StyleSheet.create(withMisionFont({
   classifyChipTextCorrect: { color: DUO_CORRECT_TEXT },
   classifyChipTextWrong:   { color: DUO_WRONG_TEXT },
 
-  classifyBucketsCol: { gap: 10 },
+  classifyBucketsCol: { gap: 8 },
   classifyBucketCard: {
     backgroundColor: palette.blanco, borderRadius: 16, borderWidth: 2,
-    borderBottomWidth: 4, padding: 13, paddingHorizontal: 14,
+    borderBottomWidth: 4, padding: 11, paddingHorizontal: 14,
   },
   // Dashed border is reserved for this one "ready to receive" moment — never
   // used at rest, so it stays a clear, single-purpose affordance. Replaces
   // the category color entirely while active (spec: "sin color-cat").
   classifyBucketCardReceiving: { borderStyle: 'dashed' as const, borderColor: DUO_BLUE, borderWidth: 2, borderBottomWidth: 2 },
-  classifyBucketHeaderRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 },
+  classifyBucketHeaderRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 6 },
   classifyBucketDot:   { width: 9, height: 9, borderRadius: 5 },
   classifyBucketName:  { flex: 1, fontSize: 15, fontWeight: '700' as const, color: palette.charcoal },
   classifyBucketCountPill: { borderRadius: 10, minWidth: 22, paddingHorizontal: 6, paddingVertical: 2, alignItems: 'center' as const },
@@ -5213,8 +5228,10 @@ const sum = StyleSheet.create(withMisionFont({
   classifyBucketChips: { flexDirection: 'row', flexWrap: 'wrap' as const, gap: 8 },
   classifyBucketReceivingHint: { fontSize: 12.5, fontWeight: '700' as const, color: DUO_BLUE, textAlign: 'center' as const, marginTop: 2 },
   // Empty bucket, nothing selected yet — a plain "0" pill communicates
-  // nothing; this dim placeholder signals the card is a drop target.
-  classifyBucketEmptyHint: { fontSize: 12.5, fontWeight: '600' as const, color: palette.grisClaro, textAlign: 'center' as const, paddingVertical: 4 },
+  // nothing; this dim placeholder signals the card is a drop target. Kept
+  // to one tight line (no extra vertical padding) so a full 3-bucket board
+  // still fits on screen alongside the pool without relying only on scroll.
+  classifyBucketEmptyHint: { fontSize: 11.5, fontWeight: '600' as const, color: palette.grisClaro, textAlign: 'center' as const },
 
   classifyResultPanel: { borderRadius: 16, padding: 16, borderWidth: 1.5, gap: 12 },
   classifyResultPanelOk:  { backgroundColor: paletteExtras.verdeSuaveBg2, borderColor: paletteExtras.verdeChipBorde },
@@ -5226,6 +5243,11 @@ const sum = StyleSheet.create(withMisionFont({
   classifyResultXpChip:   { alignSelf: 'flex-start' as const, backgroundColor: palette.verdeXP, borderRadius: 12, paddingHorizontal: 10, paddingVertical: 4, marginTop: 4 },
   classifyResultXpText:   { fontSize: 12.5, fontWeight: '800' as const, color: palette.blanco },
   classifyResultCorrectionText: { fontSize: 13, color: palette.rojoErrorDark, fontWeight: '500' as const, lineHeight: 18, marginTop: 4 },
+
+  // Footer anchored below classify's own ScrollView — solid ground + a top
+  // border so the CTA visibly separates from the scrollable board above it,
+  // instead of floating without an edge.
+  classifyFooter: { paddingHorizontal: 20, paddingTop: 12, borderTopWidth: 1.5, borderTopColor: palette.bordeClaro, backgroundColor: BG },
 
   // Tactile primary button — shared shape for Comprobar and the result
   // panel's Continuar (ok/err). classifyTactileBtnPressed sinks the button
