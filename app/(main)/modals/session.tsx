@@ -65,15 +65,34 @@ const BG    = palette.crema;
 const BRAND = palette.azul;
 const NEON  = palette.azul;
 const LIME  = palette.verdeXP;
-// Tactile "3D lip" tokens (Duolingo-style pressables) — CLASSIFY_BUCKETS_UI
-// only. Each *_EDGE is ~15% darker than its matching fill color, used as a
-// solid borderBottomWidth that shrinks + the button sinks on press, instead
-// of a real box-shadow (RN has no equivalent that renders a crisp edge like
-// this). BRAND stays Nemup's blue rather than Duolingo's green — "la
-// tactilidad importa más que el tono" per spec.
-const BRAND_EDGE = '#1365CE';
-const VERDE_EDGE = '#198663';
-const ROJO_EDGE  = palette.rojoErrorDark;
+// Duolingo-style tactile tokens — CLASSIFY_BUCKETS_UI only. Each *_EDGE is
+// the darker "lip" color used as a solid borderBottomWidth that shrinks +
+// the button/chip sinks on press, instead of a real box-shadow (RN has no
+// equivalent that renders a crisp edge like this).
+const DUO_BLUE           = '#2F6BFF';
+const DUO_BLUE_EDGE      = '#1E4FC0';
+const DUO_GREEN          = '#58CC02';
+const DUO_GREEN_EDGE     = '#46A302';
+const DUO_RED            = '#FF4B4B';
+const DUO_RED_EDGE       = '#D94040';
+const DUO_DISABLED_BG    = '#D3D1C7';
+const DUO_DISABLED_EDGE  = '#B8B6AC';
+const DUO_DISABLED_TEXT  = '#8A8880';
+const DUO_CORRECT_BG     = '#D7FFB8';
+const DUO_CORRECT_BORDER = '#58CC02';
+const DUO_CORRECT_TEXT   = '#4B8A00';
+const DUO_WRONG_BG       = '#FFDFE0';
+const DUO_WRONG_BORDER   = '#FF4B4B';
+const DUO_WRONG_TEXT     = '#EA2B2B';
+// One color set per bucket, cycling by category index — dot + border tint
+// the whole card, badge is the same tone as a light/dark pill for the count.
+const CLASSIFY_CATEGORY_COLORS = [
+  { dot: '#1D9E75', border: '#9FE1CB', badgeBg: '#E1F5EE', badgeText: '#0F6E56' }, // Teal
+  { dot: '#7F77DD', border: '#CECBF6', badgeBg: '#EEEDFE', badgeText: '#3C3489' }, // Morado
+  { dot: '#BA7517', border: '#FAC775', badgeBg: '#FAEEDA', badgeText: '#854F0B' }, // Ámbar
+  { dot: '#D85A30', border: '#F5C4B3', badgeBg: '#FAECE7', badgeText: '#712B13' }, // Coral
+  { dot: '#D4537E', border: '#F4C0D1', badgeBg: '#FBEAF0', badgeText: '#72243E' }, // Rosa
+] as const;
 
 // Applies the Misión's typeface to every style key by default, so ~250+
 // individual Text styles across this file's several StyleSheet.create()
@@ -2158,6 +2177,77 @@ export default function SessionPlayerScreen() {
       });
     };
 
+    // CLASSIFY_BUCKETS_UI — hoisted above the slide-content ternary (instead
+    // of inside it) so the footer render further below can share the exact
+    // same derived state/handlers: the action button/result panel now lives
+    // in that anchored footer, not inline in the scrollable slide content,
+    // so both places need the same `classifyBuckets` values.
+    const classifyBuckets = (() => {
+      if (!CLASSIFY_BUCKETS_UI || slide?.type !== 'classify') return null;
+      const bSlide = slide as BackendSlide;
+      const items = bSlide.classifyItems ?? [];
+      const categories = bSlide.classifyCategories ?? [];
+      const answered = quizAnswers[summaryIdx];
+      const answeredMap = answered && typeof answered !== 'string' ? answered : undefined;
+      const revealed = !!answeredMap;
+      const assignedMap = revealed ? answeredMap : classifyAssigned;
+      const assignedCount = items.filter((it) => !!assignedMap[it.id]).length;
+      const allAssigned = items.length > 0 && assignedCount === items.length;
+      const cleanRun = classifyCleanRun[summaryIdx] ?? true;
+      const shortLabel = classifyShortLabelFn(categories);
+
+      const selectFromPool = (itemId: string) => {
+        if (revealed) return;
+        setClassifyBucketSelected(prev => (prev === itemId ? null : itemId));
+      };
+
+      const assignToBucket = (category: string) => {
+        if (revealed || !classifyBucketSelected) return;
+        setClassifyAssigned(prev => ({ ...prev, [classifyBucketSelected]: category }));
+        setClassifyBucketSelected(null);
+      };
+
+      const returnToPool = (itemId: string) => {
+        if (revealed) return;
+        setClassifyAssigned(prev => {
+          const next = { ...prev };
+          delete next[itemId];
+          return next;
+        });
+        setClassifyBucketSelected(null);
+      };
+
+      // One-shot: unlike the picker UI's handleVerify (which only locks on a
+      // fully-correct attempt, permitting retries), this always locks
+      // quizAnswers — no retry loop, per spec.
+      const handleVerifyBuckets = () => {
+        if (!allAssigned || revealed) return;
+        const allCorrect = items.every((it) => classifyAssigned[it.id] === it.category);
+        const runWasClean = allCorrect && !hadClassifyErrorRef.current;
+        if (!allCorrect) hadClassifyErrorRef.current = true;
+        missionStreakRef.current = runWasClean ? missionStreakRef.current + 1 : 0;
+        setMissionStreak(missionStreakRef.current);
+        setClassifyCleanRun(prev => ({ ...prev, [summaryIdx]: runWasClean }));
+        setQuizAnswers(prev => ({ ...prev, [summaryIdx]: classifyAssigned }));
+        if (!allCorrect) insertCorrectiveSlide(bSlide, 'classify');
+      };
+
+      const wrongItems = revealed ? items.filter((it) => assignedMap[it.id] !== it.category) : [];
+      const allCorrectRevealed = revealed && wrongItems.length === 0;
+      const xpLabel = bSlide.requeued ? '+2 XP' : '+5 XP';
+      const correctionLine = wrongItems.length === 0 ? '' : (() => {
+        const named = wrongItems.slice(0, 2).map((it) => `"${it.text}" va en ${it.category}.`).join(' ');
+        const rest = wrongItems.length - 2;
+        return rest > 0 ? `${named} +${rest} más.` : named;
+      })();
+
+      return {
+        bSlide, items, categories, revealed, assignedMap, assignedCount, allAssigned,
+        cleanRun, shortLabel, selectFromPool, assignToBucket, returnToPool,
+        handleVerifyBuckets, allCorrectRevealed, xpLabel, correctionLine,
+      };
+    })();
+
     return (
       <View style={{ flex: 1, backgroundColor: BG }}>
         <StatusBar barStyle="dark-content" backgroundColor={BG} />
@@ -2816,93 +2906,39 @@ export default function SessionPlayerScreen() {
               CLASSIFY_BUCKETS_UI ? (
                 // NEW — "toca y manda al cajón" (Duolingo-style). Same
                 // Record<itemId, category> answer shape as the picker UI
-                // below, so scoring/streak/requeue are untouched: this only
-                // replaces the render + its own one-shot feedback panel.
+                // below, so scoring/streak/requeue are untouched. The action
+                // button/result panel live in the footer further down (see
+                // `classifyBuckets` hoisted above), anchored to the bottom of
+                // the screen instead of floating mid-content — this branch
+                // only renders the mascot/progress/pool/buckets.
                 (() => {
-                  const bSlide = slide as BackendSlide;
-                  const items = bSlide.classifyItems ?? [];
-                  const categories = bSlide.classifyCategories ?? [];
-                  const answered = quizAnswers[summaryIdx];
-                  const answeredMap = answered && typeof answered !== 'string' ? answered : undefined;
-                  const revealed = !!answeredMap;
-                  const assignedMap = revealed ? answeredMap : classifyAssigned;
-                  const assignedCount = items.filter((it) => !!assignedMap[it.id]).length;
-                  const allAssigned = items.length > 0 && assignedCount === items.length;
-                  const cleanRun = classifyCleanRun[summaryIdx] ?? true;
-                  const shortLabel = classifyShortLabelFn(categories);
-
-                  const selectFromPool = (itemId: string) => {
-                    if (revealed) return;
-                    setClassifyBucketSelected(prev => (prev === itemId ? null : itemId));
-                  };
-
-                  const assignToBucket = (category: string) => {
-                    if (revealed || !classifyBucketSelected) return;
-                    setClassifyAssigned(prev => ({ ...prev, [classifyBucketSelected]: category }));
-                    setClassifyBucketSelected(null);
-                  };
-
-                  const returnToPool = (itemId: string) => {
-                    if (revealed) return;
-                    setClassifyAssigned(prev => {
-                      const next = { ...prev };
-                      delete next[itemId];
-                      return next;
-                    });
-                    setClassifyBucketSelected(null);
-                  };
-
-                  // One-shot: unlike the picker UI's handleVerify (which only
-                  // locks on a fully-correct attempt, permitting retries),
-                  // this always locks quizAnswers — no retry loop, per spec.
-                  const handleVerifyBuckets = () => {
-                    if (!allAssigned || revealed) return;
-                    const allCorrect = items.every((it) => classifyAssigned[it.id] === it.category);
-                    const runWasClean = allCorrect && !hadClassifyErrorRef.current;
-                    if (!allCorrect) hadClassifyErrorRef.current = true;
-                    missionStreakRef.current = runWasClean ? missionStreakRef.current + 1 : 0;
-                    setMissionStreak(missionStreakRef.current);
-                    setClassifyCleanRun(prev => ({ ...prev, [summaryIdx]: runWasClean }));
-                    setQuizAnswers(prev => ({ ...prev, [summaryIdx]: classifyAssigned }));
-                    if (!allCorrect) insertCorrectiveSlide(bSlide, 'classify');
-                  };
-
-                  const wrongItems = revealed ? items.filter((it) => assignedMap[it.id] !== it.category) : [];
-                  const allCorrectRevealed = revealed && wrongItems.length === 0;
-                  const xpLabel = bSlide.requeued ? '+2 XP' : '+5 XP';
-                  const correctionLine = wrongItems.length === 0 ? '' : (() => {
-                    const named = wrongItems.slice(0, 2).map((it) => `"${it.text}" va en ${it.category}.`).join(' ');
-                    const rest = wrongItems.length - 2;
-                    return rest > 0 ? `${named} +${rest} más.` : named;
-                  })();
-
+                  const cb = classifyBuckets!;
                   return (
                     <>
-                      <View style={sum.formatHeaderRow}>
-                        <View style={[sum.formatIconBox, { backgroundColor: palette.ambar }]}>
-                          <Text style={sum.formatIconEmoji}>{bSlide.emoji || '🗂️'}</Text>
-                        </View>
-                        <Text style={[sum.formatKicker, { color: paletteExtras.ambarIntermedio }]}>Clasifica</Text>
-                      </View>
-                      {!revealed && (
+                      {!cb.revealed && (
                         <>
-                          <Text style={sum.classifyBucketsPrompt}>{bSlide.classifyPrompt ?? 'Clasifica cada elemento'}</Text>
+                          <View style={sum.classifyMascotRow}>
+                            <Image source={require('@/assets/images/indicando.png')} style={sum.classifyMascotImgLg} resizeMode="contain" />
+                            <View style={sum.classifyMascotBubble}>
+                              <Text style={sum.classifyMascotBubbleText}>Toca un elemento y luego su grupo</Text>
+                            </View>
+                          </View>
                           <View style={sum.classifyBucketsProgressRow}>
                             <View style={sum.classifyBucketsProgressTrack}>
-                              <View style={[sum.classifyBucketsProgressFill, { width: `${Math.round((assignedCount / Math.max(items.length, 1)) * 100)}%` }]} />
+                              <View style={[sum.classifyBucketsProgressFill, { width: `${Math.round((cb.assignedCount / Math.max(cb.items.length, 1)) * 100)}%` }]} />
                             </View>
-                            <Text style={sum.classifyBucketsProgressText}>{assignedCount} / {items.length}</Text>
+                            <Text style={sum.classifyBucketsProgressText}>{cb.assignedCount} / {cb.items.length}</Text>
                           </View>
                         </>
                       )}
 
                       <View style={sum.classifyPool}>
-                        {items.filter((it) => !assignedMap[it.id]).map((it) => {
+                        {cb.items.filter((it) => !cb.assignedMap[it.id]).map((it) => {
                           const selected = classifyBucketSelected === it.id;
                           return (
                             <Pressable
                               key={it.id}
-                              onPress={() => selectFromPool(it.id)}
+                              onPress={() => cb.selectFromPool(it.id)}
                               style={({ pressed }) => [
                                 sum.classifyChip,
                                 selected && sum.classifyChipSelected,
@@ -2918,42 +2954,52 @@ export default function SessionPlayerScreen() {
                       </View>
 
                       <View style={sum.classifyBucketsCol}>
-                        {categories.map((cat) => {
-                          const bucketItems = items.filter((it) => assignedMap[it.id] === cat);
-                          const receiving = !revealed && !!classifyBucketSelected;
+                        {cb.categories.map((cat, catIdx) => {
+                          const bucketItems = cb.items.filter((it) => cb.assignedMap[it.id] === cat);
+                          const receiving = !cb.revealed && !!classifyBucketSelected;
+                          const catColor = CLASSIFY_CATEGORY_COLORS[catIdx % CLASSIFY_CATEGORY_COLORS.length];
                           return (
                             <Pressable
                               key={cat}
-                              onPress={() => assignToBucket(cat)}
-                              disabled={revealed || !classifyBucketSelected}
-                              style={[sum.classifyBucketCard, receiving && sum.classifyBucketCardReceiving]}
+                              onPress={() => cb.assignToBucket(cat)}
+                              disabled={cb.revealed || !classifyBucketSelected}
+                              style={[
+                                sum.classifyBucketCard,
+                                { borderColor: catColor.border },
+                                receiving && sum.classifyBucketCardReceiving,
+                              ]}
                             >
                               <View style={sum.classifyBucketHeaderRow}>
-                                <Text style={sum.classifyBucketName}>{shortLabel(cat)}</Text>
-                                <View style={sum.classifyBucketCountPill}>
-                                  <Text style={sum.classifyBucketCount}>{bucketItems.length}</Text>
+                                <View style={[sum.classifyBucketDot, { backgroundColor: catColor.dot }]} />
+                                <Text style={sum.classifyBucketName}>{cb.shortLabel(cat)}</Text>
+                                <View style={[sum.classifyBucketCountPill, { backgroundColor: catColor.badgeBg }]}>
+                                  <Text style={[sum.classifyBucketCount, { color: catColor.badgeText }]}>{bucketItems.length}</Text>
                                 </View>
                               </View>
-                              {bucketItems.length > 0 && (
+                              {receiving && (
+                                <Text style={sum.classifyBucketReceivingHint}>⌄ suéltalo aquí</Text>
+                              )}
+                              {bucketItems.length > 0 ? (
                                 <View style={sum.classifyBucketChips}>
                                   {bucketItems.map((it) => {
-                                    const isCorr = revealed && it.category === cat;
-                                    const isWrong = revealed && it.category !== cat;
+                                    const isCorr = cb.revealed && it.category === cat;
+                                    const isWrong = cb.revealed && it.category !== cat;
                                     return (
                                       <Pressable
                                         key={it.id}
-                                        onPress={() => returnToPool(it.id)}
-                                        disabled={revealed}
+                                        onPress={() => cb.returnToPool(it.id)}
+                                        disabled={cb.revealed}
                                         style={({ pressed }) => [
                                           sum.classifyChip,
                                           sum.classifyChipPlaced,
                                           isCorr && sum.classifyChipCorrect,
                                           isWrong && sum.classifyChipWrong,
-                                          !revealed && pressed && sum.classifyChipPressed,
+                                          !cb.revealed && pressed && sum.classifyChipPressed,
                                         ]}
                                       >
                                         <Text style={[
                                           sum.classifyChipText,
+                                          sum.classifyChipPlacedText,
                                           isCorr && sum.classifyChipTextCorrect,
                                           isWrong && sum.classifyChipTextWrong,
                                         ]}>
@@ -2963,52 +3009,13 @@ export default function SessionPlayerScreen() {
                                     );
                                   })}
                                 </View>
+                              ) : !cb.revealed && (
+                                <Text style={sum.classifyBucketEmptyHint}>arrastra aquí</Text>
                               )}
                             </Pressable>
                           );
                         })}
                       </View>
-
-                      {!revealed && (
-                        <Pressable
-                          onPress={handleVerifyBuckets}
-                          disabled={!allAssigned}
-                          style={({ pressed }) => [
-                            sum.classifyTactileBtn,
-                            allAssigned ? sum.classifyTactileBtnPrimary : sum.classifyTactileBtnDisabled,
-                            allAssigned && pressed && sum.classifyTactileBtnPressed,
-                          ]}
-                        >
-                          <Text style={[sum.classifyTactileBtnText, !allAssigned && sum.classifyTactileBtnTextDisabled]}>
-                            Comprobar
-                          </Text>
-                        </Pressable>
-                      )}
-
-                      {revealed && (
-                        <View style={[sum.classifyResultPanel, allCorrectRevealed ? sum.classifyResultPanelOk : sum.classifyResultPanelErr]}>
-                          <Text style={allCorrectRevealed ? sum.classifyResultTitleOk : sum.classifyResultTitleErr}>
-                            {allCorrectRevealed ? (cleanRun ? '¡Perfecto!' : '¡Lo lograste!') : 'Casi'}
-                          </Text>
-                          {allCorrectRevealed ? (
-                            <View style={sum.classifyResultXpChip}>
-                              <Text style={sum.classifyResultXpText}>{xpLabel}</Text>
-                            </View>
-                          ) : (
-                            <Text style={sum.classifyResultCorrectionText}>{correctionLine}</Text>
-                          )}
-                          <Pressable
-                            onPress={() => (isLast ? completeMode('summary') : goNext())}
-                            style={({ pressed }) => [
-                              sum.classifyTactileBtn,
-                              allCorrectRevealed ? sum.classifyTactileBtnOk : sum.classifyTactileBtnErr,
-                              pressed && sum.classifyTactileBtnPressed,
-                            ]}
-                          >
-                            <Text style={sum.classifyTactileBtnText}>{isLast ? '¡Misión completada! →' : 'Continuar'}</Text>
-                          </Pressable>
-                        </View>
-                      )}
                     </>
                   );
                 })()
@@ -3975,15 +3982,68 @@ export default function SessionPlayerScreen() {
           {safeRender(() => {
             const bs = slide as BackendSlide | undefined;
             // CLASSIFY_BUCKETS_UI owns its own single action button (Comprobar →
-            // transforms in place into the result bar with Continuar) — this
-            // generic footer must render NOTHING here, or the screen would show
-            // two big CTAs stacked ("Comprobar" here below it, plus this bar's
-            // always-on "Siguiente →", since classify was never wired into
-            // isMissionInteractive below). Flag off is untouched: the old
-            // picker UI keeps relying on this same generic "Siguiente →" as
-            // its only way past classify, exactly as before.
-            if (CLASSIFY_BUCKETS_UI && slide?.type === 'classify') {
-              return <View style={{ height: insets.bottom }} />;
+            // transforms in place into the result bar with Continuar), anchored
+            // here at the bottom of the screen instead of floating mid-content.
+            // This generic footer must render ONLY that for classify — never
+            // both that AND this bar's own always-on "Siguiente →" (classify
+            // was never wired into isMissionInteractive below). Flag off is
+            // untouched: the old picker UI keeps relying on the generic
+            // "Siguiente →" further below as its only way past classify.
+            if (CLASSIFY_BUCKETS_UI && slide?.type === 'classify' && classifyBuckets) {
+              const cb = classifyBuckets;
+              return (
+                <View style={{ paddingHorizontal: 20, paddingTop: 4, paddingBottom: insets.bottom + 12 }}>
+                  {!cb.revealed ? (
+                    <Pressable
+                      onPress={cb.handleVerifyBuckets}
+                      disabled={!cb.allAssigned}
+                      style={({ pressed }) => [
+                        sum.classifyTactileBtn,
+                        cb.allAssigned ? sum.classifyTactileBtnPrimary : sum.classifyTactileBtnDisabled,
+                        cb.allAssigned && pressed && sum.classifyTactileBtnPressed,
+                      ]}
+                    >
+                      <Text style={[sum.classifyTactileBtnText, !cb.allAssigned && sum.classifyTactileBtnTextDisabled]}>
+                        Comprobar
+                      </Text>
+                    </Pressable>
+                  ) : (
+                    <View style={[sum.classifyResultPanel, cb.allCorrectRevealed ? sum.classifyResultPanelOk : sum.classifyResultPanelErr]}>
+                      <View style={sum.classifyResultTopRow}>
+                        <Image
+                          source={cb.allCorrectRevealed
+                            ? require('@/assets/images/metaAlcanzada.png')
+                            : require('@/assets/images/tuPuedes.png')}
+                          style={sum.classifyResultMascot}
+                          resizeMode="contain"
+                        />
+                        <View style={{ flex: 1 }}>
+                          <Text style={cb.allCorrectRevealed ? sum.classifyResultTitleOk : sum.classifyResultTitleErr}>
+                            {cb.allCorrectRevealed ? (cb.cleanRun ? '¡Perfecto!' : '¡Lo lograste!') : 'Casi'}
+                          </Text>
+                          {cb.allCorrectRevealed ? (
+                            <View style={sum.classifyResultXpChip}>
+                              <Text style={sum.classifyResultXpText}>{cb.xpLabel}</Text>
+                            </View>
+                          ) : (
+                            <Text style={sum.classifyResultCorrectionText}>{cb.correctionLine}</Text>
+                          )}
+                        </View>
+                      </View>
+                      <Pressable
+                        onPress={() => (isLast ? completeMode('summary') : goNext())}
+                        style={({ pressed }) => [
+                          sum.classifyTactileBtn,
+                          cb.allCorrectRevealed ? sum.classifyTactileBtnOk : sum.classifyTactileBtnErr,
+                          pressed && sum.classifyTactileBtnPressed,
+                        ]}
+                      >
+                        <Text style={sum.classifyTactileBtnText}>{isLast ? '¡Misión completada! →' : 'Continuar'}</Text>
+                      </Pressable>
+                    </View>
+                  )}
+                </View>
+              );
             }
             const MISSION_QUIZ_TYPES = new Set(['micro_challenge', 'reinforcement_challenge', 'comprehension', 'mini_quiz', 'final_challenge', 'decide']);
             // fill_blank's answer/choices live in blankAnswer/blankChoices,
@@ -5104,69 +5164,84 @@ const sum = StyleSheet.create(withMisionFont({
 
   // classify — CLASSIFY_BUCKETS_UI only. "Tap item, tap bucket" board:
   // a pool of unassigned chips up top, one bucket-card per category below.
-  classifyBucketsPrompt: { fontSize: 16, fontWeight: '700' as const, color: palette.charcoal, marginBottom: 10, lineHeight: 22 },
+  classifyMascotRow:       { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 14 },
+  classifyMascotImgLg:     { width: 68, height: 68 },
+  classifyMascotBubble:    { flex: 1, backgroundColor: palette.blanco, borderWidth: 2, borderColor: palette.bordeClaro, borderRadius: 16, paddingVertical: 11, paddingHorizontal: 14 },
+  classifyMascotBubbleText: { fontSize: 15, fontWeight: '500' as const, color: palette.charcoal, lineHeight: 20 },
   classifyBucketsProgressRow:   { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 14 },
   classifyBucketsProgressTrack: { flex: 1, height: 5, borderRadius: 3, backgroundColor: palette.azulClaro, overflow: 'hidden' as const },
-  classifyBucketsProgressFill:  { height: 5, borderRadius: 3, backgroundColor: BRAND },
+  classifyBucketsProgressFill:  { height: 5, borderRadius: 3, backgroundColor: DUO_BLUE },
   classifyBucketsProgressText:  { fontSize: 12, fontWeight: '700' as const, color: palette.grisMedio },
 
   classifyPool: { flexDirection: 'row', flexWrap: 'wrap' as const, gap: 8, marginBottom: 14, minHeight: 36 },
   // Tactile chip: thicker bottom border reads as the "lip" of a physical
   // tile. classifyChipPressed (applied on top, via Pressable's pressed
-  // state) sinks it 1px and shaves the lip down to 2px — released, it pops
+  // state) sinks it 2px and shaves the lip down to 2px — released, it pops
   // back up. Never applied while `revealed` (locked chips have no press feel).
   classifyChip: {
-    paddingHorizontal: 12, paddingVertical: 7, borderRadius: 12,
-    borderWidth: 2, borderBottomWidth: 3, borderColor: palette.bordeClaro, backgroundColor: palette.blanco,
+    paddingHorizontal: 15, paddingVertical: 10, borderRadius: 14,
+    borderWidth: 2, borderBottomWidth: 4, borderColor: palette.bordeClaro, backgroundColor: palette.blanco,
   },
-  classifyChipSelected:   { borderColor: BRAND, backgroundColor: palette.azulClaro, transform: [{ scale: 1.03 }] },
-  classifyChipPressed:    { transform: [{ translateY: 1 }], borderBottomWidth: 2 },
-  classifyChipText:       { fontSize: 13, fontWeight: '600' as const, color: palette.charcoal },
-  classifyChipTextSelected: { color: BRAND },
-  classifyChipPlaced:     { paddingVertical: 5 },
-  classifyChipCorrect:    { borderColor: palette.verde, backgroundColor: paletteExtras.verdeSuaveBg },
-  classifyChipWrong:      { borderColor: palette.rojoError, backgroundColor: palette.rojoErrorBg },
-  classifyChipTextCorrect: { color: palette.verde },
-  classifyChipTextWrong:   { color: palette.rojoError },
+  classifyChipSelected:   { borderColor: DUO_BLUE, backgroundColor: '#EAF1FF', transform: [{ scale: 1.03 }] },
+  classifyChipPressed:    { transform: [{ translateY: 2 }], borderBottomWidth: 2 },
+  classifyChipText:       { fontSize: 14, fontWeight: '500' as const, color: palette.charcoal },
+  classifyChipTextSelected: { color: DUO_BLUE },
+  // Chip once placed inside a bucket — smaller footprint, thinner lip (3px
+  // vs the pool's 4px) since the bucket card itself now supplies most of
+  // the visual weight.
+  classifyChipPlaced:     { paddingHorizontal: 12, paddingVertical: 7, borderBottomWidth: 3 },
+  classifyChipPlacedText: { fontSize: 13 },
+  classifyChipCorrect:    { borderColor: DUO_CORRECT_BORDER, backgroundColor: DUO_CORRECT_BG },
+  classifyChipWrong:      { borderColor: DUO_WRONG_BORDER, backgroundColor: DUO_WRONG_BG },
+  classifyChipTextCorrect: { color: DUO_CORRECT_TEXT },
+  classifyChipTextWrong:   { color: DUO_WRONG_TEXT },
 
   classifyBucketsCol: { gap: 10 },
   classifyBucketCard: {
-    backgroundColor: palette.blanco, borderRadius: 14, borderWidth: 2,
-    borderColor: palette.bordeClaro, padding: 12,
+    backgroundColor: palette.blanco, borderRadius: 16, borderWidth: 2,
+    borderBottomWidth: 4, padding: 13, paddingHorizontal: 14,
   },
   // Dashed border is reserved for this one "ready to receive" moment — never
-  // used at rest, so it stays a clear, single-purpose affordance.
-  classifyBucketCardReceiving: { borderStyle: 'dashed' as const, borderColor: BRAND, borderWidth: 2 },
-  classifyBucketHeaderRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 },
-  classifyBucketName:  { fontSize: 14, fontWeight: '700' as const, color: palette.charcoal },
-  classifyBucketCountPill: { backgroundColor: palette.azulClaro, borderRadius: 10, minWidth: 22, paddingHorizontal: 6, paddingVertical: 2, alignItems: 'center' as const },
-  classifyBucketCount: { fontSize: 12, fontWeight: '700' as const, color: BRAND },
+  // used at rest, so it stays a clear, single-purpose affordance. Replaces
+  // the category color entirely while active (spec: "sin color-cat").
+  classifyBucketCardReceiving: { borderStyle: 'dashed' as const, borderColor: DUO_BLUE, borderWidth: 2, borderBottomWidth: 2 },
+  classifyBucketHeaderRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 },
+  classifyBucketDot:   { width: 9, height: 9, borderRadius: 5 },
+  classifyBucketName:  { flex: 1, fontSize: 15, fontWeight: '700' as const, color: palette.charcoal },
+  classifyBucketCountPill: { borderRadius: 10, minWidth: 22, paddingHorizontal: 6, paddingVertical: 2, alignItems: 'center' as const },
+  classifyBucketCount: { fontSize: 12, fontWeight: '700' as const },
   classifyBucketChips: { flexDirection: 'row', flexWrap: 'wrap' as const, gap: 8 },
+  classifyBucketReceivingHint: { fontSize: 12.5, fontWeight: '700' as const, color: DUO_BLUE, textAlign: 'center' as const, marginTop: 2 },
+  // Empty bucket, nothing selected yet — a plain "0" pill communicates
+  // nothing; this dim placeholder signals the card is a drop target.
+  classifyBucketEmptyHint: { fontSize: 12.5, fontWeight: '600' as const, color: palette.grisClaro, textAlign: 'center' as const, paddingVertical: 4 },
 
-  classifyResultPanel: { borderRadius: 16, padding: 16, marginTop: 16, borderWidth: 1.5, alignItems: 'center' as const, gap: 8 },
+  classifyResultPanel: { borderRadius: 16, padding: 16, borderWidth: 1.5, gap: 12 },
   classifyResultPanelOk:  { backgroundColor: paletteExtras.verdeSuaveBg2, borderColor: paletteExtras.verdeChipBorde },
   classifyResultPanelErr: { backgroundColor: palette.rojoErrorBg, borderColor: 'rgba(220,38,38,0.25)' },
+  classifyResultTopRow:   { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  classifyResultMascot:   { width: 44, height: 44 },
   classifyResultTitleOk:  { fontSize: 17, fontWeight: '800' as const, color: paletteExtras.verdeTextoOscuro, textTransform: 'uppercase' as const, letterSpacing: 0.5 },
   classifyResultTitleErr: { fontSize: 17, fontWeight: '800' as const, color: palette.rojoErrorDark, textTransform: 'uppercase' as const, letterSpacing: 0.5 },
-  classifyResultXpChip:   { backgroundColor: palette.verdeXP, borderRadius: 12, paddingHorizontal: 10, paddingVertical: 4 },
+  classifyResultXpChip:   { alignSelf: 'flex-start' as const, backgroundColor: palette.verdeXP, borderRadius: 12, paddingHorizontal: 10, paddingVertical: 4, marginTop: 4 },
   classifyResultXpText:   { fontSize: 12.5, fontWeight: '800' as const, color: palette.blanco },
-  classifyResultCorrectionText: { fontSize: 13, color: palette.rojoErrorDark, fontWeight: '500' as const, textAlign: 'center' as const, lineHeight: 18 },
+  classifyResultCorrectionText: { fontSize: 13, color: palette.rojoErrorDark, fontWeight: '500' as const, lineHeight: 18, marginTop: 4 },
 
   // Tactile primary button — shared shape for Comprobar and the result
   // panel's Continuar (ok/err). classifyTactileBtnPressed sinks the button
-  // 2px and shaves its lip from 4px to 2px, mimicking a physical button
+  // 3px and shaves its lip from 5px to 2px, mimicking a physical button
   // press instead of RN's flat opacity-fade default.
   classifyTactileBtn: {
-    alignSelf: 'stretch' as const, borderRadius: 14, paddingVertical: 14,
-    alignItems: 'center' as const, borderBottomWidth: 4, marginTop: 4,
+    alignSelf: 'stretch' as const, borderRadius: 16, paddingVertical: 15,
+    alignItems: 'center' as const, borderBottomWidth: 5, marginTop: 4,
   },
-  classifyTactileBtnPrimary:  { backgroundColor: BRAND, borderBottomColor: BRAND_EDGE },
-  classifyTactileBtnOk:       { backgroundColor: palette.verde, borderBottomColor: VERDE_EDGE },
-  classifyTactileBtnErr:      { backgroundColor: palette.rojoError, borderBottomColor: ROJO_EDGE },
-  classifyTactileBtnDisabled: { backgroundColor: palette.crema, borderBottomColor: palette.bordeMedio },
-  classifyTactileBtnPressed:  { transform: [{ translateY: 2 }], borderBottomWidth: 2 },
+  classifyTactileBtnPrimary:  { backgroundColor: DUO_BLUE, borderBottomColor: DUO_BLUE_EDGE },
+  classifyTactileBtnOk:       { backgroundColor: DUO_GREEN, borderBottomColor: DUO_GREEN_EDGE },
+  classifyTactileBtnErr:      { backgroundColor: DUO_RED, borderBottomColor: DUO_RED_EDGE },
+  classifyTactileBtnDisabled: { backgroundColor: DUO_DISABLED_BG, borderBottomColor: DUO_DISABLED_EDGE },
+  classifyTactileBtnPressed:  { transform: [{ translateY: 3 }], borderBottomWidth: 2 },
   classifyTactileBtnText:         { fontSize: 15, fontWeight: '700' as const, color: palette.blanco, textTransform: 'uppercase' as const, letterSpacing: 0.5 },
-  classifyTactileBtnTextDisabled: { color: BRAND + '80' },
+  classifyTactileBtnTextDisabled: { color: DUO_DISABLED_TEXT },
 
   // Shared header for the three Desafío-borrowed formats (fill_blank/
   // match_pairs/classify) — replaces each component's own internal
