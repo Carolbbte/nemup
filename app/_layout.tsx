@@ -1,3 +1,4 @@
+import { Fredoka_600SemiBold, Fredoka_700Bold } from '@expo-google-fonts/fredoka';
 import { useFonts, VarelaRound_400Regular } from '@expo-google-fonts/varela-round';
 import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
 import { Stack } from 'expo-router';
@@ -28,7 +29,7 @@ function RootLayoutContent() {
 }
 
 export default function RootLayout() {
-  const [fontsLoaded] = useFonts({ VarelaRound_400Regular });
+  const [fontsLoaded] = useFonts({ VarelaRound_400Regular, Fredoka_600SemiBold, Fredoka_700Bold });
 
   useEffect(() => {
     if (fontsLoaded) SplashScreen.hideAsync();

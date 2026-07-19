@@ -76,7 +76,7 @@ export default function UnifiedProgressBar({
 }
 
 const s = StyleSheet.create({
-  wrap:  { paddingHorizontal: 14, paddingTop: 2, paddingBottom: 4 },
+  wrap:  { paddingHorizontal: 14, paddingTop: 2, paddingBottom: 2 },
   bar:   { flexDirection: 'row', gap: 3, height: 7 },
   zone:  { flex: 1, borderRadius: 4, overflow: 'hidden' },
   fill:  { height: '100%', borderRadius: 4, backgroundColor: BRAND },
@@ -84,7 +84,7 @@ const s = StyleSheet.create({
     fontSize: 10,
     fontWeight: '700',
     color: palette.grisClaro,
-    marginTop: 4,
+    marginTop: 2,
     textAlign: 'center',
     letterSpacing: 0.3,
   },

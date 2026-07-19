@@ -10,7 +10,11 @@
  *    de Nunito, que sí tenía 400-800, `fontWeight` en los tokens de abajo ya
  *    no cambia el grosor real del glifo; se mantiene por compatibilidad y
  *    porque iOS puede aplicar negrita sintética, pero no cuentes con eso).
- *  Fredoka: 700
+ *  Fredoka: 600 (SemiBold, usado por "fichas") y 700 (Bold, el resto de tokens
+ *    Fredoka). A diferencia de Varela Round, Fredoka SÍ publica varios cortes
+ *    reales — por eso fontFamily apunta al nombre exacto del corte cargado
+ *    (Fredoka_600SemiBold / Fredoka_700Bold, registrados en app/_layout.tsx),
+ *    no al nombre genérico "Fredoka".
  *
  * ALCANCE ACTUAL: pantallas de Desafío y de Misión.
  */
@@ -42,6 +46,13 @@ const challengeOption: TextStyle = {
   lineHeight: 24,
 };
 
+const fichas: TextStyle = {
+  fontFamily: 'Fredoka_600SemiBold',
+  fontWeight: '600',
+  fontSize: 15,
+  lineHeight: 31,
+  letterSpacing: -0.3,
+};
 const challengeOptionLetter: TextStyle = {
   fontFamily: 'VarelaRound_400Regular',
   fontWeight: '800',
@@ -76,31 +87,31 @@ const challengeConceptChip: TextStyle = {
 // ── Recompensa y feedback emocional (Fredoka) ─────────────────────────────────
 
 const challengeXP: TextStyle = {
-  fontFamily: 'Fredoka',
+  fontFamily: 'Fredoka_700Bold',
   fontWeight: '700',
   fontSize: 18,
 };
 
 const challengeFloatingXP: TextStyle = {
-  fontFamily: 'Fredoka',
+  fontFamily: 'Fredoka_700Bold',
   fontWeight: '700',
   fontSize: 22,
 };
 
 const challengeStreak: TextStyle = {
-  fontFamily: 'Fredoka',
+  fontFamily: 'Fredoka_700Bold',
   fontWeight: '700',
   fontSize: 18,
 };
 
 const challengeMicroCelebration: TextStyle = {
-  fontFamily: 'Fredoka',
+  fontFamily: 'Fredoka_700Bold',
   fontWeight: '700',
   fontSize: 16,
 };
 
 const challengeRewardXP: TextStyle = {
-  fontFamily: 'Fredoka',
+  fontFamily: 'Fredoka_700Bold',
   fontWeight: '700',
   fontSize: 24,
 };
@@ -110,6 +121,7 @@ export const Typography = {
   challengeSectionLabel,
   challengeQuestion,
   challengeOption,
+  fichas,
   challengeOptionLetter,
   challengeExplanation,
   challengeCTA,
