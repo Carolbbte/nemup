@@ -2934,7 +2934,7 @@ export default function SessionPlayerScreen() {
                               (which would flip the "N" logo on its hoodie). */}
                           <View style={sum.classifyMascotRow}>
                             <View style={sum.classifyMascotBubble}>
-                              <Text style={sum.classifyMascotBubbleText}>Toca un elemento y luego su grupo</Text>
+                              <Text style={sum.classifyMascotBubbleText}>Toca una ficha y luego su grupo</Text>
                             </View>
                             <Image source={require('@/assets/images/indicando.png')} style={sum.classifyMascotImgLg} resizeMode="contain" />
                           </View>
@@ -2991,9 +2991,6 @@ export default function SessionPlayerScreen() {
                                   <Text style={[sum.classifyBucketCount, { color: catColor.badgeText }]}>{bucketItems.length}</Text>
                                 </View>
                               </View>
-                              {receiving && (
-                                <Text style={sum.classifyBucketReceivingHint}>⌄ suéltalo aquí</Text>
-                              )}
                               {bucketItems.length > 0 ? (
                                 <View style={sum.classifyBucketChips}>
                                   {bucketItems.map((it) => {
@@ -3024,8 +3021,8 @@ export default function SessionPlayerScreen() {
                                     );
                                   })}
                                 </View>
-                              ) : !cb.revealed && (
-                                <Text style={sum.classifyBucketEmptyHint}>arrastra aquí</Text>
+                              ) : receiving && (
+                                <Text style={sum.classifyBucketReceivingHint}>toca aquí</Text>
                               )}
                             </Pressable>
                           );
@@ -5184,54 +5181,59 @@ const sum = StyleSheet.create(withMisionFont({
   classifyMascotBubble:    { flex: 1, backgroundColor: palette.blanco, borderWidth: 2, borderColor: palette.bordeClaro, borderRadius: 16, paddingVertical: 11, paddingHorizontal: 14 },
   classifyMascotBubbleText: { fontSize: 15, fontWeight: '500' as const, color: palette.charcoal, lineHeight: 20 },
   classifyBucketsProgressRow:   { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 14 },
-  classifyBucketsProgressTrack: { flex: 1, height: 5, borderRadius: 3, backgroundColor: palette.azulClaro, overflow: 'hidden' as const },
-  classifyBucketsProgressFill:  { height: 5, borderRadius: 3, backgroundColor: DUO_BLUE },
+  classifyBucketsProgressTrack: { flex: 1, height: 8, borderRadius: 5, backgroundColor: palette.azulClaro, overflow: 'hidden' as const },
+  classifyBucketsProgressFill:  { height: 8, borderRadius: 5, backgroundColor: DUO_BLUE },
   classifyBucketsProgressText:  { fontSize: 12, fontWeight: '700' as const, color: palette.grisMedio },
 
   classifyPool: { flexDirection: 'row', flexWrap: 'wrap' as const, gap: 8, marginBottom: 14, minHeight: 36 },
-  // Tactile chip: thicker bottom border reads as the "lip" of a physical
-  // tile. classifyChipPressed (applied on top, via Pressable's pressed
-  // state) sinks it 2px and shaves the lip down to 2px — released, it pops
-  // back up. Never applied while `revealed` (locked chips have no press feel).
+  // Tactile chip — a "piece", not a card: compact, inline with wrap, thick
+  // bottom border reads as the lip of a physical tile. classifyChipPressed
+  // (on top, via Pressable's pressed state) sinks it 2px and shaves the lip
+  // to 2px — released, it pops back up. Never applied while `revealed`
+  // (locked chips have no press feel).
   classifyChip: {
-    paddingHorizontal: 15, paddingVertical: 10, borderRadius: 14,
+    paddingHorizontal: 13, paddingVertical: 9, borderRadius: 14,
     borderWidth: 2, borderBottomWidth: 4, borderColor: palette.bordeClaro, backgroundColor: palette.blanco,
   },
-  classifyChipSelected:   { borderColor: DUO_BLUE, backgroundColor: '#EAF1FF', transform: [{ scale: 1.03 }] },
+  // Selected chip lifts instead of growing — reads as "picked up", not
+  // "zoomed in", and doesn't fight the lip's own borderBottomWidth the way
+  // a scale transform visually did.
+  classifyChipSelected:   { borderColor: DUO_BLUE, backgroundColor: '#EAF1FF', transform: [{ translateY: -2 }] },
   classifyChipPressed:    { transform: [{ translateY: 2 }], borderBottomWidth: 2 },
-  classifyChipText:       { fontSize: 14, fontWeight: '500' as const, color: palette.charcoal },
+  classifyChipText:       { fontSize: 13, fontWeight: '600' as const, color: palette.charcoal },
   classifyChipTextSelected: { color: DUO_BLUE },
   // Chip once placed inside a bucket — smaller footprint, thinner lip (3px
   // vs the pool's 4px) since the bucket card itself now supplies most of
   // the visual weight.
-  classifyChipPlaced:     { paddingHorizontal: 12, paddingVertical: 7, borderBottomWidth: 3 },
-  classifyChipPlacedText: { fontSize: 13 },
+  classifyChipPlaced:     { paddingHorizontal: 11, paddingVertical: 6, borderBottomWidth: 3 },
+  classifyChipPlacedText: { fontSize: 12.5 },
   classifyChipCorrect:    { borderColor: DUO_CORRECT_BORDER, backgroundColor: DUO_CORRECT_BG },
   classifyChipWrong:      { borderColor: DUO_WRONG_BORDER, backgroundColor: DUO_WRONG_BG },
   classifyChipTextCorrect: { color: DUO_CORRECT_TEXT },
   classifyChipTextWrong:   { color: DUO_WRONG_TEXT },
 
   classifyBucketsCol: { gap: 8 },
+  // One-line at rest: dot · name · count, nothing else — an empty bucket
+  // never grows taller than a filled one just to hold a placeholder.
   classifyBucketCard: {
-    backgroundColor: palette.blanco, borderRadius: 16, borderWidth: 2,
-    borderBottomWidth: 4, padding: 11, paddingHorizontal: 14,
+    backgroundColor: palette.blanco, borderRadius: 14, borderWidth: 2,
+    borderBottomWidth: 4, padding: 11, paddingHorizontal: 13,
   },
   // Dashed border is reserved for this one "ready to receive" moment — never
   // used at rest, so it stays a clear, single-purpose affordance. Replaces
   // the category color entirely while active (spec: "sin color-cat").
   classifyBucketCardReceiving: { borderStyle: 'dashed' as const, borderColor: DUO_BLUE, borderWidth: 2, borderBottomWidth: 2 },
-  classifyBucketHeaderRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 6 },
+  classifyBucketHeaderRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   classifyBucketDot:   { width: 9, height: 9, borderRadius: 5 },
   classifyBucketName:  { flex: 1, fontSize: 15, fontWeight: '700' as const, color: palette.charcoal },
   classifyBucketCountPill: { borderRadius: 10, minWidth: 22, paddingHorizontal: 6, paddingVertical: 2, alignItems: 'center' as const },
   classifyBucketCount: { fontSize: 12, fontWeight: '700' as const },
-  classifyBucketChips: { flexDirection: 'row', flexWrap: 'wrap' as const, gap: 8 },
-  classifyBucketReceivingHint: { fontSize: 12.5, fontWeight: '700' as const, color: DUO_BLUE, textAlign: 'center' as const, marginTop: 2 },
-  // Empty bucket, nothing selected yet — a plain "0" pill communicates
-  // nothing; this dim placeholder signals the card is a drop target. Kept
-  // to one tight line (no extra vertical padding) so a full 3-bucket board
-  // still fits on screen alongside the pool without relying only on scroll.
-  classifyBucketEmptyHint: { fontSize: 11.5, fontWeight: '600' as const, color: palette.grisClaro, textAlign: 'center' as const },
+  classifyBucketChips: { flexDirection: 'row', flexWrap: 'wrap' as const, gap: 8, marginTop: 8 },
+  // Tap mechanic, not drag — shows ONLY on an empty bucket while something
+  // is selected (the dashed border already signals every bucket is a valid
+  // target; a filled bucket doesn't need this line too, its chips already
+  // answer "where do I go").
+  classifyBucketReceivingHint: { fontSize: 12, fontWeight: '700' as const, color: DUO_BLUE, textAlign: 'center' as const, marginTop: 6 },
 
   classifyResultPanel: { borderRadius: 16, padding: 16, borderWidth: 1.5, gap: 12 },
   classifyResultPanelOk:  { backgroundColor: paletteExtras.verdeSuaveBg2, borderColor: paletteExtras.verdeChipBorde },
@@ -5254,14 +5256,14 @@ const sum = StyleSheet.create(withMisionFont({
   // 3px and shaves its lip from 5px to 2px, mimicking a physical button
   // press instead of RN's flat opacity-fade default.
   classifyTactileBtn: {
-    alignSelf: 'stretch' as const, borderRadius: 16, paddingVertical: 15,
-    alignItems: 'center' as const, borderBottomWidth: 5, marginTop: 4,
+    alignSelf: 'stretch' as const, borderRadius: 14, paddingVertical: 15,
+    alignItems: 'center' as const, borderBottomWidth: 4, marginTop: 4,
   },
   classifyTactileBtnPrimary:  { backgroundColor: DUO_BLUE, borderBottomColor: DUO_BLUE_EDGE },
   classifyTactileBtnOk:       { backgroundColor: DUO_GREEN, borderBottomColor: DUO_GREEN_EDGE },
   classifyTactileBtnErr:      { backgroundColor: DUO_RED, borderBottomColor: DUO_RED_EDGE },
   classifyTactileBtnDisabled: { backgroundColor: DUO_DISABLED_BG, borderBottomColor: DUO_DISABLED_EDGE },
-  classifyTactileBtnPressed:  { transform: [{ translateY: 3 }], borderBottomWidth: 2 },
+  classifyTactileBtnPressed:  { transform: [{ translateY: 2 }], borderBottomWidth: 2 },
   classifyTactileBtnText:         { fontSize: 15, fontWeight: '700' as const, color: palette.blanco, textTransform: 'uppercase' as const, letterSpacing: 0.5 },
   classifyTactileBtnTextDisabled: { color: DUO_DISABLED_TEXT },
 
