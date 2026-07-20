@@ -9,6 +9,7 @@ import 'react-native-reanimated';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { DailySessionProvider } from '@/contexts/DailySessionContext';
+import { MissionsProvider } from '@/contexts/MissionsContext';
 import { OnboardingProvider } from '@/contexts/OnboardingContext';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 
@@ -41,7 +42,9 @@ export default function RootLayout() {
     <SafeAreaProvider>
       <OnboardingProvider>
         <DailySessionProvider>
-          <RootLayoutContent />
+          <MissionsProvider>
+            <RootLayoutContent />
+          </MissionsProvider>
         </DailySessionProvider>
       </OnboardingProvider>
     </SafeAreaProvider>

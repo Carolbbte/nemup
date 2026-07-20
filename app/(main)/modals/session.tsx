@@ -7,6 +7,7 @@ import UnifiedProgressBar from '@/components/UnifiedProgressBar';
 import { ADAPTIVE_REQUEUE, CLASSIFY_BUCKETS_UI, DAILY_SESSION_LOGIC, FIXED_QUIZ_FEEDBACK, MAX_ATTEMPTS_PER_QUESTION, MODE_COMPLETION_REDESIGN, NEUTRAL_MISSION_COMPLETION, SHOW_DESAFIO_MODE, SHOW_GEMS, UNIFIED_PROGRESS_BAR, UNIFIED_QUIZ_COMPLETION } from '@/config/features';
 import type { DailyMode } from '@/contexts/DailySessionContext';
 import { useDailySession } from '@/contexts/DailySessionContext';
+import { useMissions } from '@/contexts/MissionsContext';
 import { useOnboarding } from '@/contexts/OnboardingContext';
 import type { DesafioSlide } from '@/shared/desafio';
 import { palette, paletteExtras, semantic } from '@/theme/colors';
@@ -1102,6 +1103,7 @@ export default function SessionPlayerScreen() {
   const router  = useRouter();
   const insets  = useSafeAreaInsets();
   const { dailySession, markModeComplete, getModeLabel } = useDailySession();
+  const { updateMissionProgress } = useMissions();
   const { state: onboardingState } = useOnboarding();
   const firstName = (onboardingState.data.name ?? 'estudiante').split(' ')[0];
 
@@ -1122,12 +1124,13 @@ export default function SessionPlayerScreen() {
     useCallback(() => {
       let active = true;
       async function loadIfNew() {
-        const [[, rawKey], [, rawSession], [, rawSessionId], [, rawPath], [, rawDesafio]] = await AsyncStorage.multiGet([
+        const [[, rawKey], [, rawSession], [, rawSessionId], [, rawPath], [, rawDesafio], [, rawProgress]] = await AsyncStorage.multiGet([
           'nemup_session_key',
           'nemup_last_session',
           'nemup_last_session_id',
           'nemup_skill_path',
           'nemup_desafio_session',
+          'nemup_session_progress',
         ]);
         if (!active) return;
         const isNewSession = rawKey !== loadedSessionKeyRef.current;
@@ -1174,6 +1177,24 @@ export default function SessionPlayerScreen() {
           setCardsKnew(0);
           setCardsDubious(0);
           setCardsUnknown(0);
+
+          // Resume: if this session already has partial progress stored,
+          // restore which modes were completed so the mode-select screen
+          // reflects it and the user continues where they left off. A fully
+          // completed session (or a replay, whose progress is reset to empty
+          // before we get here) restores nothing and starts fresh.
+          try {
+            if (rawProgress) {
+              const prog = JSON.parse(rawProgress);
+              if (prog && prog.sessionId === (rawSessionId ?? null)) {
+                const done = new Set<string>();
+                if (prog.missionCompleted)    done.add('summary');
+                if (prog.quizCompleted)       done.add('quiz');
+                if (prog.flashcardsCompleted) done.add('flashcards');
+                if (done.size > 0 && done.size < 3) setCompleted(done);
+              }
+            }
+          } catch {}
         } catch {}
       }
       loadIfNew();
@@ -1688,6 +1709,14 @@ export default function SessionPlayerScreen() {
       sessionCompleted:    completed.size >= 3,
     };
     AsyncStorage.setItem(SESSION_PROGRESS_KEY, JSON.stringify(data)).catch(() => {});
+    // Mirror progress into the Missions library so the list shows this
+    // mission as in-progress/completed and can be resumed later.
+    updateMissionProgress(currentSessionId, {
+      missionCompleted:    data.missionCompleted,
+      quizCompleted:       data.quizCompleted,
+      flashcardsCompleted: data.flashcardsCompleted,
+      sessionCompleted:    data.sessionCompleted,
+    });
   };
 
   const resetQuiz = () => {
@@ -2089,7 +2118,7 @@ export default function SessionPlayerScreen() {
                     <Text style={mds.missionXpText}>+{missionXp} XP</Text>
                   </View>
                 </View>
-                <Text style={mds.missionTitle}>Misión</Text>
+                <Text style={mds.missionTitle}>Desafío</Text>
                 <Text style={mds.missionDesc}>{realConceptCount} conceptos clave</Text>
                 <View style={mds.cardFoot}>
                   <View style={mds.missionCta}>

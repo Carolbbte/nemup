@@ -1,6 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { BottomTabBarProps } from '@react-navigation/bottom-tabs';
-import { palette, semantic } from '@/theme/colors';
+import { palette } from '@/theme/colors';
 import { Tabs, useRouter } from 'expo-router';
 import { useEffect, useRef } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
@@ -67,7 +67,7 @@ function FloatingTabBar({ state, navigation }: BottomTabBarProps) {
                 {Icon && (
                   <Icon
                     size={22}
-                    color={focused ? BRAND : semantic.textTertiary}
+                    color={BRAND}
                     strokeWidth={focused ? 2.2 : 1.8}
                   />
                 )}
@@ -117,11 +117,10 @@ const tabStyles = StyleSheet.create({
   label: {
     fontSize: 10,
     fontWeight: '600',
-    color: semantic.textTertiary,
+    color: BRAND,
     letterSpacing: 0.2,
   },
   labelActive: {
-    color: BRAND,
     fontWeight: '700',
   },
 });

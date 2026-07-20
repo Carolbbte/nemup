@@ -1,3 +1,4 @@
+import { useMissions } from '@/contexts/MissionsContext';
 import { useOnboarding } from '@/contexts/OnboardingContext';
 import { palette, paletteExtras, semantic } from '@/theme/colors';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -272,6 +273,7 @@ export default function UploadFlowScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { state: onboardingState } = useOnboarding();
+  const { addOrUpdateMission } = useMissions();
   const onboardingDataRef = useRef(onboardingState.data);
   onboardingDataRef.current = onboardingState.data;
 
@@ -596,6 +598,25 @@ export default function UploadFlowScreen() {
       await AsyncStorage.multiSet(writes);
       await AsyncStorage.removeItem('nemup_desafio_session');
     }
+
+    // Persist to the Missions library so it can be resumed / reviewed later.
+    const missionId = (payload?.sessionId && payload.sessionId.length > 0) ? payload.sessionId : sessionKey;
+    const skillPath = (payload?.pathId && Array.isArray(payload?.missions) && payload.missions.length > 0)
+      ? { pathId: payload.pathId, totalMissions: payload.totalMissions, missions: payload.missions }
+      : null;
+    addOrUpdateMission({
+      id: missionId,
+      sessionKey,
+      subject: completedSession.subject,
+      topic: completedSession.topic,
+      title: completedSession?.summary?.title ?? completedSession.topic,
+      xpReward: completedSession.xpReward,
+      estimatedDuration: completedSession.estimatedDuration,
+      session: completedSession,
+      desafio: completedSession?.desafio ?? null,
+      skillPath,
+    });
+
     router.push('/modals/session' as any);
   };
 
