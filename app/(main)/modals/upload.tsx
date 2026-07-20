@@ -59,6 +59,11 @@ const { height: SCREEN_H } = Dimensions.get('window');
 const SM    = SCREEN_H < 740;
 const BG    = palette.crema;
 const BRAND = palette.azul;
+// Exact string thrown by generation/v2/orchestrator.ts when
+// buildKnowledgeObject's isSchoolContent judgment comes back false — matched
+// verbatim so this one error gets its own icon/copy/CTA in the error modal
+// below, instead of the generic "something went wrong" treatment.
+const NOT_SCHOOL_CONTENT_ERROR = 'Este material no corresponde a una asignatura escolar. NemUp solo genera sesiones a partir de contenido escolar.';
 
 // ── Types ─────────────────────────────────────────────────────────
 type UploadedFile = {
@@ -729,23 +734,34 @@ export default function UploadFlowScreen() {
         </ScrollView>
 
         {/* Error overlay */}
-        {generationError && (
-          <View style={[StyleSheet.absoluteFill, s1.errorBackdrop]}>
-            <View style={s1.errorModal}>
-              <Text style={s1.errorEmoji}>⚠️</Text>
-              <Text style={s1.errorTitle}>No pudimos crear la sesión</Text>
-              <Text style={s1.errorMsg}>{generationError ?? 'El archivo tiene muy poco contenido o no pudo procesarse.'}</Text>
-              <Pressable
-                onPress={() => { setStep(0); setGenerationError(null); }}
-                style={s1.errorPrimaryWrap}
-              >
-                <View style={[s1.errorPrimaryBtn, { backgroundColor: BRAND }]}>
-                  <Text style={s1.errorPrimaryText}>Elegir otro archivo</Text>
-                </View>
-              </Pressable>
+        {generationError && (() => {
+          const isNotSchoolContent = generationError === NOT_SCHOOL_CONTENT_ERROR;
+          return (
+            <View style={[StyleSheet.absoluteFill, s1.errorBackdrop]}>
+              <View style={s1.errorModal}>
+                {isNotSchoolContent ? (
+                  <Image source={require('@/assets/images/frustrado.png')} style={s1.errorMascot} resizeMode="contain" />
+                ) : (
+                  <Text style={s1.errorEmoji}>⚠️</Text>
+                )}
+                <Text style={s1.errorTitle}>No pudimos crear la sesión</Text>
+                <Text style={s1.errorMsg}>
+                  {isNotSchoolContent
+                    ? '¡Oops! Creo que no subiste contenido escolar.'
+                    : (generationError ?? 'El archivo tiene muy poco contenido o no pudo procesarse.')}
+                </Text>
+                <Pressable
+                  onPress={() => { setStep(0); setGenerationError(null); }}
+                  style={s1.errorPrimaryWrap}
+                >
+                  <View style={[s1.errorPrimaryBtn, { backgroundColor: BRAND }]}>
+                    <Text style={s1.errorPrimaryText}>{isNotSchoolContent ? 'Inténtalo nuevamente' : 'Elegir otro archivo'}</Text>
+                  </View>
+                </Pressable>
+              </View>
             </View>
-          </View>
-        )}
+          );
+        })()}
       </SafeAreaView>
     );
   }
@@ -1140,6 +1156,8 @@ const s1 = StyleSheet.create({
   errorBackdrop:    { backgroundColor: 'rgba(11,11,26,0.6)', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 24, zIndex: 100 },
   errorModal:       { backgroundColor: palette.blanco, borderRadius: 28, padding: 28, alignItems: 'center', gap: 10, width: '100%' },
   errorEmoji:       { fontSize: 48, marginBottom: 2 },
+  // 2:3 aspect (frustrado.png is 1024×1536).
+  errorMascot:      { width: 88, height: 130, marginBottom: 2 },
   errorTitle:       { fontSize: SM ? 20 : 22, fontWeight: '900', color: semantic.textPrimary, letterSpacing: -0.3, textAlign: 'center' },
   errorMsg:         { fontSize: 14, color: semantic.textSecondary, lineHeight: 21, textAlign: 'center', marginBottom: 6 },
   errorPrimaryWrap: { width: '100%', borderRadius: 18, overflow: 'hidden' },
