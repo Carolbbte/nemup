@@ -117,6 +117,16 @@ export interface KnowledgeCategory {
  * generation stage consumes instead of a flat transcription string.
  */
 export interface KnowledgeObject {
+  /**
+   * Whether the material corresponds to any school subject at all — the
+   * model's own judgment call, made before it tries to extract concepts.
+   * `orchestrator.ts` uses this to reject non-academic uploads (a receipt, a
+   * random photo) before spending the second (paid) AI call, gated by
+   * `config.reject_non_school_content`.
+   */
+  isSchoolContent: boolean;
+  /** Short explanation of why `isSchoolContent` is false — null when true. Logged/surfaced on rejection, never shown verbatim to the end user (the rejection message is a fixed string). */
+  rejectionReason: string | null;
   /** Topic of the document, as determined by the extraction stage. */
   topic: string;
   /** Subject area of the document (e.g. "matemáticas", "historia"). */

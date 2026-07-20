@@ -68,6 +68,8 @@ describe('buildWorkedExampleSteps', () => {
 
 describe('buildDesafio — procedural slide insertion', () => {
   const ko: KnowledgeObject = {
+    isSchoolContent: true,
+    rejectionReason: null,
     topic: 'Expresiones algebraicas',
     subject: 'Matemática',
     concepts: [

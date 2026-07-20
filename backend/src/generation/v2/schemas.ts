@@ -134,15 +134,23 @@ const knowledgeCategorySchema: JsonSchema = {
 const knowledgeObjectJsonSchema: JsonSchema = {
   type: 'object',
   additionalProperties: false,
-  required: ['topic', 'subject', 'concepts', 'categories', 'workedExamples'],
+  required: ['isSchoolContent', 'rejectionReason', 'topic', 'subject', 'concepts', 'categories', 'workedExamples'],
   properties: {
+    isSchoolContent: {
+      type: 'boolean',
+      description: 'true if the material corresponds to any school subject at all; false for non-academic content (a receipt, a random photo, an unrelated document) — decide this BEFORE extracting concepts.',
+    },
+    rejectionReason: {
+      type: ['string', 'null'],
+      description: 'Short explanation of why isSchoolContent is false (e.g. "Es una boleta de compra, no contiene contenido escolar."). Null when isSchoolContent is true.',
+    },
     topic: {
       type: 'string',
-      description: 'Topic of the document, as determined by the extraction stage.',
+      description: 'Topic of the document, as determined by the extraction stage. Empty string if isSchoolContent is false.',
     },
     subject: {
       type: 'string',
-      description: 'Subject area of the document (e.g. "matemáticas", "historia").',
+      description: 'Subject area of the document (e.g. "matemáticas", "historia"). Empty string if isSchoolContent is false.',
     },
     concepts: {
       type: 'array',

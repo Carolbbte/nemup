@@ -20,6 +20,20 @@ ${transcription}
 """
 
 INSTRUCCIONES:
+0. ANTES de extraer nada, evalúa si el material corresponde a una asignatura escolar (cualquiera:
+   matemáticas, historia, biología, lenguaje, física, etc.). Completa isSchoolContent con ese
+   resultado.
+   - Si SÍ corresponde (isSchoolContent=true): rejectionReason=null, y continúa con las
+     instrucciones 1-10 normalmente.
+   - Si NO corresponde (isSchoolContent=false) — ej. una boleta, una foto sin relación académica,
+     una conversación personal, un documento administrativo sin contenido educativo — NO inventes
+     conceptos para rellenar el formato. Completa: topic="", subject="", concepts=[], categories=[],
+     workedExamples=[], y rejectionReason con una explicación breve (una frase) de por qué no es
+     contenido escolar.
+   Ante la duda (material ambiguo pero con ALGÚN contenido educativo real, aunque sea breve o de baja
+   calidad), clasifícalo como escolar (isSchoolContent=true) — este chequeo es para descartar
+   documentos que evidentemente no tienen nada que ver con una asignatura, no para exigir un mínimo
+   de calidad pedagógica.
 1. Extrae entre 3 y 6 conceptos NUCLEARES del material (los indispensables para entenderlo, no cualquier mención de paso).
 2. simpleExplanation: máximo 15 palabras (~2 líneas en la tarjeta). Voz conversacional y cercana, como
    si un amigo mayor se lo explicara a alguien de 14-18 años — con energía y ritmo natural, nunca en

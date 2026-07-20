@@ -106,6 +106,8 @@ describe('buildReinforcementFromTrait (no-AI second question)', () => {
 });
 
 const ko: KnowledgeObject = {
+  isSchoolContent: true,
+  rejectionReason: null,
   topic: 'Expresiones algebraicas',
   subject: 'Matemática',
   concepts: [
@@ -403,6 +405,7 @@ describe('buildSummarySlides — Fase 2: Arco de la misión (MISSION_ARC_V2)', (
   });
 
   const arcKo: KnowledgeObject = {
+    isSchoolContent: true, rejectionReason: null,
     topic: 'Arco de misión', subject: 'Test',
     concepts: [
       makeArcConcept('c1', 'Concepto Medio', 3),
@@ -632,6 +635,7 @@ describe('buildSummarySlides — Fase 3: Acortamiento de la misión (MISSION_SHO
     makeShortenConcept('c6', 'Concepto Seis', 5),
   ];
   const shortenKo: KnowledgeObject = {
+    isSchoolContent: true, rejectionReason: null,
     topic: 'Test', subject: 'Test', concepts: shortenConcepts,
     categories: [
       { name: 'Clase A', items: ['Ejemplo A1', 'Ejemplo A2'] },
@@ -702,6 +706,7 @@ describe('buildSummarySlides — Fase 3: Acortamiento de la misión (MISSION_SHO
 
 describe('buildClassify — defensive cleanup of noisy category extraction', () => {
   const makeKo = (categories: KnowledgeCategory[]): KnowledgeObject => ({
+    isSchoolContent: true, rejectionReason: null,
     topic: 'Test', subject: 'Test', concepts: [], workedExamples: [], categories,
   });
 
