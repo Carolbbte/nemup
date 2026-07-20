@@ -335,6 +335,19 @@ function MatchChipLeft({
   accentColor,
   accentBgColor,
   icon,
+  // Optional, default false → the fallback-initial look (bold white on the
+  // solid accent color). Misión passes true once a real per-pair emoji
+  // exists (leftIcon/rightIcon from the backend) — a real emoji shouldn't
+  // be forced white (color is ignored by colored emoji glyphs anyway, but
+  // some monochrome variants would render oddly), so it gets a plain,
+  // slightly bigger style instead.
+  iconIsEmoji = false,
+  // Optional, default undefined → Desafío identical (chip grows/shrinks
+  // with mp.chip's own minHeight/maxHeight, untouched). Misión passes a
+  // fixed px value so every row's two cards match height regardless of how
+  // much text each side has — a real `height`, not a clamp, so content
+  // must fit inside it (paired with numberOfLines + adjustsFontSizeToFit).
+  uniformCardHeight,
 }: {
   pair: DesafioPair;
   isSel: boolean;
@@ -349,6 +362,8 @@ function MatchChipLeft({
   accentColor?: string | null;
   accentBgColor?: string;
   icon?: string;
+  iconIsEmoji?: boolean;
+  uniformCardHeight?: number;
 }) {
   const scale  = useSharedValue(1);
   const shakeX = useSharedValue(0);
@@ -408,13 +423,17 @@ function MatchChipLeft({
         // background is already there than risk the grey-composite bug.
         !isLocked && !color && accentColor ? { borderColor: accentColor, borderWidth: 2, backgroundColor: accentBgColor } : null,
         icon ? mp.chipStacked : null,
+        // A real height wins over mp.chip's own minHeight/maxHeight in
+        // Yoga's layout — every row's left card ends up exactly this tall
+        // regardless of its text length.
+        uniformCardHeight ? { height: uniformCardHeight, maxHeight: undefined } : null,
         isCorr && mp.chipCorrect,
         isWrg  && mp.chipWrong,
         animStyle,
       ]}>
         {icon && (
           <View style={[mp.iconCircle, { backgroundColor: accentColor ?? palette.azul }]}>
-            <Text style={mp.iconCircleEmoji}>{icon}</Text>
+            <Text style={iconIsEmoji ? mp.iconCircleEmojiReal : mp.iconCircleEmoji}>{icon}</Text>
           </View>
         )}
         {isLocked && (isCorr || isWrg) ? (
@@ -426,7 +445,7 @@ function MatchChipLeft({
           style={[mp.chipText, textStyle]}
           numberOfLines={numberOfLines}
           adjustsFontSizeToFit={adjustsFontSizeToFit}
-          minimumFontScale={adjustsFontSizeToFit ? 0.8 : undefined}
+          minimumFontScale={adjustsFontSizeToFit ? 0.85 : undefined}
         >{pair.left}</Text>
         {!isLocked && color && <View style={[mp.connector, { backgroundColor: color }]} />}
       </Animated.View>
@@ -545,6 +564,12 @@ export function MatchPairsContent({
   // (Desafío identical). Misión passes a bolder/centered override to match
   // its own card language.
   targetTextStyle,
+  // Optional, default undefined → both mp.chip (left) and mp.target (right)
+  // keep their own minHeight/maxHeight clamp (Desafío identical). Misión
+  // passes a fixed px value so every card in the board — both columns,
+  // every row — ends up exactly this tall, instead of each row's height
+  // being driven by whichever side has more text.
+  uniformCardHeight,
 }: {
   slide: DesafioSlide;
   selectedLeft: string | null;
@@ -568,6 +593,7 @@ export function MatchPairsContent({
   rowBgColors?: string[];
   getPairIcon?: (text: string) => string;
   targetTextStyle?: object;
+  uniformCardHeight?: number;
 }) {
   const revealed = !!answer;
   const pairs    = slide.pairs ?? [];
@@ -631,6 +657,16 @@ export function MatchPairsContent({
           // shuffleSeed). Purely "these two cards are connectable here".
           const rowColor   = rowColors ? rowColors[idx % rowColors.length] : null;
           const rowBgColor = rowBgColors ? rowBgColors[idx % rowBgColors.length] : undefined;
+          // Prefer the backend's own per-pair emoji (leftIcon/rightIcon —
+          // two DIFFERENT emoji on purpose, since the right column is
+          // shuffled and matching emoji on both sides would give the
+          // answer away); fall back to the first-letter resolver when a
+          // pair has none. iconIsEmoji tells MatchChipLeft/the right circle
+          // whether to skip the fallback's forced text color.
+          const leftIconValue  = rowColors ? (leftPair.leftIcon || resolveIcon(leftPair.left)) : undefined;
+          const leftIconIsReal = !!leftPair.leftIcon;
+          const rightIconValue  = rowColors ? (rightPair.rightIcon || resolveIcon(rightPair.right)) : undefined;
+          const rightIconIsReal = !!rightPair.rightIcon;
           return (
             <View key={leftPair.id} style={mp.pairRow}>
               <MatchChipLeft
@@ -646,7 +682,9 @@ export function MatchPairsContent({
                 adjustsFontSizeToFit={leftChipAdjustsFontSizeToFit}
                 accentColor={rowColor}
                 accentBgColor={rowBgColor}
-                icon={rowColors ? resolveIcon(leftPair.left) : undefined}
+                icon={leftIconValue}
+                iconIsEmoji={leftIconIsReal}
+                uniformCardHeight={uniformCardHeight}
               />
               {!!rowColors && (
                 // Decorative "connect from here" affordance — a static
@@ -671,6 +709,9 @@ export function MatchPairsContent({
                   hasSelected && mp.targetActive,
                   !revealed && rightColor ? { borderColor: rightColor, borderWidth: 2 } : null,
                   rowColors ? mp.targetStacked : null,
+                  // Same fixed-height override as the left chip — see that
+                  // prop's own comment.
+                  uniformCardHeight ? { height: uniformCardHeight, maxHeight: undefined } : null,
                 ]}
                 onPress={() => handleRightPress(rightPair)}
                 disabled={revealed || !selectedLeft}
@@ -678,12 +719,14 @@ export function MatchPairsContent({
                 {!revealed && rightColor && <View style={[mp.connector, { backgroundColor: rightColor }]} />}
                 {!!rowColors && (
                   <View style={mp.rightIconCircle}>
-                    <Text style={mp.rightIconCircleEmoji}>{resolveIcon(rightPair.right)}</Text>
+                    <Text style={rightIconIsReal ? mp.rightIconCircleEmojiReal : mp.rightIconCircleEmoji}>{rightIconValue}</Text>
                   </View>
                 )}
                 <Text
                   style={[mp.targetText, targetTextStyle]}
                   numberOfLines={targetTextNumberOfLines}
+                  adjustsFontSizeToFit={!!rowColors}
+                  minimumFontScale={rowColors ? 0.85 : undefined}
                   ellipsizeMode="tail"
                 >
                   {rightPair.right ? rightPair.right.charAt(0).toUpperCase() + rightPair.right.slice(1) : ''}
@@ -731,9 +774,12 @@ const mp = StyleSheet.create({
   // still composited with a shadow read as muddy on Android) and clears its
   // maxHeight clamp (same reasoning as targetMaxHeight="none" on the right
   // column — a clamped card was clipping/inner-boxing longer concept names).
+  // maxHeight is no longer set here — uniformCardHeight now supplies a real
+  // `height` (which already overrides any clamp), so this style only needs
+  // to center content within that fixed height.
   chipStacked: {
-    flexDirection: 'column', alignItems: 'flex-start', gap: 8,
-    shadowOpacity: 0, elevation: 0, maxHeight: undefined,
+    flexDirection: 'column', alignItems: 'flex-start', justifyContent: 'center', gap: 8,
+    shadowOpacity: 0, elevation: 0,
   },
 
   handle:       { fontSize: 18, color: paletteExtras.grisHandle, flexShrink: 0, opacity: 0.35 },
@@ -749,6 +795,10 @@ const mp = StyleSheet.create({
   // next to/under it.
   iconCircle:      { width: 32, height: 32, borderRadius: 16, alignItems: 'center', justifyContent: 'center' },
   iconCircleEmoji: { fontSize: 15, fontWeight: '800' as const, color: palette.blanco },
+  // Real per-pair emoji (backend-provided) instead of the fallback initial —
+  // bigger and with no forced color, since colored emoji glyphs ignore
+  // `color` anyway and forcing white/blue would look wrong on some glyphs.
+  iconCircleEmojiReal: { fontSize: 18 },
   rightIconCircle: { width: 32, height: 32, borderRadius: 16, backgroundColor: palette.azulClaro, alignItems: 'center', justifyContent: 'center' },
   // Separate from iconCircleEmoji on purpose — the right circle's own bg is
   // always the same light azulClaro tint (never row-colored, so it can't be
@@ -756,7 +806,8 @@ const mp = StyleSheet.create({
   // needs a dark color for contrast instead of iconCircleEmoji's white
   // (built for the left circle's full-strength row color background).
   rightIconCircleEmoji: { fontSize: 15, fontWeight: '800' as const, color: palette.azul },
-  targetStacked:   { flexDirection: 'column', gap: 8 },
+  rightIconCircleEmojiReal: { fontSize: 18 },
+  targetStacked:   { flexDirection: 'column', justifyContent: 'center', gap: 8 },
   connectorColumn: { width: 26, alignItems: 'center', justifyContent: 'center' },
   connectorRow:    { flexDirection: 'row', alignItems: 'center', gap: 2 },
   portDot:         { width: 8, height: 8, borderRadius: 4 },

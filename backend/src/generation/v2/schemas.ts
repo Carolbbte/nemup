@@ -25,6 +25,7 @@ const knowledgeConceptSchema: JsonSchema = {
     'exampleShort',
     'hook',
     'emoji',
+    'exampleEmoji',
     'keyPhrase',
     'advancedExamples',
     'tips',
@@ -64,6 +65,10 @@ const knowledgeConceptSchema: JsonSchema = {
     emoji: {
       type: ['string', 'null'],
       description: 'A single thematic emoji representing this concept\'s subject — never a generic one shared across every concept. Null if no clear thematic emoji applies.',
+    },
+    exampleEmoji: {
+      type: ['string', 'null'],
+      description: 'A single emoji representing `exampleShort` (the concrete example), MUST differ from `emoji` — used so a match_pairs exercise can show a distinct icon per side without giving away the shuffled correct match. Null if no clear, distinct emoji applies.',
     },
     keyPhrase: {
       type: ['string', 'null'],

@@ -113,7 +113,10 @@ export interface SummarySlide {
   // p.id + '_r'). `pairsPrompt` carries the Misión's own instruction line
   // (Desafío's reused renderer hardcodes its own, unrelated prompt text —
   // see session.tsx for how this is shown instead).
-  pairs?: { id: string; left: string; right: string }[];
+  // leftIcon/rightIcon are only ever set for Misión's own pairs (built by
+  // buildMisionMatchPairs, NOT the buildMatchPairs Desafío reuses) — see
+  // that function's own comment on why they must be two DIFFERENT emoji.
+  pairs?: { id: string; left: string; right: string; leftIcon?: string; rightIcon?: string }[];
   pairsPrompt?: string;
   // classify only — same shape Desafío's DesafioSlide already uses for
   // classifyItems/classifyCategories (built by buildClassify, reused
