@@ -29,8 +29,8 @@ import {
   X,
   Zap,
 } from 'lucide-react-native';
-import { useCallback, useEffect, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Alert,
   Dimensions,
@@ -747,7 +747,7 @@ export default function UploadFlowScreen() {
                 <Text style={s1.errorTitle}>No pudimos crear la sesión</Text>
                 <Text style={s1.errorMsg}>
                   {isNotSchoolContent
-                    ? '¡Oops! Creo que no subiste contenido escolar. Necesitamos apuntes, guías, ejercicios o material de estudio para poder ayudarte.'
+                    ? '¡Oops! Creo que no subiste contenido escolar.'
                     : (generationError ?? 'El archivo tiene muy poco contenido o no pudo procesarse.')}
                 </Text>
                 {isNotSchoolContent && (
@@ -787,7 +787,14 @@ export default function UploadFlowScreen() {
   // SCREEN 0 — Crea tu misión
   // ══════════════════════════════════════════════════════════════
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: BG }} edges={['top']}>
+    // edges includes 'bottom' — lets SafeAreaView reserve the real device
+    // bottom inset natively instead of replicating it by hand via
+    // insets.bottom in the ScrollView below (which under some Android
+    // nav-bar/insets configurations under-reports, letting content sit
+    // behind the system nav bar). The ScrollView's own paddingBottom below
+    // is now just breathing room on top of that reserved space, not a
+    // second copy of the inset.
+    <SafeAreaView style={{ flex: 1, backgroundColor: BG }} edges={['top', 'bottom']}>
       <StatusBar barStyle="dark-content" backgroundColor={BG} />
 
       <View style={sh.header}>
@@ -807,7 +814,7 @@ export default function UploadFlowScreen() {
 
       <ScrollView
         style={{ flex: 1 }}
-        contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 0, paddingBottom: hasFiles ? insets.bottom + 90 : insets.bottom + 24 }}
+        contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 0, paddingBottom: hasFiles ? 90 : 24 }}
         showsVerticalScrollIndicator={false}
       >
         {!hasFiles ? (
@@ -1174,7 +1181,7 @@ const s1 = StyleSheet.create({
   errorModal:       { backgroundColor: palette.blanco, borderRadius: 28, padding: 28, alignItems: 'center', gap: 10, width: '100%' },
   errorEmoji:       { fontSize: 48, marginBottom: 2 },
   // 2:3 aspect (errorApp.png is 1024×1536).
-  errorMascot:      { width: 88, height: 130, marginBottom: 2 },
+  errorMascot:      { width: 127, height: 187, marginBottom: 2 },
   errorTitle:       { fontSize: SM ? 20 : 22, fontWeight: '900', color: semantic.textPrimary, letterSpacing: -0.3, textAlign: 'center' },
   errorMsg:         { fontSize: 14, color: semantic.textSecondary, lineHeight: 21, textAlign: 'center', marginBottom: 6 },
   errorHintCard:      { width: '100%', backgroundColor: '#F5F4FA', borderRadius: 18, padding: 16, gap: 10, marginBottom: 6 },
