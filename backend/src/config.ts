@@ -31,12 +31,6 @@ export interface Config {
    * second, redundant MC question. Off by default (byte-identical to
    * before) — togglable via env var, no redeploy needed. */
   mission_shorten: boolean;
-  /** Feature flag: generation/v2/orchestrator.ts rejects the upload (worker
-   * job fails, session never generated) when buildKnowledgeObject's own
-   * isSchoolContent judgment comes back false — e.g. a receipt or an
-   * unrelated photo. v2 only; v1 (legacy SSE) is unaffected. Off by default
-   * — togglable via env var, no redeploy needed. */
-  reject_non_school_content: boolean;
 }
 
 export function loadConfig(): Config {
@@ -51,7 +45,6 @@ export function loadConfig(): Config {
     use_generation_v2: process.env.USE_GENERATION_V2 === 'true',
     mission_arc_v2: process.env.MISSION_ARC_V2 === 'true',
     mission_shorten: process.env.MISSION_SHORTEN === 'true',
-    reject_non_school_content: process.env.REJECT_NON_SCHOOL_CONTENT === 'true',
   };
 
   // Validation

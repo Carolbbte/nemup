@@ -38,9 +38,10 @@ export async function generateSessionV2(
 
   // Reject non-academic uploads (a receipt, an unrelated photo) right after
   // the first AI call — before the second, paid call (generateDistractors)
-  // and before building any session content. Single control point; flip
-  // REJECT_NON_SCHOOL_CONTENT=true to enable (v2 only, see config.ts).
-  if (appConfig.reject_non_school_content && !ko.isSchoolContent) {
+  // and before building any session content. NemUp is a school-support app,
+  // so this is unconditional — never gated behind a flag (v2 only; v1 never
+  // calls buildKnowledgeObject at all).
+  if (!ko.isSchoolContent) {
     console.warn(`[v2][comprehension] Rechazado — no es contenido escolar. Motivo del modelo: ${ko.rejectionReason ?? '(sin especificar)'}`);
     throw new Error('Este material no corresponde a una asignatura escolar. NemUp solo genera sesiones a partir de contenido escolar.');
   }

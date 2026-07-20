@@ -120,9 +120,10 @@ export interface KnowledgeObject {
   /**
    * Whether the material corresponds to any school subject at all — the
    * model's own judgment call, made before it tries to extract concepts.
-   * `orchestrator.ts` uses this to reject non-academic uploads (a receipt, a
-   * random photo) before spending the second (paid) AI call, gated by
-   * `config.reject_non_school_content`.
+   * `orchestrator.ts` unconditionally rejects non-academic uploads (a
+   * receipt, a random photo) based on this, before spending the second
+   * (paid) AI call — NemUp is a school-support app, so this is never
+   * gated behind a flag.
    */
   isSchoolContent: boolean;
   /** Short explanation of why `isSchoolContent` is false — null when true. Logged/surfaced on rejection, never shown verbatim to the end user (the rejection message is a fixed string). */
