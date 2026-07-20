@@ -197,7 +197,11 @@ export function buildFillBlank(concept: KnowledgeConcept): string {
 
 export interface MatchPairsResult {
   prompt: string;
-  pairs: Array<{ left: string; right: string }>;
+  // leftIcon/rightIcon are only ever populated by buildMisionMatchPairs
+  // below — buildMatchPairs (Desafío) never sets them, so its pairs stay
+  // undefined here and the frontend falls back to its existing
+  // first-letter icon, unchanged.
+  pairs: Array<{ left: string; right: string; leftIcon?: string; rightIcon?: string }>;
 }
 
 /**
@@ -740,7 +744,15 @@ function reinforcementCallbackVariant(
 function buildMisionMatchPairs(concepts: KnowledgeConcept[]): MatchPairsResult | null {
   const pairs = concepts
     .filter((c) => !!c.exampleShort && c.exampleShort.trim().length > 0)
-    .map((c) => ({ left: c.name.trim(), right: c.exampleShort!.trim() }))
+    .map((c) => {
+      const leftIcon = c.emoji?.trim() || undefined;
+      const rightIconRaw = c.exampleEmoji?.trim() || undefined;
+      // Never the same emoji on both sides — the right column is shuffled,
+      // so a matching emoji would give away the correct pair before the
+      // student reads the text.
+      const rightIcon = rightIconRaw && rightIconRaw !== leftIcon ? rightIconRaw : undefined;
+      return { left: c.name.trim(), right: c.exampleShort!.trim(), leftIcon, rightIcon };
+    })
     .filter((p) => p.left.length > 0 && p.right.length > 0)
     // Same cap buildMatchPairs itself uses — MatchPairsContent/its color
     // palette and layout are sized for this, on both Desafío and Misión.
@@ -995,7 +1007,7 @@ export function buildSummarySlides(
         title: 'Relaciona los conceptos',
         definition: matchPairsResult.prompt,
         example: '',
-        pairs: matchPairsResult.pairs.map((p, idx) => ({ id: `pair-${idx}`, left: p.left, right: p.right })),
+        pairs: matchPairsResult.pairs.map((p, idx) => ({ id: `pair-${idx}`, left: p.left, right: p.right, leftIcon: p.leftIcon, rightIcon: p.rightIcon })),
         pairsPrompt: matchPairsResult.prompt,
       });
       maybeInsertMidpointBeat();

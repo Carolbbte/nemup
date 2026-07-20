@@ -71,6 +71,12 @@ INSTRUCCIONES:
     el ala de murciélago son huesos homólogos, con el mismo origen evolutivo pero funciones distintas."
     → exampleShort="Mano humana vs. ala de murciélago". Si no se te ocurre una etiqueta breve honesta
     para este ejemplo en particular, devuelve null en vez de forzar una mala o trunca.
+4a-bis. exampleEmoji: UN solo emoji que represente ESE EJEMPLO (exampleShort), no el concepto —
+    y que sea DISTINTO del emoji del punto 2c. Se usa en una tarjeta de relacionar donde el concepto y
+    su ejemplo quedan en columnas separadas y desordenadas; si ambos lados mostraran el mismo emoji,
+    delatarías la respuesta correcta antes de que el estudiante lea el texto. Ej.: concepto "Evolución"
+    con emoji=🧬, ejemplo "Pico del pinzón de Darwin" con exampleEmoji=🐦. Si no se te ocurre un emoji
+    claro y distinto de emoji para este ejemplo, devuelve null en vez de forzar uno genérico o repetido.
 4b. advancedExamples: si el material presenta el MISMO concepto en uno o más niveles de dificultad
     mayores (ej. una sección "Desafío"), incluye AQUÍ CADA VARIANTE DISTINTA por separado — no
     elijas solo una si el material muestra varias. Dos ejercicios "avanzados" que agregan cosas
