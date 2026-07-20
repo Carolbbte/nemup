@@ -82,6 +82,19 @@ const CLASSIFY_GRIP      = '#C9CCD4';
 // One color set per bucket, cycling by category index — icon/title share the
 // full-strength tone, border is a lighter tint of it, bg is a near-white
 // wash of the same hue, badge is a slightly deeper pill for the count.
+// match_pairs "misionV2" look only — cycling per-row accent (left card
+// border/icon-circle, connector's left port). All existing tokens, no new
+// hex. Substitutes paletteExtras.cianFuerte for the "morado" slot the spec
+// named — that token is actually a light BLUE post purple→blue rebrand (see
+// theme/colors.ts's own paletteExtras doc comment), so using it here would
+// read as a second azul instead of a genuinely distinct color; cyan is
+// already the 3rd tone in Desafío's own PAIR_COLORS, so it stays in-family.
+const MATCH_ROW_COLORS = [palette.verde, paletteExtras.cianFuerte, palette.ambarIcon, palette.azul, palette.rosaQuiz];
+// Parallel to MATCH_ROW_COLORS — SOLID pastel tokens for the chip's actual
+// fill (never an alpha tint of the row color: composes as a dirty grey on
+// Android when the chip also has mp.chip's own shadow/elevation).
+const MATCH_ROW_BG_COLORS = [paletteExtras.verdeChipBg, palette.tealTarjetasBg, palette.ambarBg, palette.azulClaro, palette.rosaQuizBg];
+
 const CLASSIFY_CATEGORY_COLORS = [
   { icon: '#2E9E5B', border: '#9FE1CB', bg: '#EAF8EF', badgeBg: '#DFF3E6', badgeText: '#0F6E56' }, // Verde
   { icon: '#7A4FE0', border: '#CECBF6', bg: '#F2ECFE', badgeBg: '#EEEDFE', badgeText: '#3C3489' }, // Morado
@@ -3068,13 +3081,35 @@ export default function SessionPlayerScreen() {
                   // wrapped in its own ScrollView (slideArea itself is a
                   // plain View with swipe touch handlers, not scrollable)
                   // so a long match_pairs slide is still fully reachable.
-                  <ScrollView style={{ flex: 1 }} contentContainerStyle={{ flexGrow: 1 }} showsVerticalScrollIndicator={false}>
-                    <View style={sum.formatHeaderRow}>
+                  <ScrollView
+                    // slideArea's own paddingTop (24-36px, shared by every
+                    // slide type — never touched here) leaves too much dead
+                    // air above this specific slide's already-tall header;
+                    // pulling the ScrollView up by roughly the same amount
+                    // is scoped to just this branch.
+                    style={{ flex: 1, marginTop: SM ? -10 : -22 }}
+                    contentContainerStyle={{ flexGrow: 1 }}
+                    showsVerticalScrollIndicator={false}
+                  >
+                    <View style={[sum.formatHeaderRow, { marginBottom: 10 }]}>
                       <View style={[sum.formatIconBox, { backgroundColor: palette.tealTarjetas }]}>
                         <Text style={sum.formatIconEmoji}>{bSlide.emoji || '🔗'}</Text>
                       </View>
                       <Text style={[sum.formatKicker, { color: palette.tealTarjetas }]}>Relaciona</Text>
                     </View>
+                    <Text style={sum.mpTitle}>{bSlide.definition || 'Relaciona cada concepto con su ejemplo'}</Text>
+                    {!answered && (
+                      <View style={sum.mpMascotRow}>
+                        <View style={sum.mpMascotBubble}>
+                          <View style={sum.mpMascotBubbleTail} />
+                          <Text style={sum.mpMascotBubbleText}>
+                            <Text style={sum.mpMascotBubbleHighlight}>¡Tú puedes! </Text>
+                            Une cada concepto con su ejemplo 🚀
+                          </Text>
+                        </View>
+                        <Image source={require('@/assets/images/tuPuedes2.png')} style={sum.mpMascotImg} resizeMode="contain" />
+                      </View>
+                    )}
                     <MatchPairsContent
                       slide={bSlide as unknown as DesafioSlide}
                       selectedLeft={pairsSelectedLeft}
@@ -3082,23 +3117,38 @@ export default function SessionPlayerScreen() {
                       matched={pairsMatched}
                       pairEvals={effectiveEvals}
                       onPairMatchedImmediate={handlePairTap}
-                      promptText={bSlide.definition || undefined}
+                      // mp.prompt (the shared component's own title) is
+                      // hidden the same way as its badge — this branch
+                      // already rendered its own bigger title above.
+                      promptText=""
                       showHeader={false}
                       // Misión's own concept names run longer than
                       // Desafío's, which at the defaults (16px, 3 lines)
-                      // broke mid-word — smaller text + one more line fits
-                      // them without touching Desafío's own sizing.
-                      leftChipTextStyle={{ fontSize: 14, lineHeight: 18 }}
-                      leftChipNumberOfLines={4}
-                      // A single long word (e.g. "Embriología") can still
-                      // not fit at 14px/4 lines — shrink it instead of
-                      // breaking mid-word.
-                      leftChipAdjustsFontSizeToFit
-                      // Desafío's purple palette swapped for the Misión's
-                      // own blue tint (existing tokens, no new hexes).
-                      chipBackgroundColor={palette.azulClaro}
-                      chipBorderColor={palette.bordeClaro}
+                      // broke mid-word. leftChipAdjustsFontSizeToFit (tried
+                      // first) is a known-bad combo with multiline text on
+                      // Android — breaks mid-word AND jumps layout — so this
+                      // sticks to plain wrap-by-word: bigger font than
+                      // Desafío's own default, 3 lines of headroom (the icon
+                      // circle now sits above the text, not beside it,
+                      // freeing up the full chip width for the label).
+                      leftChipTextStyle={{ fontSize: 15, lineHeight: 19, fontWeight: '800' }}
+                      leftChipNumberOfLines={3}
+                      // Row background/border are fully owned by rowColors/
+                      // rowBgColors below now — passing chipBackgroundColor
+                      // here would be dead weight (accentColor/accentBgColor
+                      // always win once set) and the border tint stays only
+                      // the per-row accent color, not a fixed blue.
                       targetBorderColor={palette.bordeClaro}
+                      targetTextStyle={{ fontWeight: '800', color: palette.charcoal }}
+                      // Cycling per-row accent (left card border/icon-circle
+                      // + connector's left port) — decorative "connect from
+                      // here" affordance only, never a hint about the
+                      // (shuffled) correct right-column match. rowBgColors
+                      // is a parallel array of SOLID pastel tokens (never an
+                      // alpha tint of rowColors — see MatchChipLeft's own
+                      // comment on why that composed as a dirty grey).
+                      rowColors={MATCH_ROW_COLORS}
+                      rowBgColors={MATCH_ROW_BG_COLORS}
                       // The Misión wants the full example, not a clamped
                       // preview — 'none' clears mp.target's baked-in
                       // maxHeight: 120 (Desafío's own default) so the card
@@ -3116,6 +3166,11 @@ export default function SessionPlayerScreen() {
                       shuffleSeed={summaryIdx}
                       answer={answeredPairs ? { value: answeredPairs, correct: true } : undefined}
                     />
+                    {!answered && (
+                      <View style={sum.mpHintBox}>
+                        <Text style={sum.mpHintText}>💡 Toca un concepto y luego su ejemplo para unirlos.</Text>
+                      </View>
+                    )}
                     {!!answered && (
                       <View style={sum.feedbackRow}>
                         <Image source={require('@/assets/images/metaAlcanzada.png')} style={sum.feedbackMascot} resizeMode="contain" />
@@ -4315,7 +4370,13 @@ export default function SessionPlayerScreen() {
             const xpLabel = bs?.requeued ? '+2 XP' : slide?.type === 'final_challenge' ? '+10 XP' : '+5 XP';
             const wrongFeedback = wrongAnswerFeedbackText(bs, typeof missionAnswered === 'string' ? missionAnswered : undefined);
             const fbActive = isMissionInteractive && !!missionAnswered;
-            const showChoose = (slide?.type === 'quiz' && !slideQuizAnswered) || (isMissionInteractive && !missionAnswered);
+            // match_pairs never joins isMissionInteractive (its answer is an
+            // object, not a letter — see the comment above) and already has
+            // its own in-content tap/feedback flow, but the generic
+            // "Siguiente →" below still needs to stay disabled until every
+            // pair is actually matched, instead of always being tappable.
+            const isMatchPairsIncomplete = slide?.type === 'match_pairs' && !quizAnswers[summaryIdx];
+            const showChoose = (slide?.type === 'quiz' && !slideQuizAnswered) || (isMissionInteractive && !missionAnswered) || isMatchPairsIncomplete;
 
             return (
               <View style={fbActive
@@ -4347,7 +4408,7 @@ export default function SessionPlayerScreen() {
                   </View>
                 ) : showChoose ? (
                   <View key={`cta-choose-${summaryIdx}`} style={g.ctaBtnOff}>
-                    <Text style={g.ctaTextOff}>Elige una opción</Text>
+                    <Text style={g.ctaTextOff}>{isMatchPairsIncomplete ? 'Completa los pares' : 'Elige una opción'}</Text>
                   </View>
                 ) : (
                   <Pressable onPress={() => isLast ? completeMode('summary') : goNext()} style={{ width: '100%' }}>
@@ -5507,6 +5568,39 @@ const sum = StyleSheet.create(withMisionFont({
   formatIconBox:    { width: 32, height: 32, borderRadius: 11, alignItems: 'center', justifyContent: 'center' },
   formatIconEmoji:  { fontSize: 16 },
   formatKicker:     { fontSize: 12, fontWeight: '800' as const, letterSpacing: 0.8, textTransform: 'uppercase' as const },
+
+  // match_pairs — Misión-only header/mascot/hint, all scoped to this
+  // branch's own render (MatchPairsContent's shared stylesheet in
+  // desafio.tsx is untouched by any of this).
+  // maxWidth keeps this from stretching edge-to-edge like a full-width
+  // banner — reads as a contained heading instead.
+  mpTitle: { fontFamily: 'Nunito', fontSize: 22, fontWeight: '800' as const, color: palette.charcoal, lineHeight: 28, marginBottom: 6, maxWidth: '88%' },
+  // Plain block container now — its ONLY in-flow child is the bubble, so
+  // the row's layout height is the bubble's height, not the (taller)
+  // mascot's. The mascot is absolutely positioned overlapping the top-right
+  // corner instead of sizing the row, which was the actual space hog.
+  // overflow:'visible' + zIndex let it bleed over the row's own bottom edge
+  // onto the first card below, same as the reference mockup.
+  mpMascotRow: { position: 'relative' as const, overflow: 'visible' as const, marginBottom: 8, zIndex: 5 },
+  mpMascotBubble: {
+    backgroundColor: palette.blanco, borderRadius: 14, borderWidth: 1,
+    borderColor: palette.bordeClaro, paddingVertical: 8, paddingHorizontal: 11,
+    // Room for the mascot so its own image never covers the bubble's text.
+    paddingRight: 66, position: 'relative' as const,
+  },
+  mpMascotBubbleTail: {
+    position: 'absolute' as const, right: -5, top: 16, width: 10, height: 10,
+    backgroundColor: palette.blanco, borderColor: palette.bordeClaro, borderWidth: 1, transform: [{ rotate: '45deg' }],
+  },
+  mpMascotBubbleText: { fontSize: 13, color: palette.charcoal, lineHeight: 17 },
+  mpMascotBubbleHighlight: { color: palette.tealTarjetas, fontWeight: '800' as const },
+  // Smaller than the previous pass (92×135 → 76×112, same ~0.68 aspect as
+  // tuPuedes2.png) AND absolutely positioned — negative top intentionally
+  // pulls it up past the row's own top edge to overlap the corner instead
+  // of pushing the header taller.
+  mpMascotImg: { position: 'absolute' as const, right: 0, top: -22, width: 76, height: 112 },
+  mpHintBox: { flexDirection: 'row' as const, backgroundColor: palette.azulClaro, borderRadius: 14, padding: 12, marginTop: 16 },
+  mpHintText: { flex: 1, fontSize: 13, color: palette.charcoal, lineHeight: 18, fontWeight: '600' as const },
 
   comprehensionCtx: { backgroundColor: 'rgba(22,119,242,0.05)', borderRadius: 12, padding: SM ? 10 : 12, marginBottom: 10, borderWidth: 1, borderColor: 'rgba(22,119,242,0.1)' },
   comprehensionCtxText: { fontSize: SM ? 16 : 18, fontWeight: '800', color: BRAND, textAlign: 'center', letterSpacing: -0.2 },

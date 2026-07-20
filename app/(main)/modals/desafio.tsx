@@ -324,6 +324,17 @@ function MatchChipLeft({
   // too long for the chip's width (e.g. "Embriología") shrinks to fit
   // instead of breaking mid-word.
   adjustsFontSizeToFit = false,
+  // All optional, all undefined → Desafío identical (no accent border, no
+  // icon circle, row layout unchanged). Misión's "misionV2" look passes
+  // accentColor (border + icon-circle background, full-strength — never
+  // alpha-blended: an alpha backgroundColor on a View with mp.chip's own
+  // shadow/elevation composes as a dirty grey on Android instead of a clean
+  // pastel) + accentBgColor (a real solid pastel token for the fill) +
+  // icon (switches the chip from its row layout to a column one, icon
+  // circle above the text — only when non-null).
+  accentColor,
+  accentBgColor,
+  icon,
 }: {
   pair: DesafioPair;
   isSel: boolean;
@@ -335,6 +346,9 @@ function MatchChipLeft({
   chipBackgroundColor?: string;
   chipBorderColor?: string;
   adjustsFontSizeToFit?: boolean;
+  accentColor?: string | null;
+  accentBgColor?: string;
+  icon?: string;
 }) {
   const scale  = useSharedValue(1);
   const shakeX = useSharedValue(0);
@@ -386,10 +400,23 @@ function MatchChipLeft({
         (chipBackgroundColor || chipBorderColor) ? { backgroundColor: chipBackgroundColor, borderColor: chipBorderColor } : null,
         !isLocked && isSel && mp.chipSelected,
         !isLocked && color ? { borderColor: color, borderWidth: 2, backgroundColor: color + '15' } : null,
+        // Solid pastel fill, never alpha — an alpha backgroundColor on a
+        // View with mp.chip's own shadow/elevation composes as a dirty grey
+        // on Android instead of a clean color. accentBgColor is a real
+        // opaque token (see MATCH_ROW_BG_COLORS in session.tsx); if a caller
+        // ever passes accentColor without it, better to keep whatever
+        // background is already there than risk the grey-composite bug.
+        !isLocked && !color && accentColor ? { borderColor: accentColor, borderWidth: 2, backgroundColor: accentBgColor } : null,
+        icon ? mp.chipStacked : null,
         isCorr && mp.chipCorrect,
         isWrg  && mp.chipWrong,
         animStyle,
       ]}>
+        {icon && (
+          <View style={[mp.iconCircle, { backgroundColor: accentColor ?? palette.azul }]}>
+            <Text style={mp.iconCircleEmoji}>{icon}</Text>
+          </View>
+        )}
         {isLocked && (isCorr || isWrg) ? (
           <Text style={[mp.revealIcon, isCorr ? mp.iconCorrect : mp.iconWrong]}>
             {isCorr ? '✓' : '✗'}
@@ -491,6 +518,33 @@ export function MatchPairsContent({
   // see mp.target's own comment for why maxHeight existed in the first
   // place (it wasn't meant to clip real content, just cap runaway height).
   targetMaxHeight,
+  // Optional, default undefined → Desafío identical: no per-row accent
+  // color, no icon circles, no connector glyph between the two columns.
+  // Misión's "misionV2" look passes a color array here (cycling by row
+  // index) to tint the left chip's border/background at rest AND to color
+  // the left port dot of the connector glyph rendered between each pair's
+  // two cards — this is purely decorative ("connect from here"), never a
+  // hint about which right-column card is the correct match (that column
+  // is shuffled — see shuffleSeed above).
+  rowColors,
+  // Optional, parallel array to rowColors — a SOLID pastel token per row for
+  // the chip's actual fill (see MatchChipLeft's own comment on accentBgColor
+  // for why this can never be an alpha-blended tint of rowColors instead).
+  // If omitted while rowColors is set, the chip keeps whatever background
+  // chipBackgroundColor/mp.chip already gave it — never falls back to an
+  // alpha tint.
+  rowBgColors,
+  // Optional. Only consulted when rowColors is set. Resolves the emoji/
+  // initial shown inside each row's icon circles (left AND right). The
+  // backend sends no per-pair icon (classifyItems/pairs are text-only), so
+  // when omitted this falls back to the item's own first letter — real
+  // emoji resolvers can be layered on top later without any component
+  // change.
+  getPairIcon,
+  // Optional, default undefined → mp.targetText keeps its own exact look
+  // (Desafío identical). Misión passes a bolder/centered override to match
+  // its own card language.
+  targetTextStyle,
 }: {
   slide: DesafioSlide;
   selectedLeft: string | null;
@@ -510,6 +564,10 @@ export function MatchPairsContent({
   targetMaxHeight?: number | 'none';
   promptText?: string;
   shuffleSeed?: number;
+  rowColors?: string[];
+  rowBgColors?: string[];
+  getPairIcon?: (text: string) => string;
+  targetTextStyle?: object;
 }) {
   const revealed = !!answer;
   const pairs    = slide.pairs ?? [];
@@ -549,12 +607,17 @@ export function MatchPairsContent({
     onPairMatchedImmediate(selectedLeft, pair.id + '_r');
   };
 
+  // Only consulted when rowColors is set (see that prop's own comment) — a
+  // plain first-letter fallback so Misión's "icon" circles always have
+  // something to show even for slides with no real per-pair icon data.
+  const resolveIcon = getPairIcon ?? ((text: string) => text?.trim()?.charAt(0)?.toUpperCase() || '•');
+
   return (
     <View style={[c.root, { backgroundColor: palette.crema }]}>
       {showHeader && (
         <Text style={mp.badgeLabel}>🧠 {slideTypeLabel(slide.type, slide.isRetry, slide.isSpacedRepetition)}</Text>
       )}
-      <Text style={mp.prompt}>{promptText}</Text>
+      {!!promptText && <Text style={mp.prompt}>{promptText}</Text>}
       {/* Row-based layout: each row pairs one left chip with one right target.
           alignItems:'stretch' makes both cards share the same height per row. */}
       <View style={mp.rows}>
@@ -562,6 +625,12 @@ export function MatchPairsContent({
           const rightPair   = shuffledRight[idx];
           const rightColor  = getRightColor(rightPair.id);
           const hasSelected = !!selectedLeft && !revealed;
+          // Static per-row accent — NEVER tied to shuffledRight's order, so
+          // it can't be mistaken for "this is the correct match" (that
+          // column is shuffled; see this component's own doc comment on
+          // shuffleSeed). Purely "these two cards are connectable here".
+          const rowColor   = rowColors ? rowColors[idx % rowColors.length] : null;
+          const rowBgColor = rowBgColors ? rowBgColors[idx % rowBgColors.length] : undefined;
           return (
             <View key={leftPair.id} style={mp.pairRow}>
               <MatchChipLeft
@@ -575,7 +644,23 @@ export function MatchPairsContent({
                 chipBackgroundColor={chipBackgroundColor}
                 chipBorderColor={chipBorderColor}
                 adjustsFontSizeToFit={leftChipAdjustsFontSizeToFit}
+                accentColor={rowColor}
+                accentBgColor={rowBgColor}
+                icon={rowColors ? resolveIcon(leftPair.left) : undefined}
               />
+              {!!rowColors && (
+                // Decorative "connect from here" affordance — a static
+                // port/dash/port glyph, not a real drawn line between the
+                // actually-matched cards (that would need an absolute
+                // overlay/SVG layer — left for a later phase).
+                <View style={mp.connectorColumn}>
+                  <View style={mp.connectorRow}>
+                    <View style={[mp.portDot, { backgroundColor: rowColor ?? palette.azul }]} />
+                    <View style={mp.dashedLine} />
+                    <View style={[mp.portDot, { backgroundColor: palette.azul }]} />
+                  </View>
+                </View>
+              )}
               <Pressable
                 style={[
                   mp.target,
@@ -585,13 +670,19 @@ export function MatchPairsContent({
                     : null,
                   hasSelected && mp.targetActive,
                   !revealed && rightColor ? { borderColor: rightColor, borderWidth: 2 } : null,
+                  rowColors ? mp.targetStacked : null,
                 ]}
                 onPress={() => handleRightPress(rightPair)}
                 disabled={revealed || !selectedLeft}
               >
                 {!revealed && rightColor && <View style={[mp.connector, { backgroundColor: rightColor }]} />}
+                {!!rowColors && (
+                  <View style={mp.rightIconCircle}>
+                    <Text style={mp.rightIconCircleEmoji}>{resolveIcon(rightPair.right)}</Text>
+                  </View>
+                )}
                 <Text
-                  style={mp.targetText}
+                  style={[mp.targetText, targetTextStyle]}
                   numberOfLines={targetTextNumberOfLines}
                   ellipsizeMode="tail"
                 >
@@ -633,12 +724,43 @@ const mp = StyleSheet.create({
   },
   chipCorrect: { backgroundColor: paletteExtras.verdeChipBg, borderWidth: 3, borderColor: paletteExtras.verdeChipBorde },
   chipWrong:   { backgroundColor: paletteExtras.rojoChipBg, borderWidth: 3, borderColor: paletteExtras.rojoChipBorde },
+  // Misión's "misionV2" look only (icon prop set) — switches the chip from
+  // Desafío's row layout (text only) to a column one (icon circle above the
+  // text), left-aligned. Desafío never passes `icon`, so it never sees this.
+  // Also flattens mp.chip's own shadow/elevation (an opaque pastel fill
+  // still composited with a shadow read as muddy on Android) and clears its
+  // maxHeight clamp (same reasoning as targetMaxHeight="none" on the right
+  // column — a clamped card was clipping/inner-boxing longer concept names).
+  chipStacked: {
+    flexDirection: 'column', alignItems: 'flex-start', gap: 8,
+    shadowOpacity: 0, elevation: 0, maxHeight: undefined,
+  },
 
   handle:       { fontSize: 18, color: paletteExtras.grisHandle, flexShrink: 0, opacity: 0.35 },
   handleActive: { color: palette.azul, opacity: 0.6 },
   chipText:     { flex: 1, fontFamily: 'Nunito', fontSize: 16, fontWeight: '600', color: palette.charcoal, lineHeight: 21, textAlign: 'left' },
 
   connector: { width: 12, height: 4, borderRadius: 2, flexShrink: 0 },
+
+  // ── Misión "misionV2" — icon circles + static connector glyph ─────────────
+  // All net-new keys, only ever applied via rowColors/icon (both undefined
+  // for Desafío) — never referenced by Desafío's own render. Sized smaller
+  // than a first pass (36→32) to leave more width for the concept label
+  // next to/under it.
+  iconCircle:      { width: 32, height: 32, borderRadius: 16, alignItems: 'center', justifyContent: 'center' },
+  iconCircleEmoji: { fontSize: 15, fontWeight: '800' as const, color: palette.blanco },
+  rightIconCircle: { width: 32, height: 32, borderRadius: 16, backgroundColor: palette.azulClaro, alignItems: 'center', justifyContent: 'center' },
+  // Separate from iconCircleEmoji on purpose — the right circle's own bg is
+  // always the same light azulClaro tint (never row-colored, so it can't be
+  // mistaken for a hint about the shuffled correct match), so its letter
+  // needs a dark color for contrast instead of iconCircleEmoji's white
+  // (built for the left circle's full-strength row color background).
+  rightIconCircleEmoji: { fontSize: 15, fontWeight: '800' as const, color: palette.azul },
+  targetStacked:   { flexDirection: 'column', gap: 8 },
+  connectorColumn: { width: 26, alignItems: 'center', justifyContent: 'center' },
+  connectorRow:    { flexDirection: 'row', alignItems: 'center', gap: 2 },
+  portDot:         { width: 8, height: 8, borderRadius: 4 },
+  dashedLine:      { width: 12, borderTopWidth: 1.5, borderStyle: 'dashed', borderColor: palette.grisClaro },
 
   // ── Right column — description target ────────────────────────────────────
   target: {
