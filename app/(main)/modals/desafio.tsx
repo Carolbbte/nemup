@@ -408,10 +408,24 @@ function MatchChipLeft({
   }));
 
   return (
-    <Pressable onPress={onPress} disabled={isLocked} style={{ flex: 1 }}>
+    <Pressable
+      onPress={onPress}
+      disabled={isLocked}
+      // React Native's `flex: 1` — unlike CSS's shorthand — only sets
+      // flexGrow; flexBasis defaults to 'auto' (content-driven), so two
+      // flex:1 siblings with DIFFERENT text still keep their own unequal
+      // content-based starting sizes and only grow by the same absolute
+      // amount on top of that, never actually closing the gap. Misión's
+      // left/right cards showed this directly (longer left labels stayed
+      // visibly narrower than the right cards). flexBasis:0 forces both
+      // sides to start from zero, so flexGrow:1 splits the row exactly in
+      // half regardless of content — only applied when uniformCardHeight
+      // is set (Misión), so Desafío's own sizing is untouched.
+      style={uniformCardHeight ? { flex: 1, flexBasis: 0 } : { flex: 1 }}
+    >
       <Animated.View style={[
         mp.chip,
-        { flex: 1 },
+        { flex: 1, width: '100%' },
         (chipBackgroundColor || chipBorderColor) ? { backgroundColor: chipBackgroundColor, borderColor: chipBorderColor } : null,
         !isLocked && isSel && mp.chipSelected,
         !isLocked && color ? { borderColor: color, borderWidth: 2, backgroundColor: color + '15' } : null,
@@ -425,8 +439,9 @@ function MatchChipLeft({
         icon ? mp.chipStacked : null,
         // A real height wins over mp.chip's own minHeight/maxHeight in
         // Yoga's layout — every row's left card ends up exactly this tall
-        // regardless of its text length.
-        uniformCardHeight ? { height: uniformCardHeight, maxHeight: undefined } : null,
+        // regardless of its text length. paddingVertical is trimmed from
+        // mp.chip's own 18 so 3 rows fit the screen without scrolling.
+        uniformCardHeight ? { height: uniformCardHeight, maxHeight: undefined, paddingVertical: 10 } : null,
         isCorr && mp.chipCorrect,
         isWrg  && mp.chipWrong,
         animStyle,
@@ -570,6 +585,11 @@ export function MatchPairsContent({
   // every row — ends up exactly this tall, instead of each row's height
   // being driven by whichever side has more text.
   uniformCardHeight,
+  // Optional, default undefined → mp.rows keeps its own gap:18 (Desafío
+  // identical). Misión passes a smaller value so 3 rows fit the screen
+  // height without needing to scroll, once uniformCardHeight has already
+  // shrunk each row's own height.
+  rowGap,
 }: {
   slide: DesafioSlide;
   selectedLeft: string | null;
@@ -594,6 +614,7 @@ export function MatchPairsContent({
   getPairIcon?: (text: string) => string;
   targetTextStyle?: object;
   uniformCardHeight?: number;
+  rowGap?: number;
 }) {
   const revealed = !!answer;
   const pairs    = slide.pairs ?? [];
@@ -646,7 +667,7 @@ export function MatchPairsContent({
       {!!promptText && <Text style={mp.prompt}>{promptText}</Text>}
       {/* Row-based layout: each row pairs one left chip with one right target.
           alignItems:'stretch' makes both cards share the same height per row. */}
-      <View style={mp.rows}>
+      <View style={[mp.rows, rowGap !== undefined ? { gap: rowGap } : null]}>
         {pairs.map((leftPair, idx) => {
           const rightPair   = shuffledRight[idx];
           const rightColor  = getRightColor(rightPair.id);
@@ -710,8 +731,11 @@ export function MatchPairsContent({
                   !revealed && rightColor ? { borderColor: rightColor, borderWidth: 2 } : null,
                   rowColors ? mp.targetStacked : null,
                   // Same fixed-height override as the left chip — see that
-                  // prop's own comment.
-                  uniformCardHeight ? { height: uniformCardHeight, maxHeight: undefined } : null,
+                  // prop's own comment (including the trimmed paddingVertical).
+                  // flexBasis:0 — see MatchChipLeft's outer Pressable for
+                  // the full explanation of why flex:1 alone left this
+                  // column's width still coupled to its own content length.
+                  uniformCardHeight ? { height: uniformCardHeight, maxHeight: undefined, paddingVertical: 10, flexBasis: 0 } : null,
                 ]}
                 onPress={() => handleRightPress(rightPair)}
                 disabled={revealed || !selectedLeft}
@@ -782,7 +806,9 @@ const mp = StyleSheet.create({
     // width, exactly like the right column's targetStacked — otherwise the
     // left content hugs its text and the card reads as narrower than the
     // right one. Text stays visually left via chipText's textAlign:'left'.
-    flexDirection: 'column', alignItems: 'stretch', justifyContent: 'center', gap: 8,
+    // gap trimmed from 8 to 6 to help 3 fixed-height rows fit without
+    // scrolling (paired with the smaller paddingVertical override above).
+    flexDirection: 'column', alignItems: 'stretch', justifyContent: 'center', gap: 6,
     shadowOpacity: 0, elevation: 0,
   },
 
@@ -811,7 +837,7 @@ const mp = StyleSheet.create({
   // (built for the left circle's full-strength row color background).
   rightIconCircleEmoji: { fontSize: 15, fontWeight: '800' as const, color: palette.azul },
   rightIconCircleEmojiReal: { fontSize: 18 },
-  targetStacked:   { flexDirection: 'column', justifyContent: 'center', gap: 8 },
+  targetStacked:   { flexDirection: 'column', justifyContent: 'center', gap: 6 },
   connectorColumn: { width: 26, alignItems: 'center', justifyContent: 'center' },
   connectorRow:    { flexDirection: 'row', alignItems: 'center', gap: 2 },
   portDot:         { width: 8, height: 8, borderRadius: 4 },

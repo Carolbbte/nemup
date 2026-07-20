@@ -3157,7 +3157,11 @@ export default function SessionPlayerScreen() {
                       // the per-row accent color, not a fixed blue.
                       targetBorderColor={palette.bordeClaro}
                       targetTextStyle={{ fontSize: 15, lineHeight: 19, fontWeight: '800', color: palette.charcoal }}
-                      targetTextNumberOfLines={4}
+                      // 3 (not 4) lines — most examples are short (2-4
+                      // words); adjustsFontSizeToFit + minimumFontScale is
+                      // still the safety valve for the rare longer one,
+                      // without reserving height every row doesn't need.
+                      targetTextNumberOfLines={3}
                       // Cycling per-row accent (left card border/icon-circle
                       // + connector's left port) — decorative "connect from
                       // here" affordance only, never a hint about the
@@ -3170,13 +3174,13 @@ export default function SessionPlayerScreen() {
                       // Every card (both columns, every row) gets the SAME
                       // fixed height instead of growing with its own text —
                       // pairRow's alignItems:'stretch' only equalized height
-                      // within a row, not across rows. 150 (not the spec's
-                      // suggested starting 140) is sized for the right
-                      // column's worst case: icon circle 32 + gap 8 +
-                      // 4 lines of 19px text (76) + vertical padding 36 ≈
-                      // 152 — the spec explicitly allows 148-152 over
-                      // clipping/shrinking long examples too aggressively.
-                      uniformCardHeight={150}
+                      // within a row, not across rows. Shrunk from 150 to
+                      // 120 (with matching smaller paddingVertical/gap
+                      // overrides inside MatchChipLeft/target) plus a
+                      // tighter rowGap below, so all 3 rows fit on screen
+                      // without needing to scroll.
+                      uniformCardHeight={120}
+                      rowGap={10}
                       // Misión's slide has no real conceptIndex (Desafío's
                       // own shuffle source), so a real seed is required here
                       // to get an actual shuffle instead of a no-op one —
