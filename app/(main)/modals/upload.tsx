@@ -740,16 +740,33 @@ export default function UploadFlowScreen() {
             <View style={[StyleSheet.absoluteFill, s1.errorBackdrop]}>
               <View style={s1.errorModal}>
                 {isNotSchoolContent ? (
-                  <Image source={require('@/assets/images/frustrado.png')} style={s1.errorMascot} resizeMode="contain" />
+                  <Image source={require('@/assets/images/errorApp.png')} style={s1.errorMascot} resizeMode="contain" />
                 ) : (
                   <Text style={s1.errorEmoji}>⚠️</Text>
                 )}
                 <Text style={s1.errorTitle}>No pudimos crear la sesión</Text>
                 <Text style={s1.errorMsg}>
                   {isNotSchoolContent
-                    ? '¡Oops! Creo que no subiste contenido escolar.'
+                    ? '¡Oops! Creo que no subiste contenido escolar. Necesitamos apuntes, guías, ejercicios o material de estudio para poder ayudarte.'
                     : (generationError ?? 'El archivo tiene muy poco contenido o no pudo procesarse.')}
                 </Text>
+                {isNotSchoolContent && (
+                  <View style={s1.errorHintCard}>
+                    <Text style={s1.errorHintTitle}>💡 ¿Qué puedes subir?</Text>
+                    {[
+                      { emoji: '📱', bg: '#EDE9FE', text: 'Apuntes, guías o resúmenes de tus clases' },
+                      { emoji: '📗', bg: '#DCFCE7', text: 'Ejercicios, pruebas o material de estudio' },
+                      { emoji: '📄', bg: '#FEF3E0', text: 'Fotos claras de tus cuadernos o libros' },
+                    ].map((row) => (
+                      <View key={row.text} style={s1.errorHintRow}>
+                        <View style={[s1.errorHintIcon, { backgroundColor: row.bg }]}>
+                          <Text style={s1.errorHintIconEmoji}>{row.emoji}</Text>
+                        </View>
+                        <Text style={s1.errorHintText}>{row.text}</Text>
+                      </View>
+                    ))}
+                  </View>
+                )}
                 <Pressable
                   onPress={() => { setStep(0); setGenerationError(null); }}
                   style={s1.errorPrimaryWrap}
@@ -1156,10 +1173,16 @@ const s1 = StyleSheet.create({
   errorBackdrop:    { backgroundColor: 'rgba(11,11,26,0.6)', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 24, zIndex: 100 },
   errorModal:       { backgroundColor: palette.blanco, borderRadius: 28, padding: 28, alignItems: 'center', gap: 10, width: '100%' },
   errorEmoji:       { fontSize: 48, marginBottom: 2 },
-  // 2:3 aspect (frustrado.png is 1024×1536).
+  // 2:3 aspect (errorApp.png is 1024×1536).
   errorMascot:      { width: 88, height: 130, marginBottom: 2 },
   errorTitle:       { fontSize: SM ? 20 : 22, fontWeight: '900', color: semantic.textPrimary, letterSpacing: -0.3, textAlign: 'center' },
   errorMsg:         { fontSize: 14, color: semantic.textSecondary, lineHeight: 21, textAlign: 'center', marginBottom: 6 },
+  errorHintCard:      { width: '100%', backgroundColor: '#F5F4FA', borderRadius: 18, padding: 16, gap: 10, marginBottom: 6 },
+  errorHintTitle:     { fontSize: 14, fontWeight: '800' as const, color: '#5B3FCC' },
+  errorHintRow:       { flexDirection: 'row' as const, alignItems: 'center' as const, gap: 10 },
+  errorHintIcon:      { width: 32, height: 32, borderRadius: 10, alignItems: 'center' as const, justifyContent: 'center' as const },
+  errorHintIconEmoji: { fontSize: 15 },
+  errorHintText:      { flex: 1, fontSize: 13, color: semantic.textPrimary, lineHeight: 18 },
   errorPrimaryWrap: { width: '100%', borderRadius: 18, overflow: 'hidden' },
   errorPrimaryBtn:  { paddingVertical: 17, alignItems: 'center' as const },
   errorPrimaryText: { fontSize: 16, fontWeight: '800', color: palette.blanco },
