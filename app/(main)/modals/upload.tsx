@@ -787,14 +787,11 @@ export default function UploadFlowScreen() {
   // SCREEN 0 — Crea tu misión
   // ══════════════════════════════════════════════════════════════
   return (
-    // edges includes 'bottom' — lets SafeAreaView reserve the real device
-    // bottom inset natively instead of replicating it by hand via
-    // insets.bottom in the ScrollView below (which under some Android
-    // nav-bar/insets configurations under-reports, letting content sit
-    // behind the system nav bar). The ScrollView's own paddingBottom below
-    // is now just breathing room on top of that reserved space, not a
-    // second copy of the inset.
-    <SafeAreaView style={{ flex: 1, backgroundColor: BG }} edges={['top', 'bottom']}>
+    // Bottom edge handled manually below (Math.max floor on insets.bottom),
+    // not via SafeAreaView's edges — that would read the exact same
+    // possibly-unreliable native inset value and risk double-counting it
+    // on devices where it IS reported correctly.
+    <SafeAreaView style={{ flex: 1, backgroundColor: BG }} edges={['top']}>
       <StatusBar barStyle="dark-content" backgroundColor={BG} />
 
       <View style={sh.header}>
@@ -814,7 +811,12 @@ export default function UploadFlowScreen() {
 
       <ScrollView
         style={{ flex: 1 }}
-        contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 0, paddingBottom: hasFiles ? 90 : 24 }}
+        // insets.bottom alone isn't trustworthy here (some Android 3-button
+        // nav configurations under-report it, even with edges: ['top','bottom']
+        // above reading the same native value) — Math.max guarantees a real
+        // floor so content always clears the system nav bar regardless of
+        // whether the OS-reported inset is 0.
+        contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 0, paddingBottom: (hasFiles ? 90 : 24) + Math.max(insets.bottom, 32) }}
         showsVerticalScrollIndicator={false}
       >
         {!hasFiles ? (
