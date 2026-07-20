@@ -778,7 +778,11 @@ const mp = StyleSheet.create({
   // `height` (which already overrides any clamp), so this style only needs
   // to center content within that fixed height.
   chipStacked: {
-    flexDirection: 'column', alignItems: 'flex-start', justifyContent: 'center', gap: 8,
+    // alignItems:'stretch' (not flex-start) so the label spans the FULL card
+    // width, exactly like the right column's targetStacked — otherwise the
+    // left content hugs its text and the card reads as narrower than the
+    // right one. Text stays visually left via chipText's textAlign:'left'.
+    flexDirection: 'column', alignItems: 'stretch', justifyContent: 'center', gap: 8,
     shadowOpacity: 0, elevation: 0,
   },
 

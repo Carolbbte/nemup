@@ -3143,15 +3143,13 @@ export default function SessionPlayerScreen() {
                       // already rendered its own bigger title above.
                       promptText=""
                       showHeader={false}
-                      // Misión's own concept names run longer than
-                      // Desafío's, which at the defaults (16px, 3 lines)
-                      // broke mid-word. Now that every card has a fixed
-                      // uniformCardHeight below, adjustsFontSizeToFit is a
-                      // safe escape valve against overflow again (it's only
-                      // risky — mid-word breaks — when height is unbounded).
+                      // Concept names (left) are short (1–2 words). With the
+                      // chip now full-width (chipStacked alignItems:'stretch'),
+                      // normal 2-line word wrap fits them cleanly; NOT using
+                      // adjustsFontSizeToFit here — on Android it mis-measures
+                      // multiline width and breaks words mid-word ("Evoluci/ón").
                       leftChipTextStyle={{ fontSize: 15, lineHeight: 19, fontWeight: '800' }}
-                      leftChipNumberOfLines={3}
-                      leftChipAdjustsFontSizeToFit
+                      leftChipNumberOfLines={2}
                       // Row background/border are fully owned by rowColors/
                       // rowBgColors below now — passing chipBackgroundColor
                       // here would be dead weight (accentColor/accentBgColor
