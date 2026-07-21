@@ -391,6 +391,20 @@ function buildMultipleChoiceSlideFor(
 }
 
 /**
+ * Presentation-only safety net on top of procedural.ts's own validation gate
+ * — never re-validates or alters any WorkedExampleResult itself. If at least
+ * one worked example validated real steps, show ONLY those (dropping the
+ * degraded "statement → answer, no path" ones instead of mixing a real
+ * walkthrough with an empty-looking screen). If NONE validated, cap it to a
+ * single degraded slide rather than stacking 2+ "RESUELVE ESTO → RESULTADO"
+ * screens in a row, each offering no derivation.
+ */
+function selectWorkedExamplesForDisplay(results: WorkedExampleResult[]): WorkedExampleResult[] {
+  const withSteps = results.filter((r) => !!r.steps?.length);
+  return withSteps.length > 0 ? withSteps : results.slice(0, 1);
+}
+
+/**
  * Builds one 'worked_example' slide per worked example — its own slide type
  * (not a reuse of 'insight'), so the frontend can render `statement`/`steps`/
  * `answer` as an actual step-by-step resolution instead of two mini cards
@@ -451,6 +465,7 @@ export function buildDesafio(
   const workedExampleInsertAfter = Math.floor((N - 1) / 3);
   const matchPairs = allowMatchPairs ? buildMatchPairs(ko) : null;
   const classify = buildClassify(ko);
+  const displayedWorkedExamples = selectWorkedExamplesForDisplay(workedExampleResults);
 
   const slides: DesafioSlide[] = [];
 
@@ -473,7 +488,7 @@ export function buildDesafio(
     if (reinforcement) slides.push(reinforcement);
 
     if (workedExampleInsertAfter === i) {
-      workedExampleResults.forEach((result) => slides.push(buildWorkedExampleSlide(result, i)));
+      displayedWorkedExamples.forEach((result) => slides.push(buildWorkedExampleSlide(result, i)));
     }
 
     if (matchPairs && matchPairsInsertAfter === i) {
@@ -1104,8 +1119,12 @@ export function buildSummarySlides(
   // student's own attempt. `steps` may be absent per-item (procedural.ts's
   // B-mínima fallback when the model's derivation didn't validate) — the
   // slide is still included with just statement/answer, never fabricating
-  // a path, same as buildDesafio already does.
-  if (workedExampleResults.length > 0) {
+  // a path, same as buildDesafio already does. See selectWorkedExamplesForDisplay's
+  // own comment for why this shows a filtered set, not workedExampleResults raw —
+  // the `if` below reads its LENGTH, not workedExampleResults', so the intro
+  // is never pushed with nothing validated to follow it.
+  const displayedWorkedExamples = selectWorkedExamplesForDisplay(workedExampleResults);
+  if (displayedWorkedExamples.length > 0) {
     // A dedicated type, NOT 'main_concept' — this is a transition screen, not
     // a real taught concept. Giving it 'main_concept' used to make it count
     // as one everywhere that type is treated as "a concept the student saw"
@@ -1119,7 +1138,7 @@ export function buildSummarySlides(
       definition: 'Estos son ejercicios resueltos paso a paso del material.',
       example: '',
     });
-    workedExampleResults.forEach((result) => {
+    displayedWorkedExamples.forEach((result) => {
       slides.push(buildWorkedExampleSummarySlide(result));
     });
   }

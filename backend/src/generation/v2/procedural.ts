@@ -100,14 +100,23 @@ function buildProceduralSchema(itemCount: number) {
 }
 
 // Aggressive normalization for comparing two math/text results: lowercase,
-// strip whitespace, normalize common unicode math symbols to ASCII.
+// strip whitespace, normalize common unicode math symbols to ASCII, drop
+// parentheses, and strip a TRAILING unit suffix (never a bare single letter
+// like "m" — that's indistinguishable from an algebra variable, e.g. "7m").
+// Only ever used for the internal validation comparison below — never
+// applied to text actually shown to the student.
+const TRAILING_UNIT_RE = /(cm2|cm²|m2|m²|km|mm|kg|g|s)$/i;
+
 function normalizeForMathComparison(s: string): string {
   return s
     .replace(/\s+/g, '')
     .toLowerCase()
     .replace(/−/g, '-')
     .replace(/×/g, '*')
-    .replace(/·/g, '*');
+    .replace(/·/g, '*')
+    .replace(/[()]/g, '')
+    .replace(/\.+$/, '')
+    .replace(TRAILING_UNIT_RE, '');
 }
 
 // Best-effort term-order-independent comparison for simple additive expressions
@@ -124,10 +133,61 @@ function sortedTermsKey(s: string): string {
     .join('|');
 }
 
-/** Exported for testing. Compares two results with light math-aware normalization — never a full CAS, just enough to catch trivial reordering/whitespace/case differences. */
+// Spanish framing phrases that commonly wrap a final result in prose
+// ("Por lo tanto, la expresión ... es X.", "El resultado ... es X.",
+// "Resultado: X"). `.*?\bes\b` is deliberately unbounded (any number of
+// words) since real sentences vary a lot in length between "expresión"/
+// "resultado" and the "es" that introduces the actual value. Global so
+// extractMathResult can find the LAST occurrence when several appear.
+const RESULT_MARKER_RE = /(?:por\s+lo\s+tanto|en\s+consecuencia|la\s+expresi[oó]n.*?\bes\b|el\s+resultado.*?\bes\b|resultado\s*:|respuesta\s*:|resp\s*:|es\s+igual\s+a)\s*[,:]?\s*/gi;
+
+/**
+ * Best-effort extraction of the bare mathematical tail of a result string —
+ * NOT a parser, just enough to strip the two shapes that break naive string
+ * comparison: an "a = b = c" chain (keep only the last "c") and Spanish
+ * framing prose ("Por lo tanto, la expresión ... es X."). Falls back to the
+ * original string untouched when nothing recognizable is found — never
+ * invents or removes content that isn't clearly wrapping/chaining.
+ * Exported for testing.
+ */
+export function extractMathResult(s: string): string {
+  let out = s.trim();
+
+  const lastEq = out.lastIndexOf('=');
+  if (lastEq !== -1 && lastEq < out.length - 1) {
+    out = out.slice(lastEq + 1).trim();
+  }
+
+  RESULT_MARKER_RE.lastIndex = 0;
+  let lastEnd = -1;
+  let match: RegExpExecArray | null;
+  while ((match = RESULT_MARKER_RE.exec(out)) !== null) {
+    lastEnd = match.index + match[0].length;
+    if (match[0].length === 0) RESULT_MARKER_RE.lastIndex++;
+  }
+  if (lastEnd !== -1) out = out.slice(lastEnd);
+
+  out = out.replace(/[.\s]+$/, '').trim();
+  return out.length > 0 ? out : s.trim();
+}
+
+/** Exported for testing. Compares two results with light math-aware normalization — never a full CAS, just enough to catch trivial reordering/whitespace/case differences, plus a "clean result wrapped in prose/units" case (see extractMathResult). */
 export function resultsMatch(a: string, b: string): boolean {
   if (normalizeForMathComparison(a) === normalizeForMathComparison(b)) return true;
-  return sortedTermsKey(a) === sortedTermsKey(b);
+  if (sortedTermsKey(a) === sortedTermsKey(b)) return true;
+
+  // Wrapped-in-prose case: a clean derived result ("10x + 24") is often the
+  // literal tail of a longer answer written as prose with units/framing
+  // ("...la expresión...es (10x + 24) cm²."). Comparing the EXTRACTED math
+  // tail of each side by containment (not equality) catches this without
+  // turning into a full CAS. The length>=3 guard on BOTH sides blocks
+  // trivial-substring false positives (a short "5" inside "125", or an
+  // empty string — which `"x".includes("")` would otherwise always match).
+  const na = normalizeForMathComparison(extractMathResult(a));
+  const nb = normalizeForMathComparison(extractMathResult(b));
+  if (na.length >= 3 && nb.length >= 3 && (na.includes(nb) || nb.includes(na))) return true;
+
+  return false;
 }
 
 /**

@@ -124,8 +124,8 @@ INSTRUCCIONES:
    ✓ LITERAL (válido): sourceQuote="La mitocondria es la organela que produce energía celular mediante
      la respiración." (copiado exacto, carácter por carácter, del material).
 10. workedExamples: extrae los ejercicios del material que tengan A LA VEZ enunciado Y respuesta
-    ya escrita en el texto (ejercicios RESUELTOS, no propuestos). Copia AMBOS literalmente, palabra
-    por palabra — mismo criterio que sourceQuote, nunca los recalcules, completes ni corrijas.
+    ya escrita en el texto (ejercicios RESUELTOS, no propuestos). statement es literal, palabra por
+    palabra — mismo criterio que sourceQuote, nunca lo recalcules, completes ni corrijas.
 
     La respuesta puede aparecer de MUCHAS formas — considéralas todas:
       • justo al lado o debajo del enunciado (ej. "3x + 2x = 5x")
@@ -135,14 +135,41 @@ INSTRUCCIONES:
     Si el enunciado y su respuesta están AMBOS presentes en el material (aunque separados por líneas
     o formato), es un ejercicio resuelto → inclúyelo.
 
+    answer: es el RESULTADO MATEMÁTICO FINAL, tal como aparece en el material — nunca lo inventes
+    ni lo recalcules — pero SOLO el resultado limpio, sin la prosa que lo envuelve ni las unidades de
+    texto redundantes. Quita frases como "por lo tanto", "la expresión que representa... es",
+    "el resultado es", y quita también las flechas/anotaciones de cada paso intermedio ("← Desarrolla
+    esto...", "← Calcula aquello..."). El VALOR debe seguir siendo el que está en el material —
+    solo se recorta la envoltura de prosa alrededor de él, nunca se cambia el número/expresión.
+
+    UN ejercicio = UN workedExample, incluso si el material lo resuelve en varias líneas encadenadas
+    (ej.: expande un binomio → resuelve las operaciones → resta dos áreas → resultado final). NO crees
+    un workedExample por cada línea/paso intermedio de esa cadena — solo UNO, con statement = el
+    enunciado original del ejercicio y answer = el resultado final de TODA la cadena (la última
+    línea/valor, no los intermedios). Los pasos intermedios los vuelve a generar otra etapa a partir
+    del resultado final; no hace falta (ni conviene) fragmentarlos aquí.
+
     Reglas:
     - Si un ejercicio solo tiene enunciado y NO hay respuesta escrita en ninguna parte del material,
       NO lo incluyas.
     - NUNCA inventes ni calcules una respuesta que no esté literalmente en el texto.
     - Si el material no contiene ningún ejercicio resuelto, devuelve workedExamples: [].
 
-    ✓ SÍ capturar: el material dice "Reduce: 2m − 5n + 6m − m + 11n" y más abajo "= 7m + 6n"
-      → statement="2m − 5n + 6m − m + 11n", answer="7m + 6n" (ambos están en el texto).
+    ✓ SÍ capturar (ejercicio simple): el material dice "Reduce: 2m − 5n + 6m − m + 11n" y más abajo
+      "= 7m + 6n" → statement="2m − 5n + 6m − m + 11n", answer="7m + 6n" (ambos están en el texto).
+    ✓ SÍ capturar (cadena de varias líneas → UN SOLO workedExample con el resultado final limpio):
+      el material dice "Ar = (x + 6)(x + 4) cm² | Ac = x² cm² ← Escribe las áreas Ar y Ac." seguido de
+      "(x + 6)(x + 4) = x² + (6 + 4)x + 6 · 4 ← Desarrolla Ac..." seguido de "x² + (6 + 4)x + 6 · 4 =
+      x² + 10x + 24 ← Desarrolla las operaciones." seguido de "Ar - Ac = x² + 10x + 24 - x² = 10x + 24
+      ← Calcula la diferencia..." y termina con "Por lo tanto, la expresión que representa la
+      diferencia entre las áreas es (10x + 24) cm²."
+      → UN SOLO workedExample: statement="¿Qué expresión representa la diferencia entre las áreas Ar
+      del rectángulo EFGD y Ac del cuadrado ABCD?" (el enunciado original de la pregunta, no la primera
+      línea de la derivación), answer="10x + 24" (el resultado final limpio, sin "por lo tanto", sin
+      "la expresión que representa...es", sin la unidad "cm²" redundante, sin los pasos intermedios).
+      ✗ INVÁLIDO: crear 2+ workedExamples, uno por cada línea de la cadena — es UN solo ejercicio.
+      ✗ INVÁLIDO: answer="Por lo tanto, la expresión que representa la diferencia entre las áreas es
+      (10x + 24) cm²." — es la respuesta correcta pero envuelta en prosa; usa solo "10x + 24".
     ✗ NO capturar: el material dice "Ejercicio 3: factoriza x² + 5x + 6" sin ninguna respuesta escrita
       → no se incluye (no hay respuesta en el material, y calcularla sería inventar).
 

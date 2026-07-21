@@ -629,7 +629,13 @@ function buildSummarySlides(backendSlides: BackendSlide[], questions: Question[]
     const noRedundant: BackendSlide[] = [];
     const allSeenWords = new Set<string>();
     for (const s of valid) {
-      if (!isInteractive(s) && s.type !== 'mission' && s.type !== 'victory' && s.type !== 'motivation') {
+      // worked_example/worked_example_intro excluded — a solved exercise is
+      // its own concrete pedagogical artifact (a case worked start-to-finish),
+      // never "the same thing said twice" just because it shares algebra
+      // vocabulary with an earlier concept slide. Dropping it silently here
+      // used to make the whole "paso a paso" screen vanish for some sessions.
+      if (!isInteractive(s) && s.type !== 'mission' && s.type !== 'victory' && s.type !== 'motivation'
+          && s.type !== 'worked_example' && s.type !== 'worked_example_intro') {
         const words = keyWords(`${s.title ?? ''} ${s.definition ?? ''} ${s.example ?? ''}`);
         if (allSeenWords.size > 0 && words.size > 0) {
           let hits = 0;
