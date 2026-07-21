@@ -434,6 +434,11 @@ export function buildDesafio(
   ko: KnowledgeObject,
   distractors: Record<string, DistractorSet>,
   workedExampleResults: WorkedExampleResult[] = [],
+  // Default true so every existing caller/test is byte-identical to before
+  // this parameter existed. orchestrator.ts passes the real pedagogical-
+  // classifier-derived value — see its own comment on allowMatchPairs for
+  // why PROCEDURAL/math content skips match_pairs entirely.
+  allowMatchPairs: boolean = true,
 ): DesafioSession {
   const N = ko.concepts.length;
   if (N === 0) {
@@ -444,7 +449,7 @@ export function buildDesafio(
   const matchPairsInsertAfter = Math.ceil(N / 2) - 1;
   const classifyInsertAfter = Math.max(N - 2, matchPairsInsertAfter + 1);
   const workedExampleInsertAfter = Math.floor((N - 1) / 3);
-  const matchPairs = buildMatchPairs(ko);
+  const matchPairs = allowMatchPairs ? buildMatchPairs(ko) : null;
   const classify = buildClassify(ko);
 
   const slides: DesafioSlide[] = [];
@@ -779,6 +784,9 @@ export function buildSummarySlides(
   // Fase 3 — Acortamiento de la misión. Same reasoning/wiring pattern as
   // missionArcV2 above (config.mission_shorten, default false).
   missionShorten: boolean = false,
+  // Default true so every existing caller/test is byte-identical to before
+  // this parameter existed — see buildDesafio's own allowMatchPairs comment.
+  allowMatchPairs: boolean = true,
 ): SummarySlide[] {
   if (ko.concepts.length === 0) return [];
 
@@ -849,7 +857,7 @@ export function buildSummarySlides(
   // pick) — needing >=3 concepts with a usable exampleShort still means
   // "first" and "last" are always different concepts, guaranteeing the two
   // intercalated formats never collide on the same slot.
-  const matchPairsResult = buildMisionMatchPairs(ko.concepts);
+  const matchPairsResult = allowMatchPairs ? buildMisionMatchPairs(ko.concepts) : null;
   const matchPairsConceptId = matchPairsResult ? ko.concepts[ko.concepts.length - 1].id : null;
 
   // Classify: same "at most once per session" treatment, using buildClassify
