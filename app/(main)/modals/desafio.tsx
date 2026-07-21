@@ -421,11 +421,11 @@ function MatchChipLeft({
       // sides to start from zero, so flexGrow:1 splits the row exactly in
       // half regardless of content — only applied when uniformCardHeight
       // is set (Misión), so Desafío's own sizing is untouched.
-      style={uniformCardHeight ? { flex: 1, flexBasis: 0, minWidth: 0 } : { flex: 1 }}
+      style={uniformCardHeight ? { flex: 1, flexBasis: 0 } : { flex: 1 }}
     >
       <Animated.View style={[
         mp.chip,
-        { flex: 1, width: '100%', minWidth: 0 },
+        { flex: 1, width: '100%' },
         (chipBackgroundColor || chipBorderColor) ? { backgroundColor: chipBackgroundColor, borderColor: chipBorderColor } : null,
         !isLocked && isSel && mp.chipSelected,
         !isLocked && color ? { borderColor: color, borderWidth: 2, backgroundColor: color + '15' } : null,
@@ -735,7 +735,7 @@ export function MatchPairsContent({
                   // flexBasis:0 — see MatchChipLeft's outer Pressable for
                   // the full explanation of why flex:1 alone left this
                   // column's width still coupled to its own content length.
-                  uniformCardHeight ? { height: uniformCardHeight, maxHeight: undefined, paddingVertical: 10, flexBasis: 0, minWidth: 0 } : null,
+                  uniformCardHeight ? { height: uniformCardHeight, maxHeight: undefined, paddingVertical: 10, flexBasis: 0 } : null,
                 ]}
                 onPress={() => handleRightPress(rightPair)}
                 disabled={revealed || !selectedLeft}
