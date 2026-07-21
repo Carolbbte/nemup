@@ -11,7 +11,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { buildWorkedExampleSteps, reconcileWorkedExample, resultsMatch } from '../procedural.js';
+import { buildWorkedExampleSteps, reconcileWorkedExample, resultsMatch, extractMathResult } from '../procedural.js';
 import { buildDesafio } from '../assemble.js';
 import type { KnowledgeObject } from '../types.js';
 import type { DistractorSet } from '../distractors.js';
@@ -29,6 +29,56 @@ describe('resultsMatch', () => {
 
   it('does not match a genuinely different result', () => {
     expect(resultsMatch('8m + 6n', '7m + 6n')).toBe(false);
+  });
+
+  // Real case from a procedural (algebra) session: the extracted answer is
+  // prose wrapping the actual result in units, not the bare expression the
+  // model's own re-derivation produces. Was a false negative before Part A.
+  it('matches a clean result wrapped in Spanish prose with units', () => {
+    expect(resultsMatch(
+      '10x + 24',
+      'Por lo tanto, la expresión que representa la diferencia entre las áreas es (10x + 24) cm².',
+    )).toBe(true);
+  });
+
+  it('matches regardless of which side is the prose-wrapped one', () => {
+    expect(resultsMatch(
+      'Por lo tanto, la expresión que representa la diferencia entre las áreas es (10x + 24) cm².',
+      '10x + 24',
+    )).toBe(true);
+  });
+
+  it('does not match a genuinely different result even when one side is prose-wrapped', () => {
+    expect(resultsMatch(
+      '10x + 25',
+      'Por lo tanto, la expresión que representa la diferencia entre las áreas es (10x + 24) cm².',
+    )).toBe(false);
+  });
+
+  it('does not let a short numeric answer trivially match inside a longer one via containment', () => {
+    // "5" is a substring of "125" — the length>=3 guard must block this from
+    // ever reaching the containment tier as a false positive.
+    expect(resultsMatch('5', '125')).toBe(false);
+  });
+});
+
+describe('extractMathResult', () => {
+  it('keeps a bare clean result unchanged', () => {
+    expect(extractMathResult('10x + 24')).toBe('10x + 24');
+  });
+
+  it('keeps only the tail of an "a = b = c" chain', () => {
+    expect(extractMathResult('x² + 10x + 24 - x² = 10x + 24')).toBe('10x + 24');
+  });
+
+  it('strips "Por lo tanto, la expresión ... es" framing and trailing unit/period', () => {
+    expect(extractMathResult(
+      'Por lo tanto, la expresión que representa la diferencia entre las áreas es (10x + 24) cm².',
+    )).toBe('(10x + 24) cm²');
+  });
+
+  it('falls back to the original string when nothing recognizable is found', () => {
+    expect(extractMathResult('7m + 6n')).toBe('7m + 6n');
   });
 });
 
@@ -157,5 +207,29 @@ describe('buildDesafio — procedural slide insertion', () => {
     expect(workedSlide?.statement).toBe(EXAMPLE.statement);
     expect(workedSlide?.answer).toBe(EXAMPLE.answer);
     expect(workedSlide?.steps).toBeUndefined();
+  });
+
+  // Display-level safety net (selectWorkedExamplesForDisplay) — same
+  // behavior as buildSummarySlides: never stack 2+ "sin pasos" screens.
+  it('caps to a single degraded worked_example slide when NONE of the results validated steps', () => {
+    const desafio = buildDesafio(ko, distractors, [
+      { statement: 'a', answer: '1', steps: null },
+      { statement: 'b', answer: '2', steps: null },
+    ]);
+
+    const workedSlides = desafio.slides.filter((s) => s.type === 'worked_example');
+    expect(workedSlides).toHaveLength(1);
+    expect(workedSlides[0].statement).toBe('a');
+  });
+
+  it('shows only the validated worked_example results when some (not all) failed validation', () => {
+    const desafio = buildDesafio(ko, distractors, [
+      { statement: 'a', answer: '1', steps: null },
+      { statement: 'b', answer: '2', steps: ['paso b1'] },
+    ]);
+
+    const workedSlides = desafio.slides.filter((s) => s.type === 'worked_example');
+    expect(workedSlides).toHaveLength(1);
+    expect(workedSlides[0].statement).toBe('b');
   });
 });
