@@ -2795,24 +2795,42 @@ export default function SessionPlayerScreen() {
                 </ScrollView>
               );
               })()
-            ) : slide?.type === 'worked_example_intro' ? (
-              // Transition into the worked_example screens — same icon-box
-              // card language as main_concept's insight, but a fixed brand
-              // color (not the rotating CONCEPT_PALETTES) since this isn't
-              // part of the concept sequence.
-              <View style={[sum.conceptTarjeta, { backgroundColor: CONCEPT_PALETTES[0].bg, borderColor: CONCEPT_PALETTES[0].border }]}>
-                <View style={[sum.conceptIconBox, { backgroundColor: BRAND }]}>
-                  <Text style={sum.conceptIconEmoji}>{slide?.emoji || '✏️'}</Text>
-                </View>
-                <Text style={[sum.conceptKicker, { color: CONCEPT_PALETTES[0].accent }]}>REPASO</Text>
-                <MathText style={sum.conceptTitle}>{(slide.title)}</MathText>
-                {!!slide.definition && (
-                  <View style={sum.conceptCard}>
-                    <MathText style={sum.conceptCardText}>{(slide.definition)}</MathText>
+            ) : slide?.type === 'worked_example_intro' ? (() => {
+              // Preview of the exercise that's coming up next — statement
+              // taken VERBATIM from the following worked_example slide
+              // (never recomputed/summarized here; the real step-by-step
+              // resolution still only happens on that slide, as before).
+              const nextWorked = slides.slice(summaryIdx + 1).find((s) => s.type === 'worked_example') as BackendSlide | undefined;
+              const previewStatement = nextWorked?.statement;
+              return (
+                // Transition into the worked_example screens — same icon-box
+                // card language as main_concept's insight, but a fixed brand
+                // color (not the rotating CONCEPT_PALETTES) since this isn't
+                // part of the concept sequence.
+                <View style={[sum.conceptTarjeta, { backgroundColor: CONCEPT_PALETTES[0].bg, borderColor: CONCEPT_PALETTES[0].border }]}>
+                  <View style={[sum.conceptIconBox, { backgroundColor: BRAND }]}>
+                    <Text style={sum.conceptIconEmoji}>{slide?.emoji || '✏️'}</Text>
                   </View>
-                )}
-              </View>
-            ) : slide?.type === 'worked_example' ? (
+                  <Text style={[sum.conceptKicker, { color: CONCEPT_PALETTES[0].accent }]}>REPASO</Text>
+                  <MathText style={sum.conceptTitle}>{(slide.title)}</MathText>
+                  {previewStatement ? (
+                    // Same dark card language as the next slide's own
+                    // sum.weProblemBox — the preview and the real thing read
+                    // as one continuous idea instead of two unrelated cards.
+                    <View style={sum.weProblemBox}>
+                      <Text style={sum.weProblemLabel}>EL EJERCICIO QUE VEREMOS</Text>
+                      <MathText style={sum.weProblemText}>{previewStatement}</MathText>
+                    </View>
+                  ) : !!slide.definition && (
+                    // No worked_example slide found ahead (edge case) — falls
+                    // back to the exact previous behavior, unchanged.
+                    <View style={sum.conceptCard}>
+                      <MathText style={sum.conceptCardText}>{(slide.definition)}</MathText>
+                    </View>
+                  )}
+                </View>
+              );
+            })() : slide?.type === 'worked_example' ? (
               // Statement/answer are copied verbatim from the source material
               // (never computed) — steps are omitted when the model's
               // derivation failed safety validation upstream, same rule as
