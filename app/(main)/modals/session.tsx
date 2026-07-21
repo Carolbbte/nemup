@@ -2808,24 +2808,70 @@ export default function SessionPlayerScreen() {
                 </ScrollView>
               );
               })()
-            ) : slide?.type === 'worked_example_intro' ? (
-              // Transition into the worked_example screens — same icon-box
-              // card language as main_concept's insight, but a fixed brand
-              // color (not the rotating CONCEPT_PALETTES) since this isn't
-              // part of the concept sequence.
-              <View style={[sum.conceptTarjeta, { backgroundColor: CONCEPT_PALETTES[0].bg, borderColor: CONCEPT_PALETTES[0].border }]}>
-                <View style={[sum.conceptIconBox, { backgroundColor: BRAND }]}>
-                  <Text style={sum.conceptIconEmoji}>{slide?.emoji || '✏️'}</Text>
-                </View>
-                <Text style={[sum.conceptKicker, { color: CONCEPT_PALETTES[0].accent }]}>REPASO</Text>
-                <MathText style={sum.conceptTitle}>{(slide.title)}</MathText>
-                {!!slide.definition && (
-                  <View style={sum.conceptCard}>
-                    <MathText style={sum.conceptCardText}>{(slide.definition)}</MathText>
+            ) : slide?.type === 'worked_example_intro' ? (() => {
+              // Preview of the exercise that's coming up next — statement
+              // taken VERBATIM from the following worked_example slide
+              // (never recomputed here; the real step-by-step resolution
+              // still only happens on that slide, as before).
+              const nextWorked = slides.slice(summaryIdx + 1).find((s) => s.type === 'worked_example') as BackendSlide | undefined;
+              const stmt = nextWorked?.statement?.trim();
+              const exercisePrompt = stmt ? (stmt.includes('=') ? stmt : `${stmt} = ?`) : null;
+              return (
+                <View>
+                  <View style={sum.weiHeaderRow}>
+                    <View style={{ paddingRight: 112 }}>
+                      <View style={sum.weiPill}>
+                        <Text style={sum.weiPillText}>✏️  REPASO</Text>
+                      </View>
+                      <MathText style={sum.weiTitle}>{(slide.title)}</MathText>
+                      <View style={sum.weiUnderline} />
+                      <Text style={sum.weiSubtitle}>Aprenderás paso a paso cómo resolver este ejercicio.</Text>
+                    </View>
+                    <Image source={require('@/assets/images/conLapiz.png')} style={sum.weiMascot} resizeMode="contain" />
                   </View>
-                )}
-              </View>
-            ) : slide?.type === 'worked_example' ? (
+                  {exercisePrompt ? (
+                    <View style={sum.weiExerciseCard}>
+                      <View style={sum.weiExerciseTop}>
+                        <Text style={sum.weiExerciseLabel}>EJERCICIO A RESOLVER</Text>
+                        <View style={sum.weiBadge}>
+                          <Text style={sum.weiBadgeText}>x²</Text>
+                        </View>
+                      </View>
+                      <Text style={sum.weiInstruction}>Resuelve la siguiente expresión:</Text>
+                      <View style={sum.weiExprBox}>
+                        <MathText style={sum.weiExpr}>{exercisePrompt}</MathText>
+                      </View>
+                    </View>
+                  ) : !!slide.definition && (
+                    // No worked_example slide found ahead (edge case) — falls
+                    // back to the exact previous behavior, unchanged.
+                    <View style={sum.conceptCard}>
+                      <MathText style={sum.conceptCardText}>{(slide.definition)}</MathText>
+                    </View>
+                  )}
+                  <View style={sum.weiLearnCard}>
+                    <View style={sum.weiLearnIcon}>
+                      <Text style={sum.weiIconEmoji}>💡</Text>
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={sum.weiLearnTitle}>¿Qué aprenderás?</Text>
+                      <Text style={sum.weiLearnText}>Verás el procedimiento completo, paso a paso, para llegar al resultado.</Text>
+                    </View>
+                  </View>
+                  {!SM && (
+                    <View style={sum.weiCheerCard}>
+                      <View style={sum.weiCheerIcon}>
+                        <Text style={sum.weiIconEmoji}>🎯</Text>
+                      </View>
+                      <View style={{ flex: 1 }}>
+                        <Text style={sum.weiCheerTitle}>¡Tú puedes!</Text>
+                        <Text style={sum.weiCheerText}>Sigue cada paso y domina el ejercicio.</Text>
+                      </View>
+                    </View>
+                  )}
+                </View>
+              );
+            })() : slide?.type === 'worked_example' ? (
               // Statement/answer are copied verbatim from the source material
               // (never computed) — steps are omitted when the model's
               // derivation failed safety validation upstream, same rule as
@@ -5361,6 +5407,39 @@ const sum = StyleSheet.create(withMisionFont({
   conceptCard:      { marginTop: SM ? 14 : 16, backgroundColor: 'rgba(22,119,242,0.07)', borderRadius: 14, padding: SM ? 12 : 14, borderWidth: 1, borderColor: 'rgba(22,119,242,0.22)' },
   conceptCardLabel: { fontSize: 10, fontWeight: '800', color: BRAND, letterSpacing: 0.8, marginBottom: 6, textTransform: 'uppercase' },
   conceptCardText:  { fontSize: SM ? 16 : 18, fontWeight: '600', color: semantic.textPrimary, lineHeight: SM ? 24 : 28 },
+
+  // ── worked_example_intro (REPASO) — mockup redesign ─────────────────────
+  // Fits without a ScrollView on purpose (see the branch's own comment on
+  // dropping weiCheerCard under SM instead of scrolling).
+  weiHeaderRow:   { position: 'relative', overflow: 'visible', marginBottom: 16, minHeight: 118 },
+  weiPill:        { alignSelf: 'flex-start', backgroundColor: palette.azul, borderRadius: 20, paddingVertical: 6, paddingHorizontal: 12, marginBottom: 10 },
+  weiPillText:    { fontSize: 12, fontWeight: '800', color: palette.blanco, letterSpacing: 0.5 },
+  weiTitle:       { fontSize: SM ? 26 : 30, fontWeight: '800', color: semantic.textPrimary, lineHeight: SM ? 30 : 34 },
+  weiUnderline:   { width: 130, height: 6, borderRadius: 3, backgroundColor: palette.amarilloXP, marginTop: 4, marginBottom: 10 },
+  weiSubtitle:    { fontSize: 14, color: semantic.textSecondary, lineHeight: 20 },
+  weiMascot:      { position: 'absolute', right: -10, top: -6, width: 140, height: 140 },
+
+  weiExerciseCard:  { backgroundColor: 'rgba(22,119,242,0.06)', borderWidth: 1, borderColor: 'rgba(22,119,242,0.20)', borderRadius: 18, padding: SM ? 14 : 18, marginBottom: 12 },
+  weiExerciseTop:   { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 },
+  weiExerciseLabel: { fontSize: 12, fontWeight: '800', color: palette.azul, letterSpacing: 0.8 },
+  weiBadge:         { width: 34, height: 34, borderRadius: 10, backgroundColor: palette.azulClaro, alignItems: 'center', justifyContent: 'center' },
+  weiBadgeText:     { fontSize: 15, fontWeight: '800', color: palette.azul },
+  weiInstruction:   { fontSize: 14, color: semantic.textPrimary, marginBottom: 12 },
+  weiExprBox:       { backgroundColor: palette.blanco, borderRadius: 14, borderWidth: 1, borderColor: palette.bordeClaro, paddingVertical: SM ? 16 : 22, paddingHorizontal: 12, alignItems: 'center' },
+  weiExpr:          { fontSize: SM ? 22 : 26, fontWeight: '700', color: semantic.textPrimary, textAlign: 'center' },
+
+  weiLearnCard:   { flexDirection: 'row', gap: 12, backgroundColor: 'rgba(22,119,242,0.06)', borderRadius: 16, padding: 14, marginBottom: 12 },
+  weiLearnIcon:   { width: 40, height: 40, borderRadius: 12, backgroundColor: palette.azul, alignItems: 'center', justifyContent: 'center' },
+  weiLearnTitle:  { fontSize: 14, fontWeight: '800', color: palette.azul, marginBottom: 3 },
+  weiLearnText:   { fontSize: 13, color: semantic.textPrimary, lineHeight: 19 },
+
+  weiCheerCard:   { flexDirection: 'row', gap: 12, backgroundColor: 'rgba(50,215,75,0.10)', borderRadius: 16, padding: 14 },
+  weiCheerIcon:   { width: 40, height: 40, borderRadius: 12, backgroundColor: palette.verdeXP, alignItems: 'center', justifyContent: 'center' },
+  weiCheerTitle:  { fontSize: 14, fontWeight: '800', color: palette.verde, marginBottom: 3 },
+  weiCheerText:   { fontSize: 13, color: semantic.textPrimary, lineHeight: 19 },
+
+  weiIconEmoji:   { fontSize: 18 },
+
   insightList:      { gap: SM ? 10 : 12, marginTop: 4 },
   insightRow:       { flexDirection: 'row' as const, alignItems: 'flex-start' as const, gap: 10 },
   insightRowMain:   { marginBottom: 4 },
