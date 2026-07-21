@@ -24,10 +24,6 @@ export interface DesafioPair {
   id: string;
   left: string;
   right: string;
-  /** Emoji representing the concept (left side) — optional, backend-generated. Falls back to the concept's own first letter when absent. */
-  leftIcon?: string;
-  /** Emoji representing the example (right side) — DIFFERENT from leftIcon on purpose (the right column is shuffled; matching emojis on both sides would give the answer away). Falls back to the example's own first letter when absent. */
-  rightIcon?: string;
 }
 
 export interface DesafioClassifyItem {

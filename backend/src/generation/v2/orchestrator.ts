@@ -94,20 +94,6 @@ export async function generateSessionV2(
   const classification = classifyContent(transcription);
   const wordCount = transcription.split(/\s+/).filter(Boolean).length;
 
-  // match_pairs ("Relaciona cada concepto con su ejemplo") fits CONCEPTUAL/
-  // MEMORIZATION material well (term↔definition, concept↔example) but is a
-  // forced, poorly-legible pairing on PROCEDURAL/math content (procedure
-  // name ↔ algebraic expression) — that material is already covered by
-  // worked-example/fill_blank/quiz slides, so match_pairs is skipped there
-  // instead of degrading it. MIXED content follows whichever score
-  // dominates.
-  const s = classification.scores;
-  const allowMatchPairs =
-    classification.type === 'CONCEPTUAL' ||
-    classification.type === 'MEMORIZATION' ||
-    (classification.type === 'MIXED' && s.conceptual >= s.procedural);
-  console.log('[match_pairs gate] type=%s allow=%s', classification.type, allowMatchPairs);
-
   const generation: GenerationResult = {
     subject: ko.subject || config.subject || 'Tema del material',
     topic: ko.topic || config.topic || 'Resumen del material',
@@ -116,7 +102,7 @@ export async function generateSessionV2(
     summary: {
       id: randomUUID(),
       title: ko.topic || 'Resumen del material',
-      slides: buildSummarySlides(ko, distractors, workedExampleResults, exercises, appConfig.mission_arc_v2, appConfig.mission_shorten, allowMatchPairs),
+      slides: buildSummarySlides(ko, distractors, workedExampleResults, exercises, appConfig.mission_arc_v2, appConfig.mission_shorten),
       sourceQuotes: [],
     },
     groundingScore: 0, // placeholder — replaced below with the real validateGrounding() result
@@ -138,7 +124,7 @@ export async function generateSessionV2(
   // `desafio` is not part of the typed `GeneratedSession` interface today —
   // this mirrors the exact same runtime shape the legacy path already
   // produces in routes/sessions.ts (`(session as any).desafio = ...`).
-  (session as any).desafio = buildDesafio(ko, distractors, workedExampleResults, allowMatchPairs);
+  (session as any).desafio = buildDesafio(ko, distractors, workedExampleResults);
 
   return session;
 }

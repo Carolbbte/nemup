@@ -63,13 +63,6 @@ import { ClassifyContent, FillBlankContent, MatchPairsContent } from './desafio'
 
 const { width: SCREEN_W, height: SCREEN_H } = Dimensions.get('window');
 const SM    = SCREEN_H < 740;
-// Explicit, equal width for both match_pairs columns (Misión). Derived from
-// screen width minus the horizontal padding this slide sits inside
-// (slideArea 20 + MatchPairsContent's c.root 20 = 40 each side = 80), minus
-// the connector column (26) and the pairRow's two 14px gaps (28), split in
-// two. Passed to MatchPairsContent so both cards are EXACTLY equal regardless
-// of text length (flex proved unreliable for this).
-const MP_CARD_W = Math.floor((SCREEN_W - 80 - 26 - 28) / 2);
 const BG    = palette.crema;
 const BRAND = palette.azul;
 const NEON  = palette.azul;
@@ -168,7 +161,7 @@ type IllustrationType = 'educational' | 'diagram' | 'concept' | 'timeline' | 'ma
 // `classifyPrompt`/`classifyCategories`/`classifyItems` — classify only,
 // same shape Desafío's DesafioSlide already uses. The answer is an object
 // mapping each item's id to the assigned category.
-type BackendSlide = { type: SummarySlideType; emoji: string; title: string; definition: string; example: string; visualHint?: string; illustrationType?: IllustrationType; connector?: string | null; question?: string | null; options?: string[] | null; correctAnswer?: string | null; wrongAnswerHints?: Record<string, string> | null; hint?: string; hook?: string | null; keyPhrase?: string | null; formalDefinition?: string; tip?: string; blankSentence?: string; blankChoices?: { letter: string; text: string }[]; blankAnswer?: string; blankExplanation?: string; pairs?: { id: string; left: string; right: string; leftIcon?: string; rightIcon?: string }[]; pairsPrompt?: string; classifyPrompt?: string; classifyCategories?: string[]; classifyItems?: { id: string; text: string; category: string }[]; requeued?: boolean; requeuedFrom?: string | null; statement?: string; answer?: string; steps?: string[]; message?: string; sub?: string };
+type BackendSlide = { type: SummarySlideType; emoji: string; title: string; definition: string; example: string; visualHint?: string; illustrationType?: IllustrationType; connector?: string | null; question?: string | null; options?: string[] | null; correctAnswer?: string | null; wrongAnswerHints?: Record<string, string> | null; hint?: string; hook?: string | null; keyPhrase?: string | null; formalDefinition?: string; tip?: string; blankSentence?: string; blankChoices?: { letter: string; text: string }[]; blankAnswer?: string; blankExplanation?: string; pairs?: { id: string; left: string; right: string }[]; pairsPrompt?: string; classifyPrompt?: string; classifyCategories?: string[]; classifyItems?: { id: string; text: string; category: string }[]; requeued?: boolean; requeuedFrom?: string | null; statement?: string; answer?: string; steps?: string[]; message?: string; sub?: string };
 type LegacySection = { heading: string; content: string; keyPoints: string[] };
 type Session = {
   id?: string; userId?: string;
@@ -419,50 +412,6 @@ function PillBar({ filled, total, color }: { filled: number; total: number; colo
         <View key={i} style={{ flex: 1, height: 6, borderRadius: 3,
           backgroundColor: i < active ? color : 'rgba(0,0,0,0.08)' }} />
       ))}
-    </View>
-  );
-}
-
-// ── Mode header — back/close icons with an inline single-mode progress
-// bar between them (replaces the old two-row "3-segment bar, then icons"
-// layout for Misión/Quiz/Tarjetas' own active screens). Accepts either a
-// plain 0-1 progress number (Misión, not animated — matches its previous
-// non-animated calc) or a Reanimated fillAnimatedStyle (Quiz/Tarjetas reuse
-// their own existing progressFillStyle/progressSV, untouched).
-function ModeHeaderBar({
-  onBack, onClose, progress, fillAnimatedStyle, color, label, extra,
-}: {
-  onBack: () => void;
-  onClose: () => void;
-  progress?: number;
-  fillAnimatedStyle?: object;
-  color: string;
-  label?: string;
-  extra?: React.ReactNode;
-}) {
-  return (
-    <View>
-      <View style={g.topBar}>
-        <Pressable onPress={onBack} style={g.iconBtn} hitSlop={10}>
-          <ChevronLeft size={18} color={semantic.textPrimary} strokeWidth={2.5} />
-        </Pressable>
-        <View style={sum.mhTrack}>
-          {fillAnimatedStyle ? (
-            <Animated.View style={[sum.mhFill, { backgroundColor: color }, fillAnimatedStyle]} />
-          ) : (
-            <View style={[sum.mhFill, { backgroundColor: color, width: `${Math.round((progress ?? 0) * 100)}%` }]} />
-          )}
-        </View>
-        <Pressable onPress={onClose} style={g.iconBtn} hitSlop={10}>
-          <X size={16} color={semantic.textPrimary} strokeWidth={2.5} />
-        </Pressable>
-      </View>
-      {!!label && (
-        <View style={sum.mhLabelRow}>
-          <Text style={sum.mhLabelText}>{label}</Text>
-          {extra}
-        </View>
-      )}
     </View>
   );
 }
@@ -1972,7 +1921,7 @@ export default function SessionPlayerScreen() {
     (_quizTotal     > 0 ? _quizDone     / _quizTotal     : 0) / 3 +
     (_tarjetasTotal > 0 ? _tarjetasDone / _tarjetasTotal : 0) / 3;
   const unifiedModeLabel =
-    phase === 'summary'    ? `Desafío · ${summaryIdx + 1}/${missionSlides.length}` :
+    phase === 'summary'    ? `Misión · ${summaryIdx + 1}/${missionSlides.length}` :
     phase === 'quiz'       ? `Quiz · ${quizIdx + 1}/${questions.length}` :
     phase === 'flashcards' ? `Tarjetas · ${cardIdx + 1}/${flashcards.length}` :
     undefined;
@@ -2545,22 +2494,45 @@ export default function SessionPlayerScreen() {
       <View style={{ flex: 1, backgroundColor: BG }}>
         <StatusBar barStyle="dark-content" backgroundColor={BG} />
         <SafeAreaView style={{ flex: 1 }} edges={['top']}>
-          {/* Header — single green bar inline between the icons, showing
-              only this Misión's own slide progress (not the 3-mode global
-              one UnifiedProgressBar used to show here). */}
-          <ModeHeaderBar
-            onBack={() => summaryIdx > 0 ? goPrev() : setPhase('mode-select')}
-            onClose={() => setPhase('mode-select')}
-            progress={summaryIdx / Math.max(slides.length - 1, 1)}
-            color={palette.verdeXP}
-            label={unifiedModeLabel}
-            extra={missionStreak >= 2 ? (
-              <Animated.View style={[sum.streakPill, streakPillStyle]}>
-                <Text style={sum.streakPillEmoji}>🔥</Text>
-                <Text style={sum.streakPillText}>{missionStreak}</Text>
-              </Animated.View>
-            ) : null}
-          />
+          {/* Story bar / unified bar */}
+          {UNIFIED_PROGRESS_BAR ? (
+            <UnifiedProgressBar
+              progress={globalPct}
+              currentMode="mision"
+              modeLabel={unifiedModeLabel}
+            />
+          ) : (
+            <View style={sum.storyBar}>
+              <View style={sum.progressTrack}>
+                <View style={[sum.progressFill, { width: `${Math.round((summaryIdx / Math.max(slides.length - 1, 1)) * 100)}%` }]} />
+              </View>
+              <Text style={sum.slideCounter}>{summaryIdx + 1}/{slides.length}</Text>
+            </View>
+          )}
+
+          {/* Header */}
+          <View style={g.topBar}>
+            <Pressable
+              onPress={() => summaryIdx > 0 ? goPrev() : setPhase('mode-select')}
+              style={g.iconBtn} hitSlop={10}
+            >
+              <ChevronLeft size={18} color={semantic.textPrimary} strokeWidth={2.5} />
+            </Pressable>
+            {/* Progress already shown by UnifiedProgressBar above — this center slot
+                is the game zone: streak now, lives once that mechanic is defined. */}
+            <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
+              {missionStreak >= 2 ? (
+                <Animated.View style={[sum.streakPill, streakPillStyle]}>
+                  <Text style={sum.streakPillEmoji}>🔥</Text>
+                  <Text style={sum.streakPillText}>{missionStreak}</Text>
+                </Animated.View>
+              ) : null}
+              {/* TODO: vidas cuando se defina la mecánica */}
+            </View>
+            <Pressable onPress={() => setPhase('mode-select')} style={g.iconBtn} hitSlop={10}>
+              <X size={16} color={semantic.textPrimary} strokeWidth={2.5} />
+            </Pressable>
+          </View>
 
           {/* Slide — no scroll, swipe gesture */}
           <Animated.View
@@ -3150,25 +3122,24 @@ export default function SessionPlayerScreen() {
                       // already rendered its own bigger title above.
                       promptText=""
                       showHeader={false}
-                      // Concept names (left) are short (1–2 words). With the
-                      // chip now full-width (chipStacked alignItems:'stretch'),
-                      // normal 2-line word wrap fits them cleanly; NOT using
-                      // adjustsFontSizeToFit here — on Android it mis-measures
-                      // multiline width and breaks words mid-word ("Evoluci/ón").
+                      // Misión's own concept names run longer than
+                      // Desafío's, which at the defaults (16px, 3 lines)
+                      // broke mid-word. leftChipAdjustsFontSizeToFit (tried
+                      // first) is a known-bad combo with multiline text on
+                      // Android — breaks mid-word AND jumps layout — so this
+                      // sticks to plain wrap-by-word: bigger font than
+                      // Desafío's own default, 3 lines of headroom (the icon
+                      // circle now sits above the text, not beside it,
+                      // freeing up the full chip width for the label).
                       leftChipTextStyle={{ fontSize: 15, lineHeight: 19, fontWeight: '800' }}
-                      leftChipNumberOfLines={2}
+                      leftChipNumberOfLines={3}
                       // Row background/border are fully owned by rowColors/
                       // rowBgColors below now — passing chipBackgroundColor
                       // here would be dead weight (accentColor/accentBgColor
                       // always win once set) and the border tint stays only
                       // the per-row accent color, not a fixed blue.
                       targetBorderColor={palette.bordeClaro}
-                      targetTextStyle={{ fontSize: 15, lineHeight: 19, fontWeight: '800', color: palette.charcoal }}
-                      // 3 (not 4) lines — most examples are short (2-4
-                      // words); adjustsFontSizeToFit + minimumFontScale is
-                      // still the safety valve for the rare longer one,
-                      // without reserving height every row doesn't need.
-                      targetTextNumberOfLines={3}
+                      targetTextStyle={{ fontWeight: '800', color: palette.charcoal }}
                       // Cycling per-row accent (left card border/icon-circle
                       // + connector's left port) — decorative "connect from
                       // here" affordance only, never a hint about the
@@ -3178,17 +3149,13 @@ export default function SessionPlayerScreen() {
                       // comment on why that composed as a dirty grey).
                       rowColors={MATCH_ROW_COLORS}
                       rowBgColors={MATCH_ROW_BG_COLORS}
-                      // Every card (both columns, every row) gets the SAME
-                      // fixed height instead of growing with its own text —
-                      // pairRow's alignItems:'stretch' only equalized height
-                      // within a row, not across rows. Shrunk from 150 to
-                      // 120 (with matching smaller paddingVertical/gap
-                      // overrides inside MatchChipLeft/target) plus a
-                      // tighter rowGap below, so all 3 rows fit on screen
-                      // without needing to scroll.
-                      uniformCardHeight={120}
-                      cardWidth={MP_CARD_W}
-                      rowGap={10}
+                      // The Misión wants the full example, not a clamped
+                      // preview — 'none' clears mp.target's baked-in
+                      // maxHeight: 120 (Desafío's own default) so the card
+                      // grows to fit the whole (unclamped) text instead of
+                      // cutting it off. No numberOfLines passed either, so
+                      // targetText renders with no line limit.
+                      targetMaxHeight="none"
                       // Misión's slide has no real conceptIndex (Desafío's
                       // own shuffle source), so a real seed is required here
                       // to get an actual shuffle instead of a no-op one —
@@ -4674,18 +4641,36 @@ export default function SessionPlayerScreen() {
         </Animated.View>
 
         <SafeAreaView style={{ flex: 1 }} edges={['top']}>
-          {/* Header — single pink bar inline between the icons, showing only
-              this quiz's own question progress (not the 3-mode global one
-              UnifiedProgressBar used to show here). Reuses the exact same
-              progressFillStyle/progressSV the old per-mode fallback already
-              animated — no new progress logic. */}
-          <ModeHeaderBar
-            onBack={() => setPhase('mode-select')}
-            onClose={() => setPhase('mode-select')}
-            fillAnimatedStyle={progressFillStyle}
-            color={palette.rosaQuiz}
-            label={unifiedModeLabel}
-          />
+          {/* Header — matches mission / flashcards pattern */}
+          <View style={g.topBar}>
+            <Pressable onPress={() => setPhase('mode-select')} style={g.iconBtn} hitSlop={10}>
+              <ChevronLeft size={18} color={semantic.textPrimary} strokeWidth={2.5} />
+            </Pressable>
+            <View style={{ flex: 1, alignItems: 'center' }}>
+              <Text style={g.screenTitle}>🧠 Quiz</Text>
+              {!UNIFIED_PROGRESS_BAR && (
+                <Text style={sum.slideCounter}>{quizIdx + 1} / {questions.length}</Text>
+              )}
+            </View>
+            <Pressable onPress={() => setPhase('mode-select')} style={g.iconBtn} hitSlop={10}>
+              <X size={16} color={semantic.textPrimary} strokeWidth={2.5} />
+            </Pressable>
+          </View>
+
+          {/* Progress bar — unified or per-mode */}
+          {UNIFIED_PROGRESS_BAR ? (
+            <UnifiedProgressBar
+              progress={globalPct}
+              currentMode="quiz"
+              modeLabel={unifiedModeLabel}
+            />
+          ) : (
+            <View style={{ paddingHorizontal: 14, marginBottom: 4 }}>
+              <View style={qz.progressTrack}>
+                <Animated.View style={[qz.progressFill, progressFillStyle]} />
+              </View>
+            </View>
+          )}
 
           <ScrollView contentContainerStyle={[qz.scroll, { paddingBottom: 8 }]} showsVerticalScrollIndicator={false}>
             {/* Question card + options wrapped in TikTok transition (FASE 8) */}
@@ -4939,18 +4924,35 @@ export default function SessionPlayerScreen() {
       <View style={{ flex: 1, backgroundColor: BG }}>
         <StatusBar barStyle="dark-content" backgroundColor={BG} />
         <SafeAreaView style={{ flex: 1 }} edges={['top']}>
-          {/* Header — single teal bar inline between the icons, showing only
-              this flashcards mode's own card progress (not the 3-mode
-              global one UnifiedProgressBar used to show here). Reuses the
-              exact same progressFillStyle/progressSV the old per-mode
-              fallback already animated — no new progress logic. */}
-          <ModeHeaderBar
-            onBack={() => setPhase('mode-select')}
-            onClose={() => setPhase('mode-select')}
-            fillAnimatedStyle={progressFillStyle}
-            color={palette.tealTarjetas}
-            label={unifiedModeLabel}
-          />
+          <View style={g.topBar}>
+            <Pressable onPress={() => setPhase('mode-select')} style={g.iconBtn} hitSlop={10}>
+              <ChevronLeft size={18} color={semantic.textPrimary} strokeWidth={2.5} />
+            </Pressable>
+            <View style={{ flex: 1, alignItems: 'center' }}>
+              <Text style={g.screenTitle}>🗂️ Tarjetas</Text>
+              {!UNIFIED_PROGRESS_BAR && (
+                <Text style={sum.slideCounter}>{cardIdx + 1} / {flashcards.length}</Text>
+              )}
+            </View>
+            <Pressable onPress={() => setPhase('mode-select')} style={g.iconBtn} hitSlop={10}>
+              <X size={16} color={semantic.textPrimary} strokeWidth={2.5} />
+            </Pressable>
+          </View>
+
+          {/* Progress bar — unified or per-mode */}
+          {UNIFIED_PROGRESS_BAR ? (
+            <UnifiedProgressBar
+              progress={globalPct}
+              currentMode="tarjetas"
+              modeLabel={unifiedModeLabel}
+            />
+          ) : (
+            <View style={{ paddingHorizontal: 14, marginBottom: 4 }}>
+              <View style={qz.progressTrack}>
+                <Animated.View style={[qz.progressFill, progressFillStyle]} />
+              </View>
+            </View>
+          )}
 
           {/* Card takes all remaining space */}
           <FlipCard
@@ -5236,6 +5238,11 @@ const mds = StyleSheet.create(withMisionFont({
 
 // ── Summary ────────────────────────────────────────────────────────
 const sum = StyleSheet.create(withMisionFont({
+  // Story progress bar — thick single bar
+  storyBar:     { flexDirection: 'row', paddingHorizontal: 20, paddingVertical: 8, alignItems: 'center', gap: 10 },
+  progressTrack:{ flex: 1, height: 8, borderRadius: 4, backgroundColor: palette.bordeClaro, overflow: 'hidden' },
+  progressFill: { height: '100%', borderRadius: 4, backgroundColor: BRAND },
+  slideCounter: { fontSize: 12, color: semantic.textSecondary, fontWeight: '700', minWidth: 40, textAlign: 'right' },
   progressBarOuter: { width: 72, height: 3, borderRadius: 2, backgroundColor: 'rgba(0,0,0,0.07)', overflow: 'hidden', marginTop: 3 },
   progressBarFill:  { height: '100%', borderRadius: 2, backgroundColor: BRAND },
   slideArea:    { flex: 1, paddingHorizontal: 20, paddingTop: SM ? 24 : 36, justifyContent: 'flex-start' },
@@ -5578,10 +5585,8 @@ const sum = StyleSheet.create(withMisionFont({
   mpMascotBubble: {
     backgroundColor: palette.blanco, borderRadius: 14, borderWidth: 1,
     borderColor: palette.bordeClaro, paddingVertical: 8, paddingHorizontal: 11,
-    // Compact bubble: sits on the left ~2/3, doesn't stretch edge-to-edge, so
-    // the (now larger) mascot has room on the right — matches the mockup.
-    alignSelf: 'flex-start' as const, maxWidth: '66%' as const,
-    paddingRight: 12, position: 'relative' as const,
+    // Room for the mascot so its own image never covers the bubble's text.
+    paddingRight: 66, position: 'relative' as const,
   },
   mpMascotBubbleTail: {
     position: 'absolute' as const, right: -5, top: 16, width: 10, height: 10,
@@ -5589,12 +5594,11 @@ const sum = StyleSheet.create(withMisionFont({
   },
   mpMascotBubbleText: { fontSize: 13, color: palette.charcoal, lineHeight: 17 },
   mpMascotBubbleHighlight: { color: palette.tealTarjetas, fontWeight: '800' as const },
-  // Large + absolutely positioned (same ~0.68 aspect as tuPuedes2.png).
-  // Because it's absolute, growing it does NOT push the header taller; the
-  // negative top + right bleed let it overlap the top-right corner of the
-  // first card below, matching the reference mockup. pointerEvents="none" on
-  // the <Image> keeps its rectangle from blocking taps on the overlapped card.
-  mpMascotImg: { position: 'absolute' as const, right: -6, top: -72, width: 124, height: 182 },
+  // Smaller than the previous pass (92×135 → 76×112, same ~0.68 aspect as
+  // tuPuedes2.png) AND absolutely positioned — negative top intentionally
+  // pulls it up past the row's own top edge to overlap the corner instead
+  // of pushing the header taller.
+  mpMascotImg: { position: 'absolute' as const, right: 0, top: -22, width: 76, height: 112 },
   mpHintBox: { flexDirection: 'row' as const, backgroundColor: palette.azulClaro, borderRadius: 14, padding: 12, marginTop: 16 },
   mpHintText: { flex: 1, fontSize: 13, color: palette.charcoal, lineHeight: 18, fontWeight: '600' as const },
 
@@ -5693,18 +5697,6 @@ const sum = StyleSheet.create(withMisionFont({
   streakPill:      { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: 'rgba(255,144,0,0.12)', borderWidth: 1, borderColor: 'rgba(255,144,0,0.3)', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 100 },
   streakPillEmoji: { fontSize: 14 },
   streakPillText:  { fontSize: 14, fontWeight: '800', color: paletteExtras.naranjaOscuro },
-
-  // ModeHeaderBar — single-mode progress bar inline between the back/close
-  // icons (Misión/Quiz/Tarjetas' own active screens). Track is a fixed
-  // neutral; fill color is passed per-mode (verdeXP/rosaQuiz/tealTarjetas).
-  mhTrack:     { flex: 1, height: 8, borderRadius: 4, backgroundColor: palette.bordeClaro, overflow: 'hidden' as const, marginHorizontal: 10 },
-  mhFill:      { height: 8, borderRadius: 4 },
-  // Negative marginTop compensates for g.topBar's own height being driven
-  // by the 36px icon buttons, not the 8px bar — alignItems:'center' leaves
-  // empty slack below the bar inside that taller row before this label
-  // even starts, which read as "too far from the bar" without this pull-up.
-  mhLabelRow:  { flexDirection: 'row' as const, alignItems: 'center' as const, justifyContent: 'center' as const, gap: 8, marginTop: -10, marginBottom: 4 },
-  mhLabelText: { fontSize: 12, fontWeight: '700' as const, color: palette.grisMedio },
 
   // Mission feedback bar (Duolingo-style bottom panel)
   mFeedbackBar:  { paddingHorizontal: 20, paddingTop: SM ? 16 : 20, gap: 12 },
@@ -5844,6 +5836,10 @@ const qz = StyleSheet.create(withMisionFont({
   // Lives dots — displayed inside streak chip
   heartDot:       { width: 7, height: 7, borderRadius: 3.5, backgroundColor: 'rgba(0,0,0,0.12)' },
   heartDotActive: { backgroundColor: paletteExtras.rosaFuerte },
+
+  // Animated progress bar (replaces PillBar)
+  progressTrack: { flex: 1, height: 8, borderRadius: 4, backgroundColor: 'rgba(0,0,0,0.09)', overflow: 'hidden' },
+  progressFill:  { height: '100%', borderRadius: 4, backgroundColor: BRAND },
 
   // Kept for style compatibility (no longer rendered)
   livesRow:  { flexDirection: 'row', gap: 4, paddingHorizontal: 16, marginBottom: 2 },

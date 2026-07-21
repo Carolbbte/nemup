@@ -269,42 +269,16 @@ describe('buildSummarySlides — worked examples in Misión', () => {
     expect(workedSlide?.steps).toBeUndefined();
   });
 
-  it('inserts one worked_example slide per result, in order, when all validated', () => {
-    const slides = buildSummarySlides(ko, distractors, [
-      { statement: 'a', answer: '1', steps: ['paso a1'] },
-      { statement: 'b', answer: '2', steps: ['paso b1'] },
-    ]);
-
-    const workedSlides = slides.filter((s) => s.type === 'worked_example');
-    expect(workedSlides).toHaveLength(2);
-    expect(workedSlides[0].statement).toBe('a');
-    expect(workedSlides[1].statement).toBe('b');
-  });
-
-  // Display-level safety net (selectWorkedExamplesForDisplay) — never stack
-  // 2+ "sin pasos" screens in a row when none of them validated a real path.
-  it('caps to a single degraded slide when NONE of the results validated steps', () => {
+  it('inserts one worked_example slide per result, in order', () => {
     const slides = buildSummarySlides(ko, distractors, [
       { statement: 'a', answer: '1', steps: null },
       { statement: 'b', answer: '2', steps: null },
     ]);
 
     const workedSlides = slides.filter((s) => s.type === 'worked_example');
-    expect(workedSlides).toHaveLength(1);
+    expect(workedSlides).toHaveLength(2);
     expect(workedSlides[0].statement).toBe('a');
-  });
-
-  // Same safety net — when SOME validated and some didn't, show only the
-  // validated ones instead of mixing a real walkthrough with an empty one.
-  it('shows only the validated results when some (not all) failed validation', () => {
-    const slides = buildSummarySlides(ko, distractors, [
-      { statement: 'a', answer: '1', steps: null },
-      { statement: 'b', answer: '2', steps: ['paso b1'] },
-    ]);
-
-    const workedSlides = slides.filter((s) => s.type === 'worked_example');
-    expect(workedSlides).toHaveLength(1);
-    expect(workedSlides[0].statement).toBe('b');
+    expect(workedSlides[1].statement).toBe('b');
   });
 });
 

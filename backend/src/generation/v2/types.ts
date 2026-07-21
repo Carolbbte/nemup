@@ -47,24 +47,8 @@ export interface KnowledgeConcept {
    * A single thematic emoji representing THIS concept's subject (e.g. 🧬 for
    * "Evolución", 🦴 for "Registro fósil") — never a generic one shared across
    * every concept (💡/✅/📚). Null when no clear thematic emoji applies.
-   * Reused as match_pairs' left-column icon (see assemble.ts's
-   * buildMisionMatchPairs) as well as the main_concept slide's own emoji.
    */
   emoji: string | null;
-  /**
-   * A single emoji representing `exampleShort` specifically (the concrete
-   * example, not the concept itself) — MUST differ from `emoji` (e.g. 🧬 for
-   * the concept "Evolución" but 🐦 for its example "Pico del pinzón de
-   * Darwin"). Used only as match_pairs' right-column icon: the right column
-   * is shuffled, so a matching emoji on both sides would give the correct
-   * pair away before the student reads the text. Null when no clear,
-   * distinct-from-`emoji` example emoji applies. Optional (unlike the other
-   * extraction fields) so existing code/fixtures built before this field
-   * existed don't need updating — the AI-extraction schema always sets it
-   * (see schemas.ts's `required`), this laxer TS type is only for callers
-   * constructing a KnowledgeConcept by hand.
-   */
-  exampleEmoji?: string | null;
   /**
    * A short (2-5 word) fragment to highlight in color on the concept card —
    * the single most important idea in `simpleExplanation`. MUST be a LITERAL

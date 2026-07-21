@@ -197,11 +197,7 @@ export function buildFillBlank(concept: KnowledgeConcept): string {
 
 export interface MatchPairsResult {
   prompt: string;
-  // leftIcon/rightIcon are only ever populated by buildMisionMatchPairs
-  // below — buildMatchPairs (Desafío) never sets them, so its pairs stay
-  // undefined here and the frontend falls back to its existing
-  // first-letter icon, unchanged.
-  pairs: Array<{ left: string; right: string; leftIcon?: string; rightIcon?: string }>;
+  pairs: Array<{ left: string; right: string }>;
 }
 
 /**
@@ -391,20 +387,6 @@ function buildMultipleChoiceSlideFor(
 }
 
 /**
- * Presentation-only safety net on top of procedural.ts's own validation gate
- * — never re-validates or alters any WorkedExampleResult itself. If at least
- * one worked example validated real steps, show ONLY those (dropping the
- * degraded "statement → answer, no path" ones instead of mixing a real
- * walkthrough with an empty-looking screen). If NONE validated, cap it to a
- * single degraded slide rather than stacking 2+ "RESUELVE ESTO → RESULTADO"
- * screens in a row, each offering no derivation.
- */
-function selectWorkedExamplesForDisplay(results: WorkedExampleResult[]): WorkedExampleResult[] {
-  const withSteps = results.filter((r) => !!r.steps?.length);
-  return withSteps.length > 0 ? withSteps : results.slice(0, 1);
-}
-
-/**
  * Builds one 'worked_example' slide per worked example — its own slide type
  * (not a reuse of 'insight'), so the frontend can render `statement`/`steps`/
  * `answer` as an actual step-by-step resolution instead of two mini cards
@@ -448,11 +430,6 @@ export function buildDesafio(
   ko: KnowledgeObject,
   distractors: Record<string, DistractorSet>,
   workedExampleResults: WorkedExampleResult[] = [],
-  // Default true so every existing caller/test is byte-identical to before
-  // this parameter existed. orchestrator.ts passes the real pedagogical-
-  // classifier-derived value — see its own comment on allowMatchPairs for
-  // why PROCEDURAL/math content skips match_pairs entirely.
-  allowMatchPairs: boolean = true,
 ): DesafioSession {
   const N = ko.concepts.length;
   if (N === 0) {
@@ -463,9 +440,8 @@ export function buildDesafio(
   const matchPairsInsertAfter = Math.ceil(N / 2) - 1;
   const classifyInsertAfter = Math.max(N - 2, matchPairsInsertAfter + 1);
   const workedExampleInsertAfter = Math.floor((N - 1) / 3);
-  const matchPairs = allowMatchPairs ? buildMatchPairs(ko) : null;
+  const matchPairs = buildMatchPairs(ko);
   const classify = buildClassify(ko);
-  const displayedWorkedExamples = selectWorkedExamplesForDisplay(workedExampleResults);
 
   const slides: DesafioSlide[] = [];
 
@@ -488,7 +464,7 @@ export function buildDesafio(
     if (reinforcement) slides.push(reinforcement);
 
     if (workedExampleInsertAfter === i) {
-      displayedWorkedExamples.forEach((result) => slides.push(buildWorkedExampleSlide(result, i)));
+      workedExampleResults.forEach((result) => slides.push(buildWorkedExampleSlide(result, i)));
     }
 
     if (matchPairs && matchPairsInsertAfter === i) {
@@ -764,15 +740,7 @@ function reinforcementCallbackVariant(
 function buildMisionMatchPairs(concepts: KnowledgeConcept[]): MatchPairsResult | null {
   const pairs = concepts
     .filter((c) => !!c.exampleShort && c.exampleShort.trim().length > 0)
-    .map((c) => {
-      const leftIcon = c.emoji?.trim() || undefined;
-      const rightIconRaw = c.exampleEmoji?.trim() || undefined;
-      // Never the same emoji on both sides — the right column is shuffled,
-      // so a matching emoji would give away the correct pair before the
-      // student reads the text.
-      const rightIcon = rightIconRaw && rightIconRaw !== leftIcon ? rightIconRaw : undefined;
-      return { left: c.name.trim(), right: c.exampleShort!.trim(), leftIcon, rightIcon };
-    })
+    .map((c) => ({ left: c.name.trim(), right: c.exampleShort!.trim() }))
     .filter((p) => p.left.length > 0 && p.right.length > 0)
     // Same cap buildMatchPairs itself uses — MatchPairsContent/its color
     // palette and layout are sized for this, on both Desafío and Misión.
@@ -799,9 +767,6 @@ export function buildSummarySlides(
   // Fase 3 — Acortamiento de la misión. Same reasoning/wiring pattern as
   // missionArcV2 above (config.mission_shorten, default false).
   missionShorten: boolean = false,
-  // Default true so every existing caller/test is byte-identical to before
-  // this parameter existed — see buildDesafio's own allowMatchPairs comment.
-  allowMatchPairs: boolean = true,
 ): SummarySlide[] {
   if (ko.concepts.length === 0) return [];
 
@@ -872,7 +837,7 @@ export function buildSummarySlides(
   // pick) — needing >=3 concepts with a usable exampleShort still means
   // "first" and "last" are always different concepts, guaranteeing the two
   // intercalated formats never collide on the same slot.
-  const matchPairsResult = allowMatchPairs ? buildMisionMatchPairs(ko.concepts) : null;
+  const matchPairsResult = buildMisionMatchPairs(ko.concepts);
   const matchPairsConceptId = matchPairsResult ? ko.concepts[ko.concepts.length - 1].id : null;
 
   // Classify: same "at most once per session" treatment, using buildClassify
@@ -1030,7 +995,7 @@ export function buildSummarySlides(
         title: 'Relaciona los conceptos',
         definition: matchPairsResult.prompt,
         example: '',
-        pairs: matchPairsResult.pairs.map((p, idx) => ({ id: `pair-${idx}`, left: p.left, right: p.right, leftIcon: p.leftIcon, rightIcon: p.rightIcon })),
+        pairs: matchPairsResult.pairs.map((p, idx) => ({ id: `pair-${idx}`, left: p.left, right: p.right })),
         pairsPrompt: matchPairsResult.prompt,
       });
       maybeInsertMidpointBeat();
@@ -1119,10 +1084,8 @@ export function buildSummarySlides(
   // student's own attempt. `steps` may be absent per-item (procedural.ts's
   // B-mínima fallback when the model's derivation didn't validate) — the
   // slide is still included with just statement/answer, never fabricating
-  // a path, same as buildDesafio already does. See selectWorkedExamplesForDisplay's
-  // own comment for why this shows a filtered set, not workedExampleResults raw.
-  const displayedWorkedExamples = selectWorkedExamplesForDisplay(workedExampleResults);
-  if (displayedWorkedExamples.length > 0) {
+  // a path, same as buildDesafio already does.
+  if (workedExampleResults.length > 0) {
     // A dedicated type, NOT 'main_concept' — this is a transition screen, not
     // a real taught concept. Giving it 'main_concept' used to make it count
     // as one everywhere that type is treated as "a concept the student saw"
@@ -1136,7 +1099,7 @@ export function buildSummarySlides(
       definition: 'Estos son ejercicios resueltos paso a paso del material.',
       example: '',
     });
-    displayedWorkedExamples.forEach((result) => {
+    workedExampleResults.forEach((result) => {
       slides.push(buildWorkedExampleSummarySlide(result));
     });
   }
