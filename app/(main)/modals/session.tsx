@@ -2819,7 +2819,7 @@ export default function SessionPlayerScreen() {
               return (
                 <View>
                   <View style={sum.weiHeaderRow}>
-                    <View style={{ paddingRight: 112 }}>
+                    <View>
                       <View style={sum.weiPill}>
                         <Text style={sum.weiPillText}>✏️  REPASO</Text>
                       </View>
@@ -2827,19 +2827,21 @@ export default function SessionPlayerScreen() {
                       <View style={sum.weiUnderline} />
                       <Text style={sum.weiSubtitle}>Aprenderás paso a paso cómo resolver este ejercicio.</Text>
                     </View>
-                    <Image source={require('@/assets/images/conLapiz.png')} style={sum.weiMascot} resizeMode="contain" />
                   </View>
                   {exercisePrompt ? (
-                    <View style={sum.weiExerciseCard}>
-                      <View style={sum.weiExerciseTop}>
-                        <Text style={sum.weiExerciseLabel}>EJERCICIO A RESOLVER</Text>
-                        <View style={sum.weiBadge}>
-                          <Text style={sum.weiBadgeText}>x²</Text>
+                    <View style={sum.weiCardWrap}>
+                      <Image source={require('@/assets/images/conLapiz.png')} style={sum.weiMascot} resizeMode="contain" />
+                      <View style={sum.weiExerciseCard}>
+                        <View style={sum.weiExerciseTop}>
+                          <Text style={sum.weiExerciseLabel}>EJERCICIO A RESOLVER</Text>
+                          <View style={sum.weiBadge}>
+                            <Text style={sum.weiBadgeText}>x²</Text>
+                          </View>
                         </View>
-                      </View>
-                      <Text style={sum.weiInstruction}>Resuelve la siguiente expresión:</Text>
-                      <View style={sum.weiExprBox}>
-                        <MathText style={sum.weiExpr}>{exercisePrompt}</MathText>
+                        <Text style={sum.weiInstruction}>Resuelve la siguiente expresión:</Text>
+                        <View style={sum.weiExprBox}>
+                          <MathText style={sum.weiExpr}>{exercisePrompt}</MathText>
+                        </View>
                       </View>
                     </View>
                   ) : !!slide.definition && (
@@ -5411,13 +5413,24 @@ const sum = StyleSheet.create(withMisionFont({
   // ── worked_example_intro (REPASO) — mockup redesign ─────────────────────
   // Fits without a ScrollView on purpose (see the branch's own comment on
   // dropping weiCheerCard under SM instead of scrolling).
-  weiHeaderRow:   { position: 'relative', overflow: 'visible', marginBottom: 16, minHeight: 118 },
+  weiHeaderRow:   { position: 'relative', overflow: 'visible', marginBottom: 16 },
   weiPill:        { alignSelf: 'flex-start', backgroundColor: palette.azul, borderRadius: 20, paddingVertical: 6, paddingHorizontal: 12, marginBottom: 10 },
   weiPillText:    { fontSize: 12, fontWeight: '800', color: palette.blanco, letterSpacing: 0.5 },
   weiTitle:       { fontSize: SM ? 26 : 30, fontWeight: '800', color: semantic.textPrimary, lineHeight: SM ? 30 : 34 },
   weiUnderline:   { width: 130, height: 6, borderRadius: 3, backgroundColor: palette.amarilloXP, marginTop: 4, marginBottom: 10 },
   weiSubtitle:    { fontSize: 14, color: semantic.textSecondary, lineHeight: 20 },
-  weiMascot:      { position: 'absolute', right: -10, top: -6, width: 140, height: 140 },
+  // Wraps the exercise card so the mascot (its first child, painted below
+  // the card in JSX order but visually ON TOP thanks to weiMascot's own
+  // zIndex) can be positioned relative to the CARD itself instead of the
+  // screen top — deterministic regardless of how tall the header above ends
+  // up being. overflow:'visible' here (and on every ancestor up to the
+  // screen) is required or the card's own bounds would clip the mascot.
+  weiCardWrap:    { position: 'relative', overflow: 'visible', zIndex: 1 },
+  // bottom:'100%' rests the mascot's own bottom edge exactly on the card's
+  // top edge; the negative marginBottom pulls it down ~14px so it "steps
+  // onto" the card by that much instead of floating just above it — small
+  // enough to clear the label/badge row inside the card.
+  weiMascot:      { position: 'absolute', right: -6, bottom: '100%', marginBottom: -14, width: 168, height: 168, zIndex: 5 },
 
   weiExerciseCard:  { backgroundColor: 'rgba(22,119,242,0.06)', borderWidth: 1, borderColor: 'rgba(22,119,242,0.20)', borderRadius: 18, padding: SM ? 14 : 18, marginBottom: 12 },
   weiExerciseTop:   { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 },
