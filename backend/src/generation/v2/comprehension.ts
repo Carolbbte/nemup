@@ -124,8 +124,17 @@ INSTRUCCIONES:
    ✓ LITERAL (válido): sourceQuote="La mitocondria es la organela que produce energía celular mediante
      la respiración." (copiado exacto, carácter por carácter, del material).
 10. workedExamples: extrae los ejercicios del material que tengan A LA VEZ enunciado Y respuesta
-    ya escrita en el texto (ejercicios RESUELTOS, no propuestos). statement es literal, palabra por
-    palabra — mismo criterio que sourceQuote, nunca lo recalcules, completes ni corrijas.
+    ya escrita en el texto (ejercicios RESUELTOS, no propuestos).
+
+    statement: es SIEMPRE una expresión/operación matemática CONCRETA a resolver, en notación
+    matemática (ej. "(x + 6)(x + 4) − x²", "2m − 5n + 6m − m + 11n") — NUNCA una pregunta redactada
+    en palabras ("¿Qué expresión representa...?", "¿Cuál es el área...?"). Si el ejercicio ya viene
+    como una operación (sin pregunta envolvente), cópiala literal — mismo criterio que sourceQuote,
+    nunca la recalcules, completes ni corrijas. Si el ejercicio viene planteado como pregunta en
+    palabras pero su solución es una derivación algebraica, tradúcelo a la operación concreta que esa
+    derivación ejecuta, usando las expresiones que el propio material entrega (nunca inventes valores
+    nuevos) — la pregunta en palabras NUNCA es el statement, aunque sea el enunciado "oficial" del
+    ejercicio.
 
     La respuesta puede aparecer de MUCHAS formas — considéralas todas:
       • justo al lado o debajo del enunciado (ej. "3x + 2x = 5x")
@@ -144,10 +153,12 @@ INSTRUCCIONES:
 
     UN ejercicio = UN workedExample, incluso si el material lo resuelve en varias líneas encadenadas
     (ej.: expande un binomio → resuelve las operaciones → resta dos áreas → resultado final). NO crees
-    un workedExample por cada línea/paso intermedio de esa cadena — solo UNO, con statement = el
-    enunciado original del ejercicio y answer = el resultado final de TODA la cadena (la última
-    línea/valor, no los intermedios). Los pasos intermedios los vuelve a generar otra etapa a partir
-    del resultado final; no hace falta (ni conviene) fragmentarlos aquí.
+    un workedExample por cada línea/paso intermedio de esa cadena — solo UNO, con statement = la
+    operación concreta que esa cadena resuelve (construida con las expresiones que el material ya
+    da, ej. la primera operación real de la cadena, o la combinación de las expresiones involucradas
+    — nunca la pregunta en palabras que dio origen al ejercicio) y answer = el resultado final de TODA
+    la cadena (la última línea/valor, no los intermedios). Los pasos intermedios los vuelve a generar
+    otra etapa a partir de statement/answer; no hace falta (ni conviene) fragmentarlos aquí.
 
     Reglas:
     - Si un ejercicio solo tiene enunciado y NO hay respuesta escrita en ninguna parte del material,
@@ -157,16 +168,22 @@ INSTRUCCIONES:
 
     ✓ SÍ capturar (ejercicio simple): el material dice "Reduce: 2m − 5n + 6m − m + 11n" y más abajo
       "= 7m + 6n" → statement="2m − 5n + 6m − m + 11n", answer="7m + 6n" (ambos están en el texto).
-    ✓ SÍ capturar (cadena de varias líneas → UN SOLO workedExample con el resultado final limpio):
-      el material dice "Ar = (x + 6)(x + 4) cm² | Ac = x² cm² ← Escribe las áreas Ar y Ac." seguido de
-      "(x + 6)(x + 4) = x² + (6 + 4)x + 6 · 4 ← Desarrolla Ac..." seguido de "x² + (6 + 4)x + 6 · 4 =
-      x² + 10x + 24 ← Desarrolla las operaciones." seguido de "Ar - Ac = x² + 10x + 24 - x² = 10x + 24
-      ← Calcula la diferencia..." y termina con "Por lo tanto, la expresión que representa la
-      diferencia entre las áreas es (10x + 24) cm²."
-      → UN SOLO workedExample: statement="¿Qué expresión representa la diferencia entre las áreas Ar
-      del rectángulo EFGD y Ac del cuadrado ABCD?" (el enunciado original de la pregunta, no la primera
-      línea de la derivación), answer="10x + 24" (el resultado final limpio, sin "por lo tanto", sin
-      "la expresión que representa...es", sin la unidad "cm²" redundante, sin los pasos intermedios).
+    ✓ SÍ capturar (cadena de varias líneas → UN SOLO workedExample, statement = la OPERACIÓN concreta,
+      nunca la pregunta): el material dice "Ar = (x + 6)(x + 4) cm² | Ac = x² cm² ← Escribe las áreas
+      Ar y Ac." seguido de "(x + 6)(x + 4) = x² + (6 + 4)x + 6 · 4 ← Desarrolla Ac..." seguido de
+      "x² + (6 + 4)x + 6 · 4 = x² + 10x + 24 ← Desarrolla las operaciones." seguido de "Ar - Ac =
+      x² + 10x + 24 - x² = 10x + 24 ← Calcula la diferencia..." y termina con "Por lo tanto, la
+      expresión que representa la diferencia entre las áreas es (10x + 24) cm²."
+      → UN SOLO workedExample: statement="(x + 6)(x + 4) − x²" (la operación concreta que la cadena
+      resuelve — área del rectángulo menos área del cuadrado, con las expresiones que el material ya
+      da), answer="10x + 24" (el resultado final limpio, sin "por lo tanto", sin "la expresión que
+      representa...es", sin la unidad "cm²" redundante, sin los pasos intermedios). También válido,
+      si se prefiere la primera sub-operación explícita de la cadena: statement="(x + 6)(x + 4)",
+      answer="x² + 10x + 24".
+      ✗ INVÁLIDO: statement="¿Qué expresión representa la diferencia entre las áreas Ar del rectángulo
+      EFGD y Ac del cuadrado ABCD?" — es la pregunta en palabras que dio origen al ejercicio, NUNCA el
+      statement; los pasos que se generan a partir de una pregunta salen genéricos ("identifica las
+      expresiones", "calcula el área") en vez de álgebra concreta (expandir, multiplicar, agrupar).
       ✗ INVÁLIDO: crear 2+ workedExamples, uno por cada línea de la cadena — es UN solo ejercicio.
       ✗ INVÁLIDO: answer="Por lo tanto, la expresión que representa la diferencia entre las áreas es
       (10x + 24) cm²." — es la respuesta correcta pero envuelta en prosa; usa solo "10x + 24".
