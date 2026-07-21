@@ -63,6 +63,13 @@ import { ClassifyContent, FillBlankContent, MatchPairsContent } from './desafio'
 
 const { width: SCREEN_W, height: SCREEN_H } = Dimensions.get('window');
 const SM    = SCREEN_H < 740;
+// Explicit, equal width for both match_pairs columns (Misión). Derived from
+// screen width minus the horizontal padding this slide sits inside
+// (slideArea 20 + MatchPairsContent's c.root 20 = 40 each side = 80), minus
+// the connector column (26) and the pairRow's two 14px gaps (28), split in
+// two. Passed to MatchPairsContent so both cards are EXACTLY equal regardless
+// of text length (flex proved unreliable for this).
+const MP_CARD_W = Math.floor((SCREEN_W - 80 - 26 - 28) / 2);
 const BG    = palette.crema;
 const BRAND = palette.azul;
 const NEON  = palette.azul;
@@ -1965,7 +1972,7 @@ export default function SessionPlayerScreen() {
     (_quizTotal     > 0 ? _quizDone     / _quizTotal     : 0) / 3 +
     (_tarjetasTotal > 0 ? _tarjetasDone / _tarjetasTotal : 0) / 3;
   const unifiedModeLabel =
-    phase === 'summary'    ? `Misión · ${summaryIdx + 1}/${missionSlides.length}` :
+    phase === 'summary'    ? `Desafío · ${summaryIdx + 1}/${missionSlides.length}` :
     phase === 'quiz'       ? `Quiz · ${quizIdx + 1}/${questions.length}` :
     phase === 'flashcards' ? `Tarjetas · ${cardIdx + 1}/${flashcards.length}` :
     undefined;
@@ -3180,6 +3187,7 @@ export default function SessionPlayerScreen() {
                       // tighter rowGap below, so all 3 rows fit on screen
                       // without needing to scroll.
                       uniformCardHeight={120}
+                      cardWidth={MP_CARD_W}
                       rowGap={10}
                       // Misión's slide has no real conceptIndex (Desafío's
                       // own shuffle source), so a real seed is required here

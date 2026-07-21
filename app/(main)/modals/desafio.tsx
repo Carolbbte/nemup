@@ -348,6 +348,11 @@ function MatchChipLeft({
   // much text each side has — a real `height`, not a clamp, so content
   // must fit inside it (paired with numberOfLines + adjustsFontSizeToFit).
   uniformCardHeight,
+  // Optional, default undefined → Desafío identical (width driven by flex).
+  // Misión passes an explicit px width (computed from screen width) so the
+  // left and right columns are EXACTLY equal regardless of content — flex
+  // proved unreliable here (two flex:1 siblings kept unequal widths).
+  cardWidth,
 }: {
   pair: DesafioPair;
   isSel: boolean;
@@ -364,6 +369,7 @@ function MatchChipLeft({
   icon?: string;
   iconIsEmoji?: boolean;
   uniformCardHeight?: number;
+  cardWidth?: number;
 }) {
   const scale  = useSharedValue(1);
   const shakeX = useSharedValue(0);
@@ -421,7 +427,11 @@ function MatchChipLeft({
       // sides to start from zero, so flexGrow:1 splits the row exactly in
       // half regardless of content — only applied when uniformCardHeight
       // is set (Misión), so Desafío's own sizing is untouched.
-      style={uniformCardHeight ? { flex: 1, flexBasis: 0, minWidth: 0 } : { flex: 1 }}
+      style={
+        cardWidth ? { width: cardWidth, flexGrow: 0, flexShrink: 0 }
+        : uniformCardHeight ? { flex: 1, flexBasis: 0, minWidth: 0 }
+        : { flex: 1 }
+      }
     >
       <Animated.View style={[
         mp.chip,
@@ -585,6 +595,10 @@ export function MatchPairsContent({
   // every row — ends up exactly this tall, instead of each row's height
   // being driven by whichever side has more text.
   uniformCardHeight,
+  // Optional, default undefined → columns sized by flex (Desafío identical).
+  // Misión passes an explicit px width so left & right columns are EXACTLY
+  // equal regardless of content (flex proved unreliable for this).
+  cardWidth,
   // Optional, default undefined → mp.rows keeps its own gap:18 (Desafío
   // identical). Misión passes a smaller value so 3 rows fit the screen
   // height without needing to scroll, once uniformCardHeight has already
@@ -614,6 +628,7 @@ export function MatchPairsContent({
   getPairIcon?: (text: string) => string;
   targetTextStyle?: object;
   uniformCardHeight?: number;
+  cardWidth?: number;
   rowGap?: number;
 }) {
   const revealed = !!answer;
@@ -706,6 +721,7 @@ export function MatchPairsContent({
                 icon={leftIconValue}
                 iconIsEmoji={leftIconIsReal}
                 uniformCardHeight={uniformCardHeight}
+                cardWidth={cardWidth}
               />
               {!!rowColors && (
                 // Decorative "connect from here" affordance — a static
@@ -736,6 +752,9 @@ export function MatchPairsContent({
                   // the full explanation of why flex:1 alone left this
                   // column's width still coupled to its own content length.
                   uniformCardHeight ? { height: uniformCardHeight, maxHeight: undefined, paddingVertical: 10, flexBasis: 0, minWidth: 0 } : null,
+                  // Explicit equal width (Misión) — overrides flex so this
+                  // column is EXACTLY as wide as the left chip.
+                  cardWidth ? { width: cardWidth, flexGrow: 0, flexShrink: 0, flexBasis: cardWidth, minWidth: 0 } : null,
                 ]}
                 onPress={() => handleRightPress(rightPair)}
                 disabled={revealed || !selectedLeft}
