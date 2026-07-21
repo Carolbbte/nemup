@@ -393,7 +393,22 @@ function MatchChipLeft({
   }));
 
   return (
-    <Pressable onPress={onPress} disabled={isLocked} style={{ flex: 1 }}>
+    <Pressable
+      onPress={onPress}
+      disabled={isLocked}
+      // React Native's `flex: 1` — unlike CSS's shorthand — only sets
+      // flexGrow; flexBasis defaults to 'auto' (content-driven), so two
+      // flex:1 siblings with DIFFERENT text keep their own unequal
+      // content-based starting sizes and only grow by the same absolute
+      // amount on top of that, never actually closing the gap (Misión's
+      // left card, with longer concept labels, stayed visibly narrower
+      // than the right one). flexBasis:0 forces both sides to start from
+      // zero so flexGrow:1 splits the row exactly in half regardless of
+      // content; minWidth:0 stops the content from re-imposing a floor on
+      // top of that. Scoped to `icon` (Misión-only — Desafío never passes
+      // it), so Desafío's own sizing is untouched.
+      style={icon ? { flex: 1, flexBasis: 0, minWidth: 0 } : { flex: 1 }}
+    >
       <Animated.View style={[
         mp.chip,
         { flex: 1 },
@@ -671,6 +686,11 @@ export function MatchPairsContent({
                   hasSelected && mp.targetActive,
                   !revealed && rightColor ? { borderColor: rightColor, borderWidth: 2 } : null,
                   rowColors ? mp.targetStacked : null,
+                  // Same flexBasis:0/minWidth:0 fix as the left chip's outer
+                  // Pressable — see that component's own comment for why
+                  // flex:1 alone left this column's width still coupled to
+                  // its own content length. Scoped to rowColors (Misión).
+                  rowColors ? { flexBasis: 0, minWidth: 0 } : null,
                 ]}
                 onPress={() => handleRightPress(rightPair)}
                 disabled={revealed || !selectedLeft}
