@@ -2928,16 +2928,6 @@ export default function SessionPlayerScreen() {
                 </View>
 
                 {!!slide.steps?.length && (
-                  <View style={sum.weHintBar}>
-                    <Text style={sum.weHintEmoji}>💡</Text>
-                    <Text style={sum.weHintText} numberOfLines={1}>Sigue los pasos en orden.</Text>
-                    <View style={sum.weHintBadge}>
-                      <Text style={sum.weHintBadgeText}>{slide.steps.length} pasos</Text>
-                    </View>
-                  </View>
-                )}
-
-                {!!slide.steps?.length && (
                   <View style={sum.weStepsContainer}>
                     {slide.steps.map((step, i) => (
                       <View key={i} style={sum.weStepCard}>
@@ -2960,11 +2950,6 @@ export default function SessionPlayerScreen() {
                   </View>
                 </View>
 
-                <View style={sum.weCheerBar}>
-                  <Text style={sum.weCheerEmoji}>🏆</Text>
-                  <Text style={sum.weCheerText}>¡Tú puedes! Cada paso te acerca a la respuesta correcta.</Text>
-                  <Star size={18} color={palette.verde} strokeWidth={2} />
-                </View>
               </ScrollView>
             ) : slide?.type === 'comprehension' ? (
               (() => {
@@ -5765,7 +5750,7 @@ const sum = StyleSheet.create(withMisionFont({
   // "Así se resuelve" (worked_example) — Duolingo-style redesign, distinct
   // from the shared step/example styles above so main_concept's own
   // procedural rendering is untouched.
-  weHeaderWrap:    { position: 'relative', overflow: 'visible', marginBottom: 12 },
+  weHeaderWrap:    { position: 'relative', overflow: 'visible', marginBottom: 4 },
   weHeaderRow:     { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 6 },
   weIconBox:       { width: 44, height: 44, borderRadius: 14, backgroundColor: BRAND, alignItems: 'center', justifyContent: 'center' },
   weKicker:        { fontSize: 12, fontWeight: '800', letterSpacing: 1, color: BRAND, marginBottom: 2 },
@@ -5779,7 +5764,7 @@ const sum = StyleSheet.create(withMisionFont({
   weMascotBubbleTail:     { position: 'absolute', right: -5, top: 16, width: 10, height: 10, backgroundColor: palette.blanco, borderColor: palette.bordeClaro, borderWidth: 1, transform: [{ rotate: '45deg' }] },
   weMascotBubbleText:     { fontSize: 13, color: palette.charcoal, lineHeight: 17 },
   weMascotBubbleHighlight:{ color: BRAND, fontWeight: '800' },
-  weMascotImg:            { position: 'absolute', right: -4, top: -12, width: 116, height: 150, zIndex: 5 },
+  weMascotImg:            { position: 'absolute', right: -4, top: -22, width: 102, height: 132, zIndex: 5 },
 
   // "TU DESAFÍO" — replaces the old dark weProblemBox look. Uses
   // paletteExtras.vehiculoVioleta (#8B5CF6) rather than any of the
@@ -5801,15 +5786,15 @@ const sum = StyleSheet.create(withMisionFont({
   weHintBadge:    { backgroundColor: palette.blanco, borderRadius: 10, paddingHorizontal: 9, paddingVertical: 4 },
   weHintBadgeText:{ fontSize: 11, fontWeight: '800', color: BRAND },
 
-  weStepsContainer:{ gap: 10, marginBottom: 16 },
+  weStepsContainer:{ gap: 7, marginBottom: 10 },
   // Each step its OWN white card (was a plain row) — no drag handle/icon on
   // purpose, this screen stays passive/read-only.
-  weStepCard:      { flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: palette.blanco, borderRadius: 14, borderWidth: 1, borderColor: palette.bordeClaro, padding: 12, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.04, shadowRadius: 3, elevation: 1 },
-  weStepCircle:    { width: 30, height: 30, borderRadius: 15, backgroundColor: BRAND, alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
-  weStepCircleText:{ fontSize: 14, fontWeight: '800', color: palette.blanco },
-  weStepContent:   { flex: 1, fontSize: SM ? 14 : 15, color: semantic.textPrimary, lineHeight: 20, fontWeight: '500' },
+  weStepCard:      { flexDirection: 'row', alignItems: 'flex-start', gap: 10, backgroundColor: palette.blanco, borderRadius: 13, borderWidth: 1, borderColor: palette.bordeClaro, paddingVertical: 9, paddingHorizontal: 11, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.04, shadowRadius: 3, elevation: 1 },
+  weStepCircle:    { width: 24, height: 24, borderRadius: 12, backgroundColor: BRAND, alignItems: 'center', justifyContent: 'center', flexShrink: 0, marginTop: 1 },
+  weStepCircleText:{ fontSize: 12, fontWeight: '800', color: palette.blanco },
+  weStepContent:   { flex: 1, fontSize: SM ? 12.5 : 13, color: semantic.textPrimary, lineHeight: SM ? 17 : 18, fontWeight: '500' },
 
-  weResultBox:     { flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: paletteExtras.verdeSuaveBg, borderRadius: 16, padding: SM ? 14 : 16, borderWidth: 1.5, borderColor: semantic.success, marginBottom: 14 },
+  weResultBox:     { flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: paletteExtras.verdeSuaveBg, borderRadius: 16, paddingVertical: SM ? 10 : 12, paddingHorizontal: SM ? 12 : 14, borderWidth: 1.5, borderColor: semantic.success, marginBottom: 12 },
   weResultCheck:   { width: 30, height: 30, borderRadius: 15, backgroundColor: semantic.success, alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
   weResultLabel:   { fontSize: 10, fontWeight: '800', color: paletteExtras.verdeTextoOscuro, letterSpacing: 0.8, marginBottom: 2 },
   weResultText:    { fontSize: SM ? 17 : 19, fontWeight: '800', color: paletteExtras.verdeTextoOscuro },
