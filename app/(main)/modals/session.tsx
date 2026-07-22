@@ -5469,10 +5469,12 @@ const sum = StyleSheet.create(withMisionFont({
   weiExprBox:       { backgroundColor: palette.blanco, borderRadius: 14, borderWidth: 1, borderColor: palette.bordeClaro, paddingVertical: SM ? 16 : 22, paddingHorizontal: 12, alignItems: 'center' },
   weiExpr:          { fontSize: SM ? 22 : 26, fontWeight: '700', color: semantic.textPrimary, textAlign: 'center' },
 
-  weiLearnCard:   { flexDirection: 'row', gap: 12, backgroundColor: 'rgba(22,119,242,0.06)', borderRadius: 16, padding: 14, marginBottom: 12 },
+  weiLearnCard:   { flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: 'rgba(22,119,242,0.06)', borderRadius: 16, padding: 14, marginBottom: 12 },
   weiLearnIcon:   { width: 40, height: 40, borderRadius: 12, backgroundColor: palette.azul, alignItems: 'center', justifyContent: 'center' },
   weiLearnTitle:  { fontSize: 14, fontWeight: '800', color: palette.azul, marginBottom: 3 },
   weiLearnText:   { fontSize: 13, color: semantic.textPrimary, lineHeight: 19 },
+  weiStepChip:     { backgroundColor: palette.blanco, borderWidth: 1, borderColor: 'rgba(22,119,242,0.25)', borderRadius: 10, paddingHorizontal: 9, paddingVertical: 5 },
+  weiStepChipText: { fontSize: 12, fontWeight: '800', color: palette.azul },
 
   weiCheerCard:   { flexDirection: 'row', gap: 12, backgroundColor: 'rgba(50,215,75,0.10)', borderRadius: 16, padding: 14 },
   weiCheerIcon:   { width: 40, height: 40, borderRadius: 12, backgroundColor: palette.verdeXP, alignItems: 'center', justifyContent: 'center' },

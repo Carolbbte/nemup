@@ -26,8 +26,11 @@ por definición. Tu única tarea es describir el camino lógico/algebraico que c
 en pasos cortos que un estudiante de enseñanza media pueda seguir. Si no puedes justificar el camino exacto,
 igual debes indicar en "resultShown" a qué resultado llegas tú siguiendo tu propio razonamiento — nunca copies
 la respuesta dada sin haber razonado el camino.
-Los pasos son TELEGRÁFICOS pero claros: una sola idea por paso, mostrando la operación concreta — el
-estudiante debe poder leer cada paso de un vistazo, no estudiarlo como un párrafo.
+Los pasos son cortos EN REDACCIÓN, pero uno por cada transformación matemática real — la brevedad es
+por paso, NUNCA a costa de fusionar operaciones distintas para tener menos pasos. El estudiante debe
+poder seguir CADA transformación (incluida la multiplicación término a término en una expansión), no
+solo ver el resultado final de saltarse varias a la vez — cada paso se lee de un vistazo, no como un
+párrafo, pero la cantidad de pasos la determina el ejercicio, no un tope artificial.
 NOTACIÓN MATEMÁTICA: escribe todo en texto plano, NUNCA en LaTeX. Prohibido usar backslash o comandos LaTeX
 (nada de \\frac, \\left, \\right, \\(...\\), \\[...\\], ni llaves {} para agrupar). Fracciones: "2/3", nunca
 "\\frac{2}{3}". Exponentes: "x^2" o "x²", nunca en llaves.`;
@@ -39,18 +42,29 @@ un ítem por ejercicio, sin omitir ninguno):
 ${examples.map((e, i) => `${i + 1}. Enunciado: "${e.statement}" — Respuesta correcta: "${e.answer}"`).join('\n')}
 
 INSTRUCCIONES:
-1. Para cada ejercicio, escribe entre 2 y 4 pasos que muestren el camino desde el enunciado hasta la
-   respuesta. Cada paso:
+1. Para cada ejercicio, escribe UN PASO POR CADA TRANSFORMACIÓN MATEMÁTICA DISTINTA que ocurre entre el
+   enunciado y la respuesta — la cantidad de pasos la determina el ejercicio (típicamente 4-6 para una
+   expansión de binomios con reducción), NUNCA un tope fijo. NO fusiones dos operaciones distintas en un
+   solo paso para tener menos pasos — eso le quita al estudiante ver el "cómo".
+   - En una expansión/distributiva, la MULTIPLICACIÓN TÉRMINO A TÉRMINO es su propio paso (mostrando la
+     operación explícita, ej. "x·x + x·4 + 6·x + 6·4"), separado del paso donde se escribe/simplifica ese
+     resultado.
+   Cada paso, individualmente, sigue siendo corto:
    - Máximo ~12 palabras — que quepa en 1 línea, nunca más de 2. Pensado para un estudiante de 14-18 años
      que no quiere leer texto largo: breve, pero no críptico.
-   - UNA sola idea. Si un paso tiene dos ideas, sepáralo en dos pasos o recórtalo a la idea principal.
+   - UNA sola idea/transformación. Si un paso mezcla dos operaciones distintas, sepáralo en dos pasos.
    - Muestra la OPERACIÓN concreta, no la describas en prosa larga.
    - Tono directo y simple: sin relleno ("como podemos ver", "es importante notar que…"), sin jerga
      innecesaria, pero sin sonar infantil.
-   ✓ BREVE (así): "Multiplica los binomios: x² + 4x + 6x + 24.", "Suma los semejantes: 4x + 6x = 10x.",
-     "Resta x²: se cancelan, queda 10x + 24."
-   ✗ LARGO (evitar): "Aplica la propiedad distributiva para multiplicar (x + 6)(x + 4): multiplica x por
-     x, x por 4, 6 por x y 6 por 4, obteniendo así la suma de los productos."
+   ✓ GRANULAR Y BREVE (5 pasos, cada uno corto — así):
+     1. "Reconoce que (x+6)(x+4) es un producto de binomios."
+     2. "Multiplica cada término: x·x + x·4 + 6·x + 6·4."
+     3. "Escríbelo: x² + 4x + 6x + 24."
+     4. "Suma los semejantes: 4x + 6x = 10x."
+     5. "Resta x²: se cancela, queda 10x + 24."
+   ✗ MUY COLAPSADO (evitar): "Multiplica los binomios: x² + 4x + 6x + 24." — fusiona la multiplicación
+     término a término con su resultado en un solo paso; se pierde el "cómo".
+   ✗ MUY LARGO (evitar): un párrafo por paso, aunque sea un solo paso por transformación.
 2. En "resultShown", escribe el resultado final tal como TÚ llegas siguiendo esos pasos, en la misma notación
    que usarías para responder el ejercicio — no copies la respuesta dada, razónala de verdad paso a paso.
 3. No agregues ejercicios nuevos ni cambies el enunciado o la respuesta dados.`;
@@ -86,9 +100,9 @@ function buildProceduralSchema(itemCount: number) {
             steps: {
               type: 'array',
               minItems: 2,
-              maxItems: 4,
+              maxItems: 6,
               items: { type: 'string' },
-              description: 'Very short steps (max ~12 words each, one idea per step) showing the concrete operation from statement to answer.',
+              description: 'One short step per real math transformation (max ~12 words each). Do NOT merge distinct operations to reduce the count — brevity is per step, not fewer steps.',
             },
             resultShown: {
               type: 'string',
