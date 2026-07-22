@@ -2930,7 +2930,7 @@ export default function SessionPlayerScreen() {
                 {!!slide.steps?.length && (
                   <View style={sum.weHintBar}>
                     <Text style={sum.weHintEmoji}>💡</Text>
-                    <Text style={sum.weHintText}>Estos son los pasos para llegar a la solución.</Text>
+                    <Text style={sum.weHintText} numberOfLines={1}>Sigue los pasos en orden.</Text>
                     <View style={sum.weHintBadge}>
                       <Text style={sum.weHintBadgeText}>{slide.steps.length} pasos</Text>
                     </View>
@@ -5787,12 +5787,12 @@ const sum = StyleSheet.create(withMisionFont({
   // app's purple→blue rebrand (see paletteExtras' own doc comment), which
   // would render this card the same hue as the hint bar/header above it
   // instead of the distinct lila accent the mockup calls for.
-  weChallengeCard:      { backgroundColor: 'rgba(139,92,246,0.06)', borderWidth: 1, borderColor: 'rgba(139,92,246,0.20)', borderRadius: 18, padding: SM ? 12 : 14, marginBottom: 12 },
-  weChallengeTop:       { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 },
+  weChallengeCard:      { backgroundColor: 'rgba(139,92,246,0.06)', borderWidth: 1, borderColor: 'rgba(139,92,246,0.20)', borderRadius: 18, paddingHorizontal: SM ? 12 : 14, paddingVertical: SM ? 8 : 10, marginBottom: 12 },
+  weChallengeTop:       { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 2 },
   weChallengeLabel:     { fontSize: 12, fontWeight: '800', color: paletteExtras.vehiculoVioleta, letterSpacing: 0.8 },
-  weChallengeBadge:     { width: 34, height: 34, borderRadius: 10, backgroundColor: 'rgba(139,92,246,0.14)', alignItems: 'center', justifyContent: 'center' },
-  weChallengeBadgeText: { fontSize: 15, fontWeight: '800', color: paletteExtras.vehiculoVioleta },
-  weChallengeText:      { fontSize: SM ? 19 : 22, fontWeight: '700', color: semantic.textPrimary, textAlign: 'center' },
+  weChallengeBadge:     { width: 30, height: 30, borderRadius: 9, backgroundColor: 'rgba(139,92,246,0.14)', alignItems: 'center', justifyContent: 'center' },
+  weChallengeBadgeText: { fontSize: 14, fontWeight: '800', color: paletteExtras.vehiculoVioleta },
+  weChallengeText:      { fontSize: SM ? 19 : 22, fontWeight: '700', color: semantic.textPrimary, textAlign: 'center', lineHeight: SM ? 25 : 28 },
 
   // Hint bar — "N pasos" badge.
   weHintBar:      { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: palette.azulClaro, borderRadius: 14, padding: 12, marginBottom: 14 },
