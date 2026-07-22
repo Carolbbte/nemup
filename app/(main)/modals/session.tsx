@@ -165,7 +165,7 @@ type IllustrationType = 'educational' | 'diagram' | 'concept' | 'timeline' | 'ma
 // `pairs`/`pairsPrompt` — match_pairs only, same shape Desafío's
 // DesafioSlide already uses for `pairs` — the answer is NOT a letter, it's
 // a Record<string,string> mapping each pair's left id to the right id the
-// student matched (see quizAnswers' type and renderChallengeFeedback).
+// student matched (see quizAnswers' type).
 // `classifyPrompt`/`classifyCategories`/`classifyItems` — classify only,
 // same shape Desafío's DesafioSlide already uses. The answer is an object
 // mapping each item's id to the assigned category.
@@ -1076,70 +1076,6 @@ function ClassifyBucketCard({
         {children}
       </Animated.View>
     </Pressable>
-  );
-}
-
-function renderChallengeFeedback(
-  slide: BackendSlide,
-  answered: string | Record<string, string> | undefined,
-  firstName: string,
-  seed: number,
-) {
-  if (!answered) return null;
-  const isObjectAnswer = typeof answered !== 'string';
-  const isCorrect = isObjectAnswer
-    ? (slide.pairs ?? []).every((p) => answered[p.id] === p.id + '_r')
-    : answered === slide.correctAnswer;
-
-  if (isCorrect) {
-    return (
-      <View style={sum.feedbackRow}>
-        <Image source={require('@/assets/images/metaAlcanzada.png')} style={sum.feedbackMascot} resizeMode="contain" />
-        <View style={[sum.feedbackBubble, sum.feedbackBubbleCorrect]}>
-          <View style={[sum.feedbackBubbleTail, sum.feedbackBubbleTailCorrect]} />
-          <Text style={sum.feedbackTitleCorrect}>{CORRECT_REINFORCEMENT[seed % CORRECT_REINFORCEMENT.length]}</Text>
-        </View>
-      </View>
-    );
-  }
-
-  // Object-shaped answer (match_pairs, and future classify) — no "chosen
-  // letter" to look up a distractor explanation for, so this stays a
-  // simple, honest nudge instead of fabricating one.
-  if (isObjectAnswer) {
-    return (
-      <View style={sum.feedbackRow}>
-        <Image source={require('@/assets/images/tuPuedes.png')} style={sum.feedbackMascot} resizeMode="contain" />
-        <View style={[sum.feedbackBubble, sum.feedbackBubbleWrong]}>
-          <View style={[sum.feedbackBubbleTail, sum.feedbackBubbleTailWrong]} />
-          <Text style={sum.feedbackTitleWrong}>{`¡Casi, ${firstName}!`}</Text>
-          <Text style={sum.feedbackText}>Revisa los que quedaron mal.</Text>
-        </View>
-      </View>
-    );
-  }
-
-  // fill_blank always shows the correct choice highlighted green among the
-  // options right above this bubble — repeating "la respuesta correcta es
-  // X" here is redundant. It also never has a real per-option
-  // wrongAnswerHints (its choices are sibling concept names, not AI
-  // distractors), so this would only ever be the Nivel 1 fallback anyway.
-  const wrongExplanation = slide.type === 'fill_blank' ? undefined : wrongAnswerFeedbackText(slide, answered);
-  return (
-    <View style={sum.feedbackRow}>
-      <Image source={require('@/assets/images/tuPuedes.png')} style={sum.feedbackMascot} resizeMode="contain" />
-      <View style={[sum.feedbackBubble, sum.feedbackBubbleWrong]}>
-        <View style={[sum.feedbackBubbleTail, sum.feedbackBubbleTailWrong]} />
-        <Text style={sum.feedbackTitleWrong}>{`¡Casi, ${firstName}!`}</Text>
-        {!!wrongExplanation && <MathText style={sum.feedbackText}>{wrongExplanation}</MathText>}
-        {!!slide.hint && (
-          <View style={sum.feedbackHintRow}>
-            <Text style={sum.feedbackHintLabel}>💡 Pista</Text>
-            <MathText style={sum.feedbackHintText}>{slide.hint}</MathText>
-          </View>
-        )}
-      </View>
-    </View>
   );
 }
 
@@ -3044,7 +2980,6 @@ export default function SessionPlayerScreen() {
                       ) : (
                         <Text style={sum.introDef}>Este contenido no tiene opciones disponibles — desliza para continuar.</Text>
                       )}
-                      {renderChallengeFeedback(slide as BackendSlide, answered, firstName, summaryIdx)}
                   </>
                 );
               })()
@@ -3093,7 +3028,6 @@ export default function SessionPlayerScreen() {
                       ) : (
                         <Text style={sum.introDef}>Este contenido no tiene opciones disponibles — desliza para continuar.</Text>
                       )}
-                      {renderChallengeFeedback(slide as BackendSlide, answered, firstName, summaryIdx)}
                   </>
                 );
               })()
@@ -3128,7 +3062,6 @@ export default function SessionPlayerScreen() {
                         if (!correct) insertCorrectiveSlide(slide as BackendSlide, letter);
                       }}
                     />
-                    {renderChallengeFeedback(slide as BackendSlide, answered, firstName, summaryIdx)}
                   </>
                 );
               })()
@@ -3794,7 +3727,6 @@ export default function SessionPlayerScreen() {
                       );
                     })}
                   </View>
-                  {renderChallengeFeedback(slide as BackendSlide, quizAnswers[summaryIdx], firstName, summaryIdx)}
               </>
             ) : slide?.type === 'decide' ? (
               <>
