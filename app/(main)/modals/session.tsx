@@ -2817,7 +2817,6 @@ export default function SessionPlayerScreen() {
               const nextWorked = slides.slice(summaryIdx + 1).find((s) => s.type === 'worked_example') as BackendSlide | undefined;
               const stmt = nextWorked?.statement?.trim();
               const exercisePrompt = stmt ? (stmt.includes('=') ? stmt : `${stmt} = ?`) : null;
-              const stepCount = nextWorked?.steps?.length ?? 0;
               return (
                 <View>
                   <View style={sum.weiHeaderRow}>
@@ -2827,7 +2826,7 @@ export default function SessionPlayerScreen() {
                       </View>
                       <MathText style={sum.weiTitle}>{(slide.title)}</MathText>
                       <View style={sum.weiUnderline} />
-                      <Text style={sum.weiSubtitle}>Te muestro cómo resolverlo, paso a paso.</Text>
+                      <Text style={sum.weiSubtitle}>Aprenderás paso a paso cómo resolver este ejercicio.</Text>
                     </View>
                   </View>
                   {exercisePrompt ? (
@@ -2872,14 +2871,20 @@ export default function SessionPlayerScreen() {
                     </View>
                     <View style={{ flex: 1 }}>
                       <Text style={sum.weiLearnTitle}>¿Qué aprenderás?</Text>
-                      <Text style={sum.weiLearnText}>El procedimiento completo para llegar al resultado.</Text>
+                      <Text style={sum.weiLearnText}>Verás el procedimiento completo, paso a paso, para llegar al resultado.</Text>
                     </View>
-                    {stepCount > 0 && (
-                      <View style={sum.weiStepChip}>
-                        <Text style={sum.weiStepChipText}>{stepCount} pasos</Text>
-                      </View>
-                    )}
                   </View>
+                  {SCREEN_H >= 640 && (
+                    <View style={sum.weiCheerCard}>
+                      <View style={sum.weiCheerIcon}>
+                        <Text style={sum.weiIconEmoji}>🎯</Text>
+                      </View>
+                      <View style={{ flex: 1 }}>
+                        <Text style={sum.weiCheerTitle}>¡Tú puedes!</Text>
+                        <Text style={sum.weiCheerText}>Sigue cada paso y domina el ejercicio.</Text>
+                      </View>
+                    </View>
+                  )}
                 </View>
               );
             })() : slide?.type === 'worked_example' ? (
@@ -2913,11 +2918,24 @@ export default function SessionPlayerScreen() {
                 </View>
 
                 <View style={sum.weChallengeCard}>
-                  <View style={sum.weChallengeBadge}>
-                    <Text style={sum.weChallengeBadgeText}>x²</Text>
+                  <View style={sum.weChallengeTop}>
+                    <Text style={sum.weChallengeLabel}>TU DESAFÍO</Text>
+                    <View style={sum.weChallengeBadge}>
+                      <Text style={sum.weChallengeBadgeText}>x²</Text>
+                    </View>
                   </View>
                   <MathText style={sum.weChallengeText}>{(slide.statement)}</MathText>
                 </View>
+
+                {!!slide.steps?.length && (
+                  <View style={sum.weHintBar}>
+                    <Text style={sum.weHintEmoji}>💡</Text>
+                    <Text style={sum.weHintText} numberOfLines={1}>Sigue los pasos en orden.</Text>
+                    <View style={sum.weHintBadge}>
+                      <Text style={sum.weHintBadgeText}>{slide.steps.length} pasos</Text>
+                    </View>
+                  </View>
+                )}
 
                 {!!slide.steps?.length && (
                   <View style={sum.weStepsContainer}>
@@ -2940,6 +2958,12 @@ export default function SessionPlayerScreen() {
                     <Text style={sum.weResultLabel}>{slide.steps?.length ? 'SE REDUCE A' : 'RESULTADO'}</Text>
                     <MathText style={sum.weResultText}>{(slide.answer)}</MathText>
                   </View>
+                </View>
+
+                <View style={sum.weCheerBar}>
+                  <Text style={sum.weCheerEmoji}>🏆</Text>
+                  <Text style={sum.weCheerText}>¡Tú puedes! Cada paso te acerca a la respuesta correcta.</Text>
+                  <Star size={18} color={palette.verde} strokeWidth={2} />
                 </View>
               </ScrollView>
             ) : slide?.type === 'comprehension' ? (
@@ -5469,12 +5493,10 @@ const sum = StyleSheet.create(withMisionFont({
   weiExprBox:       { backgroundColor: palette.blanco, borderRadius: 14, borderWidth: 1, borderColor: palette.bordeClaro, paddingVertical: SM ? 16 : 22, paddingHorizontal: 12, alignItems: 'center' },
   weiExpr:          { fontSize: SM ? 22 : 26, fontWeight: '700', color: semantic.textPrimary, textAlign: 'center' },
 
-  weiLearnCard:   { flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: 'rgba(22,119,242,0.06)', borderRadius: 16, padding: 14, marginBottom: 12 },
+  weiLearnCard:   { flexDirection: 'row', gap: 12, backgroundColor: 'rgba(22,119,242,0.06)', borderRadius: 16, padding: 14, marginBottom: 12 },
   weiLearnIcon:   { width: 40, height: 40, borderRadius: 12, backgroundColor: palette.azul, alignItems: 'center', justifyContent: 'center' },
   weiLearnTitle:  { fontSize: 14, fontWeight: '800', color: palette.azul, marginBottom: 3 },
   weiLearnText:   { fontSize: 13, color: semantic.textPrimary, lineHeight: 19 },
-  weiStepChip:     { backgroundColor: palette.blanco, borderWidth: 1, borderColor: 'rgba(22,119,242,0.25)', borderRadius: 10, paddingHorizontal: 9, paddingVertical: 5 },
-  weiStepChipText: { fontSize: 12, fontWeight: '800', color: palette.azul },
 
   weiCheerCard:   { flexDirection: 'row', gap: 12, backgroundColor: 'rgba(50,215,75,0.10)', borderRadius: 16, padding: 14 },
   weiCheerIcon:   { width: 40, height: 40, borderRadius: 12, backgroundColor: palette.verdeXP, alignItems: 'center', justifyContent: 'center' },
@@ -5757,7 +5779,7 @@ const sum = StyleSheet.create(withMisionFont({
   weMascotBubbleTail:     { position: 'absolute', right: -5, top: 16, width: 10, height: 10, backgroundColor: palette.blanco, borderColor: palette.bordeClaro, borderWidth: 1, transform: [{ rotate: '45deg' }] },
   weMascotBubbleText:     { fontSize: 13, color: palette.charcoal, lineHeight: 17 },
   weMascotBubbleHighlight:{ color: BRAND, fontWeight: '800' },
-  weMascotImg:            { position: 'absolute', right: -4, top: -22, width: 102, height: 132, zIndex: 5 },
+  weMascotImg:            { position: 'absolute', right: -4, top: -12, width: 116, height: 150, zIndex: 5 },
 
   // "TU DESAFÍO" — replaces the old dark weProblemBox look. Uses
   // paletteExtras.vehiculoVioleta (#8B5CF6) rather than any of the
@@ -5765,29 +5787,29 @@ const sum = StyleSheet.create(withMisionFont({
   // app's purple→blue rebrand (see paletteExtras' own doc comment), which
   // would render this card the same hue as the hint bar/header above it
   // instead of the distinct lila accent the mockup calls for.
-  weChallengeCard:      { backgroundColor: 'rgba(139,92,246,0.06)', borderWidth: 1, borderColor: 'rgba(139,92,246,0.20)', borderRadius: 18, paddingHorizontal: 14, paddingVertical: SM ? 12 : 14, marginBottom: 12, justifyContent: 'center' },
+  weChallengeCard:      { backgroundColor: 'rgba(139,92,246,0.06)', borderWidth: 1, borderColor: 'rgba(139,92,246,0.20)', borderRadius: 18, paddingHorizontal: SM ? 12 : 14, paddingVertical: SM ? 8 : 10, marginBottom: 12 },
   weChallengeTop:       { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 2 },
   weChallengeLabel:     { fontSize: 12, fontWeight: '800', color: paletteExtras.vehiculoVioleta, letterSpacing: 0.8 },
-  weChallengeBadge:     { position: 'absolute', top: 10, right: 12, zIndex: 2, width: 30, height: 30, borderRadius: 9, backgroundColor: 'rgba(139,92,246,0.14)', alignItems: 'center', justifyContent: 'center' },
+  weChallengeBadge:     { width: 30, height: 30, borderRadius: 9, backgroundColor: 'rgba(139,92,246,0.14)', alignItems: 'center', justifyContent: 'center' },
   weChallengeBadgeText: { fontSize: 14, fontWeight: '800', color: paletteExtras.vehiculoVioleta },
   weChallengeText:      { fontSize: SM ? 19 : 22, fontWeight: '700', color: semantic.textPrimary, textAlign: 'center', lineHeight: SM ? 25 : 28 },
 
   // Hint bar — "N pasos" badge.
-  weHintBar:      { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: palette.azulClaro, borderRadius: 14, paddingHorizontal: 12, paddingVertical: 8, marginBottom: 12 },
+  weHintBar:      { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: palette.azulClaro, borderRadius: 14, padding: 12, marginBottom: 14 },
   weHintEmoji:    { fontSize: 16 },
   weHintText:     { flex: 1, fontSize: 13, color: palette.charcoal, lineHeight: 18, fontWeight: '600' },
   weHintBadge:    { backgroundColor: palette.blanco, borderRadius: 10, paddingHorizontal: 9, paddingVertical: 4 },
   weHintBadgeText:{ fontSize: 11, fontWeight: '800', color: BRAND },
 
-  weStepsContainer:{ gap: 7, marginBottom: 10 },
+  weStepsContainer:{ gap: 10, marginBottom: 16 },
   // Each step its OWN white card (was a plain row) — no drag handle/icon on
   // purpose, this screen stays passive/read-only.
-  weStepCard:      { flexDirection: 'row', alignItems: 'flex-start', gap: 10, backgroundColor: palette.blanco, borderRadius: 13, borderWidth: 1, borderColor: palette.bordeClaro, paddingVertical: 9, paddingHorizontal: 11, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.04, shadowRadius: 3, elevation: 1 },
-  weStepCircle:    { width: 24, height: 24, borderRadius: 12, backgroundColor: BRAND, alignItems: 'center', justifyContent: 'center', flexShrink: 0, marginTop: 1 },
-  weStepCircleText:{ fontSize: 12, fontWeight: '800', color: palette.blanco },
-  weStepContent:   { flex: 1, fontSize: SM ? 12.5 : 13, color: semantic.textPrimary, lineHeight: SM ? 17 : 18, fontWeight: '500' },
+  weStepCard:      { flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: palette.blanco, borderRadius: 14, borderWidth: 1, borderColor: palette.bordeClaro, padding: 12, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.04, shadowRadius: 3, elevation: 1 },
+  weStepCircle:    { width: 30, height: 30, borderRadius: 15, backgroundColor: BRAND, alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
+  weStepCircleText:{ fontSize: 14, fontWeight: '800', color: palette.blanco },
+  weStepContent:   { flex: 1, fontSize: SM ? 14 : 15, color: semantic.textPrimary, lineHeight: 20, fontWeight: '500' },
 
-  weResultBox:     { flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: paletteExtras.verdeSuaveBg, borderRadius: 16, paddingVertical: SM ? 10 : 12, paddingHorizontal: SM ? 12 : 14, borderWidth: 1.5, borderColor: semantic.success, marginBottom: 12 },
+  weResultBox:     { flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: paletteExtras.verdeSuaveBg, borderRadius: 16, padding: SM ? 14 : 16, borderWidth: 1.5, borderColor: semantic.success, marginBottom: 14 },
   weResultCheck:   { width: 30, height: 30, borderRadius: 15, backgroundColor: semantic.success, alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
   weResultLabel:   { fontSize: 10, fontWeight: '800', color: paletteExtras.verdeTextoOscuro, letterSpacing: 0.8, marginBottom: 2 },
   weResultText:    { fontSize: SM ? 17 : 19, fontWeight: '800', color: paletteExtras.verdeTextoOscuro },
