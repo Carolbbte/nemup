@@ -4456,15 +4456,6 @@ export default function SessionPlayerScreen() {
               );
             }
             const MISSION_QUIZ_TYPES = new Set(['micro_challenge', 'reinforcement_challenge', 'comprehension', 'mini_quiz', 'final_challenge', 'decide']);
-            // Only these 4 slide types call renderChallengeFeedback (the
-            // mascot bubble right below the alternatives) for their wrong
-            // answer, and it always says "¡Casi, {firstName}!" — the bottom
-            // bar's title below mirrors that ONLY for these, so the two
-            // never show different wrong-answer copy at the same time.
-            // comprehension/mini_quiz/decide show no bubble at all;
-            // application/wow_fact show their own distinct quizFeedback
-            // panel — neither should suddenly say "¡Casi, X!" down here.
-            const CASI_FEEDBACK_TYPES = new Set(['micro_challenge', 'reinforcement_challenge', 'fill_blank', 'final_challenge']);
             // fill_blank's answer/choices live in blankAnswer/blankChoices,
             // not correctAnswer/options, so the check below misses it
             // entirely — it fell through to the always-enabled generic
@@ -4523,13 +4514,7 @@ export default function SessionPlayerScreen() {
                       <Text style={sum.mFbIconEmoji}>{(missionCorrect ? celebMsg?.emoji : errMsg?.emoji) || '🎯'}</Text>
                     </View>
                     <View style={{ flex: 1 }}>
-                      <Text style={sum.mFbTitle}>
-                        {missionCorrect
-                          ? (celebMsg?.text || '¡Correcto!')
-                          : CASI_FEEDBACK_TYPES.has(slide?.type ?? '')
-                            ? `¡Casi, ${firstName}!`
-                            : (errMsg?.text || 'Vas aprendiendo.')}
-                      </Text>
+                      <Text style={sum.mFbTitle}>{(missionCorrect ? celebMsg?.text : errMsg?.text) || (missionCorrect ? '¡Correcto!' : 'Vas aprendiendo.')}</Text>
                       <React.Fragment key={`explanation-${summaryIdx}-${missionCorrect ? 'ok' : 'err'}`}>
                       {!missionCorrect && !!wrongFeedback && (
                         <MathText style={sum.mFbExpl} numberOfLines={3}>{wrongFeedback}</MathText>
