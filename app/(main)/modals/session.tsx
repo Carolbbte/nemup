@@ -4,7 +4,7 @@ import ModeCompletionScreen from '@/components/ModeCompletionScreen';
 // to each; desafio.tsx's own handlers/logic are untouched.
 import { MathText, formatMath } from '@/app/utils/formatMath';
 import UnifiedProgressBar from '@/components/UnifiedProgressBar';
-import { ADAPTIVE_REQUEUE, CLASSIFY_BUCKETS_UI, DAILY_SESSION_LOGIC, FIXED_QUIZ_FEEDBACK, MAX_ATTEMPTS_PER_QUESTION, MODE_COMPLETION_REDESIGN, NEUTRAL_MISSION_COMPLETION, SHOW_DESAFIO_MODE, SHOW_GEMS, UNIFIED_PROGRESS_BAR, UNIFIED_QUIZ_COMPLETION } from '@/config/features';
+import { ADAPTIVE_REQUEUE, CLASSIFY_BUCKETS_UI, DAILY_SESSION_LOGIC, MODE_COMPLETION_REDESIGN, NEUTRAL_MISSION_COMPLETION, SHOW_DESAFIO_MODE, SHOW_GEMS, UNIFIED_PROGRESS_BAR, UNIFIED_QUIZ_COMPLETION } from '@/config/features';
 import type { DailyMode } from '@/contexts/DailySessionContext';
 import { useDailySession } from '@/contexts/DailySessionContext';
 import { useMissions } from '@/contexts/MissionsContext';
@@ -1312,7 +1312,6 @@ export default function SessionPlayerScreen() {
   // Quiz
   const [quizIdx, setQuizIdx]             = useState(0);
   const [quizStep, setQuizStep]           = useState<QuizStep>('answering');
-  const [currentAttempt, setCurrentAttempt] = useState(1);
   const [selected, setSelected]           = useState<string | null>(null);
   const [lives, setLives]                 = useState(MAX_LIVES);
   const [xpEarned, setXpEarned]           = useState(0);
@@ -1370,8 +1369,6 @@ export default function SessionPlayerScreen() {
   const wrongShakeSV  = useSharedValue(0);
   const mXpChipSV     = useSharedValue(1);
   const streakPillSV  = useSharedValue(1);
-  const feedbackY     = useSharedValue(14);
-  const feedbackOp    = useSharedValue(0);
   const optScale0     = useSharedValue(1);
   const optScale1     = useSharedValue(1);
   const optScale2     = useSharedValue(1);
@@ -1392,7 +1389,6 @@ export default function SessionPlayerScreen() {
   const wrongShakeStyle  = useAnimatedStyle(() => ({ transform: [{ translateX: wrongShakeSV.value }] }));
   const mXpChipStyle     = useAnimatedStyle(() => ({ transform: [{ scale: mXpChipSV.value }] }));
   const streakPillStyle  = useAnimatedStyle(() => ({ transform: [{ scale: streakPillSV.value }] }));
-  const feedbackStyle    = useAnimatedStyle(() => ({ opacity: feedbackOp.value, transform: [{ translateY: feedbackY.value }] }));
   const optAnimStyle0    = useAnimatedStyle(() => ({ transform: [{ scale: optScale0.value }] }));
   const optAnimStyle1    = useAnimatedStyle(() => ({ transform: [{ scale: optScale1.value }] }));
   const optAnimStyle2    = useAnimatedStyle(() => ({ transform: [{ scale: optScale2.value }] }));
@@ -1730,19 +1726,12 @@ export default function SessionPlayerScreen() {
     setQuizIdx(0); setSelected(null); setQuizStep('answering');
     setCorrectCount(0); setLives(MAX_LIVES); setXpEarned(0);
     setStreak(0); setMaxStreak(0); setQuizDone(false); setComboCount(0);
-    setCurrentAttempt(1);
     quizStartRef.current = Date.now();
   };
 
   const handleOption = (optId: string) => {
     if (quizStep !== 'answering') return;
     setSelected(optId);
-
-    // Feedback card slide-in (both cases)
-    feedbackY.value = 14;
-    feedbackOp.value = 0;
-    feedbackY.value = withSpring(0, { damping: 18, stiffness: 200 });
-    feedbackOp.value = withTiming(1, { duration: 200 });
 
     if (optId === question.correctOptionId) {
       const nextCorrect = correctCount + 1;
@@ -1852,7 +1841,6 @@ export default function SessionPlayerScreen() {
       setQuizIdx(next);
       setSelected(null);
       setQuizStep('answering');
-      setCurrentAttempt(1);
       setMotivText(newMotiv);
       correctGlowSV.value = 0;
       questionX.value  = SCREEN_W * 0.28;
@@ -1860,15 +1848,6 @@ export default function SessionPlayerScreen() {
       questionX.value  = withSpring(0, { damping: 22, stiffness: 220 });
       questionOp.value = withTiming(1, { duration: 220, easing: Easing.out(Easing.quad) });
     }, 190);
-  };
-
-  const handleRetry = () => {
-    setCurrentAttempt(a => a + 1);
-    setSelected(null);
-    setQuizStep('answering');
-    correctGlowSV.value = 0;
-    feedbackY.value  = 14;
-    feedbackOp.value = 0;
   };
 
   const handleCardNext = (response?: 'knew' | 'doubt' | 'unknown') => {
@@ -4666,8 +4645,20 @@ export default function SessionPlayerScreen() {
     }
 
     const isLastQuestion = quizIdx >= questions.length - 1;
-    const stateB = FIXED_QUIZ_FEEDBACK && quizStep === 'wrong' && currentAttempt < MAX_ATTEMPTS_PER_QUESTION;
-    const stateC = FIXED_QUIZ_FEEDBACK && quizStep === 'wrong' && !stateB;
+    // Feedback + CTA fused into one fixed bottom panel, same pattern/styles
+    // as Misión's sum.mFeedbackBar — no retry step here: a wrong answer is
+    // always final (the old FIXED_QUIZ_FEEDBACK state B is gone), matching
+    // Misión's own model of "reveal and move on" instead of retrying the
+    // same question.
+    const quizFbActive = quizStep !== 'answering';
+    const quizCorrect   = quizStep === 'correct';
+    // Reuses Misión's own title pools (MISSION_FB_OK/MISSION_FB_ERR) instead
+    // of a separate Quiz-only pool — same seeding technique Misión uses
+    // (>>> 0 before the modulo) to avoid the exact negative-index crash its
+    // own comment warns about.
+    const _qSeed  = (quizIdx * 2654435761) >>> 0;
+    const qCelebMsg = MISSION_FB_OK[_qSeed % MISSION_FB_OK.length];
+    const qErrMsg   = MISSION_FB_ERR[((_qSeed ^ 0xDEAD) >>> 0) % MISSION_FB_ERR.length];
 
     return (
       <View style={{ flex: 1, backgroundColor: BG }}>
@@ -4727,12 +4718,12 @@ export default function SessionPlayerScreen() {
                   const letter    = LETTERS[i] ?? String(i + 1);
                   const isCorrect = opt.id === question.correctOptionId;
                   const isWrong   = quizStep !== 'answering' && selected === opt.id && !isCorrect;
-                  const showBrand = FIXED_QUIZ_FEEDBACK
-                    ? quizStep === 'correct' || (stateC && isCorrect)
-                    : quizStep !== 'answering' && isCorrect;
-                  const dimmed = FIXED_QUIZ_FEEDBACK
-                    ? !stateB && quizStep !== 'answering' && !isCorrect && !isWrong
-                    : quizStep !== 'answering' && !isCorrect && !isWrong;
+                  // No more retry state to branch on (see quizFbActive's own
+                  // comment) — a wrong answer always reveals the correct
+                  // option immediately, same formula both old branches
+                  // converged to once state B (retry) stopped existing.
+                  const showBrand = quizStep !== 'answering' && isCorrect;
+                  const dimmed    = quizStep !== 'answering' && !isCorrect && !isWrong;
                   const baseAnim  = i < optAnimStyles.length ? optAnimStyles[i] : undefined;
                   return (
                     <Animated.View
@@ -4782,92 +4773,51 @@ export default function SessionPlayerScreen() {
               </View>
             </Animated.View>
 
-            {/* Feedback strip (original — active when FIXED_QUIZ_FEEDBACK = false) */}
-            {!FIXED_QUIZ_FEEDBACK && quizStep !== 'answering' && question?.explanation ? (
-              <Animated.View style={[qz.feedback, quizStep === 'correct' ? qz.feedbackOk : qz.feedbackFail, feedbackStyle]}>
-                <View style={qz.feedbackHeader}>
-                  <Text style={qz.feedbackTitle}>
-                    {quizStep === 'correct' ? '🎯 Correcto' : '💪 Casi'}
-                  </Text>
-                  {quizStep === 'correct' && (
-                    <View style={qz.feedbackXP}>
-                      <Text style={qz.feedbackXPText}>+{XP_PER_CORRECT} XP</Text>
-                    </View>
-                  )}
-                </View>
-                <MathText style={qz.feedbackText}>{(question.explanation)}</MathText>
-              </Animated.View>
-            ) : null}
-
-            {/* Feedback strip — fixed 3-state (A=correct, B=retry, C=wrong final) */}
-            {FIXED_QUIZ_FEEDBACK && quizStep !== 'answering' ? (
-              <Animated.View style={[qz.feedback, quizStep === 'correct' ? qz.feedbackOk : qz.feedbackFail, feedbackStyle]}>
-                <View style={qz.feedbackHeader}>
-                  <Text style={qz.feedbackTitle}>
-                    {quizStep === 'correct' ? '🎯 ¡Correcto!' : '💪 Casi'}
-                  </Text>
-                  {quizStep === 'correct' && (
-                    <View style={qz.feedbackXP}>
-                      <Text style={qz.feedbackXPText}>+{XP_PER_CORRECT} XP</Text>
-                    </View>
-                  )}
-                </View>
-                {/* State B: retry nudge — no explanation */}
-                {stateB && <Text style={qz.feedbackText}>Vuelve a intentarlo.</Text>}
-                {/* State A/C: show explanation */}
-                {!stateB && !!question?.explanation && (
-                  <MathText style={qz.feedbackText}>{(question.explanation)}</MathText>
-                )}
-                {/* State C: reveal correct answer */}
-                {stateC && (
-                  <Text style={[qz.feedbackText, { fontWeight: '700', marginTop: 2 }]}>
-                    {'La respuesta correcta era: '}
-                    {question.options.find(o => o.id === question.correctOptionId)?.text ?? ''}
-                  </Text>
-                )}
-              </Animated.View>
-            ) : null}
           </ScrollView>
 
-          {/* CTA — always BRAND/NEON, dynamic text (FASE 10) */}
-          <View style={[g.bottom, { paddingBottom: insets.bottom + 12 }]}>
-            {quizStep !== 'answering' ? (
-              !FIXED_QUIZ_FEEDBACK ? (
-                /* Original behavior — kept while FIXED_QUIZ_FEEDBACK = false */
-                <Pressable onPress={handleQuizNext} style={{ width: '100%' }}>
-                  <View style={[g.ctaBtn, { backgroundColor: BRAND }]}>
-                    <Text style={g.ctaText}>
-                      {isLastQuestion
-                        ? '🏆 Ver resultados'
-                        : quizStep === 'correct'
-                          ? '🚀 Continuar'
-                          : '🔁 Intentar otra vez'}
-                    </Text>
-                  </View>
-                </Pressable>
-              ) : stateB ? (
-                /* State B — retry same question */
-                <Pressable onPress={handleRetry} style={{ width: '100%' }}>
-                  <View style={[g.ctaBtn, { backgroundColor: BRAND }]}>
-                    <Text style={g.ctaText}>🔁 Intentar otra vez</Text>
-                  </View>
-                </Pressable>
-              ) : (
-                /* State A (correct) or C (wrong final) — advance */
-                <Pressable onPress={handleQuizNext} style={{ width: '100%' }}>
-                  <View style={[g.ctaBtn, { backgroundColor: BRAND }]}>
-                    <Text style={g.ctaText}>
-                      {isLastQuestion
-                        ? '🏆 Ver resultados'
-                        : quizStep === 'correct' ? '🚀 Continuar' : '➡️ Continuar'}
-                    </Text>
-                  </View>
-                </Pressable>
-              )
+          {/* Feedback + CTA fused into one fixed bottom panel — same
+              styles/pattern as Misión's sum.mFeedbackBar (title from the
+              same MISSION_FB_OK/MISSION_FB_ERR pools, explanation only on
+              wrong, XP chip only on correct, "Continuar" inside the panel).
+              No streak chip here (Quiz's own floating streak/combo badges
+              above stay untouched) and no pulse-in animation on the XP
+              chip (that's driven by Misión's own shared value, not wired
+              to Quiz's handleOption — a static chip keeps this scoped to
+              the panel merge, not a new animation). */}
+          <View style={quizFbActive
+            ? [sum.mFeedbackBar, quizCorrect ? sum.mFeedbackBarOk : sum.mFeedbackBarErr,
+               { paddingBottom: insets.bottom + 12, position: 'absolute', bottom: 0, left: 0, right: 0 }]
+            : [g.bottom, { paddingBottom: insets.bottom + 12 }]
+          }>
+            {quizFbActive ? (
+              <View key={quizCorrect ? `qfb-${quizIdx}-correct` : `qfb-${quizIdx}-incorrect`} style={sum.mFbContent}>
+                <View style={[sum.mFbIconCircle, quizCorrect ? sum.mFbIconCircleOk : sum.mFbIconCircleErr]}>
+                  <Text style={sum.mFbIconEmoji}>{(quizCorrect ? qCelebMsg?.emoji : qErrMsg?.emoji) || '🎯'}</Text>
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={sum.mFbTitle}>{(quizCorrect ? qCelebMsg?.text : qErrMsg?.text) || (quizCorrect ? '¡Correcto!' : 'Vas aprendiendo.')}</Text>
+                  {!quizCorrect && !!question?.explanation && (
+                    <MathText style={sum.mFbExpl} numberOfLines={3}>{question.explanation}</MathText>
+                  )}
+                  {quizCorrect && (
+                    <View style={sum.mXpChip}>
+                      <Text style={sum.mXpText}>+{XP_PER_CORRECT} XP</Text>
+                    </View>
+                  )}
+                </View>
+              </View>
             ) : (
               <View style={g.ctaBtnOff}>
                 <Text style={g.ctaTextOff}>Selecciona una respuesta</Text>
               </View>
+            )}
+            {quizFbActive && (
+              <Pressable
+                onPress={handleQuizNext}
+                style={[sum.mContinueBtn, !quizCorrect ? sum.mContinueBtnErr : null]}
+              >
+                <Text style={sum.mContinueBtnText}>{isLastQuestion ? '🏆 Ver resultados' : 'Continuar'}</Text>
+              </Pressable>
             )}
           </View>
         </SafeAreaView>
@@ -5977,16 +5927,6 @@ const qz = StyleSheet.create(withMisionFont({
   optLetterRed:     { backgroundColor: palette.rojoError },
   optLetterText:    { fontSize: 13, fontWeight: '800', color: semantic.textPrimary },
   optText:          { flex: 1, fontSize: 14, color: semantic.textPrimary, fontWeight: '600', lineHeight: 20 },
-
-  // Feedback — compact (max 2 visible lines)
-  feedback:      { borderRadius: 14, paddingVertical: 8, paddingHorizontal: 13, marginBottom: 8 },
-  feedbackOk:    { borderLeftWidth: 3, borderLeftColor: BRAND, backgroundColor: 'rgba(22,119,242,0.05)' },
-  feedbackFail:  { borderLeftWidth: 3, borderLeftColor: palette.rojoError, backgroundColor: 'rgba(220,38,38,0.04)' },
-  feedbackHeader:{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 },
-  feedbackTitle: { fontSize: 13, fontWeight: '900', color: semantic.textPrimary },
-  feedbackXP:    { backgroundColor: BRAND, borderRadius: 100, paddingVertical: 2, paddingHorizontal: 9 },
-  feedbackXPText:{ fontSize: 11, fontWeight: '900', color: palette.blanco },
-  feedbackText:  { fontSize: 12, color: semantic.textPrimary, lineHeight: 18 },
 
   // XP float — slightly larger for reward feel
   xpFloat:     { backgroundColor: BRAND, borderRadius: 100, paddingVertical: 10, paddingHorizontal: 22 },
