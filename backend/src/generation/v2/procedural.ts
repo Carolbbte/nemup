@@ -26,6 +26,8 @@ por definición. Tu única tarea es describir el camino lógico/algebraico que c
 en pasos cortos que un estudiante de enseñanza media pueda seguir. Si no puedes justificar el camino exacto,
 igual debes indicar en "resultShown" a qué resultado llegas tú siguiendo tu propio razonamiento — nunca copies
 la respuesta dada sin haber razonado el camino.
+Los pasos son TELEGRÁFICOS pero claros: una sola idea por paso, mostrando la operación concreta — el
+estudiante debe poder leer cada paso de un vistazo, no estudiarlo como un párrafo.
 NOTACIÓN MATEMÁTICA: escribe todo en texto plano, NUNCA en LaTeX. Prohibido usar backslash o comandos LaTeX
 (nada de \\frac, \\left, \\right, \\(...\\), \\[...\\], ni llaves {} para agrupar). Fracciones: "2/3", nunca
 "\\frac{2}{3}". Exponentes: "x^2" o "x²", nunca en llaves.`;
@@ -37,9 +39,18 @@ un ítem por ejercicio, sin omitir ninguno):
 ${examples.map((e, i) => `${i + 1}. Enunciado: "${e.statement}" — Respuesta correcta: "${e.answer}"`).join('\n')}
 
 INSTRUCCIONES:
-1. Para cada ejercicio, escribe entre 2 y 5 pasos explicativos cortos que muestren el camino desde el
-   enunciado hasta la respuesta (ej. "Agrupa los términos con la misma parte literal", "Suma los coeficientes
-   de los términos en m: 6m − m = 5m").
+1. Para cada ejercicio, escribe entre 2 y 4 pasos que muestren el camino desde el enunciado hasta la
+   respuesta. Cada paso:
+   - Máximo ~12 palabras — que quepa en 1 línea, nunca más de 2. Pensado para un estudiante de 14-18 años
+     que no quiere leer texto largo: breve, pero no críptico.
+   - UNA sola idea. Si un paso tiene dos ideas, sepáralo en dos pasos o recórtalo a la idea principal.
+   - Muestra la OPERACIÓN concreta, no la describas en prosa larga.
+   - Tono directo y simple: sin relleno ("como podemos ver", "es importante notar que…"), sin jerga
+     innecesaria, pero sin sonar infantil.
+   ✓ BREVE (así): "Multiplica los binomios: x² + 4x + 6x + 24.", "Suma los semejantes: 4x + 6x = 10x.",
+     "Resta x²: se cancelan, queda 10x + 24."
+   ✗ LARGO (evitar): "Aplica la propiedad distributiva para multiplicar (x + 6)(x + 4): multiplica x por
+     x, x por 4, 6 por x y 6 por 4, obteniendo así la suma de los productos."
 2. En "resultShown", escribe el resultado final tal como TÚ llegas siguiendo esos pasos, en la misma notación
    que usarías para responder el ejercicio — no copies la respuesta dada, razónala de verdad paso a paso.
 3. No agregues ejercicios nuevos ni cambies el enunciado o la respuesta dados.`;
@@ -75,9 +86,9 @@ function buildProceduralSchema(itemCount: number) {
             steps: {
               type: 'array',
               minItems: 2,
-              maxItems: 5,
+              maxItems: 4,
               items: { type: 'string' },
-              description: 'Short explanatory steps connecting the statement to the answer.',
+              description: 'Very short steps (max ~12 words each, one idea per step) showing the concrete operation from statement to answer.',
             },
             resultShown: {
               type: 'string',
