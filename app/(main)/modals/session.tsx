@@ -28,6 +28,7 @@ import {
   Layers,
   RefreshCw,
   RotateCcw,
+  Star,
   WandSparkles,
   X,
   Zap,
@@ -2830,7 +2831,20 @@ export default function SessionPlayerScreen() {
                   </View>
                   {exercisePrompt ? (
                     <View style={sum.weiCardWrap}>
-                      <Image source={require('@/assets/images/conLapiz.png')} style={sum.weiMascot} resizeMode="contain" />
+                      <Image
+                        source={require('@/assets/images/conLapiz.png')}
+                        style={sum.weiMascot}
+                        resizeMode="contain"
+                        // pointerEvents isn't in this RN version's ImageProps
+                        // type (a plain prop causes a TS2769 overload error)
+                        // — spread-with-any bypasses the excess-property
+                        // check without affecting the absolute positioning a
+                        // wrapping <View pointerEvents="none"> would (an
+                        // extra non-positioned parent would make weiMascot's
+                        // position:'absolute' resolve against IT instead of
+                        // weiCardWrap).
+                        {...({ pointerEvents: 'none' } as any)}
+                      />
                       <View style={sum.weiExerciseCard}>
                         <View style={sum.weiExerciseTop}>
                           <Text style={sum.weiExerciseLabel}>EJERCICIO A RESOLVER</Text>
@@ -2860,7 +2874,7 @@ export default function SessionPlayerScreen() {
                       <Text style={sum.weiLearnText}>Verás el procedimiento completo, paso a paso, para llegar al resultado.</Text>
                     </View>
                   </View>
-                  {!SM && (
+                  {SCREEN_H >= 640 && (
                     <View style={sum.weiCheerCard}>
                       <View style={sum.weiCheerIcon}>
                         <Text style={sum.weiIconEmoji}>🎯</Text>
@@ -2877,26 +2891,57 @@ export default function SessionPlayerScreen() {
               // Statement/answer are copied verbatim from the source material
               // (never computed) — steps are omitted when the model's
               // derivation failed safety validation upstream, same rule as
-              // Desafío's worked_example rendering.
-              <>
-                <View style={sum.weHeaderRow}>
-                  <View style={sum.weIconBox}>
-                    <WandSparkles size={22} color={palette.blanco} strokeWidth={2} />
+              // Desafío's worked_example rendering. Still fully PASSIVE —
+              // steps render read-only in the order slide.steps already
+              // gives, no drag/reorder/validation (that's a separate future
+              // phase, reusing order_sequence's interaction if it happens).
+              <ScrollView style={{ flex: 1 }} contentContainerStyle={{ flexGrow: 1, paddingBottom: 24 }} showsVerticalScrollIndicator={false}>
+                <View style={sum.weHeaderWrap}>
+                  <View style={sum.weHeaderRow}>
+                    <View style={sum.weIconBox}>
+                      <WandSparkles size={22} color={palette.blanco} strokeWidth={2} />
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={sum.weKicker}>PASO A PASO</Text>
+                      <Text style={sum.weTitle}>{slide.title || 'Así se resuelve'}</Text>
+                    </View>
                   </View>
-                  <View>
-                    <Text style={sum.weKicker}>PASO A PASO</Text>
-                    <Text style={sum.weTitle}>{slide.title || 'Así se resuelve'}</Text>
+                  <Text style={sum.weSubtitle}>Sigue cada paso para llegar a la solución.</Text>
+                  <Image
+                    source={require('@/assets/images/iluminado.png')}
+                    style={sum.weMascotImg}
+                    resizeMode="contain"
+                    // pointerEvents isn't in this RN version's ImageProps type;
+                    // spread-with-any bypasses the excess-property check.
+                    {...({ pointerEvents: 'none' } as any)}
+                  />
+                </View>
+
+                <View style={sum.weChallengeCard}>
+                  <View style={sum.weChallengeTop}>
+                    <Text style={sum.weChallengeLabel}>TU DESAFÍO</Text>
+                    <View style={sum.weChallengeBadge}>
+                      <Text style={sum.weChallengeBadgeText}>x²</Text>
+                    </View>
                   </View>
+                  <MathText style={sum.weChallengeText}>{(slide.statement)}</MathText>
                 </View>
-                <View style={sum.weProblemBox}>
-                  <Text style={sum.weProblemLabel}>RESUELVE ESTO</Text>
-                  <MathText style={sum.weProblemText}>{(slide.statement)}</MathText>
-                </View>
+
+                {!!slide.steps?.length && (
+                  <View style={sum.weHintBar}>
+                    <Text style={sum.weHintEmoji}>💡</Text>
+                    <Text style={sum.weHintText}>Estos son los pasos para llegar a la solución.</Text>
+                    <View style={sum.weHintBadge}>
+                      <Text style={sum.weHintBadgeText}>{slide.steps.length} pasos</Text>
+                    </View>
+                  </View>
+                )}
+
                 {!!slide.steps?.length && (
                   <View style={sum.weStepsContainer}>
                     {slide.steps.map((step, i) => (
-                      <View key={i} style={sum.weStepRow}>
-                        <View style={sum.weStepCircle}>
+                      <View key={i} style={sum.weStepCard}>
+                        <View style={[sum.weStepCircle, { backgroundColor: MATCH_ROW_COLORS[i % MATCH_ROW_COLORS.length] }]}>
                           <Text style={sum.weStepCircleText}>{i + 1}</Text>
                         </View>
                         <MathText style={sum.weStepContent}>{(step)}</MathText>
@@ -2904,6 +2949,7 @@ export default function SessionPlayerScreen() {
                     ))}
                   </View>
                 )}
+
                 <View style={sum.weResultBox}>
                   <View style={sum.weResultCheck}>
                     <Check size={16} color={palette.blanco} strokeWidth={3} />
@@ -2913,7 +2959,13 @@ export default function SessionPlayerScreen() {
                     <MathText style={sum.weResultText}>{(slide.answer)}</MathText>
                   </View>
                 </View>
-              </>
+
+                <View style={sum.weCheerBar}>
+                  <Text style={sum.weCheerEmoji}>🏆</Text>
+                  <Text style={sum.weCheerText}>¡Tú puedes! Cada paso te acerca a la respuesta correcta.</Text>
+                  <Star size={18} color={palette.verde} strokeWidth={2} />
+                </View>
+              </ScrollView>
             ) : slide?.type === 'comprehension' ? (
               (() => {
                 return (
@@ -5416,9 +5468,9 @@ const sum = StyleSheet.create(withMisionFont({
   weiHeaderRow:   { position: 'relative', overflow: 'visible', marginBottom: 16 },
   weiPill:        { alignSelf: 'flex-start', backgroundColor: palette.azul, borderRadius: 20, paddingVertical: 6, paddingHorizontal: 12, marginBottom: 10 },
   weiPillText:    { fontSize: 12, fontWeight: '800', color: palette.blanco, letterSpacing: 0.5 },
-  weiTitle:       { fontSize: SM ? 26 : 30, fontWeight: '800', color: semantic.textPrimary, lineHeight: SM ? 30 : 34 },
+  weiTitle:       { fontSize: SM ? 26 : 30, fontWeight: '800', color: semantic.textPrimary, lineHeight: SM ? 30 : 34, maxWidth: '62%' },
   weiUnderline:   { width: 130, height: 6, borderRadius: 3, backgroundColor: palette.amarilloXP, marginTop: 4, marginBottom: 10 },
-  weiSubtitle:    { fontSize: 14, color: semantic.textSecondary, lineHeight: 20 },
+  weiSubtitle:    { fontSize: 14, color: semantic.textSecondary, lineHeight: 20, maxWidth: '55%' },
   // Wraps the exercise card so the mascot (its first child, painted below
   // the card in JSX order but visually ON TOP thanks to weiMascot's own
   // zIndex) can be positioned relative to the CARD itself instead of the
@@ -5430,9 +5482,9 @@ const sum = StyleSheet.create(withMisionFont({
   // top edge; the negative marginBottom pulls it down ~14px so it "steps
   // onto" the card by that much instead of floating just above it — small
   // enough to clear the label/badge row inside the card.
-  weiMascot:      { position: 'absolute', right: -6, bottom: '100%', marginBottom: -14, width: 168, height: 168, zIndex: 5 },
+  weiMascot:      { position: 'absolute', right: -8, bottom: '100%', marginBottom: -40, width: 190, height: 190, zIndex: 5 },
 
-  weiExerciseCard:  { backgroundColor: 'rgba(22,119,242,0.06)', borderWidth: 1, borderColor: 'rgba(22,119,242,0.20)', borderRadius: 18, padding: SM ? 14 : 18, marginBottom: 12 },
+  weiExerciseCard:  { backgroundColor: 'rgba(22,119,242,0.06)', borderWidth: 1, borderColor: 'rgba(22,119,242,0.20)', borderRadius: 18, padding: SM ? 14 : 18, paddingTop: 34, marginBottom: 12 },
   weiExerciseTop:   { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 },
   weiExerciseLabel: { fontSize: 12, fontWeight: '800', color: palette.azul, letterSpacing: 0.8 },
   weiBadge:         { width: 34, height: 34, borderRadius: 10, backgroundColor: palette.azulClaro, alignItems: 'center', justifyContent: 'center' },
@@ -5713,22 +5765,61 @@ const sum = StyleSheet.create(withMisionFont({
   // "Así se resuelve" (worked_example) — Duolingo-style redesign, distinct
   // from the shared step/example styles above so main_concept's own
   // procedural rendering is untouched.
-  weHeaderRow:     { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 18 },
+  weHeaderWrap:    { position: 'relative', overflow: 'visible', marginBottom: 12 },
+  weHeaderRow:     { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 6 },
   weIconBox:       { width: 44, height: 44, borderRadius: 14, backgroundColor: BRAND, alignItems: 'center', justifyContent: 'center' },
   weKicker:        { fontSize: 12, fontWeight: '800', letterSpacing: 1, color: BRAND, marginBottom: 2 },
   weTitle:         { fontSize: SM ? 20 : 22, fontWeight: '800', color: semantic.textPrimary },
-  weProblemBox:    { backgroundColor: '#1A2340', borderRadius: 16, padding: SM ? 16 : 20, marginBottom: 16, alignItems: 'center' },
-  weProblemLabel:  { fontSize: 11, fontWeight: '800', color: 'rgba(255,255,255,0.5)', letterSpacing: 1, marginBottom: 8 },
-  weProblemText:   { fontSize: SM ? 17 : 19, fontWeight: '700', color: palette.blanco, textAlign: 'center', fontFamily: 'monospace', lineHeight: SM ? 24 : 27 },
+  weSubtitle:      { fontSize: 13, color: semantic.textSecondary, lineHeight: 18, maxWidth: '58%' },
+
+  // Mascot + bubble — same visual language as match_pairs' mpMascot* (own
+  // "we"-prefixed copy so this branch's tuning never touches that one).
+  weMascotRow:            { position: 'relative', overflow: 'visible', marginBottom: 16, zIndex: 5 },
+  weMascotBubble:         { backgroundColor: palette.blanco, borderRadius: 14, borderWidth: 1, borderColor: palette.bordeClaro, paddingVertical: 8, paddingHorizontal: 11, alignSelf: 'flex-start', maxWidth: '62%', paddingRight: 12, position: 'relative' },
+  weMascotBubbleTail:     { position: 'absolute', right: -5, top: 16, width: 10, height: 10, backgroundColor: palette.blanco, borderColor: palette.bordeClaro, borderWidth: 1, transform: [{ rotate: '45deg' }] },
+  weMascotBubbleText:     { fontSize: 13, color: palette.charcoal, lineHeight: 17 },
+  weMascotBubbleHighlight:{ color: BRAND, fontWeight: '800' },
+  weMascotImg:            { position: 'absolute', right: -4, top: -12, width: 116, height: 150, zIndex: 5 },
+
+  // "TU DESAFÍO" — replaces the old dark weProblemBox look. Uses
+  // paletteExtras.vehiculoVioleta (#8B5CF6) rather than any of the
+  // paletteExtras "morado*" tokens — those were migrated to blue during the
+  // app's purple→blue rebrand (see paletteExtras' own doc comment), which
+  // would render this card the same hue as the hint bar/header above it
+  // instead of the distinct lila accent the mockup calls for.
+  weChallengeCard:      { backgroundColor: 'rgba(139,92,246,0.06)', borderWidth: 1, borderColor: 'rgba(139,92,246,0.20)', borderRadius: 18, padding: SM ? 12 : 14, marginBottom: 12 },
+  weChallengeTop:       { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 },
+  weChallengeLabel:     { fontSize: 12, fontWeight: '800', color: paletteExtras.vehiculoVioleta, letterSpacing: 0.8 },
+  weChallengeBadge:     { width: 34, height: 34, borderRadius: 10, backgroundColor: 'rgba(139,92,246,0.14)', alignItems: 'center', justifyContent: 'center' },
+  weChallengeBadgeText: { fontSize: 15, fontWeight: '800', color: paletteExtras.vehiculoVioleta },
+  weChallengeText:      { fontSize: SM ? 19 : 22, fontWeight: '700', color: semantic.textPrimary, textAlign: 'center' },
+
+  // Hint bar — "N pasos" badge.
+  weHintBar:      { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: palette.azulClaro, borderRadius: 14, padding: 12, marginBottom: 14 },
+  weHintEmoji:    { fontSize: 16 },
+  weHintText:     { flex: 1, fontSize: 13, color: palette.charcoal, lineHeight: 18, fontWeight: '600' },
+  weHintBadge:    { backgroundColor: palette.blanco, borderRadius: 10, paddingHorizontal: 9, paddingVertical: 4 },
+  weHintBadgeText:{ fontSize: 11, fontWeight: '800', color: BRAND },
+
   weStepsContainer:{ gap: 10, marginBottom: 16 },
-  weStepRow:       { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  // Each step its OWN white card (was a plain row) — no drag handle/icon on
+  // purpose, this screen stays passive/read-only.
+  weStepCard:      { flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: palette.blanco, borderRadius: 14, borderWidth: 1, borderColor: palette.bordeClaro, padding: 12, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.04, shadowRadius: 3, elevation: 1 },
   weStepCircle:    { width: 30, height: 30, borderRadius: 15, backgroundColor: BRAND, alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
   weStepCircleText:{ fontSize: 14, fontWeight: '800', color: palette.blanco },
   weStepContent:   { flex: 1, fontSize: SM ? 14 : 15, color: semantic.textPrimary, lineHeight: 20, fontWeight: '500' },
-  weResultBox:     { flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: paletteExtras.verdeSuaveBg, borderRadius: 16, padding: SM ? 14 : 16, borderWidth: 1.5, borderColor: semantic.success },
+
+  weResultBox:     { flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: paletteExtras.verdeSuaveBg, borderRadius: 16, padding: SM ? 14 : 16, borderWidth: 1.5, borderColor: semantic.success, marginBottom: 14 },
   weResultCheck:   { width: 30, height: 30, borderRadius: 15, backgroundColor: semantic.success, alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
   weResultLabel:   { fontSize: 10, fontWeight: '800', color: paletteExtras.verdeTextoOscuro, letterSpacing: 0.8, marginBottom: 2 },
   weResultText:    { fontSize: SM ? 17 : 19, fontWeight: '800', color: paletteExtras.verdeTextoOscuro },
+
+  // Cheer bar — fixed/generic, last element before the (separate, fixed)
+  // bottom CTA bar.
+  weCheerBar:   { flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: paletteExtras.verdeSuaveBg2, borderRadius: 14, padding: 12 },
+  weCheerEmoji: { fontSize: 18 },
+  weCheerText:  { flex: 1, fontSize: 13, color: paletteExtras.verdeTextoOscuro, lineHeight: 18, fontWeight: '700' },
+
   stepContentResult: { color: paletteExtras.esmeraldaOscuro, fontWeight: '700' },
 
   // Key relation card (now "Regla fácil")
