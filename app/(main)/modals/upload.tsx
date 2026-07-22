@@ -889,7 +889,7 @@ export default function UploadFlowScreen() {
             <View style={s0.unlocksRow}>
               <View style={[s0.unlockCard, { backgroundColor: paletteExtras.amarilloSuaveBg }]}>
                 <Trophy size={18} color={palette.ambar} strokeWidth={2} />
-                <Text style={s0.unlockLabel}>Misión{'\n'}personalizada</Text>
+                <Text style={s0.unlockLabel}>Desafío{'\n'}personalizado</Text>
               </View>
               <View style={[s0.unlockCard, { backgroundColor: paletteExtras.moradoCardBg }]}>
                 <ClipboardCheck size={18} color={BRAND} strokeWidth={2} />
@@ -1047,7 +1047,7 @@ const s0 = StyleSheet.create({
   timerHighlight: { color: BRAND, fontWeight: '800' },
 
   // Mascot chat bubble
-  chatRow:       { flexDirection: 'row', alignItems: 'center', gap: 14, marginBottom: 20 },
+  chatRow:       { flexDirection: 'row', alignItems: 'center', gap: 14, marginBottom: 6 },
   chatBubble:    { alignSelf: 'center', backgroundColor: paletteExtras.moradoCardBg, borderRadius: 18, paddingVertical: 14, paddingHorizontal: 16, position: 'relative' },
   chatBubbleTail:{ position: 'absolute', left: -6, top: '50%', marginTop: -6, width: 12, height: 12, backgroundColor: paletteExtras.moradoCardBg, transform: [{ rotate: '45deg' }] },
   chatText:      { fontSize: 15, fontWeight: '700', color: semantic.textPrimary, lineHeight: 21 },
@@ -1057,7 +1057,7 @@ const s0 = StyleSheet.create({
   sectionLabel: { fontSize: 15, fontWeight: '800', color: semantic.textPrimary, marginBottom: 10 },
 
   // Option cards
-  optionCard:       { backgroundColor: palette.blanco, borderRadius: 18, borderWidth: 1.5, borderColor: palette.bordeClaro, padding: 14, marginBottom: 10, minHeight: 100, justifyContent: 'center' },
+  optionCard:       { backgroundColor: palette.blanco, borderRadius: 18, borderWidth: 1.5, borderColor: palette.bordeClaro, padding: 14, marginBottom: 8, minHeight: 88, justifyContent: 'center' },
   optionCardActive: { borderColor: BRAND, backgroundColor: paletteExtras.moradoCardBg },
   optionBadge:      { position: 'absolute', top: -10, right: 14, backgroundColor: palette.azulClaro, borderWidth: 1, borderColor: BRAND, borderRadius: 10, paddingVertical: 2, paddingHorizontal: 8 },
   optionBadgeText:  { fontSize: 10, fontWeight: '800', color: BRAND },
@@ -1068,14 +1068,14 @@ const s0 = StyleSheet.create({
   optionChevronWrap:{ width: 32, height: 32, borderRadius: 16, alignItems: 'center', justifyContent: 'center' },
 
   // Unlocks
-  unlocksTitle: { fontSize: 15, fontWeight: '800', color: semantic.textPrimary, marginTop: 10, marginBottom: 10 },
-  unlocksRow:   { flexDirection: 'row', gap: 8, marginBottom: 18 },
-  unlockCard:   { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 6, borderRadius: 14, paddingVertical: 12, paddingHorizontal: 4, minHeight: 100 },
+  unlocksTitle: { fontSize: 15, fontWeight: '800', color: semantic.textPrimary, marginTop: 4, marginBottom: 8 },
+  unlocksRow:   { flexDirection: 'row', gap: 8, marginBottom: 10 },
+  unlockCard:   { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 6, borderRadius: 14, paddingVertical: 10, paddingHorizontal: 4, minHeight: 82 },
   unlockLabel:  { fontSize: 10, fontWeight: '700', color: semantic.textPrimary, textAlign: 'center', lineHeight: 13 },
 
   // Bottom info row
   infoRow:   { flexDirection: 'row', gap: 10, marginBottom: 10 },
-  infoItem:  { flex: 1, gap: 4, minHeight: 100, justifyContent: 'center' },
+  infoItem:  { flex: 1, gap: 4, minHeight: 78, justifyContent: 'center' },
   infoTitle: { fontSize: 12, fontWeight: '700', color: semantic.textPrimary },
   infoDesc:  { fontSize: 10, color: semantic.textTertiary, lineHeight: 13 },
 
