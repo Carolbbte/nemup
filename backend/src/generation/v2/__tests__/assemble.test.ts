@@ -206,6 +206,20 @@ describe('buildSummarySlides — correctAnswer format', () => {
     expect((reinforcement!.options as string[])[letterIdx]).toBe('5x²');
   });
 
+  // allowExampleReinforcement gate (procedural-content fix) — same fixture/
+  // call as the test above, only difference is the new flag at the end.
+  it('falls back to the riddle-based question (not "¿Cuál es un ejemplo de X?") when allowExampleReinforcement is false', () => {
+    const slides = buildSummarySlides(ko, distractors, [], [], false, false, true, false);
+    const reinforcement = slides.find((s) => s.type === 'reinforcement_challenge' && s.title === 'Refuerzo' && s.definition?.includes('Término algebraico'));
+    expect(reinforcement).toBeTruthy();
+    expect(reinforcement!.question).toContain('pista');
+    expect(reinforcement!.question).not.toContain('ejemplo');
+
+    const letterIdx = LETTERS.indexOf(reinforcement!.correctAnswer!);
+    // Riddle-based: the correct option is the concept's own NAME, not its example.
+    expect((reinforcement!.options as string[])[letterIdx]).toBe('Término algebraico');
+  });
+
   it('skips a concept entirely (no micro_challenge/main_concept/reinforcement_challenge triple) when it has no distractor', () => {
     const partialDistractors: Record<string, DistractorSet> = { c1: distractors.c1 }; // c2 missing
     const slides = buildSummarySlides(ko, partialDistractors);

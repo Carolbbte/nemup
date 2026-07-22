@@ -116,7 +116,13 @@ export async function generateSessionV2(
     summary: {
       id: randomUUID(),
       title: ko.topic || 'Resumen del material',
-      slides: buildSummarySlides(ko, distractors, workedExampleResults, exercises, appConfig.mission_arc_v2, appConfig.mission_shorten, allowMatchPairs),
+      // allowMatchPairs doubles as allowExampleReinforcement — same
+      // CONCEPTUAL/MEMORIZATION/MIXED-conceptual criteria applies to both:
+      // buildReinforcementFromTrait's example-based framing ("¿Cuál es un
+      // ejemplo de X?") has the identical concept↔example-relationship
+      // requirement match_pairs does, so there's no reason to compute a
+      // second, separately-named flag for the same test.
+      slides: buildSummarySlides(ko, distractors, workedExampleResults, exercises, appConfig.mission_arc_v2, appConfig.mission_shorten, allowMatchPairs, allowMatchPairs),
       sourceQuotes: [],
     },
     groundingScore: 0, // placeholder — replaced below with the real validateGrounding() result

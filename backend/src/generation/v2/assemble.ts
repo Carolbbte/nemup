@@ -732,8 +732,12 @@ function reinforcementCallbackVariant(
   allConcepts: KnowledgeConcept[],
   d: DistractorSet | undefined,
   avoid: Set<string>,
+  // Default true so every existing caller/test is byte-identical to before
+  // this parameter existed — see buildSummarySlides' own comment on why
+  // PROCEDURAL content skips the "¿Cuál es un ejemplo de X?" framing.
+  allowExampleReinforcement: boolean = true,
 ): { question: string; options: string[]; correctAnswer: string } | null {
-  for (const preferExample of [true, false]) {
+  for (const preferExample of allowExampleReinforcement ? [true, false] : [false]) {
     const tq = buildReinforcementFromTrait(concept, allConcepts, preferExample);
     if (!tq || avoid.has(tq.question)) continue;
     const shuffled = shuffleWithLetterAnswer(tq.correctText, tq.distractors);
@@ -802,6 +806,16 @@ export function buildSummarySlides(
   // Default true so every existing caller/test is byte-identical to before
   // this parameter existed — see buildDesafio's own allowMatchPairs comment.
   allowMatchPairs: boolean = true,
+  // Default true, same reasoning. PROCEDURAL/MIXED-procedural content skips
+  // buildReinforcementFromTrait's "¿Cuál de estas opciones es un ejemplo de
+  // X?" framing (exampleShort-based) — pseudo-concepts extracted from a
+  // single chained derivation (e.g. "Área del cuadrado", "Diferencia entre
+  // áreas") don't have a real concept↔example relationship the way a
+  // biology/history concept does, so that framing degenerates into matching
+  // arbitrary step labels instead of testing anything. Falls back to the
+  // riddle-based framing (distinctiveTrait), which stays coherent for both
+  // content types.
+  allowExampleReinforcement: boolean = true,
 ): SummarySlide[] {
   if (ko.concepts.length === 0) return [];
 
@@ -1091,7 +1105,7 @@ export function buildSummarySlides(
         });
         if (missionArcV2) usedQuestionTexts.add(r.question);
       } else {
-        const allowExample = exampleMatchUsed < MAX_EXAMPLE_MATCH_PER_SESSION;
+        const allowExample = allowExampleReinforcement && exampleMatchUsed < MAX_EXAMPLE_MATCH_PER_SESSION;
         const traitQuestion = buildReinforcementFromTrait(concept, ko.concepts, allowExample);
         if (traitQuestion) {
           if (traitQuestion.usedExample) exampleMatchUsed++;
@@ -1163,7 +1177,7 @@ export function buildSummarySlides(
       ...ko.concepts.filter((c) => c.id !== easiestConcept.id && c.id !== bossConcept.id),
     ];
     for (const candidate of callbackCandidates) {
-      const variant = reinforcementCallbackVariant(candidate, ko.concepts, distractors[candidate.id], usedQuestionTexts);
+      const variant = reinforcementCallbackVariant(candidate, ko.concepts, distractors[candidate.id], usedQuestionTexts, allowExampleReinforcement);
       if (variant) {
         slides.push({
           type: 'reinforcement_challenge',
