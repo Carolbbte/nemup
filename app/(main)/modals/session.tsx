@@ -25,13 +25,15 @@ import {
   ChevronLeft,
   ChevronRight,
   Compass,
+  Frown,
   Layers,
+  Meh,
   RefreshCw,
   RotateCcw,
-  Star,
+  Smile,
   WandSparkles,
   X,
-  Zap,
+  Zap
 } from 'lucide-react-native';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
@@ -492,12 +494,22 @@ function FlipCard({ front, back, onFlip }: { front: string; back: string; onFlip
   return (
     <Pressable onPress={handlePress} style={fcd.container}>
       <Animated.View style={[fcd.face, fcd.front, frontStyle]}>
+        <View style={fcd.iconCircle}>
+          <Layers size={26} color={palette.tealTarjetasIcon} strokeWidth={2} />
+        </View>
         <Text style={fcd.label}>CONCEPTO</Text>
         <MathText style={fcd.frontText}>{(front)}</MathText>
+        <View style={fcd.accentLine} />
         <View style={fcd.hint}>
           <RotateCcw size={14} color={semantic.textTertiary} strokeWidth={2} />
-          <Text style={fcd.hintText}>Toca para voltear</Text>
+          <Text style={fcd.hintText}>Toca para girar</Text>
         </View>
+        <Image
+          source={require('@/assets/images/pensativo.png')}
+          style={fcd.mascot}
+          resizeMode="contain"
+          {...({ pointerEvents: 'none' } as any)}
+        />
       </Animated.View>
       <Animated.View style={[fcd.face, fcd.back, backStyle]}>
         <Text style={[fcd.label, { color: BRAND }]}>EXPLICACIÓN</Text>
@@ -515,11 +527,14 @@ const fcd = StyleSheet.create(withMisionFont({
   },
   front:     { backgroundColor: palette.blanco },
   back:      { backgroundColor: paletteExtras.moradoSuaveBg },
-  label:     { fontSize: 10, fontWeight: '800', color: semantic.textTertiary, letterSpacing: 1.5, marginBottom: 24 },
+  iconCircle:{ width: 56, height: 56, borderRadius: 28, backgroundColor: palette.tealTarjetasBg, alignItems: 'center', justifyContent: 'center', marginBottom: 14 },
+  label:     { fontSize: 10, fontWeight: '800', color: palette.tealTarjetasIcon, letterSpacing: 1.5, marginBottom: 10 },
   frontText: { fontSize: SM ? 26 : 32, fontWeight: '900', color: semantic.textPrimary, textAlign: 'center', letterSpacing: -0.5, lineHeight: SM ? 34 : 42 },
   backText:  { fontSize: SM ? 15 : 17, color: semantic.textPrimary, textAlign: 'center', lineHeight: SM ? 24 : 28, fontWeight: '500' },
-  hint:      { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 28 },
+  accentLine:{ width: 44, height: 4, borderRadius: 2, backgroundColor: palette.tealTarjetasIcon, marginTop: 20 },
+  hint:      { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 14 },
   hintText:  { fontSize: 12, color: semantic.textTertiary, fontStyle: 'italic' },
+  mascot:    { position: 'absolute', left: -16, bottom: -55, width: 214, height: 214 },
 }));
 
 // ── Summary slide style config (for kp-type cards) ───────────────
@@ -4936,12 +4951,15 @@ export default function SessionPlayerScreen() {
           {cardFlipped ? (
             <View style={[fcs.srsRow, { paddingBottom: insets.bottom + 12 }]}>
               {[
-                { label: '❌\nNo lo sabía', response: 'unknown' as const, colors: [palette.rojoError, paletteExtras.rojoGradienteFin] as [string,string] },
-                { label: '🤔\nLo dudé',     response: 'doubt'   as const, colors: [palette.ambar, paletteExtras.ambarIntermedio] as [string,string] },
-                { label: '✅\nLo sabía',    response: 'knew'    as const, colors: [BRAND, NEON] as [string,string] },
-              ].map(({ label, response, colors }) => (
+                { label: 'Me costó',   response: 'unknown' as const, Icon: Frown, color: palette.rojoError,     bg: palette.rojoErrorBg,       border: paletteExtras.rojoChipBorde },
+                { label: 'Casi',       response: 'doubt'   as const, Icon: Meh,   color: palette.ambarIcon,     bg: palette.ambarBg,           border: paletteExtras.amarilloBorde },
+                { label: '¡Lo sabía!', response: 'knew'    as const, Icon: Smile, color: paletteExtras.verdeChipBorde, bg: paletteExtras.verdeChipBg, border: paletteExtras.verdeChipBorde },
+              ].map(({ label, response, Icon, color, bg, border }) => (
                 <Pressable key={label} onPress={() => handleCardNext(response)} style={{ flex: 1 }}>
-                  <View style={[fcs.srsBtn, { backgroundColor: colors[0] }]}>
+                  <View style={[fcs.srsBtn, { borderColor: border }]}>
+                    <View style={[fcs.srsIconCircle, { backgroundColor: bg }]}>
+                      <Icon size={20} color={color} strokeWidth={2} />
+                    </View>
                     <Text style={fcs.srsBtnText}>{label}</Text>
                   </View>
                 </Pressable>
@@ -5963,8 +5981,9 @@ const qz = StyleSheet.create(withMisionFont({
 // ── Flashcard SRS buttons ──────────────────────────────────────────
 const fcs = StyleSheet.create(withMisionFont({
   srsRow: { flexDirection: 'row', gap: 8, paddingHorizontal: 16, paddingTop: 10 },
-  srsBtn: { paddingVertical: 13, borderRadius: 16, alignItems: 'center' },
-  srsBtnText: { fontSize: SM ? 10 : 11, fontWeight: '800', color: palette.blanco, textAlign: 'center', lineHeight: 16 },
+  srsBtn: { backgroundColor: palette.blanco, borderWidth: 1, borderRadius: 16, paddingVertical: 12, paddingHorizontal: 6, alignItems: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.05, shadowRadius: 3, elevation: 1 },
+  srsIconCircle: { width: 38, height: 38, borderRadius: 19, alignItems: 'center', justifyContent: 'center', marginBottom: 7 },
+  srsBtnText: { fontSize: SM ? 12 : 12.5, fontWeight: '700', color: semantic.textPrimary, textAlign: 'center' },
 }));
 
 // ── Celebration ────────────────────────────────────────────────────

@@ -2,9 +2,9 @@ import type { MissionRecord, MissionStatus } from '@/contexts/MissionsContext';
 import { useMissions } from '@/contexts/MissionsContext';
 import { palette, paletteExtras } from '@/theme/colors';
 import { useRouter } from 'expo-router';
-import { CheckCircle2, ChevronRight, Play, Plus, RotateCcw, Target } from 'lucide-react-native';
+import { CheckCircle2, ChevronRight, Play, Plus, RotateCcw, Target, Trash2 } from 'lucide-react-native';
 import { useCallback } from 'react';
-import { Pressable, ScrollView, StatusBar, StyleSheet, Text, View } from 'react-native';
+import { Alert, Pressable, ScrollView, StatusBar, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 // Lightweight subject → emoji map (mirrors session.tsx's SUBJECT_EMOJI).
@@ -53,13 +53,24 @@ function formatRelative(ts: number): string {
 export default function MisionesScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { missions, activateMission } = useMissions();
+  const { missions, activateMission, removeMission } = useMissions();
 
   const open = useCallback(async (m: MissionRecord) => {
     const replay = m.status === 'completed';
     const ok = await activateMission(m.id, { replay });
     if (ok) router.push('/modals/session' as any);
   }, [activateMission, router]);
+
+  const confirmDelete = useCallback((m: MissionRecord) => {
+    Alert.alert(
+      '¿Eliminar esta misión?',
+      `"${m.title || m.topic}" se eliminará permanentemente. No podrás recuperarla.`,
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        { text: 'Eliminar', style: 'destructive', onPress: () => removeMission(m.id) },
+      ],
+    );
+  }, [removeMission]);
 
   const inProgress = missions.filter(m => m.status === 'in_progress');
   const ready      = missions.filter(m => m.status === 'ready');
@@ -101,28 +112,32 @@ export default function MisionesScreen() {
           hint="Continúa donde lo dejaste"
           items={inProgress}
           onOpen={open}
+          onDelete={confirmDelete}
         />
         <Section
           label="Por empezar"
           items={ready}
           onOpen={open}
+          onDelete={confirmDelete}
         />
         <Section
           label="Completadas"
           hint="Vuelve a jugarlas para repasar"
           items={completed}
           onOpen={open}
+          onDelete={confirmDelete}
         />
       </ScrollView>
     </SafeAreaView>
   );
 }
 
-function Section({ label, hint, items, onOpen }: {
+function Section({ label, hint, items, onOpen, onDelete }: {
   label: string;
   hint?: string;
   items: MissionRecord[];
   onOpen: (m: MissionRecord) => void;
+  onDelete: (m: MissionRecord) => void;
 }) {
   if (items.length === 0) return null;
   return (
@@ -133,7 +148,7 @@ function Section({ label, hint, items, onOpen }: {
       </View>
       {hint && <Text style={s.sectionHint}>{hint}</Text>}
       {items.map(m => (
-        <MissionCard key={m.id} mission={m} onOpen={onOpen} />
+        <MissionCard key={m.id} mission={m} onOpen={onOpen} onDelete={onDelete} />
       ))}
     </View>
   );
@@ -145,12 +160,20 @@ const ACTION: Record<MissionStatus, { label: string; Icon: typeof Play }> = {
   completed:   { label: 'Repasar',   Icon: RotateCcw },
 };
 
-function MissionCard({ mission, onOpen }: { mission: MissionRecord; onOpen: (m: MissionRecord) => void }) {
+function MissionCard({ mission, onOpen, onDelete }: {
+  mission: MissionRecord;
+  onOpen: (m: MissionRecord) => void;
+  onDelete: (m: MissionRecord) => void;
+}) {
   const done = doneCount(mission);
   const { label, Icon } = ACTION[mission.status];
   const isDone = mission.status === 'completed';
 
   return (
+    // Delete button is a SIBLING Pressable nested inside the card's own
+    // Pressable, not a separate outer wrapper — RN's touch responder gives
+    // the tap to the innermost Pressable that claims it, so tapping the
+    // trash icon never also fires onOpen.
     <Pressable style={s.card} onPress={() => onOpen(mission)}>
       <View style={[s.emojiWrap, isDone && s.emojiWrapDone]}>
         <Text style={s.emoji}>{subjectEmoji(mission.subject)}</Text>
@@ -177,6 +200,10 @@ function MissionCard({ mission, onOpen }: { mission: MissionRecord; onOpen: (m: 
           </View>
         )}
       </View>
+
+      <Pressable onPress={() => onDelete(mission)} style={s.deleteBtn} hitSlop={10}>
+        <Trash2 size={16} color={palette.grisClaro} strokeWidth={2.2} />
+      </Pressable>
 
       <View style={[s.actionPill, isDone && s.actionPillDone]}>
         <Icon size={15} color={isDone ? palette.azul : palette.blanco} strokeWidth={2.4} />
@@ -226,6 +253,10 @@ const s = StyleSheet.create({
 
   actionPill:      { flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: palette.azul, borderRadius: 12, paddingVertical: 8, paddingHorizontal: 12 },
   actionPillDone:  { backgroundColor: palette.azulClaro },
+
+  // Subtle by design — a delete affordance shouldn't compete visually with
+  // the primary "open this mission" action.
+  deleteBtn: { width: 28, height: 28, borderRadius: 9, alignItems: 'center', justifyContent: 'center' },
   actionLabel:     { fontFamily: 'Nunito', fontSize: 13, fontWeight: '800', color: palette.blanco },
   actionLabelDone: { color: palette.azul },
 });
