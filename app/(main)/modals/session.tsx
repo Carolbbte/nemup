@@ -4502,9 +4502,6 @@ export default function SessionPlayerScreen() {
       const acc = questions.length > 0 ? Math.round((correctCount / questions.length) * 100) : 0;
 
       if (MODE_COMPLETION_REDESIGN) {
-        const tiempoMs  = quizStartRef.current ? Date.now() - quizStartRef.current : 0;
-        const tiempoStr = formatMissionTime(tiempoMs);
-
         const newSetAfterQuiz    = new Set([...completedModes, 'quiz']);
         const remainingAfterQuiz = LOCAL_MODE_ORDER.filter(m => !newSetAfterQuiz.has(m));
         const nextLocalQuiz      = remainingAfterQuiz[0] ?? null;
@@ -4531,10 +4528,10 @@ export default function SessionPlayerScreen() {
           <ModeCompletionScreen
             mode="quiz"
             iconNode={<Zap size={44} color={BRAND} strokeWidth={1.5} />}
+            mascotSource={require('@/assets/images/loLogre.png')}
             screenTitle="🧠 Quiz"
             title="Quiz completo"
             tiles={[
-              { label: 'enfocado',  value: tiempoStr },
               { label: 'aciertos',  value: `${correctCount}/${questions.length}` },
               { label: 'XP',        value: `+${xpEarned}`, valueColor: BRAND },
             ]}

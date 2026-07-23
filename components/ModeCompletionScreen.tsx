@@ -49,7 +49,10 @@ type Props = {
   iconNode: ReactNode;
   screenTitle: string;
   title: string;
-  tiles: [Tile, Tile, Tile];
+  tiles: Tile[];
+  // Non-celebratory branch only: when set, replaces iconNode with this mascot
+  // image (used by Quiz). Omitted elsewhere → keeps the plain icon.
+  mascotSource?: any;
   contextualLine: string;
   continueLabel: string;
   onContinue: () => void;
@@ -72,6 +75,7 @@ type Props = {
 export default function ModeCompletionScreen({
   mode,
   iconNode,
+  mascotSource,
   screenTitle,
   title,
   tiles,
@@ -198,6 +202,9 @@ export default function ModeCompletionScreen({
         <StatusBar barStyle="dark-content" backgroundColor={palette.crema} />
         <View style={s.topBarCeleb}>
           <Pressable onPress={onBack} style={s.closeBtn} hitSlop={10}>
+            <ChevronLeft size={18} color={semantic.textPrimary} strokeWidth={2.5} />
+          </Pressable>
+          <Pressable onPress={onBack} style={s.closeBtn} hitSlop={10}>
             <X size={18} color={semantic.textPrimary} strokeWidth={2.5} />
           </Pressable>
         </View>
@@ -216,12 +223,6 @@ export default function ModeCompletionScreen({
                 resizeMode="contain"
               />
             </Animated.View>
-            {!!praiseLine && (
-              <View style={s.praiseBalloon}>
-                <View style={s.praiseBalloonTail} />
-                <Text style={s.praiseBalloonText}>{praiseLine}</Text>
-              </View>
-            )}
             <Text style={s.title}>{`¡${title}!`}</Text>
 
             <LinearGradient
@@ -285,7 +286,9 @@ export default function ModeCompletionScreen({
       <Animated.View style={[{ flex: 1 }, entryStyle]}>
         <ScrollView contentContainerStyle={s.scroll}>
           <Animated.View style={[{ alignItems: 'center' }, heroStyle]}>
-            {iconNode}
+            {mascotSource ? (
+              <Image source={mascotSource} style={s.completionMascot} resizeMode="contain" />
+            ) : iconNode}
             <Text style={s.title}>{title}</Text>
           </Animated.View>
           <View style={s.tileRow}>
@@ -304,6 +307,11 @@ export default function ModeCompletionScreen({
           <Text style={s.ctaTxt}>{continueLabel}</Text>
         </Pressable>
       </View>
+      {!!mascotSource && (
+        <View style={StyleSheet.absoluteFillObject} pointerEvents="none">
+          <ConfettiCannon count={80} origin={{ x: -10, y: 0 }} colors={CONFETTI_COLORS} fadeOut autoStart />
+        </View>
+      )}
     </SafeAreaView>
   );
 }
@@ -313,8 +321,9 @@ const s = StyleSheet.create({
   topBar:     { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 10, minHeight: 48 },
   iconBtn:    { width: 36, height: 36, alignItems: 'center', justifyContent: 'center', borderRadius: 18, backgroundColor: 'rgba(0,0,0,0.04)' },
   screenTitle:{ fontSize: 15, fontWeight: '700', color: semantic.textPrimary, textAlign: 'center' },
-  scroll:     { alignItems: 'center', paddingHorizontal: 24, paddingTop: 36, paddingBottom: 32 },
-  title:      { fontSize: 26, fontWeight: '900', color: semantic.textPrimary, textAlign: 'center', marginTop: 12, marginBottom: 28 },
+  scroll:     { alignItems: 'center', paddingHorizontal: 24, paddingTop: 14, paddingBottom: 24 },
+  title:      { fontSize: 26, fontWeight: '900', color: semantic.textPrimary, textAlign: 'center', marginTop: 6, marginBottom: 16 },
+  completionMascot: { width: '100%', height: 168, marginBottom: 6 },
   tileRow:    { flexDirection: 'row', gap: 8, marginBottom: 16, width: '100%' },
   tile:       { flex: 1, alignItems: 'center', backgroundColor: palette.blanco, borderRadius: 14, paddingVertical: 16, paddingHorizontal: 8, borderWidth: 1, borderColor: palette.bordeClaro },
   tileVal:    { fontSize: 20, fontWeight: '900', color: semantic.textPrimary, marginBottom: 4 },
@@ -328,17 +337,17 @@ const s = StyleSheet.create({
   // anchor, mascot, praise balloon, gradient XP card, dashboard-style
   // metric tiles, and a "physical key" volume CTA distinct from the plain
   // `cta`.
-  topBarCeleb: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 10, minHeight: 48 },
+  topBarCeleb: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 10, minHeight: 48 },
   closeBtn:    { width: 38, height: 38, alignItems: 'center', justifyContent: 'center', borderRadius: 14, backgroundColor: palette.blanco, borderWidth: 1, borderColor: palette.bordeClaro },
   progressLabel: { fontSize: 12, fontWeight: '700', color: semantic.textSecondary, textAlign: 'center', marginTop: 6, marginBottom: 2 },
 
-  mascotImg: { width: '100%', height: 130, marginBottom: 8 },
+  mascotImg: { width: '100%', height: 172, marginBottom: 4 },
 
   praiseBalloon:     { backgroundColor: paletteExtras.moradoSuaveBg, borderRadius: 16, paddingVertical: 10, paddingHorizontal: 16, marginTop: 16, marginBottom: 4, maxWidth: '92%', position: 'relative' },
   praiseBalloonTail: { position: 'absolute', top: -6, alignSelf: 'center', width: 12, height: 12, backgroundColor: paletteExtras.moradoSuaveBg, transform: [{ rotate: '45deg' }] },
   praiseBalloonText: { fontSize: 14, fontWeight: '700', color: MISSION_PURPLE_DARK, textAlign: 'center' },
 
-  xpBox:        { borderRadius: 18, paddingVertical: 16, paddingHorizontal: 28, alignItems: 'center', marginBottom: 20, width: '100%', borderBottomWidth: 5, borderBottomColor: MISSION_PURPLE_DARK },
+  xpBox:        { borderRadius: 18, paddingVertical: 14, paddingHorizontal: 28, alignItems: 'center', marginBottom: 14, width: '100%', borderBottomWidth: 5, borderBottomColor: MISSION_PURPLE_DARK },
   xpBoxLabel:   { fontSize: 11, fontWeight: '800', color: 'rgba(255,255,255,0.75)', letterSpacing: 1, marginBottom: 2 },
   xpBoxValue:   { fontSize: 34, fontWeight: '900', color: palette.blanco, letterSpacing: -0.5 },
   levelProgressWrap:  { width: '100%', marginTop: 12, alignItems: 'center' },
