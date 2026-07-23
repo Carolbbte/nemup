@@ -23,9 +23,10 @@ type Props = {
   session: SessionInfo | null;  // info of today's session (subject, topic, xp, duration)
   onNavigate: () => void;       // → /modals/session
   onUpload: () => void;         // → /modals/upload
+  onViewMissions: () => void;   // → /misiones
 };
 
-export default function SessionHeroCard({ hasSession, session, onNavigate, onUpload }: Props) {
+export default function SessionHeroCard({ hasSession, session, onNavigate, onUpload, onViewMissions }: Props) {
   const { dailySession, getNextPendingMode, isFullyComplete } = useDailySession();
 
   const { completedModes, streak } = dailySession;
@@ -67,7 +68,7 @@ export default function SessionHeroCard({ hasSession, session, onNavigate, onUpl
       return (
         <HeroCompleteState
           streak={streak}
-          onNewSession={onUpload}
+          onViewMissions={onViewMissions}
         />
       );
     }

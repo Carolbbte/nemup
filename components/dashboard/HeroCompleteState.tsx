@@ -1,4 +1,4 @@
-import { Plus } from 'lucide-react-native';
+import { Target } from 'lucide-react-native';
 import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
 import { palette, paletteExtras } from '@/theme/colors';
 
@@ -10,10 +10,10 @@ const LIME  = palette.verdeXP;
 
 type Props = {
   streak: number;
-  onNewSession: () => void;
+  onViewMissions: () => void;
 };
 
-export default function HeroCompleteState({ streak, onNewSession }: Props) {
+export default function HeroCompleteState({ streak, onViewMissions }: Props) {
   return (
     <View style={s.row}>
       <View style={s.left}>
@@ -27,9 +27,9 @@ export default function HeroCompleteState({ streak, onNewSession }: Props) {
           </View>
         )}
 
-        <Pressable onPress={onNewSession} style={s.cta}>
-          <Plus size={15} color={BRAND} strokeWidth={2.5} />
-          <Text style={s.ctaTxt}>Generar nueva sesión</Text>
+        <Pressable onPress={onViewMissions} style={s.cta}>
+          <Target size={15} color={BRAND} strokeWidth={2.5} />
+          <Text style={s.ctaTxt}>Ver misiones disponibles</Text>
         </Pressable>
       </View>
 

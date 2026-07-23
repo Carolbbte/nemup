@@ -277,6 +277,7 @@ export default function HomeScreen() {
                 session={null}
                 onNavigate={() => router.push('/modals/session' as any)}
                 onUpload={() => router.push('/modals/upload' as any)}
+                onViewMissions={() => router.push('/misiones' as any)}
               />
               <UnlocksCard />
               <ProgressStartCard onPress={() => router.push('/modals/upload' as any)} />
@@ -288,6 +289,7 @@ export default function HomeScreen() {
                 session={lastSession}
                 onNavigate={() => router.push('/modals/session' as any)}
                 onUpload={() => router.push('/modals/upload' as any)}
+                onViewMissions={() => router.push('/misiones' as any)}
               />
               {isInProgress && (
                 <>
