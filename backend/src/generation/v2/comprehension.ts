@@ -45,23 +45,28 @@ INSTRUCCIONES:
    ✗ DEMASIADO LARGO (más de 15 palabras): "Cómo tu especie va cambiando de generación en generación,
      poco a poco, para adaptarse mejor y sobrevivir en su ambiente."
    ✓ CERCANO Y BREVE: "Cómo tu especie cambia de generación en generación para sobrevivir mejor."
-2a-bis. teacherExplanation: una micro-explicación en voz de profesor cercano (2-3 frases, 25-45
-    palabras) que ENSEÑA el concepto antes de nombrarlo, en vez de definirlo en seco. Estructura
-    ideal en tres tiempos:
-      (1) un escenario o situación concreta que el estudiante pueda imaginar ("Imagina que...",
-          "Piensa en...", "Cuando..."),
-      (2) qué nos permite entender o hacer esa situación,
-      (3) recién ahí, nombrar el concepto ("A eso le llamamos X" / "Eso es X").
-    Tono conversacional y con energía, como un amigo mayor que sabe del tema y te lo cuenta —
-    nunca registro de libro de texto ni acartonado. Es DISTINTO de simpleExplanation (que es la
-    versión ultra-corta de 2 líneas) y de hook (que es UNA analogía de una línea): teacherExplanation
-    es el momento de enseñanza completo, la voz del "profesor personal".
-    Debe ser 100% fiel al material — el escenario NUNCA inventa hechos que no estén o no se
-    infieran del texto; si no se te ocurre un escenario honesto, usa una explicación directa pero
-    cálida (igual en voz de profesor), no fuerces una historia falsa.
-    ✓ BUENO (Registro fósil): "Imagina que encuentras un hueso enterrado hace millones de años.
-      Ese hallazgo nos permite reconstruir cómo eran los seres vivos del pasado. A eso le llamamos
-      registro fósil."
+2a-bis. teacherExplanation: una intervención breve (20-35 palabras) que DESPIERTA CURIOSIDAD antes
+    de explicar el concepto — un microgancho educativo, NO una microclase. Debe sonar como un
+    profesor entretenido o un amigo mayor que sabe del tema, nunca como un texto escolar.
+    El objetivo es que el estudiante sienta que ACABA DE DESCUBRIR la idea, no que se la definieron.
+    Empieza con una pregunta, observación, situación cotidiana o desafío que active la mente del
+    estudiante ("¿Te imaginas...?", "Fíjate que...", "¿Sabías que...?", "¿Cómo sabrías...?").
+    NO definas el concepto: deja que el estudiante llegue naturalmente a la idea que luego resume
+    simpleExplanation. Podés mencionar el nombre del concepto al cierre, pero como respuesta a la
+    curiosidad que despertaste, no como una definición.
+    Evita estructuras repetitivas y fórmulas gastadas como "Imagina que..." o "A eso le llamamos...".
+    Es DISTINTO de simpleExplanation (el titular ultra-corto de 2 líneas) y de hook (una analogía de
+    una línea): teacherExplanation es el gancho conversacional, la voz del "profesor particular".
+    No incluyas emojis dentro del texto — el campo emoji (punto 2c) ya cubre eso por separado.
+    Debe ser 100% fiel al material — la pregunta o el escenario NUNCA inventa hechos que no estén o
+    no se infieran del texto; si no se te ocurre un gancho honesto, usa una pregunta directa pero
+    cálida, no fuerces una historia falsa.
+    ✓ BUENO (Registro fósil): "Encontraste un hueso enterrado hace millones de años. ¿Cómo podrías
+      saber de qué animal era? Justamente para responder preguntas como esa existe el registro
+      fósil."
+    ✗ MICROCLASE (explica en vez de intrigar): "Imagina que encuentras un hueso enterrado hace
+      millones de años. Ese hallazgo nos permite reconstruir el pasado. A eso le llamamos registro
+      fósil."
     ✗ ACARTONADO: "El registro fósil corresponde a los restos o impresiones de organismos
       preservados en rocas sedimentarias."
     ✗ ESCENARIO INVENTADO: agregar datos, cifras o ejemplos que el material no menciona.
