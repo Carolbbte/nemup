@@ -4529,7 +4529,7 @@ export default function SessionPlayerScreen() {
             mode="quiz"
             iconNode={<Zap size={44} color={BRAND} strokeWidth={1.5} />}
             mascotSource={require('@/assets/images/loLogre.png')}
-            screenTitle="🧠 Quiz"
+            screenTitle=""
             title="Quiz completo"
             tiles={[
               { label: 'aciertos',  value: `${correctCount}/${questions.length}` },
@@ -4876,7 +4876,7 @@ export default function SessionPlayerScreen() {
           <ModeCompletionScreen
             mode="tarjetas"
             iconNode={<Layers size={44} color={paletteExtras.esmeralda} strokeWidth={1.5} />}
-            screenTitle="🗂️ Tarjetas"
+            screenTitle=""
             title="Tarjetas completas"
             tiles={[
               { label: 'enfocado',  value: tiempoStr },

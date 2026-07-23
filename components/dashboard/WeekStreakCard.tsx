@@ -9,9 +9,12 @@ type Props = {
   // (DailySessionContext already starts new users at 0) — today still
   // renders marked, just with "0 días" in the pill.
   streakDays: number;
+  // When the day's session is already complete, "Gana 20 XP hoy" would
+  // contradict the "¡Lo lograste!" messaging shown right above this card.
+  dayComplete?: boolean;
 };
 
-export default function WeekStreakCard({ streakDays }: Props) {
+export default function WeekStreakCard({ streakDays, dayComplete = false }: Props) {
   // JS getDay(): 0=Sun..6=Sat — shift to a Monday-first index (0=Mon..6=Sun)
   // to match the L-a-D strip.
   const todayIdx = (new Date().getDay() + 6) % 7;
@@ -24,7 +27,7 @@ export default function WeekStreakCard({ streakDays }: Props) {
           {/* StatsStrip's daily nudge doesn't render in this state anymore
               (home.tsx hides it when isReady) — preserved here so the
               reminder isn't lost. */}
-          <Text style={s.subtitle}>Gana 20 XP hoy</Text>
+          <Text style={s.subtitle}>{dayComplete ? 'Ya ganaste tu XP de hoy' : 'Gana 20 XP hoy'}</Text>
         </View>
         <View style={s.streakPill}>
           <Text style={s.streakPillText}>{`${streakDays} días 🔥`}</Text>

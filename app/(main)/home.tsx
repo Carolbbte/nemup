@@ -307,6 +307,9 @@ export default function HomeScreen() {
                   <WeekStreakCard streakDays={dailySession.streak} />
                 </>
               )}
+              {isFullyComplete && (
+                <WeekStreakCard streakDays={dailySession.streak} dayComplete />
+              )}
             </>
           )}
           {lastSession !== null && (
