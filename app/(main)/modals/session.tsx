@@ -155,11 +155,12 @@ type SummarySlideType = 'concept' | 'key_fact' | 'important' | 'remember' | 'exa
   // makeMotivation) — this lets a real one arrive FROM the backend too.
   | 'motivation';
 type IllustrationType = 'educational' | 'diagram' | 'concept' | 'timeline' | 'map' | 'process' | 'comparison';
-// `hook`/`formalDefinition`/`tip` — main_concept only, populated by
-// assemble.ts from the concept's own hook/definition/tips[0]. All optional:
-// older cached sessions (generated before these existed) simply omit them,
-// and the renderer falls back to today's behavior (no hook line, no tip
-// box, no formal-definition toggle) rather than breaking.
+// `hook`/`teacherExplanation`/`formalDefinition`/`tip` — main_concept only,
+// populated by assemble.ts from the concept's own hook/teacherExplanation/
+// definition/tips[0]. All optional: older cached sessions (generated before
+// these existed) simply omit them, and the renderer falls back to today's
+// behavior (no hook line, no teacher-explanation block, no tip box, no
+// formal-definition toggle) rather than breaking.
 // `blankSentence`/`blankChoices`/`blankAnswer`/`blankExplanation` —
 // fill_blank only, same shape Desafío's DesafioSlide already uses for the
 // same fields (see FillBlankContent) — the answer is still a LETTER
@@ -171,7 +172,7 @@ type IllustrationType = 'educational' | 'diagram' | 'concept' | 'timeline' | 'ma
 // `classifyPrompt`/`classifyCategories`/`classifyItems` — classify only,
 // same shape Desafío's DesafioSlide already uses. The answer is an object
 // mapping each item's id to the assigned category.
-type BackendSlide = { type: SummarySlideType; emoji: string; title: string; definition: string; example: string; visualHint?: string; illustrationType?: IllustrationType; connector?: string | null; question?: string | null; options?: string[] | null; correctAnswer?: string | null; wrongAnswerHints?: Record<string, string> | null; hint?: string; hook?: string | null; keyPhrase?: string | null; formalDefinition?: string; tip?: string; blankSentence?: string; blankChoices?: { letter: string; text: string }[]; blankAnswer?: string; blankExplanation?: string; pairs?: { id: string; left: string; right: string; leftIcon?: string; rightIcon?: string }[]; pairsPrompt?: string; classifyPrompt?: string; classifyCategories?: string[]; classifyItems?: { id: string; text: string; category: string }[]; requeued?: boolean; requeuedFrom?: string | null; statement?: string; answer?: string; steps?: string[]; message?: string; sub?: string };
+type BackendSlide = { type: SummarySlideType; emoji: string; title: string; definition: string; example: string; visualHint?: string; illustrationType?: IllustrationType; connector?: string | null; question?: string | null; options?: string[] | null; correctAnswer?: string | null; wrongAnswerHints?: Record<string, string> | null; hint?: string; hook?: string | null; teacherExplanation?: string | null; keyPhrase?: string | null; formalDefinition?: string; tip?: string; blankSentence?: string; blankChoices?: { letter: string; text: string }[]; blankAnswer?: string; blankExplanation?: string; pairs?: { id: string; left: string; right: string; leftIcon?: string; rightIcon?: string }[]; pairsPrompt?: string; classifyPrompt?: string; classifyCategories?: string[]; classifyItems?: { id: string; text: string; category: string }[]; requeued?: boolean; requeuedFrom?: string | null; statement?: string; answer?: string; steps?: string[]; message?: string; sub?: string };
 type LegacySection = { heading: string; content: string; keyPoints: string[] };
 type Session = {
   id?: string; userId?: string;
@@ -2645,6 +2646,9 @@ export default function SessionPlayerScreen() {
                     <MathText style={[sum.conceptTitle, { color: pal.accent }]}>
                       {`${slide.title}${slide?.emoji ? ' ' + slide.emoji : ''}`}
                     </MathText>
+                    {!!slide.teacherExplanation && (
+                      <MathText style={sum.teacherExplanationText}>{slide.teacherExplanation}</MathText>
+                    )}
                     {hasConnector ? (
                       <>
                         <View style={sum.chainContainer}>
@@ -5336,6 +5340,12 @@ const sum = StyleSheet.create(withMisionFont({
   conceptIconEmoji: { fontSize: 30 },
   conceptKicker:    { fontSize: 12, fontWeight: '800', letterSpacing: 1, marginBottom: 4 },
   conceptTitle:     { fontSize: SM ? 21 : 23, fontWeight: '800', color: semantic.textPrimary, lineHeight: SM ? 26 : 28, marginBottom: 12 },
+  // The card's main teaching moment (KnowledgeConcept.teacherExplanation) —
+  // narrative body copy shown above the compact simpleExplanation content
+  // below, in the card's neutral slate (same family as insightLineMain/
+  // hookBubbleText), not the rotating accent — this is prose to read, not a
+  // label to shout.
+  teacherExplanationText: { fontSize: SM ? 15 : 16, fontWeight: '500' as const, color: '#3A4A5E', lineHeight: SM ? 22 : 25, marginBottom: SM ? 12 : 14 },
   mainCardDef:      { fontSize: SM ? 14 : 15, color: semantic.textPrimary, lineHeight: SM ? 21 : 24, fontWeight: '500' },
   workedExBox:      { backgroundColor: 'rgba(22,119,242,0.05)', borderRadius: 14, borderWidth: 1.5, borderColor: 'rgba(22,119,242,0.15)', padding: SM ? 14 : 16, marginBottom: SM ? 10 : 12 },
   workedExText:     { fontSize: SM ? 18 : 22, fontWeight: '800', color: BRAND, textAlign: 'center', letterSpacing: -0.3, lineHeight: SM ? 26 : 30 },

@@ -83,6 +83,12 @@ export interface SummarySlide {
   // analogy shown in mascot voice above the card. Null/absent on older
   // cached sessions or when comprehension.ts had no honest analogy.
   hook?: string | null;
+  // main_concept only, from KnowledgeConcept.teacherExplanation — the 2-3
+  // sentence narrative teaching moment (scenario → understanding → name),
+  // shown as the card's main teaching content, above simpleExplanation
+  // (kept on `definition`, the compact headline). Absent on older cached
+  // sessions generated before this field existed.
+  teacherExplanation?: string | null;
   // main_concept only, from KnowledgeConcept.keyPhrase — a short (2-5 word)
   // fragment of `definition` (which holds simpleExplanation on this slide,
   // see below) meant to be highlighted in color on the card. The frontend

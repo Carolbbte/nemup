@@ -45,6 +45,26 @@ INSTRUCCIONES:
    ✗ DEMASIADO LARGO (más de 15 palabras): "Cómo tu especie va cambiando de generación en generación,
      poco a poco, para adaptarse mejor y sobrevivir en su ambiente."
    ✓ CERCANO Y BREVE: "Cómo tu especie cambia de generación en generación para sobrevivir mejor."
+2a-bis. teacherExplanation: una micro-explicación en voz de profesor cercano (2-3 frases, 25-45
+    palabras) que ENSEÑA el concepto antes de nombrarlo, en vez de definirlo en seco. Estructura
+    ideal en tres tiempos:
+      (1) un escenario o situación concreta que el estudiante pueda imaginar ("Imagina que...",
+          "Piensa en...", "Cuando..."),
+      (2) qué nos permite entender o hacer esa situación,
+      (3) recién ahí, nombrar el concepto ("A eso le llamamos X" / "Eso es X").
+    Tono conversacional y con energía, como un amigo mayor que sabe del tema y te lo cuenta —
+    nunca registro de libro de texto ni acartonado. Es DISTINTO de simpleExplanation (que es la
+    versión ultra-corta de 2 líneas) y de hook (que es UNA analogía de una línea): teacherExplanation
+    es el momento de enseñanza completo, la voz del "profesor personal".
+    Debe ser 100% fiel al material — el escenario NUNCA inventa hechos que no estén o no se
+    infieran del texto; si no se te ocurre un escenario honesto, usa una explicación directa pero
+    cálida (igual en voz de profesor), no fuerces una historia falsa.
+    ✓ BUENO (Registro fósil): "Imagina que encuentras un hueso enterrado hace millones de años.
+      Ese hallazgo nos permite reconstruir cómo eran los seres vivos del pasado. A eso le llamamos
+      registro fósil."
+    ✗ ACARTONADO: "El registro fósil corresponde a los restos o impresiones de organismos
+      preservados en rocas sedimentarias."
+    ✗ ESCENARIO INVENTADO: agregar datos, cifras o ejemplos que el material no menciona.
 2b. hook: un gancho o analogía cotidiana (máximo 20 palabras), en el mismo tono cercano, que conecte
     el concepto con algo de la vida de un adolescente (ej. para "evolución": una receta familiar que
     cada generación ajusta un poco). Debe ser CORRECTA — nunca distorsiones el concepto para que suene

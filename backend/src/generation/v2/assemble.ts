@@ -973,6 +973,7 @@ export function buildSummarySlides(
       definition: concept.simpleExplanation,
       example: concept.example ?? '',
       hook: concept.hook,
+      teacherExplanation: concept.teacherExplanation,
       keyPhrase: concept.keyPhrase,
       formalDefinition: concept.definition,
       ...(concept.tips[0] ? { tip: concept.tips[0] } : {}),

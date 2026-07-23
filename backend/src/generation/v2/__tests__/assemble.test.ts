@@ -29,7 +29,7 @@ describe('shuffleWithLetterAnswer', () => {
 
 const makeConcept = (id: string, name: string, distinctiveTrait: string): KnowledgeConcept => ({
   id, name, distinctiveTrait,
-  simpleExplanation: '', definition: '', example: null, exampleShort: null, hook: null, emoji: null, keyPhrase: null, advancedExamples: [], tips: [], difficulty: 1, sourceQuote: '',
+  simpleExplanation: '', teacherExplanation: '', definition: '', example: null, exampleShort: null, hook: null, emoji: null, keyPhrase: null, advancedExamples: [], tips: [], difficulty: 1, sourceQuote: '',
 });
 
 describe('buildReinforcementFromTrait (no-AI second question)', () => {
@@ -115,6 +115,7 @@ const ko: KnowledgeObject = {
       id: 'c1',
       name: 'Término algebraico',
       simpleExplanation: 'Un número junto a una letra.',
+      teacherExplanation: 'Un número junto a una letra.',
       definition: 'Un término algebraico combina un coeficiente y una parte literal.',
       example: '5x²',
       exampleShort: '5x²',
@@ -131,6 +132,7 @@ const ko: KnowledgeObject = {
       id: 'c2',
       name: 'Términos semejantes',
       simpleExplanation: 'Términos con la misma parte literal.',
+      teacherExplanation: 'Términos con la misma parte literal.',
       definition: 'Dos términos son semejantes cuando comparten la misma parte literal.',
       example: '3x y 5x',
       exampleShort: '3x y 5x',
@@ -437,6 +439,7 @@ describe('buildSummarySlides — Fase 2: Arco de la misión (MISSION_ARC_V2)', (
   const makeArcConcept = (id: string, name: string, difficulty: number): KnowledgeConcept => ({
     id, name, difficulty,
     simpleExplanation: `${name} explicación.`,
+    teacherExplanation: `${name} explicación.`,
     definition: `${name} definición.`,
     example: null, exampleShort: null, hook: null, emoji: null, keyPhrase: null,
     advancedExamples: [], tips: [],
@@ -615,6 +618,7 @@ describe('buildSummarySlides — Fase 3: Acortamiento de la misión (MISSION_SHO
   const makeShortenConcept = (id: string, name: string, difficulty: number): KnowledgeConcept => ({
     id, name, difficulty,
     simpleExplanation: `${name}: explicación simple.`,
+    teacherExplanation: `${name}: explicación simple.`,
     definition: `${name}: definición formal.`,
     example: `Ejemplo de ${name}.`,
     exampleShort: `Ej. ${name}`, // enables match_pairs (needs >=3 concepts with one)

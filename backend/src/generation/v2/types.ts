@@ -20,6 +20,17 @@ export interface KnowledgeConcept {
   name: string;
   /** 1-2 sentence, plain-language explanation — used for flashcards and main_concept slides. */
   simpleExplanation: string;
+  /**
+   * A 2-3 sentence (25-45 word) narrative micro-explanation in a warm
+   * teacher voice — teaches the concept via scenario → what it lets you
+   * understand → name, instead of defining it dry. Distinct from
+   * `simpleExplanation` (a 2-line headline) and `hook` (a one-line analogy):
+   * this is the full teaching moment, the "personal teacher" voice on the
+   * main_concept card. Never null — comprehension.ts falls back to a warm
+   * direct explanation (still in teacher voice) rather than a fabricated
+   * scenario when the material doesn't support one.
+   */
+  teacherExplanation: string;
   /** Formal definition — used for fill_blank and match_pairs exercises. */
   definition: string;
   /** A concrete example illustrating the concept, or null if none applies. */

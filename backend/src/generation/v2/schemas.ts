@@ -20,6 +20,7 @@ const knowledgeConceptSchema: JsonSchema = {
     'id',
     'name',
     'simpleExplanation',
+    'teacherExplanation',
     'definition',
     'example',
     'exampleShort',
@@ -45,6 +46,10 @@ const knowledgeConceptSchema: JsonSchema = {
     simpleExplanation: {
       type: 'string',
       description: '1-2 sentence, plain-language explanation — used for flashcards and main_concept slides.',
+    },
+    teacherExplanation: {
+      type: 'string',
+      description: 'A 2-3 sentence (25-45 word) narrative micro-explanation in a warm teacher voice that TEACHES the concept before naming it (scenario → what it lets you understand → name), distinct from simpleExplanation (a 2-line headline) and hook (a one-line analogy). Never null — falls back to a warm direct explanation when no honest scenario applies.',
     },
     definition: {
       type: 'string',
