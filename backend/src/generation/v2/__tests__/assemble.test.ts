@@ -13,6 +13,7 @@ import { buildSummarySlides, shuffleWithLetterAnswer, buildReinforcementFromTrai
 import type { KnowledgeObject, KnowledgeConcept, KnowledgeCategory } from '../types.js';
 import type { DistractorSet } from '../distractors.js';
 import type { GeneratedExercise } from '../exerciseGenerator.js';
+import type { FindErrorResult } from '../findError.js';
 
 const LETTERS = ['A', 'B', 'C', 'D'];
 
@@ -708,6 +709,60 @@ describe('buildSummarySlides — Fase 3: Acortamiento de la misión (MISSION_SHO
     expect(allReinforcement).toHaveLength(1);
 
     expect(shortSlides.length).toBeLessThan(fullSlides.length);
+  });
+});
+
+describe('buildSummarySlides — FEATURE_FIND_ERROR_EXERCISE (find_error 1:1 replacement)', () => {
+  const makeFindError = (overrides: Partial<FindErrorResult> = {}): FindErrorResult => ({
+    expression: '2(x + 3)',
+    wrongStep: '2x + 3',
+    question: '¿Qué salió mal?',
+    errorExplanation: 'Olvidó multiplicar el 3.',
+    correctStep: '2x + 6',
+    sourceType: 'material',
+    ...overrides,
+  });
+
+  it('is byte-identical to today (same slide-type sequence, no find_error) when findErrorByConcept is omitted', () => {
+    // buildSummarySlides shuffles options internally (shuffleArray), so two
+    // separate calls never deep-equal each other even with identical
+    // inputs — comparing the TYPE sequence is what actually proves the
+    // default empty Map changes nothing structurally.
+    const withDefault = buildSummarySlides(ko, distractors, [], []);
+    const withExplicitEmptyMap = buildSummarySlides(ko, distractors, [], [], false, false, true, true, new Map());
+    expect(withDefault.map((s) => s.type)).toEqual(withExplicitEmptyMap.map((s) => s.type));
+    expect(withDefault.some((s) => s.type === 'find_error')).toBe(false);
+    expect(withDefault.filter((s) => s.type === 'micro_challenge')).toHaveLength(2);
+  });
+
+  it('replaces ONLY the matched concept\'s micro_challenge with a find_error slide, 1:1', () => {
+    const findErrorByConcept = new Map([['c1', makeFindError()]]);
+    const slides = buildSummarySlides(ko, distractors, [], [], false, false, true, true, findErrorByConcept);
+
+    // c1's micro_challenge is gone, replaced by exactly one find_error slide.
+    expect(slides.filter((s) => s.type === 'find_error')).toHaveLength(1);
+    const findErrorSlide = slides.find((s) => s.type === 'find_error')!;
+    expect(findErrorSlide.errorExpression).toBe('2(x + 3)');
+    expect(findErrorSlide.errorWrongStep).toBe('2x + 3');
+    expect(findErrorSlide.errorQuestion).toBe('¿Qué salió mal?');
+    expect(findErrorSlide.errorExplanation).toBe('Olvidó multiplicar el 3.');
+    expect(findErrorSlide.errorCorrectStep).toBe('2x + 6');
+
+    // c2 (not in findErrorByConcept) keeps its normal micro_challenge MC —
+    // the replacement never leaks to a concept the caller didn't flag.
+    const microChallenges = slides.filter((s) => s.type === 'micro_challenge');
+    expect(microChallenges).toHaveLength(1);
+    expect(microChallenges[0].title).toContain('Términos semejantes');
+
+    // Both concepts' main_concept cards still exist — only the MC/find_error
+    // slot changed, never the rest of the concept's block.
+    expect(slides.filter((s) => s.type === 'main_concept')).toHaveLength(2);
+  });
+
+  it('an unknown/empty Map never produces a find_error slide (fallback is total, not partial)', () => {
+    const slides = buildSummarySlides(ko, distractors, [], [], false, false, true, true, new Map());
+    expect(slides.some((s) => s.type === 'find_error')).toBe(false);
+    expect(slides.filter((s) => s.type === 'micro_challenge')).toHaveLength(2);
   });
 });
 

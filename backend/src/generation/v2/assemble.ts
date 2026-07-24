@@ -24,6 +24,7 @@ import type { KnowledgeConcept, KnowledgeObject } from './types.js';
 import type { DistractorSet } from './distractors.js';
 import type { WorkedExampleResult } from './procedural.js';
 import type { GeneratedExercise } from './exerciseGenerator.js';
+import type { FindErrorResult } from './findError.js';
 
 // ── Desafío local type mirror — matches shared/desafio.ts field-for-field ───
 // (same rootDir-avoidance duplication desafioAdapter.ts already uses)
@@ -816,6 +817,15 @@ export function buildSummarySlides(
   // riddle-based framing (distinctiveTrait), which stays coherent for both
   // content types.
   allowExampleReinforcement: boolean = true,
+  // FEATURE_FIND_ERROR_EXERCISE — default empty Map so every existing
+  // caller/test is byte-identical to before this parameter existed. Only
+  // orchestrator.ts's own session-level gate (allowFindError) ever
+  // populates this — a concept id present here gets a find_error slide
+  // INSTEAD of its usual micro_challenge MC (1:1 replacement, never both);
+  // a concept absent from it (flag off, session not procedural, or the
+  // model couldn't produce a valid one) falls back to today's exact
+  // behavior for that concept, unchanged.
+  findErrorByConcept: Map<string, FindErrorResult> = new Map(),
 ): SummarySlide[] {
   if (ko.concepts.length === 0) return [];
 
@@ -945,23 +955,49 @@ export function buildSummarySlides(
     // breather at the concept 0→1 boundary still happens regardless.
     const cardFirst = missionArcV2 && conceptIdx === 0 ? true : conceptIdx % 2 === 1;
 
-    const microEx = nextExercise();
-    const micro = microEx ? fieldsFromExercise(microEx) : fieldsFromDistractorSet(d);
-    const microSlide: SummarySlide = {
-      type: 'micro_challenge',
-      emoji: '🧠',
+    // FEATURE_FIND_ERROR_EXERCISE — 1:1 replacement of this concept's
+    // micro_challenge MC with a find_error slide, never both. findErrorResult
+    // is only ever set when orchestrator.ts's own gate (flag + session type)
+    // already passed AND the model produced a valid item for THIS concept —
+    // every other concept (flag off, session not procedural, or this concept
+    // specifically had nothing generated) falls through to the exact
+    // existing micro_challenge branch below, unchanged. nextExercise() is
+    // deliberately NOT consumed in the find_error branch, so that pooled
+    // generated exercise stays available for the next concept that needs one
+    // instead of being generated and discarded.
+    const findErrorResult = findErrorByConcept.get(concept.id);
+    const microSlide: SummarySlide = findErrorResult ? {
+      type: 'find_error',
+      emoji: '🔍',
       title: cardFirst ? `Practica: ${concept.name}` : `¿Qué sabes de ${concept.name}?`,
       definition: cardFirst
-        ? 'Ya viste este concepto — ponlo en práctica.'
-        : 'Responde antes de ver la respuesta — así el concepto se queda contigo.',
+        ? 'Ya viste este concepto — encuentra el error en este paso.'
+        : 'Revisa este paso resuelto antes de seguir.',
       example: '',
-      question: micro.question,
-      options: micro.options,
-      correctAnswer: micro.correctAnswer,
-      ...(micro.wrongAnswerHints ? { wrongAnswerHints: micro.wrongAnswerHints } : {}),
-      ...(micro.hint ? { hint: micro.hint } : {}),
-    };
-    if (missionArcV2) usedQuestionTexts.add(micro.question);
+      errorExpression: findErrorResult.expression,
+      errorWrongStep: findErrorResult.wrongStep,
+      errorQuestion: findErrorResult.question,
+      errorExplanation: findErrorResult.errorExplanation,
+      errorCorrectStep: findErrorResult.correctStep,
+    } : (() => {
+      const microEx = nextExercise();
+      const micro = microEx ? fieldsFromExercise(microEx) : fieldsFromDistractorSet(d);
+      if (missionArcV2) usedQuestionTexts.add(micro.question);
+      return {
+        type: 'micro_challenge',
+        emoji: '🧠',
+        title: cardFirst ? `Practica: ${concept.name}` : `¿Qué sabes de ${concept.name}?`,
+        definition: cardFirst
+          ? 'Ya viste este concepto — ponlo en práctica.'
+          : 'Responde antes de ver la respuesta — así el concepto se queda contigo.',
+        example: '',
+        question: micro.question,
+        options: micro.options,
+        correctAnswer: micro.correctAnswer,
+        ...(micro.wrongAnswerHints ? { wrongAnswerHints: micro.wrongAnswerHints } : {}),
+        ...(micro.hint ? { hint: micro.hint } : {}),
+      };
+    })();
 
     const cardSlide: SummarySlide = {
       type: 'main_concept',

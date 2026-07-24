@@ -155,7 +155,12 @@ type SummarySlideType = 'concept' | 'key_fact' | 'important' | 'remember' | 'exa
   // Was already a client-only synthesized type (see SummarySlide's own
   // 'motivation' union member below, made by the legacy quality-pass's
   // makeMotivation) — this lets a real one arrive FROM the backend too.
-  | 'motivation';
+  | 'motivation'
+  // FEATURE_FIND_ERROR_EXERCISE (backend, off by default) — see the
+  // error*/BackendSlide fields below. No renderer branch for this type yet
+  // (Capa 4) — with the flag off the backend never emits it, so this is a
+  // no-op addition today.
+  | 'find_error';
 type IllustrationType = 'educational' | 'diagram' | 'concept' | 'timeline' | 'map' | 'process' | 'comparison';
 // `hook`/`teacherExplanation`/`formalDefinition`/`tip` — main_concept only,
 // populated by assemble.ts from the concept's own hook/teacherExplanation/
@@ -177,7 +182,12 @@ type IllustrationType = 'educational' | 'diagram' | 'concept' | 'timeline' | 'ma
 // `classifyPrompt`/`classifyCategories`/`classifyItems` — classify only,
 // same shape Desafío's DesafioSlide already uses. The answer is an object
 // mapping each item's id to the assigned category.
-type BackendSlide = { type: SummarySlideType; emoji: string; title: string; definition: string; example: string; visualHint?: string; illustrationType?: IllustrationType; connector?: string | null; question?: string | null; options?: string[] | null; correctAnswer?: string | null; wrongAnswerHints?: Record<string, string> | null; hint?: string; hook?: string | null; teacherExplanation?: string | null; keyPhrase?: string | null; formalDefinition?: string; tip?: string; blankSentence?: string; blankChoices?: { letter: string; text: string }[]; blankAnswer?: string; blankExplanation?: string; pairs?: { id: string; left: string; right: string; leftIcon?: string; rightIcon?: string }[]; pairsPrompt?: string; classifyPrompt?: string; classifyCategories?: string[]; classifyItems?: { id: string; text: string; category: string }[]; requeued?: boolean; requeuedFrom?: string | null; statement?: string; answer?: string; steps?: string[]; message?: string; sub?: string };
+// `errorExpression`/`errorWrongStep`/`errorQuestion`/`errorExplanation`/
+// `errorCorrectStep` — find_error only (FEATURE_FIND_ERROR_EXERCISE).
+// expression/correctStep are always copied verbatim from the material's
+// own workedExample (never recalculated), same discipline as
+// statement/answer above. All optional/absent when the flag is off.
+type BackendSlide = { type: SummarySlideType; emoji: string; title: string; definition: string; example: string; visualHint?: string; illustrationType?: IllustrationType; connector?: string | null; question?: string | null; options?: string[] | null; correctAnswer?: string | null; wrongAnswerHints?: Record<string, string> | null; hint?: string; hook?: string | null; teacherExplanation?: string | null; keyPhrase?: string | null; formalDefinition?: string; tip?: string; blankSentence?: string; blankChoices?: { letter: string; text: string }[]; blankAnswer?: string; blankExplanation?: string; pairs?: { id: string; left: string; right: string; leftIcon?: string; rightIcon?: string }[]; pairsPrompt?: string; classifyPrompt?: string; classifyCategories?: string[]; classifyItems?: { id: string; text: string; category: string }[]; requeued?: boolean; requeuedFrom?: string | null; statement?: string; answer?: string; steps?: string[]; message?: string; sub?: string; errorExpression?: string; errorWrongStep?: string; errorQuestion?: string; errorExplanation?: string; errorCorrectStep?: string };
 type LegacySection = { heading: string; content: string; keyPoints: string[] };
 type Session = {
   id?: string; userId?: string;
@@ -1335,6 +1345,12 @@ export default function SessionPlayerScreen() {
   // meaningful when splitTeacherExplanation finds a real hook/reveal split
   // (see that card's own render); reset per slide same as showFormalDef.
   const [conceptRevealed, setConceptRevealed] = useState(false);
+  // Shared by every tap-to-reveal slide type (main_concept, find_error) —
+  // conceptRevealed is unambiguous per-slide since only one slide is ever
+  // visible at a time and it resets on every summaryIdx change (below).
+  const handleRevealConcept = () => {
+    if (!conceptRevealed) setConceptRevealed(true);
+  };
 
   // match_pairs — own, simple orchestration (NOT desafio.tsx's handlers,
   // which are fused with streak/energy/retry/auto-advance). `pairsMatched`/
@@ -2821,9 +2837,6 @@ export default function SessionPlayerScreen() {
               // render exactly like today, no tap mechanic.
               const teacherSplit = splitTeacherExplanation(slide.teacherExplanation);
               const hasRevealGate = !hasConnector && !isProcedural && !!teacherSplit.reveal;
-              const handleRevealConcept = () => {
-                if (!conceptRevealed) setConceptRevealed(true);
-              };
               // AnimatedPressable (not plain Pressable) so the card can carry
               // the press-feedback scale/shadow style below — pal itself now
               // comes from the component's top level (see its own comment),
@@ -2992,7 +3005,57 @@ export default function SessionPlayerScreen() {
                 </ScrollView>
               );
               })()
-            ) : slide?.type === 'worked_example_intro' ? (() => {
+            ) : slide?.type === 'find_error' ? (() => {
+              // FEATURE_FIND_ERROR_EXERCISE — reuses conceptRevealed/
+              // handleRevealConcept/conceptRevealStyle/cardPressStyle/pal
+              // (all component-level, shared with main_concept's own
+              // tap-to-reveal card) instead of duplicating the mechanic.
+              // hasRevealGate here just guards against a malformed slide
+              // (shouldn't happen — Capa 3 only emits find_error when both
+              // fields are present) rather than a text-split outcome.
+              const hasRevealGate = !!slide.errorExpression && !!slide.errorWrongStep;
+              return (
+                <ScrollView style={{ flex: 1 }} contentContainerStyle={{ flexGrow: 1, paddingBottom: 24 }} showsVerticalScrollIndicator={false}>
+                  <AnimatedPressable
+                    onPress={hasRevealGate ? handleRevealConcept : undefined}
+                    disabled={!hasRevealGate || conceptRevealed}
+                    accessibilityRole="button"
+                    accessibilityHint="Toca para revelar qué salió mal"
+                    style={[sum.conceptTarjeta, { backgroundColor: pal.bg }, cardPressStyle]}
+                  >
+                    <Text style={[sum.conceptTitle, { color: pal.accent }]}>🔍 Encuentra el error</Text>
+                    {hasRevealGate ? (
+                      <>
+                        <View style={sum.findErrorStepBox}>
+                          <MathText style={sum.findErrorExpression}>{slide.errorExpression}</MathText>
+                          <Text style={sum.findErrorArrow}>↓</Text>
+                          <MathText style={sum.findErrorWrong}>{slide.errorWrongStep}</MathText>
+                        </View>
+                        <Text style={sum.insightFallback}>{slide.errorQuestion?.trim() || '¿Qué salió mal?'}</Text>
+                        {!conceptRevealed ? (
+                          <View style={sum.revealAffordance}>
+                            <Text style={sum.revealAffordanceEmoji}>👇</Text>
+                            <Text style={[sum.revealAffordanceText, { color: palette.verdeXP }]}>Toca para descubrir</Text>
+                          </View>
+                        ) : (
+                          <Animated.View style={conceptRevealStyle}>
+                            <MathText style={[sum.insightFallback, sum.findErrorExplanation]}>{slide.errorExplanation}</MathText>
+                            <View style={sum.findErrorCorrectBox}>
+                              <Text style={sum.findErrorCorrectLabel}>Debe quedar</Text>
+                              <MathText style={sum.findErrorCorrectValue}>{slide.errorCorrectStep}</MathText>
+                            </View>
+                          </Animated.View>
+                        )}
+                      </>
+                    ) : (
+                      // Defensive fallback only — never render a broken/empty
+                      // card if this somehow slipped through Capa 3's gate.
+                      <MathText style={sum.insightFallback}>{slide.definition || slide.title}</MathText>
+                    )}
+                  </AnimatedPressable>
+                </ScrollView>
+              );
+            })() : slide?.type === 'worked_example_intro' ? (() => {
               // Preview of the exercise that's coming up next — statement
               // taken VERBATIM from the following worked_example slide
               // (never recomputed here; the real step-by-step resolution
@@ -4684,9 +4747,15 @@ export default function SessionPlayerScreen() {
             // mirrors splitTeacherExplanation's own fallback rule, so a
             // concept with no usable hook/reveal split (or an older cached
             // session without teacherExplanation) is never gated here either.
-            const isConceptGated = slide?.type === 'main_concept'
+            // find_error (FEATURE_FIND_ERROR_EXERCISE) reuses the exact same
+            // conceptRevealed state/mechanic — see that slide's own render —
+            // gated on having real content instead of a text split.
+            const isConceptGated = (slide?.type === 'main_concept'
               && !!splitTeacherExplanation(bs?.teacherExplanation).reveal
-              && !conceptRevealed;
+              && !conceptRevealed)
+              || (slide?.type === 'find_error'
+              && !!bs?.errorExpression && !!bs?.errorWrongStep
+              && !conceptRevealed);
             const showChoose = (slide?.type === 'quiz' && !slideQuizAnswered) || (isMissionInteractive && !missionAnswered) || isMatchPairsIncomplete || isConceptGated;
 
             return (
@@ -5765,6 +5834,19 @@ const sum = StyleSheet.create(withMisionFont({
   revealAffordance:      { flexDirection: 'row' as const, alignItems: 'center' as const, gap: 6, marginTop: 10 },
   revealAffordanceEmoji: { fontSize: 18 },
   revealAffordanceText:  { fontSize: 14, fontWeight: '800' as const },
+
+  // find_error card (FEATURE_FIND_ERROR_EXERCISE) — the solved-step-with-a-
+  // mistake box + the correct-result callout shown after tap-to-reveal.
+  // Reuses conceptTarjeta/revealAffordance*/insightFallback/conceptRevealStyle
+  // for everything else (title, tap affordance, reveal animation).
+  findErrorStepBox:     { marginTop: 4, marginBottom: 14, alignItems: 'center' as const, gap: 6 },
+  findErrorExpression:  { fontSize: SM ? 18 : 20, fontWeight: '700' as const, color: semantic.textPrimary, textAlign: 'center' as const },
+  findErrorArrow:        { fontSize: 18, color: semantic.textTertiary },
+  findErrorWrong:        { fontSize: SM ? 20 : 22, fontWeight: '800' as const, color: palette.rojoError, textAlign: 'center' as const, backgroundColor: palette.rojoErrorBg, borderRadius: 12, paddingVertical: 8, paddingHorizontal: 16, overflow: 'hidden' as const },
+  findErrorExplanation: { marginBottom: 14 },
+  findErrorCorrectBox:  { backgroundColor: 'rgba(50,215,75,0.10)', borderRadius: 14, padding: SM ? 12 : 14, borderWidth: 2, borderColor: palette.verdeXP, alignItems: 'center' as const, gap: 4 },
+  findErrorCorrectLabel:{ fontSize: 11, fontWeight: '800' as const, color: paletteExtras.verdeTextoOscuro, letterSpacing: 0.6, textTransform: 'uppercase' as const },
+  findErrorCorrectValue:{ fontSize: SM ? 18 : 20, fontWeight: '800' as const, color: paletteExtras.verdeTextoOscuro },
 
   // "Ver definición formal" — collapsed by default, rigor kept a tap away
   // instead of cluttering the hero card.
