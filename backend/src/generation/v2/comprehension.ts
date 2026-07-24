@@ -11,6 +11,84 @@ const SYSTEM_PROMPT = `Eres un extractor de conocimiento pedagógico para estudi
 Tu única tarea es identificar los conceptos nucleares de un material y devolverlos en el JSON solicitado.
 No generes preguntas, ejercicios ni pantallas — eso lo resuelve otra etapa. Solo extrae conocimiento.`;
 
+/**
+ * Instrucción del punto 2a-bis (teacherExplanation) de buildUserPrompt,
+ * aislada en su propia función por su tamaño/complejidad (dos repertorios
+ * de patrones — A conceptual, B procedimental — más la regla de variedad
+ * adaptada a la cantidad de conceptos) — así una futura edición de este
+ * campo específico (agregar un patrón, ajustar un ejemplo) no requiere
+ * ubicarlo en medio del template literal gigante de buildUserPrompt.
+ */
+function buildTeacherExplanationInstruction(): string {
+  return `2a-bis. teacherExplanation: una intervención breve (20-35 palabras) que DESPIERTA CURIOSIDAD antes
+    de explicar el concepto — un microgancho educativo, NO una microclase, en voz de profesor
+    entretenido o amigo mayor, nunca texto escolar.
+    Estructura SIEMPRE en dos tiempos: una APERTURA que engancha + un CIERRE breve que resuelve.
+    La apertura debe ser UNA sola frase clara que termine en "?" o "." (el frontend divide el texto
+    en la primera frase y el resto para revelarlo por tap, así que respetá esto).
+    Para CADA concepto elegí el patrón que MEJOR le calce al material — nunca fuerces uno que no
+    aplique. La regla de variedad SE ADAPTA a cuántos conceptos tenga la misión (puede ser desde 1):
+      - 1 concepto: simplemente elegí el mejor patrón para ese concepto; no hay regla de variedad.
+      - 2-3 conceptos: no repitas el mismo patrón en conceptos consecutivos; idealmente cada uno usa
+        un patrón distinto, si resulta natural.
+      - 4 o más conceptos: no repitas patrón en conceptos consecutivos y procurá cubrir al menos 3
+        patrones distintos a lo largo de la lista.
+    La prioridad SIEMPRE es que el patrón calce con el concepto; la variedad es secundaria y nunca
+    justifica forzar un patrón que no aplique.
+    ELEGÍ LA FAMILIA DE PATRONES según la naturaleza de cada concepto:
+      • CONCEPTUAL (definiciones, fenómenos, "qué es / por qué pasa" — biología, historia, etc.)
+        → usá el Repertorio A.
+      • PROCEDIMENTAL (cómo resolver: pasos, métodos, operaciones — matemática, física con
+        ejercicios, etc.) → usá el Repertorio B.
+      En una misión MIXTA (conceptos de ambos tipos en el mismo material), cada concepto usa la
+      familia que le corresponde; eso ya aumenta la variedad. Si un concepto procedimental igual
+      engancha mejor con un patrón conceptual (o al revés), priorizá el que de verdad enganche.
+
+    Repertorio A — CONCEPTOS (apertura → cierre):
+      A1. Pregunta directa: una pregunta real sobre el fenómeno → respuesta.
+      A2. Dato curioso: "¿Sabías que...?" + un hecho sorprendente del material → explicación.
+      A3. Desafío / imaginación: "Imagina que...", "¿Qué harías si...?" → conclusión.
+      A4. Error común: "Mucha gente cree que..." (un malentendido REAL y típico) → corrección.
+          Usalo SOLO si el material sugiere un error común genuino.
+      A5. Comparación: "Es parecido a...", "Piensa en..." → concepto. (Distinto del campo hook, que
+          es una analogía de una sola línea aparte.)
+
+    Repertorio B — PROCEDIMIENTOS (apertura → cierre):
+      B1. ¿Qué harías primero?: plantea una DECISIÓN, no un dato → qué paso conviene primero y por qué.
+          Ej.: "¿Qué harías primero para resolver esta ecuación? → Antes de calcular, elimina el
+          término independiente; así simplificas el problema."
+      B2. Error común: "Mucha gente [hace X antes que Y]..." → por qué complica y qué hacer en su
+          lugar. (El más potente para procedimientos.) Ej.: "Mucha gente divide antes de simplificar
+          la fracción. → Eso complica el cálculo; primero simplifica si es posible."
+      B3. ¿Por qué este paso?: explica la LÓGICA de un paso, no el procedimiento completo.
+          Ej.: "¿Por qué restamos 5 en ambos lados? → Porque queremos dejar sola la incógnita sin
+          cambiar la igualdad."
+      B4. Estrategia rápida (heurística estilo Duolingo): una regla corta y accionable, no teoría.
+          Ej.: "Si ves una fracción en ambos lados, no multipliques de inmediato. → Busca primero si
+          puedes simplificar." / "Cuando aparezcan paréntesis, expándelos antes de juntar términos."
+      B5. Analogía visual: "Resolver X es como..." → cómo se corresponde con el procedimiento.
+          Ej.: "Resolver una ecuación es como desatar un nudo. → Cada paso elimina una parte hasta
+          dejar la incógnita libre." / "Factorizar es como separar piezas de LEGO para ver de qué
+          estaba hecho."
+    Reglas que se mantienen: NO definas el concepto en seco — dejá que el estudiante llegue a la
+    idea que luego resume simpleExplanation. 100% fiel al material: la apertura NUNCA inventa
+    hechos, cifras ni ejemplos que no estén o no se infieran del texto. No incluyas emojis dentro
+    del texto — el campo emoji (punto 2c) ya cubre eso por separado.
+    ✓ BUENO (A1, conceptual — Embriología): "¿Por qué al principio un embrión humano y uno de pez se
+      parecen tanto? Porque comparten etapas tempranas de desarrollo que revelan parentesco."
+    ✓ BUENO (A4, conceptual — Evolución): "Mucha gente cree que un ser vivo 'evoluciona' durante su
+      vida. En realidad la evolución ocurre en poblaciones, a lo largo de generaciones."
+    ✓ BUENO (B1, procedimental — Ecuaciones): "¿Qué harías primero para resolver esta ecuación?
+      Antes de calcular, elimina el término independiente; así simplificas el problema."
+    ✓ BUENO (B3, procedimental — Despeje): "¿Por qué restamos 5 en ambos lados? Porque queremos
+      dejar sola la incógnita sin cambiar la igualdad."
+    ✗ MONÓTONO: que todos los conceptos abran con la misma fórmula ("¿Sabías que...?" o "Imagina que...").
+    ✗ PATRÓN FORZADO: usar "Error común" cuando el material no sugiere ningún malentendido real.
+    ✗ FAMILIA EQUIVOCADA: un gancho procedimental ("¿qué harías primero?") en un concepto puramente
+      teórico que no tiene pasos, o un dato curioso donde el material solo pide resolver.
+    ✗ ESCENARIO INVENTADO: agregar datos que el material no menciona.`;
+}
+
 function buildUserPrompt(transcription: string, curso: string): string {
   return `CURSO: ${curso}
 
@@ -45,31 +123,7 @@ INSTRUCCIONES:
    ✗ DEMASIADO LARGO (más de 15 palabras): "Cómo tu especie va cambiando de generación en generación,
      poco a poco, para adaptarse mejor y sobrevivir en su ambiente."
    ✓ CERCANO Y BREVE: "Cómo tu especie cambia de generación en generación para sobrevivir mejor."
-2a-bis. teacherExplanation: una intervención breve (20-35 palabras) que DESPIERTA CURIOSIDAD antes
-    de explicar el concepto — un microgancho educativo, NO una microclase. Debe sonar como un
-    profesor entretenido o un amigo mayor que sabe del tema, nunca como un texto escolar.
-    El objetivo es que el estudiante sienta que ACABA DE DESCUBRIR la idea, no que se la definieron.
-    Empieza con una pregunta, observación, situación cotidiana o desafío que active la mente del
-    estudiante ("¿Te imaginas...?", "Fíjate que...", "¿Sabías que...?", "¿Cómo sabrías...?").
-    NO definas el concepto: deja que el estudiante llegue naturalmente a la idea que luego resume
-    simpleExplanation. Podés mencionar el nombre del concepto al cierre, pero como respuesta a la
-    curiosidad que despertaste, no como una definición.
-    Evita estructuras repetitivas y fórmulas gastadas como "Imagina que..." o "A eso le llamamos...".
-    Es DISTINTO de simpleExplanation (el titular ultra-corto de 2 líneas) y de hook (una analogía de
-    una línea): teacherExplanation es el gancho conversacional, la voz del "profesor particular".
-    No incluyas emojis dentro del texto — el campo emoji (punto 2c) ya cubre eso por separado.
-    Debe ser 100% fiel al material — la pregunta o el escenario NUNCA inventa hechos que no estén o
-    no se infieran del texto; si no se te ocurre un gancho honesto, usa una pregunta directa pero
-    cálida, no fuerces una historia falsa.
-    ✓ BUENO (Registro fósil): "Encontraste un hueso enterrado hace millones de años. ¿Cómo podrías
-      saber de qué animal era? Justamente para responder preguntas como esa existe el registro
-      fósil."
-    ✗ MICROCLASE (explica en vez de intrigar): "Imagina que encuentras un hueso enterrado hace
-      millones de años. Ese hallazgo nos permite reconstruir el pasado. A eso le llamamos registro
-      fósil."
-    ✗ ACARTONADO: "El registro fósil corresponde a los restos o impresiones de organismos
-      preservados en rocas sedimentarias."
-    ✗ ESCENARIO INVENTADO: agregar datos, cifras o ejemplos que el material no menciona.
+${buildTeacherExplanationInstruction()}
 2b. hook: un gancho o analogía cotidiana (máximo 20 palabras), en el mismo tono cercano, que conecte
     el concepto con algo de la vida de un adolescente (ej. para "evolución": una receta familiar que
     cada generación ajusta un poco). Debe ser CORRECTA — nunca distorsiones el concepto para que suene
