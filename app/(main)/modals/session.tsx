@@ -2792,18 +2792,9 @@ export default function SessionPlayerScreen() {
                         )}
                       </>
                     )}
-                    {/* DATO CLAVE + VER DEFINICIÓN FORMAL stay hidden until the
-                        student reveals the card — no gate at all when there's no
-                        tap mechanic (hasRevealGate false), same as before. */}
-                    {(!hasRevealGate || conceptRevealed) && !!slide.tip && (
-                      <TipContainer style={tipContainerStyle}>
-                        <Text style={sum.tipIcon}>💡</Text>
-                        <View style={{ flex: 1 }}>
-                          <Text style={[sum.tipLabel, { color: pal.accent }]}>Dato clave</Text>
-                          <MathText style={sum.tipText}>{slide.tip}</MathText>
-                        </View>
-                      </TipContainer>
-                    )}
+                    {/* VER DEFINICIÓN FORMAL stays hidden until the student
+                        reveals the card — no gate at all when there's no tap
+                        mechanic (hasRevealGate false), same as before. */}
                     {(!hasRevealGate || conceptRevealed) && !!slide.formalDefinition && (
                       <>
                         <Pressable onPress={() => setShowFormalDef(v => !v)} style={sum.formalDefToggle} hitSlop={8}>
@@ -2818,6 +2809,20 @@ export default function SessionPlayerScreen() {
                       </>
                     )}
                 </CardContainer>
+                {/* DATO CLAVE — deliberately its OWN card, separate from
+                    conceptTarjeta above, so it doesn't compete with the
+                    hook/reveal text or read as "more of the same card".
+                    Same reveal-gating as before: hidden until the student
+                    taps (no gate at all when hasRevealGate is false). */}
+                {(!hasRevealGate || conceptRevealed) && !!slide.tip && (
+                  <TipContainer style={tipContainerStyle}>
+                    <Text style={sum.tipIcon}>💡</Text>
+                    <View style={{ flex: 1 }}>
+                      <Text style={[sum.tipLabel, { color: pal.accent }]}>Dato clave</Text>
+                      <MathText style={sum.tipText}>{slide.tip}</MathText>
+                    </View>
+                  </TipContainer>
+                )}
                 </ScrollView>
               );
               })()
@@ -5532,11 +5537,13 @@ const sum = StyleSheet.create(withMisionFont({
   conceptDecorCircle1: { position: 'absolute' as const, top: -34, right: -26, width: 100, height: 100, borderRadius: 50 },
   conceptDecorCircle2: { position: 'absolute' as const, bottom: -22, left: -18, width: 64, height: 64, borderRadius: 32 },
 
-  // Tip callout — one color family with the rest of the card: white fill,
-  // left accent stripe, icon/label in the concept's accent, body text in
+  // Tip callout — its own standalone card below conceptTarjeta (not nested
+  // inside it), so a thin all-around border was added to read as a distinct
+  // card against the screen background, on top of the original white fill +
+  // left accent stripe. Icon/label in the concept's accent, body text in
   // the same neutral slate as the hero line. Accent-dependent colors
   // (stripe/icon/label) are applied inline at the call site.
-  tipBox:   { marginTop: SM ? 10 : 12, flexDirection: 'row' as const, alignItems: 'flex-start' as const, gap: 9, backgroundColor: palette.blanco, borderRadius: 10, padding: SM ? 10 : 11, borderLeftWidth: 3 },
+  tipBox:   { marginTop: SM ? 10 : 12, flexDirection: 'row' as const, alignItems: 'flex-start' as const, gap: 9, backgroundColor: palette.blanco, borderRadius: 10, padding: SM ? 10 : 11, borderWidth: 1, borderColor: palette.bordeClaro, borderLeftWidth: 3 },
   tipIcon:  { fontSize: 16, marginTop: 1 },
   tipLabel: { fontSize: 10, fontWeight: '800' as const, letterSpacing: 0.6, marginBottom: 3, textTransform: 'uppercase' as const },
   tipText:  { fontSize: SM ? 13 : 14, color: '#3A4A5E', lineHeight: SM ? 20 : 22, fontWeight: '600' as const },
