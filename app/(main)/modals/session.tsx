@@ -3,6 +3,7 @@ import ModeCompletionScreen from '@/components/ModeCompletionScreen';
 // presentational, no state of their own). Misión wires its own answer flow
 // to each; desafio.tsx's own handlers/logic are untouched.
 import { MathText, formatMath } from '@/app/utils/formatMath';
+import { splitTeacherExplanation } from '@/app/utils/splitTeacherExplanation';
 import UnifiedProgressBar from '@/components/UnifiedProgressBar';
 import { ADAPTIVE_REQUEUE, CLASSIFY_BUCKETS_UI, DAILY_SESSION_LOGIC, MODE_COMPLETION_REDESIGN, NEUTRAL_MISSION_COMPLETION, SHOW_DESAFIO_MODE, SHOW_GEMS, UNIFIED_PROGRESS_BAR, UNIFIED_QUIZ_COMPLETION } from '@/config/features';
 import type { DailyMode } from '@/contexts/DailySessionContext';
@@ -1286,6 +1287,10 @@ export default function SessionPlayerScreen() {
   // default, reset whenever the slide changes so the next concept starts
   // collapsed too.
   const [showFormalDef, setShowFormalDef] = useState(false);
+  // Tap-to-reveal on the main_concept card's teacherExplanation hook — only
+  // meaningful when splitTeacherExplanation finds a real hook/reveal split
+  // (see that card's own render); reset per slide same as showFormalDef.
+  const [conceptRevealed, setConceptRevealed] = useState(false);
 
   // match_pairs — own, simple orchestration (NOT desafio.tsx's handlers,
   // which are fused with streak/energy/retry/auto-advance). `pairsMatched`/
@@ -1435,6 +1440,15 @@ export default function SessionPlayerScreen() {
   const conceptBubbleYSV   = useSharedValue(8);
   const conceptMascotStyle = useAnimatedStyle(() => ({ transform: [{ scale: conceptMascotSV.value }] }));
   const conceptBubbleStyle = useAnimatedStyle(() => ({ opacity: conceptBubbleOpSV.value, transform: [{ translateY: conceptBubbleYSV.value }] }));
+  // Tap-to-reveal card: reveal text fades/slides in first, the tip box
+  // follows with a short stagger (see the conceptRevealed-keyed useEffect
+  // below, which drives both).
+  const conceptRevealOpSV = useSharedValue(0);
+  const conceptRevealYSV  = useSharedValue(10);
+  const conceptTipOpSV    = useSharedValue(0);
+  const conceptTipYSV     = useSharedValue(10);
+  const conceptRevealStyle = useAnimatedStyle(() => ({ opacity: conceptRevealOpSV.value, transform: [{ translateY: conceptRevealYSV.value }] }));
+  const conceptTipRevealStyle = useAnimatedStyle(() => ({ opacity: conceptTipOpSV.value, transform: [{ translateY: conceptTipYSV.value }] }));
 
   // Summary mode micro-reward animation
   const summaryRewardOpSV = useSharedValue(0);
@@ -1590,6 +1604,21 @@ export default function SessionPlayerScreen() {
   // Reset order taps when slide changes
   useEffect(() => { setOrderTaps([]); }, [summaryIdx]);
   useEffect(() => { setShowFormalDef(false); }, [summaryIdx]);
+  useEffect(() => { setConceptRevealed(false); }, [summaryIdx]);
+  // Tap-to-reveal card: fade+slide the reveal text in, then the tip box a
+  // short stagger later. Runs once per reveal (conceptRevealed only ever
+  // goes false→true within a slide — see the reset effect above).
+  useEffect(() => {
+    if (!conceptRevealed) return;
+    conceptRevealOpSV.value = 0;
+    conceptRevealYSV.value = 10;
+    conceptTipOpSV.value = 0;
+    conceptTipYSV.value = 10;
+    conceptRevealOpSV.value = withTiming(1, { duration: 260 });
+    conceptRevealYSV.value = withTiming(0, { duration: 260 });
+    conceptTipOpSV.value = withDelay(200, withTiming(1, { duration: 260 }));
+    conceptTipYSV.value = withDelay(200, withTiming(0, { duration: 260 }));
+  }, [conceptRevealed]); // eslint-disable-line react-hooks/exhaustive-deps
   // main_concept — replay the mascot pop + bubble entrance for each new card.
   useEffect(() => {
     if (missionSlides[summaryIdx]?.type !== 'main_concept') return;
@@ -2622,12 +2651,34 @@ export default function SessionPlayerScreen() {
               // those keep showing today's content instead of an empty card.
               const mainBodyText = slide.teacherExplanation?.trim() || slide.definition || '';
               const bodyLines = mainBodyText.split(/\\n|\n/).map(l => l.trim()).filter(Boolean);
+              // Tap-to-reveal: only when teacherExplanation actually splits into
+              // a hook + a non-empty reveal, and this isn't a legacy connector/
+              // procedural slide (those never carry teacherExplanation anyway —
+              // see splitTeacherExplanation's own fallback rule). Older cached
+              // sessions without teacherExplanation get hasRevealGate=false and
+              // render exactly like today, no tap mechanic.
+              const teacherSplit = splitTeacherExplanation(slide.teacherExplanation);
+              const hasRevealGate = !hasConnector && !isProcedural && !!teacherSplit.reveal;
+              const handleRevealConcept = () => {
+                if (!conceptRevealed) setConceptRevealed(true);
+              };
+              const CardContainer: any = hasRevealGate ? Pressable : View;
+              const cardContainerProps = hasRevealGate ? {
+                onPress: handleRevealConcept,
+                disabled: conceptRevealed,
+                accessibilityRole: 'button' as const,
+                accessibilityHint: 'Toca para revelar la explicación',
+              } : {};
               // Color estable por misión: toda la sesión mantiene un mismo tema
               // (estilo Duolingo), y misiones distintas se ven distintas entre sí.
               const missionColorIdx = skillPath?.missions?.findIndex(
                 m => m.sessionId === currentSessionId
               ) ?? -1;
               const pal = CONCEPT_PALETTES[Math.max(0, missionColorIdx) % CONCEPT_PALETTES.length];
+              const TipContainer: any = hasRevealGate ? Animated.View : View;
+              const tipContainerStyle = hasRevealGate
+                ? [sum.tipBox, { borderLeftColor: pal.accent }, conceptTipRevealStyle]
+                : [sum.tipBox, { borderLeftColor: pal.accent }];
               return (
                 // Wrapped in its own ScrollView so a longer concept (hook +
                 // card + example + tip + formal-definition toggle) is never
@@ -2644,7 +2695,7 @@ export default function SessionPlayerScreen() {
                     </Animated.View>
                   </View>
                 )}
-                <View style={[sum.conceptTarjeta, { backgroundColor: pal.bg, borderColor: pal.border, overflow: 'hidden' }]}>
+                <CardContainer style={[sum.conceptTarjeta, { backgroundColor: pal.bg, borderColor: pal.border, overflow: 'hidden' }]} {...cardContainerProps}>
                     {/* Decorative depth, not more text — two low-opacity
                         circles in the concept's own accent, clipped to the
                         card by overflow:'hidden' above. */}
@@ -2700,6 +2751,23 @@ export default function SessionPlayerScreen() {
                           })}
                         </View>
                       </>
+                    ) : hasRevealGate ? (
+                      // Tap-to-reveal: only the hook shows until conceptRevealed —
+                      // the affordance below is the card's only hint that there's
+                      // more, since the whole card (CardContainer) is the tap target.
+                      <>
+                        {renderHighlightedExplanation(teacherSplit.hook, slide.keyPhrase, pal.accent, sum.insightFallback)}
+                        {!conceptRevealed ? (
+                          <View style={sum.revealAffordance}>
+                            <Text style={sum.revealAffordanceEmoji}>👇</Text>
+                            <Text style={sum.revealAffordanceText}>Tap para descubrir</Text>
+                          </View>
+                        ) : (
+                          <Animated.View style={conceptRevealStyle}>
+                            {renderHighlightedExplanation(teacherSplit.reveal, slide.keyPhrase, pal.accent, sum.insightFallback)}
+                          </Animated.View>
+                        )}
+                      </>
                     ) : (
                       // Default: Duolingo-style insight — parse "* bullet" lines
                       <>
@@ -2724,16 +2792,19 @@ export default function SessionPlayerScreen() {
                         )}
                       </>
                     )}
-                    {!!slide.tip && (
-                      <View style={[sum.tipBox, { borderLeftColor: pal.accent }]}>
+                    {/* DATO CLAVE + VER DEFINICIÓN FORMAL stay hidden until the
+                        student reveals the card — no gate at all when there's no
+                        tap mechanic (hasRevealGate false), same as before. */}
+                    {(!hasRevealGate || conceptRevealed) && !!slide.tip && (
+                      <TipContainer style={tipContainerStyle}>
                         <Text style={sum.tipIcon}>💡</Text>
                         <View style={{ flex: 1 }}>
                           <Text style={[sum.tipLabel, { color: pal.accent }]}>Dato clave</Text>
                           <MathText style={sum.tipText}>{slide.tip}</MathText>
                         </View>
-                      </View>
+                      </TipContainer>
                     )}
-                    {!!slide.formalDefinition && (
+                    {(!hasRevealGate || conceptRevealed) && !!slide.formalDefinition && (
                       <>
                         <Pressable onPress={() => setShowFormalDef(v => !v)} style={sum.formalDefToggle} hitSlop={8}>
                           <Text style={[sum.formalDefToggleText, { color: pal.accent }]}>{showFormalDef ? 'Ocultar' : 'Ver'} definición formal</Text>
@@ -2746,7 +2817,7 @@ export default function SessionPlayerScreen() {
                         )}
                       </>
                     )}
-                </View>
+                </CardContainer>
                 </ScrollView>
               );
               })()
@@ -4437,7 +4508,15 @@ export default function SessionPlayerScreen() {
             // "Siguiente →" below still needs to stay disabled until every
             // pair is actually matched, instead of always being tappable.
             const isMatchPairsIncomplete = slide?.type === 'match_pairs' && !quizAnswers[summaryIdx];
-            const showChoose = (slide?.type === 'quiz' && !slideQuizAnswered) || (isMissionInteractive && !missionAnswered) || isMatchPairsIncomplete;
+            // main_concept's own tap-to-reveal card (see that slide's render)
+            // forces the micro-interaction before "Siguiente →" enables —
+            // mirrors splitTeacherExplanation's own fallback rule, so a
+            // concept with no usable hook/reveal split (or an older cached
+            // session without teacherExplanation) is never gated here either.
+            const isConceptGated = slide?.type === 'main_concept'
+              && !!splitTeacherExplanation(bs?.teacherExplanation).reveal
+              && !conceptRevealed;
+            const showChoose = (slide?.type === 'quiz' && !slideQuizAnswered) || (isMissionInteractive && !missionAnswered) || isMatchPairsIncomplete || isConceptGated;
 
             return (
               <View style={fbActive
@@ -4469,7 +4548,7 @@ export default function SessionPlayerScreen() {
                   </View>
                 ) : showChoose ? (
                   <View key={`cta-choose-${summaryIdx}`} style={g.ctaBtnOff}>
-                    <Text style={g.ctaTextOff}>{isMatchPairsIncomplete ? 'Completa los pares' : 'Elige una opción'}</Text>
+                    <Text style={g.ctaTextOff}>{isMatchPairsIncomplete ? 'Completa los pares' : isConceptGated ? 'Toca para descubrir' : 'Elige una opción'}</Text>
                   </View>
                 ) : (
                   <Pressable onPress={() => isLast ? completeMode('summary') : goNext()} style={{ width: '100%' }}>
@@ -5461,6 +5540,12 @@ const sum = StyleSheet.create(withMisionFont({
   tipIcon:  { fontSize: 16, marginTop: 1 },
   tipLabel: { fontSize: 10, fontWeight: '800' as const, letterSpacing: 0.6, marginBottom: 3, textTransform: 'uppercase' as const },
   tipText:  { fontSize: SM ? 13 : 14, color: '#3A4A5E', lineHeight: SM ? 20 : 22, fontWeight: '600' as const },
+
+  // Tap-to-reveal affordance — tenue on purpose, a nudge not a CTA (the
+  // whole card is already the tap target).
+  revealAffordance:      { flexDirection: 'row' as const, alignItems: 'center' as const, gap: 6, marginTop: 10 },
+  revealAffordanceEmoji: { fontSize: 15 },
+  revealAffordanceText:  { fontSize: 12, fontWeight: '600' as const, color: semantic.textTertiary },
 
   // "Ver definición formal" — collapsed by default, rigor kept a tap away
   // instead of cluttering the hero card.
