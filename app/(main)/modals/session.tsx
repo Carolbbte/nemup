@@ -1447,7 +1447,7 @@ export default function SessionPlayerScreen() {
   const conceptRevealYSV  = useSharedValue(10);
   const conceptTipOpSV    = useSharedValue(0);
   const conceptTipYSV     = useSharedValue(10);
-  const conceptRevealStyle = useAnimatedStyle(() => ({ opacity: conceptRevealOpSV.value, transform: [{ translateY: conceptRevealYSV.value }] }));
+  const conceptRevealStyle = useAnimatedStyle(() => ({ opacity: conceptRevealOpSV.value, transform: [{ translateY: conceptRevealYSV.value }], marginTop: 12 }));
   const conceptTipRevealStyle = useAnimatedStyle(() => ({ opacity: conceptTipOpSV.value, transform: [{ translateY: conceptTipYSV.value }] }));
 
   // Summary mode micro-reward animation
@@ -2760,7 +2760,7 @@ export default function SessionPlayerScreen() {
                         {!conceptRevealed ? (
                           <View style={sum.revealAffordance}>
                             <Text style={sum.revealAffordanceEmoji}>👇</Text>
-                            <Text style={sum.revealAffordanceText}>Tap para descubrir</Text>
+                            <Text style={[sum.revealAffordanceText, { color: pal.accent }]}>Toca para descubrir</Text>
                           </View>
                         ) : (
                           <Animated.View style={conceptRevealStyle}>
@@ -5544,8 +5544,8 @@ const sum = StyleSheet.create(withMisionFont({
   // Tap-to-reveal affordance — tenue on purpose, a nudge not a CTA (the
   // whole card is already the tap target).
   revealAffordance:      { flexDirection: 'row' as const, alignItems: 'center' as const, gap: 6, marginTop: 10 },
-  revealAffordanceEmoji: { fontSize: 15 },
-  revealAffordanceText:  { fontSize: 12, fontWeight: '600' as const, color: semantic.textTertiary },
+  revealAffordanceEmoji: { fontSize: 18 },
+  revealAffordanceText:  { fontSize: 14, fontWeight: '800' as const },
 
   // "Ver definición formal" — collapsed by default, rigor kept a tap away
   // instead of cluttering the hero card.
