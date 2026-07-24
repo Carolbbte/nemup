@@ -10,6 +10,7 @@ import { generateDistractors } from './distractors.js';
 import { buildWorkedExampleSteps } from './procedural.js';
 import { generateExercises, isExercisableSubject } from './exerciseGenerator.js';
 import { buildFlashcards, buildQuestions, buildDesafio, buildSummarySlides } from './assemble.js';
+import { CAPABILITIES, resolveContentType, type ContentCapabilities } from '../../services/contentType.js';
 
 /**
  * v2 generation entry point — a fixed, 2-AI-call pipeline for every document,
@@ -101,12 +102,35 @@ export async function generateSessionV2(
   // worked-example/fill_blank/quiz slides, so match_pairs is skipped there
   // instead of degrading it. MIXED content follows whichever score
   // dominates.
+  //
+  // `classification` (classifyContent's regex-over-transcription label) is
+  // kept as metadata (pedagogicalType below) and as resolveContentType's
+  // optional tie-break signal — it is NO LONGER the primary source for this
+  // gate. See services/contentType.ts's own doc comment for why: a regex
+  // count over the raw transcription can score a procedural worksheet as
+  // CONCEPTUAL when it has a definitional preamble (diagnosed case:
+  // "Términos semejantes"), silently enabling match_pairs on content it was
+  // designed to skip.
   const s = classification.scores;
-  const allowMatchPairs =
+  const legacyAllowMatchPairs =
     classification.type === 'CONCEPTUAL' ||
     classification.type === 'MEMORIZATION' ||
     (classification.type === 'MIXED' && s.conceptual >= s.procedural);
-  console.log('[match_pairs gate] type=%s allow=%s', classification.type, allowMatchPairs);
+  console.log('[match_pairs gate] type=%s allow=%s', classification.type, legacyAllowMatchPairs);
+
+  // Always resolved + logged (even with the flag off) so the new signal is
+  // auditable against the old one in production before ever flipping the
+  // flag on for real traffic.
+  const contentType = resolveContentType(ko, classification);
+
+  // FEATURE_CONTENT_TYPE_V2 off (default): capabilities reproduces the
+  // exact legacyAllowMatchPairs value above, byte-identical to before this
+  // flag existed. On: capabilities comes from the CAPABILITIES table keyed
+  // by the newly-resolved contentType — this is the actual behavior change
+  // (e.g. "Términos semejantes" now correctly gets allowMatchPairs=false).
+  const capabilities: ContentCapabilities = appConfig.content_type_v2
+    ? CAPABILITIES[contentType]
+    : { ...CAPABILITIES.conceptual, allowMatchPairs: legacyAllowMatchPairs, allowExampleReinforcement: legacyAllowMatchPairs };
 
   const generation: GenerationResult = {
     subject: ko.subject || config.subject || 'Tema del material',
@@ -116,13 +140,7 @@ export async function generateSessionV2(
     summary: {
       id: randomUUID(),
       title: ko.topic || 'Resumen del material',
-      // allowMatchPairs doubles as allowExampleReinforcement — same
-      // CONCEPTUAL/MEMORIZATION/MIXED-conceptual criteria applies to both:
-      // buildReinforcementFromTrait's example-based framing ("¿Cuál es un
-      // ejemplo de X?") has the identical concept↔example-relationship
-      // requirement match_pairs does, so there's no reason to compute a
-      // second, separately-named flag for the same test.
-      slides: buildSummarySlides(ko, distractors, workedExampleResults, exercises, appConfig.mission_arc_v2, appConfig.mission_shorten, allowMatchPairs, allowMatchPairs),
+      slides: buildSummarySlides(ko, distractors, workedExampleResults, exercises, appConfig.mission_arc_v2, appConfig.mission_shorten, capabilities),
       sourceQuotes: [],
     },
     groundingScore: 0, // placeholder — replaced below with the real validateGrounding() result
@@ -144,7 +162,7 @@ export async function generateSessionV2(
   // `desafio` is not part of the typed `GeneratedSession` interface today —
   // this mirrors the exact same runtime shape the legacy path already
   // produces in routes/sessions.ts (`(session as any).desafio = ...`).
-  (session as any).desafio = buildDesafio(ko, distractors, workedExampleResults, allowMatchPairs);
+  (session as any).desafio = buildDesafio(ko, distractors, workedExampleResults, capabilities);
 
   return session;
 }

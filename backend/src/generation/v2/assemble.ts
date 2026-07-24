@@ -24,6 +24,7 @@ import type { KnowledgeConcept, KnowledgeObject } from './types.js';
 import type { DistractorSet } from './distractors.js';
 import type { WorkedExampleResult } from './procedural.js';
 import type { GeneratedExercise } from './exerciseGenerator.js';
+import { DEFAULT_CAPABILITIES, type ContentCapabilities } from '../../services/contentType.js';
 
 // ── Desafío local type mirror — matches shared/desafio.ts field-for-field ───
 // (same rootDir-avoidance duplication desafioAdapter.ts already uses)
@@ -448,11 +449,12 @@ export function buildDesafio(
   ko: KnowledgeObject,
   distractors: Record<string, DistractorSet>,
   workedExampleResults: WorkedExampleResult[] = [],
-  // Default true so every existing caller/test is byte-identical to before
-  // this parameter existed. orchestrator.ts passes the real pedagogical-
-  // classifier-derived value — see its own comment on allowMatchPairs for
-  // why PROCEDURAL/math content skips match_pairs entirely.
-  allowMatchPairs: boolean = true,
+  // Default preserves today's exact allowMatchPairs=true behavior for every
+  // existing caller/test. orchestrator.ts passes the real capabilities
+  // object (sourced from classifyContent when FEATURE_CONTENT_TYPE_V2 is
+  // off, from resolveContentType/CAPABILITIES when it's on) — see
+  // contentType.ts for why PROCEDURAL content skips match_pairs entirely.
+  capabilities: ContentCapabilities = DEFAULT_CAPABILITIES,
 ): DesafioSession {
   const N = ko.concepts.length;
   if (N === 0) {
@@ -463,7 +465,7 @@ export function buildDesafio(
   const matchPairsInsertAfter = Math.ceil(N / 2) - 1;
   const classifyInsertAfter = Math.max(N - 2, matchPairsInsertAfter + 1);
   const workedExampleInsertAfter = Math.floor((N - 1) / 3);
-  const matchPairs = allowMatchPairs ? buildMatchPairs(ko) : null;
+  const matchPairs = capabilities.allowMatchPairs ? buildMatchPairs(ko) : null;
   const classify = buildClassify(ko);
   const displayedWorkedExamples = selectWorkedExamplesForDisplay(workedExampleResults);
 
@@ -803,19 +805,18 @@ export function buildSummarySlides(
   // Fase 3 — Acortamiento de la misión. Same reasoning/wiring pattern as
   // missionArcV2 above (config.mission_shorten, default false).
   missionShorten: boolean = false,
-  // Default true so every existing caller/test is byte-identical to before
-  // this parameter existed — see buildDesafio's own allowMatchPairs comment.
-  allowMatchPairs: boolean = true,
-  // Default true, same reasoning. PROCEDURAL/MIXED-procedural content skips
-  // buildReinforcementFromTrait's "¿Cuál de estas opciones es un ejemplo de
-  // X?" framing (exampleShort-based) — pseudo-concepts extracted from a
-  // single chained derivation (e.g. "Área del cuadrado", "Diferencia entre
-  // áreas") don't have a real concept↔example relationship the way a
+  // Default preserves today's exact allowMatchPairs=true/
+  // allowExampleReinforcement=true behavior for every existing caller/test
+  // — see buildDesafio's own capabilities comment. allowExampleReinforcement
+  // false skips buildReinforcementFromTrait's "¿Cuál de estas opciones es un
+  // ejemplo de X?" framing (exampleShort-based) — pseudo-concepts extracted
+  // from a single chained derivation (e.g. "Área del cuadrado", "Diferencia
+  // entre áreas") don't have a real concept↔example relationship the way a
   // biology/history concept does, so that framing degenerates into matching
   // arbitrary step labels instead of testing anything. Falls back to the
   // riddle-based framing (distinctiveTrait), which stays coherent for both
   // content types.
-  allowExampleReinforcement: boolean = true,
+  capabilities: ContentCapabilities = DEFAULT_CAPABILITIES,
 ): SummarySlide[] {
   if (ko.concepts.length === 0) return [];
 
@@ -886,7 +887,7 @@ export function buildSummarySlides(
   // pick) — needing >=3 concepts with a usable exampleShort still means
   // "first" and "last" are always different concepts, guaranteeing the two
   // intercalated formats never collide on the same slot.
-  const matchPairsResult = allowMatchPairs ? buildMisionMatchPairs(ko.concepts) : null;
+  const matchPairsResult = capabilities.allowMatchPairs ? buildMisionMatchPairs(ko.concepts) : null;
   const matchPairsConceptId = matchPairsResult ? ko.concepts[ko.concepts.length - 1].id : null;
 
   // Classify: same "at most once per session" treatment, using buildClassify
@@ -1072,7 +1073,7 @@ export function buildSummarySlides(
         });
         if (missionArcV2) usedQuestionTexts.add(r.question);
       } else {
-        const allowExample = allowExampleReinforcement && exampleMatchUsed < MAX_EXAMPLE_MATCH_PER_SESSION;
+        const allowExample = capabilities.allowExampleReinforcement && exampleMatchUsed < MAX_EXAMPLE_MATCH_PER_SESSION;
         const traitQuestion = buildReinforcementFromTrait(concept, ko.concepts, allowExample);
         if (traitQuestion) {
           if (traitQuestion.usedExample) exampleMatchUsed++;
@@ -1143,7 +1144,7 @@ export function buildSummarySlides(
       ...ko.concepts.filter((c) => c.id !== easiestConcept.id && c.id !== bossConcept.id),
     ];
     for (const candidate of callbackCandidates) {
-      const variant = reinforcementCallbackVariant(candidate, ko.concepts, distractors[candidate.id], usedQuestionTexts, allowExampleReinforcement);
+      const variant = reinforcementCallbackVariant(candidate, ko.concepts, distractors[candidate.id], usedQuestionTexts, capabilities.allowExampleReinforcement);
       if (variant) {
         slides.push({
           type: 'reinforcement_challenge',

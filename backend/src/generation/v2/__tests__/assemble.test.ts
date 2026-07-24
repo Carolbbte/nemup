@@ -13,6 +13,7 @@ import { buildSummarySlides, shuffleWithLetterAnswer, buildReinforcementFromTrai
 import type { KnowledgeObject, KnowledgeConcept, KnowledgeCategory } from '../types.js';
 import type { DistractorSet } from '../distractors.js';
 import type { GeneratedExercise } from '../exerciseGenerator.js';
+import { DEFAULT_CAPABILITIES } from '../../../services/contentType.js';
 
 const LETTERS = ['A', 'B', 'C', 'D'];
 
@@ -211,7 +212,7 @@ describe('buildSummarySlides — correctAnswer format', () => {
   // allowExampleReinforcement gate (procedural-content fix) — same fixture/
   // call as the test above, only difference is the new flag at the end.
   it('falls back to the riddle-based question (not "¿Cuál es un ejemplo de X?") when allowExampleReinforcement is false', () => {
-    const slides = buildSummarySlides(ko, distractors, [], [], false, false, true, false);
+    const slides = buildSummarySlides(ko, distractors, [], [], false, false, { ...DEFAULT_CAPABILITIES, allowMatchPairs: true, allowExampleReinforcement: false });
     const reinforcement = slides.find((s) => s.type === 'reinforcement_challenge' && s.title === 'Refuerzo' && s.definition?.includes('Término algebraico'));
     expect(reinforcement).toBeTruthy();
     expect(reinforcement!.question).toContain('pista');

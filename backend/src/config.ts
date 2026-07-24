@@ -31,6 +31,14 @@ export interface Config {
    * second, redundant MC question. Off by default (byte-identical to
    * before) — togglable via env var, no redeploy needed. */
   mission_shorten: boolean;
+  /** Feature flag: orchestrator.ts sources the match_pairs/example-
+   * reinforcement gate from resolveContentType (services/contentType.ts —
+   * structured KnowledgeObject signals: exercisable subject, solved
+   * examples, category grouping) when true, instead of classifyContent's
+   * regex-over-transcription label when false (today's exact behavior,
+   * byte-identical). Off by default — togglable via env var, no redeploy
+   * needed. */
+  content_type_v2: boolean;
 }
 
 export function loadConfig(): Config {
@@ -45,6 +53,7 @@ export function loadConfig(): Config {
     use_generation_v2: process.env.USE_GENERATION_V2 === 'true',
     mission_arc_v2: process.env.MISSION_ARC_V2 === 'true',
     mission_shorten: process.env.MISSION_SHORTEN === 'true',
+    content_type_v2: process.env.FEATURE_CONTENT_TYPE_V2 === 'true',
   };
 
   // Validation
