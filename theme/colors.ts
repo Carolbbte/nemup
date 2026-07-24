@@ -44,6 +44,16 @@ export const palette = {
   fondoDatoClave: '#FFF4C2',
   bordeDatoClave: '#FFC93C',
   iconoDatoClave: '#FFB800',
+
+  // ── Botones "chunky" (labio 3D) — tonos más oscuros de azul/verde para
+  // el escalón inferior del botón pulsable estilo Duolingo. rojoErrorDark
+  // ya cumple ese rol para la variante de peligro, no se duplica.
+  azulSombra:  '#1262C7',
+  verdeSombra: '#29B03E',
+  // Track neutro para barras de progreso — los grises existentes tienen
+  // tinte azul (bordeClaro) o cálido (bordeMedio); uno realmente neutro deja
+  // que el relleno verde sea lo que se lea, no el track.
+  trackNeutral: '#E5E5E7',
   // ── Liga / Racha — ámbar ─────────────────────────────────────
   ambar:     '#FFB547',
   ambarBg:   '#FFF2E0',

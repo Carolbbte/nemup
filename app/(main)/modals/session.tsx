@@ -1513,6 +1513,12 @@ export default function SessionPlayerScreen() {
   }));
   const sparkleStyle = useAnimatedStyle(() => ({ opacity: sparkleOpSV.value }));
 
+  // Main per-slide "Siguiente →" CTA — chunky press-sink: the face layer
+  // (this translateY) slides down onto the fixed "lip" layer behind it
+  // (see the button's own call site), instead of animating border width.
+  const ctaPressYSV = useSharedValue(0);
+  const ctaPressStyle = useAnimatedStyle(() => ({ transform: [{ translateY: ctaPressYSV.value }] }));
+
   // Summary mode micro-reward animation
   const summaryRewardOpSV = useSharedValue(0);
   const summaryRewardYSV  = useSharedValue(8);
@@ -2814,9 +2820,10 @@ export default function SessionPlayerScreen() {
                         The concept's color identity still comes through via
                         the card tint + the title's own color below, and the
                         emoji rides inline with the title instead. */}
-                    <MathText style={[sum.conceptTitle, { color: pal.accent }]}>
-                      {`${slide.title}${slide?.emoji ? ' ' + slide.emoji : ''}`}
-                    </MathText>
+                    <Text style={[sum.conceptTitle, { color: pal.accent }]}>
+                      {slide.title}
+                      {!!slide?.emoji && <Text style={sum.conceptTitleEmoji}> {slide.emoji}</Text>}
+                    </Text>
                     {hasConnector ? (
                       <>
                         <View style={sum.chainContainer}>
@@ -2911,7 +2918,7 @@ export default function SessionPlayerScreen() {
                         mechanic (hasRevealGate false), same as before. */}
                     {(!hasRevealGate || conceptRevealed) && !!slide.formalDefinition && (
                       <>
-                        <Pressable onPress={() => setShowFormalDef(v => !v)} style={sum.formalDefToggle} hitSlop={8}>
+                        <Pressable onPress={() => setShowFormalDef(v => !v)} style={[sum.formalDefToggle, { borderColor: pal.accent }]} hitSlop={8}>
                           <Text style={[sum.formalDefToggleText, { color: pal.accent }]}>{showFormalDef ? 'Ocultar' : 'Ver'} definición formal</Text>
                           <ChevronDown size={13} color={pal.accent} strokeWidth={2.5} style={showFormalDef ? { transform: [{ rotate: '180deg' }] } : undefined} />
                         </Pressable>
@@ -2930,9 +2937,11 @@ export default function SessionPlayerScreen() {
                     taps (no gate at all when hasRevealGate is false). */}
                 {(!hasRevealGate || conceptRevealed) && !!slide.tip && (
                   <TipContainer style={tipContainerStyle}>
-                    <Text style={sum.tipIcon}>💡</Text>
+                    <View style={sum.tipIconCircle}>
+                      <Text style={sum.tipIcon}>💡</Text>
+                    </View>
                     <View style={{ flex: 1 }}>
-                      <Text style={[sum.tipLabel, { color: pal.accent }]}>Dato clave</Text>
+                      <Text style={sum.tipLabel}>Dato clave</Text>
                       <MathText style={sum.tipText}>{slide.tip}</MathText>
                     </View>
                   </TipContainer>
@@ -4670,22 +4679,29 @@ export default function SessionPlayerScreen() {
                     <Text style={g.ctaTextOff}>{isMatchPairsIncomplete ? 'Completa los pares' : isConceptGated ? 'Toca para descubrir' : 'Elige una opción'}</Text>
                   </View>
                 ) : (
-                  <Pressable onPress={() => isLast ? completeMode('summary') : goNext()} style={{ width: '100%' }}>
-                    <View style={[g.ctaBtn, { backgroundColor: BRAND }]}>
-                      <Text style={g.ctaText}>
-                        {isLast && slide?.type === 'victory' ? (
-                          NEUTRAL_MISSION_COMPLETION ? 'Continuar al Quiz →' :
-                          noInteractionsAttempted ? 'Cerrar misión' : '🏆 ¡Misión completada!'
-                        ) :
-                        isLast ? '✅ Completar resumen' :
-                        slide?.type === 'mission' ? '¡Comenzar! →' :
-                        (slide?.type === 'challenge' && !bs?.correctAnswer) ? '🤔 Lo pensé →' :
-                        slide?.type === 'motivation' ? '¡Seguimos! →' :
-                        slide?.type === 'prediction' ? '🧠 Entendido →' :
-                        'Siguiente →'}
-                      </Text>
-                    </View>
-                  </Pressable>
+                  <View style={{ width: '100%', position: 'relative' }}>
+                    <View style={g.chunkyLip} />
+                    <Pressable
+                      onPress={() => isLast ? completeMode('summary') : goNext()}
+                      onPressIn={() => { ctaPressYSV.value = withTiming(4, { duration: 90 }); }}
+                      onPressOut={() => { ctaPressYSV.value = withTiming(0, { duration: 90 }); }}
+                    >
+                      <Animated.View style={[g.ctaBtnFace, { backgroundColor: BRAND }, ctaPressStyle]}>
+                        <Text style={g.ctaText}>
+                          {isLast && slide?.type === 'victory' ? (
+                            NEUTRAL_MISSION_COMPLETION ? 'Continuar al Quiz →' :
+                            noInteractionsAttempted ? 'Cerrar misión' : '🏆 ¡Misión completada!'
+                          ) :
+                          isLast ? '✅ Completar resumen' :
+                          slide?.type === 'mission' ? '¡Comenzar! →' :
+                          (slide?.type === 'challenge' && !bs?.correctAnswer) ? '🤔 Lo pensé →' :
+                          slide?.type === 'motivation' ? '¡Seguimos! →' :
+                          slide?.type === 'prediction' ? '🧠 Entendido →' :
+                          'Siguiente →'}
+                        </Text>
+                      </Animated.View>
+                    </Pressable>
+                  </View>
                 )}
                 {fbActive && (
                   <Pressable
@@ -5328,10 +5344,22 @@ const g = StyleSheet.create(withMisionFont({
   counterPill: { backgroundColor: palette.crema, borderRadius: 100, paddingVertical: 4, paddingHorizontal: 10 },
   counterText: { fontSize: 12, fontWeight: '800', color: semantic.textPrimary },
   bottom:  { paddingHorizontal: 20, paddingTop: 12, borderTopWidth: 1, borderTopColor: palette.bordeClaro, backgroundColor: BG },
-  ctaBtn:  { paddingVertical: 20, borderRadius: 28, alignItems: 'center', justifyContent: 'center' },
-  ctaText: { fontSize: 16, fontWeight: '800', color: palette.blanco },
-  ctaBtnOff:  { paddingVertical: 17, borderRadius: 18, alignItems: 'center', backgroundColor: palette.azulClaro },
-  ctaTextOff: { fontSize: 16, fontWeight: '700', color: BRAND + '80' },
+  // Chunky/Duolingo-style CTA: rounded rect (not a full pill) + a solid
+  // darker-blue "lip" along the bottom instead of a flat, borderless fill.
+  // The main per-slide "Siguiente →" button additionally animates this via
+  // its own two-layer ChunkyCTA treatment (see its call site) — every other
+  // g.ctaBtn usage keeps this static lip, still a real depth upgrade with
+  // zero interaction-logic risk.
+  ctaBtn:  { paddingVertical: 18, borderRadius: 16, alignItems: 'center', justifyContent: 'center', borderBottomWidth: 4, borderBottomColor: palette.azulSombra },
+  ctaText: { fontFamily: 'Nunito', fontSize: 16, fontWeight: '800', color: palette.blanco },
+  ctaBtnOff:  { paddingVertical: 17, borderRadius: 16, alignItems: 'center', backgroundColor: palette.azulClaro },
+  ctaTextOff: { fontFamily: 'Nunito', fontSize: 16, fontWeight: '700', color: BRAND + '80' },
+  // Two-layer chunky press: chunkyLip is the fixed darker-blue layer behind
+  // (peeking out 4px below), ctaBtnFace is the face that slides down onto
+  // it on press (see ctaPressStyle) — ctaBtn's own static borderBottomWidth
+  // is deliberately absent here, this button's "lip" IS the sibling layer.
+  chunkyLip:   { position: 'absolute' as const, left: 0, right: 0, top: 4, bottom: 0, borderRadius: 16, backgroundColor: palette.azulSombra },
+  ctaBtnFace:  { paddingVertical: 18, borderRadius: 16, alignItems: 'center' as const, justifyContent: 'center' as const },
   secBtn:  { paddingVertical: 13, borderRadius: 18, alignItems: 'center', backgroundColor: palette.crema },
   secText: { fontSize: 14, fontWeight: '700', color: semantic.textPrimary },
 }));
@@ -5551,7 +5579,11 @@ const sum = StyleSheet.create(withMisionFont({
   conceptIconBox:   { width: 54, height: 54, borderRadius: 16, alignItems: 'center', justifyContent: 'center', marginBottom: 14 },
   conceptIconEmoji: { fontSize: 30 },
   conceptKicker:    { fontSize: 12, fontWeight: '800', letterSpacing: 1, marginBottom: 4 },
-  conceptTitle:     { fontSize: SM ? 21 : 23, fontWeight: '800', color: semantic.textPrimary, lineHeight: SM ? 26 : 28, marginBottom: 12 },
+  conceptTitle:     { fontFamily: 'Nunito', fontSize: SM ? 22 : 24, fontWeight: '800', color: semantic.textPrimary, lineHeight: SM ? 28 : 30, marginBottom: 12 },
+  // ≈1.2em of conceptTitle's own fontSize — split into its own <Text> run
+  // (title uses a plain Text, not MathText, specifically so this can scale
+  // independently; see that render's own comment).
+  conceptTitleEmoji: { fontSize: SM ? 26 : 29 },
   mainCardDef:      { fontSize: SM ? 14 : 15, color: semantic.textPrimary, lineHeight: SM ? 21 : 24, fontWeight: '500' },
   workedExBox:      { backgroundColor: 'rgba(22,119,242,0.05)', borderRadius: 14, borderWidth: 1.5, borderColor: 'rgba(22,119,242,0.15)', padding: SM ? 14 : 16, marginBottom: SM ? 10 : 12 },
   workedExText:     { fontSize: SM ? 18 : 22, fontWeight: '800', color: BRAND, textAlign: 'center', letterSpacing: -0.3, lineHeight: SM ? 26 : 30 },
@@ -5612,8 +5644,8 @@ const sum = StyleSheet.create(withMisionFont({
   // Warm dark slate — deliberately NOT semantic.textPrimary/charcoal
   // (#111827), which at heavy weight read as a "wall of black bold text".
   // Main_concept-only hero color.
-  insightLineMain:  { fontSize: SM ? 18 : 19, fontWeight: '600' as const, color: '#3A4A5E', lineHeight: SM ? 25 : 27, letterSpacing: -0.1 },
-  insightFallback:  { fontSize: SM ? 18 : 19, fontWeight: '600' as const, color: '#3A4A5E', lineHeight: SM ? 25 : 27 },
+  insightLineMain:  { fontSize: SM ? 18 : 19, fontWeight: '700' as const, color: '#3A4A5E', lineHeight: SM ? 25 : 27, letterSpacing: -0.1 },
+  insightFallback:  { fontSize: SM ? 18 : 19, fontWeight: '700' as const, color: '#3A4A5E', lineHeight: SM ? 25 : 27 },
 
   // Hook line — mascot + speech bubble above the concept card. Bubble fill
   // and tail color are per-concept (pal.bg, applied inline at the call
@@ -5629,7 +5661,7 @@ const sum = StyleSheet.create(withMisionFont({
     marginTop: 8,
     borderRadius: 22, paddingVertical: 11, paddingHorizontal: 16,
     position: 'relative' as const,
-    borderWidth: 1, borderColor: palette.bordeClaro,
+    borderWidth: 2, borderColor: palette.bordeClaro,
   },
   // CSS-triangle trick (transparent border sides) instead of a rotated
   // square — reads as an actual pointed tail, not a soft diamond notch.
@@ -5661,12 +5693,15 @@ const sum = StyleSheet.create(withMisionFont({
   // Tip callout — its own standalone card below conceptTarjeta (not nested
   // inside it), with the dedicated "Dato clave" color tokens (fixed, NOT
   // the per-concept accent — this card's identity is "dato clave", not
-  // whichever concept it happens to belong to). Label color stays the
-  // concept accent (applied inline at the call site), body text in the
-  // same neutral slate as the hero line.
-  tipBox:   { marginTop: SM ? 10 : 12, flexDirection: 'row' as const, alignItems: 'flex-start' as const, gap: 9, backgroundColor: palette.fondoDatoClave, borderRadius: 10, padding: SM ? 10 : 11, borderWidth: 1, borderColor: palette.bordeDatoClave, borderLeftWidth: 3 },
-  tipIcon:  { fontSize: 16, marginTop: 1 },
-  tipLabel: { fontSize: 10, fontWeight: '800' as const, letterSpacing: 0.6, marginBottom: 3, textTransform: 'uppercase' as const },
+  // whichever concept it happens to belong to, so the label is now a fixed
+  // darkened amber too instead of the per-mission accent). Chunky bottom
+  // step in iconoDatoClave (darker than the card's own border) instead of
+  // a flat border-left stripe. Body text in the same neutral slate as the
+  // hero line.
+  tipBox:   { marginTop: SM ? 10 : 12, flexDirection: 'row' as const, alignItems: 'center' as const, gap: 10, backgroundColor: palette.fondoDatoClave, borderRadius: 16, padding: SM ? 12 : 13, borderWidth: 2, borderColor: palette.bordeDatoClave, borderBottomWidth: 4, borderBottomColor: palette.iconoDatoClave },
+  tipIconCircle: { width: 30, height: 30, borderRadius: 15, backgroundColor: palette.iconoDatoClave, alignItems: 'center' as const, justifyContent: 'center' as const },
+  tipIcon:  { fontSize: 15 },
+  tipLabel: { fontSize: 10, fontWeight: '800' as const, letterSpacing: 0.6, marginBottom: 3, textTransform: 'uppercase' as const, color: palette.ambarText },
   tipText:  { fontSize: SM ? 13 : 14, color: '#3A4A5E', lineHeight: SM ? 20 : 22, fontWeight: '600' as const },
 
   // Tap-to-reveal affordance — tenue on purpose, a nudge not a CTA (the
@@ -5677,8 +5712,10 @@ const sum = StyleSheet.create(withMisionFont({
 
   // "Ver definición formal" — collapsed by default, rigor kept a tap away
   // instead of cluttering the hero card.
-  formalDefToggle:     { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 4, marginTop: 12, paddingVertical: 6 },
-  formalDefToggleText: { fontSize: 11, fontWeight: '600' as const, color: semantic.textTertiary, textTransform: 'uppercase' as const, letterSpacing: 0.4 },
+  // Chunky chip — border color is the concept's own accent, applied inline
+  // at the call site (same as the text/chevron already were).
+  formalDefToggle:     { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 4, marginTop: 12, alignSelf: 'flex-start' as const, paddingVertical: 8, paddingHorizontal: 14, borderRadius: 999, borderWidth: 2, backgroundColor: palette.blanco },
+  formalDefToggleText: { fontSize: 11, fontWeight: '700' as const, color: semantic.textTertiary, textTransform: 'uppercase' as const, letterSpacing: 0.4 },
   formalDefBox:        { marginTop: 2, backgroundColor: 'rgba(0,0,0,0.03)', borderRadius: 10, padding: 10 },
   formalDefText:       { fontSize: 13, color: semantic.textSecondary, lineHeight: 19, fontStyle: 'italic' as const },
 

@@ -8,9 +8,9 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 
-const BRAND        = palette.azul;
-const TRACK        = palette.azulClaro;
-const TRACK_ACTIVE = palette.bordeClaro;
+const FILL          = palette.verdeXP;
+const TRACK         = palette.trackNeutral;
+const TRACK_ACTIVE  = palette.bordeMedio;
 
 type Mode = 'mision' | 'quiz' | 'tarjetas';
 
@@ -37,7 +37,7 @@ export default function UnifiedProgressBar({
 
   useEffect(() => {
     sv.value = withTiming(progress, {
-      duration: 350,
+      duration: 300,
       easing: Easing.out(Easing.quad),
     });
   }, [progress]);
@@ -64,7 +64,9 @@ export default function UnifiedProgressBar({
               { backgroundColor: currentMode === key ? TRACK_ACTIVE : TRACK },
             ]}
           >
-            <Animated.View style={[s.fill, fillStyles[i]]} />
+            <Animated.View style={[s.fill, fillStyles[i]]}>
+              <View style={s.fillGloss} />
+            </Animated.View>
           </View>
         ))}
       </View>
@@ -77,9 +79,15 @@ export default function UnifiedProgressBar({
 
 const s = StyleSheet.create({
   wrap:  { paddingHorizontal: 14, paddingTop: 2, paddingBottom: 2 },
-  bar:   { flexDirection: 'row', gap: 3, height: 7 },
-  zone:  { flex: 1, borderRadius: 4, overflow: 'hidden' },
-  fill:  { height: '100%', borderRadius: 4, backgroundColor: BRAND },
+  // Chunky/Duolingo-style: thicker pill track, green fill with an inner
+  // "gel" highlight stripe instead of a flat tint.
+  bar:   { flexDirection: 'row', gap: 3, height: 14 },
+  zone:  { flex: 1, borderRadius: 999, overflow: 'hidden' },
+  fill:  { height: '100%', borderRadius: 999, backgroundColor: FILL, overflow: 'hidden' },
+  fillGloss: {
+    position: 'absolute', top: 2, left: 4, right: 4, height: 3,
+    borderRadius: 999, backgroundColor: 'rgba(255,255,255,0.35)',
+  },
   label: {
     fontSize: 10,
     fontWeight: '700',
