@@ -1470,14 +1470,21 @@ export default function SessionPlayerScreen() {
   const modeSelectMascotSV    = useSharedValue(0.5);
   const modeSelectMascotStyle = useAnimatedStyle(() => ({ transform: [{ scale: modeSelectMascotSV.value }] }));
 
-  // main_concept card — hook mascot pop-in + speech bubble fade/translate,
-  // replayed each time a new main_concept slide is shown (see the
-  // summaryIdx-keyed useEffect below).
-  const conceptMascotSV    = useSharedValue(0.8);
-  const conceptBubbleOpSV  = useSharedValue(0);
-  const conceptBubbleYSV   = useSharedValue(8);
-  const conceptMascotStyle = useAnimatedStyle(() => ({ transform: [{ scale: conceptMascotSV.value }] }));
-  const conceptBubbleStyle = useAnimatedStyle(() => ({ opacity: conceptBubbleOpSV.value, transform: [{ translateY: conceptBubbleYSV.value }] }));
+  // main_concept card — hook mascot pop-in + idle bounce, speech bubble
+  // fade/scale/translate, replayed each time a new main_concept slide is
+  // shown (see the summaryIdx-keyed useEffect below).
+  const conceptMascotSV     = useSharedValue(0.9);
+  const conceptMascotIdleYSV = useSharedValue(0);
+  const conceptBubbleOpSV   = useSharedValue(0);
+  const conceptBubbleYSV    = useSharedValue(8);
+  const conceptBubbleScaleSV = useSharedValue(0.92);
+  const conceptMascotStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: conceptMascotSV.value }, { translateY: conceptMascotIdleYSV.value }],
+  }));
+  const conceptBubbleStyle = useAnimatedStyle(() => ({
+    opacity: conceptBubbleOpSV.value,
+    transform: [{ translateY: conceptBubbleYSV.value }, { scale: conceptBubbleScaleSV.value }],
+  }));
   // Tap-to-reveal card: reveal text fades/slides in first, the tip box
   // follows with a short stagger (see the conceptRevealed-keyed useEffect
   // below, which drives both).
@@ -1738,16 +1745,37 @@ export default function SessionPlayerScreen() {
     conceptTipOpSV.value = withDelay(600, withTiming(1, { duration: 250 }));
     conceptTipYSV.value = withDelay(600, withTiming(0, { duration: 250 }));
   }, [conceptRevealed]); // eslint-disable-line react-hooks/exhaustive-deps
-  // main_concept — replay the mascot pop + bubble entrance for each new card.
+  // main_concept — replay the mascot pop + idle bounce + bubble pop (fade +
+  // slide + scale, staggered ~120ms after the mascot) for each new card.
+  // The idle loop is stopped UNCONDITIONALLY first (direct assignment
+  // cancels any withRepeat in flight) so leaving a main_concept slide, or
+  // switching to the next one, never leaves the previous card's loop
+  // ticking on the UI thread.
   useEffect(() => {
+    conceptMascotIdleYSV.value = 0;
     if (missionSlides[summaryIdx]?.type !== 'main_concept') return;
-    conceptMascotSV.value = 0.8;
+
+    if (reduceMotion) {
+      conceptMascotSV.value = 1;
+      conceptBubbleScaleSV.value = 1;
+      conceptBubbleYSV.value = 0;
+      conceptBubbleOpSV.value = withTiming(1, { duration: 180 });
+      return;
+    }
+
+    conceptMascotSV.value = 0.9;
     conceptBubbleOpSV.value = 0;
     conceptBubbleYSV.value = 8;
+    conceptBubbleScaleSV.value = 0.92;
     conceptMascotSV.value = withSpring(1, { damping: 10, stiffness: 200 });
-    conceptBubbleOpSV.value = withTiming(1, { duration: 260 });
-    conceptBubbleYSV.value = withTiming(0, { duration: 260 });
-  }, [summaryIdx]); // eslint-disable-line react-hooks/exhaustive-deps
+    // Idle bounce starts once the entrance spring has roughly settled.
+    conceptMascotIdleYSV.value = withDelay(300, withRepeat(
+      withTiming(-4, { duration: 1000, easing: Easing.inOut(Easing.quad) }), -1, true,
+    ));
+    conceptBubbleOpSV.value = withDelay(120, withTiming(1, { duration: 220 }));
+    conceptBubbleYSV.value = withDelay(120, withTiming(0, { duration: 220 }));
+    conceptBubbleScaleSV.value = withDelay(120, withTiming(1, { duration: 220 }));
+  }, [summaryIdx, reduceMotion]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { setPairsSelectedLeft(null); setPairsMatched({}); setPairEvals({}); hadPairErrorRef.current = false; }, [summaryIdx]);
   useEffect(() => { setClassifyAssigned({}); setClassifyFailedAttempt(false); hadClassifyErrorRef.current = false; setClassifyBucketSelected(null); setClassifyJustPlacedId(null); }, [summaryIdx]);
 
@@ -2808,7 +2836,7 @@ export default function SessionPlayerScreen() {
                   <View style={sum.hookRow}>
                     <Animated.Image source={CONCEPT_MASCOT[slide.type] ?? DEFAULT_CONCEPT_MASCOT} style={[sum.hookMascot, conceptMascotStyle]} resizeMode="contain" />
                     <Animated.View style={[sum.hookBubble, { backgroundColor: palette.blanco }, conceptBubbleStyle]}>
-                      <View style={[sum.hookBubbleTailBorder, { borderRightColor: palette.bordeClaro }]} />
+                      <View style={[sum.hookBubbleTailBorder, { borderRightColor: palette.cardBorder }]} />
                       <View style={[sum.hookBubbleTailFill, { borderRightColor: palette.blanco }]} />
                       <MathText style={sum.hookBubbleText}>{slide.hook}</MathText>
                     </Animated.View>
@@ -5647,21 +5675,27 @@ const sum = StyleSheet.create(withMisionFont({
   insightLineMain:  { fontSize: SM ? 18 : 19, fontWeight: '700' as const, color: '#3A4A5E', lineHeight: SM ? 25 : 27, letterSpacing: -0.1 },
   insightFallback:  { fontSize: SM ? 18 : 19, fontWeight: '700' as const, color: '#3A4A5E', lineHeight: SM ? 25 : 27 },
 
-  // Hook line — mascot + speech bubble above the concept card. Bubble fill
-  // and tail color are per-concept (pal.bg, applied inline at the call
-  // site — see main_concept's render) so the whole card stays one color
-  // family instead of a fixed blue clashing with a green/amber card. Text
-  // is a neutral dark slate (same tone as insightLineMain), not the
-  // rotating accent — a loud accent on body copy read as "shouting".
-  hookRow:            { flexDirection: 'row', alignItems: 'flex-start', gap: 10, marginBottom: 12, paddingHorizontal: 2 },
-  hookMascot:         { width: 122, height: 122, marginTop: -6 },
+  // Hook line — mascot + speech bubble above the concept card, Duolingo-
+  // style: mascot anchored bottom-left with real presence (flex-end on the
+  // row + no alignSelf override), bubble white with a neutral border,
+  // self-aligned to flex-start so it stays up near the mascot's head
+  // regardless of how tall the mascot now is.
+  hookRow:            { flexDirection: 'row', alignItems: 'flex-end', gap: 10, marginBottom: 12, paddingHorizontal: 2 },
+  // Aspect-correct box (tip.png etc. are ~2:3 portrait) instead of a square
+  // that wasted horizontal space — height is the real size target, width is
+  // derived from it so the character never looks squashed. maxWidth is a
+  // narrow-screen backstop, not the primary constraint.
+  hookMascot:         { width: SM ? 87 : 100, height: SM ? 130 : 150, maxWidth: '40%', flexShrink: 0 },
   hookBubble:         {
     flex: 1,
     alignSelf: 'flex-start' as const,
     marginTop: 8,
-    borderRadius: 22, paddingVertical: 11, paddingHorizontal: 16,
+    borderRadius: 20, paddingVertical: 14, paddingHorizontal: 16,
     position: 'relative' as const,
-    borderWidth: 2, borderColor: palette.bordeClaro,
+    borderWidth: 2, borderColor: palette.cardBorder,
+    // Subtle bottom "step" (RN has no stacked box-shadow) instead of a
+    // diffuse shadow — same chunky language as the concept card/tip box.
+    borderBottomWidth: 4,
   },
   // CSS-triangle trick (transparent border sides) instead of a rotated
   // square — reads as an actual pointed tail, not a soft diamond notch.
@@ -5680,7 +5714,7 @@ const sum = StyleSheet.create(withMisionFont({
     borderTopWidth: 7, borderBottomWidth: 7, borderRightWidth: 9,
     borderTopColor: 'transparent', borderBottomColor: 'transparent',
   },
-  hookBubbleText:     { fontSize: 14, fontWeight: '600' as const, color: '#3A4A5E', lineHeight: 19 },
+  hookBubbleText:     { fontSize: 17, fontWeight: '700' as const, color: semantic.textPrimary, lineHeight: 24 },
 
   // Two low-opacity circles (accent color, ~50% alpha via hex suffix)
   // behind the card for depth — same "soft glow blob, negative offset,

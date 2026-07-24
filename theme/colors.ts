@@ -74,6 +74,9 @@ export const palette = {
   // ── Bordes ───────────────────────────────────────────────────
   bordeClaro: '#DCEEFF',  // azul claro de soporte (antes gris cálido)
   bordeMedio: '#D6D2C8',
+  // Gris neutro (sin tinte azul/cálido) — look Duolingo: tarjetas y globos
+  // de diálogo blancos con borde gris puro, no un azul de soporte tenue.
+  cardBorder: '#E5E5E5',
 } as const;
 
 /**
