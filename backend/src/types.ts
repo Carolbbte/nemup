@@ -59,11 +59,7 @@ export type SummarySlideType =
   // mission. Already a real type the frontend renders (session.tsx's own
   // client-side quality pass has synthesized these for the legacy content
   // path for a while); this is the first time the backend emits one.
-  | 'motivation'
-  // FEATURE_FIND_ERROR_EXERCISE (off by default) — replaces a procedural
-  // concept's conceptual multiple-choice question 1:1 with a "find the
-  // mistake in this solved step" exercise. See findError.ts.
-  | 'find_error';
+  | 'motivation';
 
 export type IllustrationType = 'educational' | 'diagram' | 'concept' | 'timeline' | 'map' | 'process' | 'comparison';
 
@@ -156,19 +152,6 @@ export interface SummarySlide {
   // the renderer itself never displays them for this type.
   message?: string;
   sub?: string;
-  // find_error only (FEATURE_FIND_ERROR_EXERCISE) — see findError.ts for
-  // how these are generated. All copied/derived from the material's own
-  // workedExample, never recalculated.
-  /** The correct original planteo, copied verbatim from the material (e.g. "2(x + 3)"). */
-  errorExpression?: string;
-  /** The INCORRECT result shown to the student — a plausible common mistake for this step, never the material's own value. */
-  errorWrongStep?: string;
-  /** "¿Qué salió mal?" — kept as a field rather than hardcoded in the frontend in case it's varied later. */
-  errorQuestion?: string;
-  /** Short (≤15 word), friendly explanation of the specific mistake — revealed by tap alongside errorCorrectStep. */
-  errorExplanation?: string;
-  /** The correct result, copied verbatim from the material (never recalculated) — shown as "Debe quedar: X" once revealed. */
-  errorCorrectStep?: string;
 }
 
 export interface Summary {

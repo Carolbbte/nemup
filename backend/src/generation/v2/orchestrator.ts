@@ -9,7 +9,6 @@ import { buildKnowledgeObject } from './comprehension.js';
 import { generateDistractors } from './distractors.js';
 import { buildWorkedExampleSteps } from './procedural.js';
 import { generateExercises, isExercisableSubject } from './exerciseGenerator.js';
-import { generateFindError } from './findError.js';
 import { buildFlashcards, buildQuestions, buildDesafio, buildSummarySlides } from './assemble.js';
 
 /**
@@ -109,24 +108,6 @@ export async function generateSessionV2(
     (classification.type === 'MIXED' && s.conceptual >= s.procedural);
   console.log('[match_pairs gate] type=%s allow=%s', classification.type, allowMatchPairs);
 
-  // find_error gate — the mirror image of allowMatchPairs: PROCEDURAL
-  // content (or MIXED leaning procedural) is exactly the material
-  // match_pairs skips, and exactly where a "find the mistake in this
-  // solved step" exercise makes sense instead of a conceptual MC question.
-  // Also gated behind the feature flag — off entirely (no AI call at all)
-  // unless both the flag AND the session's own content agree. Applied
-  // uniformly to every concept of a qualifying session, not per-individual
-  // concept — KnowledgeConcept has no conceptual-vs-procedural field of its
-  // own to hook a finer gate into (see findError.ts's own doc comment).
-  const allowFindError =
-    appConfig.find_error_exercise &&
-    (classification.type === 'PROCEDURAL' ||
-      (classification.type === 'MIXED' && s.procedural >= s.conceptual));
-  console.log('[find_error gate] type=%s flag=%s allow=%s', classification.type, appConfig.find_error_exercise, allowFindError);
-  const findErrorByConcept = allowFindError
-    ? await generateFindError(ko.concepts, ko.workedExamples)
-    : new Map();
-
   const generation: GenerationResult = {
     subject: ko.subject || config.subject || 'Tema del material',
     topic: ko.topic || config.topic || 'Resumen del material',
@@ -141,7 +122,7 @@ export async function generateSessionV2(
       // ejemplo de X?") has the identical concept↔example-relationship
       // requirement match_pairs does, so there's no reason to compute a
       // second, separately-named flag for the same test.
-      slides: buildSummarySlides(ko, distractors, workedExampleResults, exercises, appConfig.mission_arc_v2, appConfig.mission_shorten, allowMatchPairs, allowMatchPairs, findErrorByConcept),
+      slides: buildSummarySlides(ko, distractors, workedExampleResults, exercises, appConfig.mission_arc_v2, appConfig.mission_shorten, allowMatchPairs, allowMatchPairs),
       sourceQuotes: [],
     },
     groundingScore: 0, // placeholder — replaced below with the real validateGrounding() result

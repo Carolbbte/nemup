@@ -31,12 +31,6 @@ export interface Config {
    * second, redundant MC question. Off by default (byte-identical to
    * before) — togglable via env var, no redeploy needed. */
   mission_shorten: boolean;
-  /** Feature flag: assemble.ts (v2) replaces a procedural concept's
-   * conceptual multiple-choice question with a "find_error" exercise
-   * (generateFindError, generation/v2/findError.ts) when true — today's
-   * exact MC behavior (byte-identical) when false. Off by default —
-   * togglable via env var, no redeploy needed. */
-  find_error_exercise: boolean;
 }
 
 export function loadConfig(): Config {
@@ -51,7 +45,6 @@ export function loadConfig(): Config {
     use_generation_v2: process.env.USE_GENERATION_V2 === 'true',
     mission_arc_v2: process.env.MISSION_ARC_V2 === 'true',
     mission_shorten: process.env.MISSION_SHORTEN === 'true',
-    find_error_exercise: process.env.FEATURE_FIND_ERROR_EXERCISE === 'true',
   };
 
   // Validation
