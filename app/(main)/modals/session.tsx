@@ -526,17 +526,23 @@ function FlipCard({ front, back, onFlip }: { front: string; back: string; onFlip
 }
 const fcd = StyleSheet.create(withMisionFont({
   container: { flex: 1, marginHorizontal: 20, marginVertical: 12 },
+  // Duolingo-style card: neutral 2px border (was the same blue-tinted
+  // bordeClaro used everywhere else in the app pre-redesign) + a soft
+  // shadow for depth, same recipe as the Misión concept card's
+  // conceptTarjeta, instead of the old flat 1px border with no shadow.
   face: {
     position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
-    borderRadius: 28, alignItems: 'center', justifyContent: 'center', padding: 28,
-    borderWidth: 1, borderColor: palette.bordeClaro,
+    borderRadius: 20, alignItems: 'center', justifyContent: 'center', padding: 28,
+    borderWidth: 2, borderColor: palette.cardBorder,
+    shadowColor: '#111827', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.08, shadowRadius: 16,
+    elevation: 5,
   },
   front:     { backgroundColor: palette.blanco },
   back:      { backgroundColor: paletteExtras.moradoSuaveBg },
   iconCircle:{ width: 56, height: 56, borderRadius: 28, backgroundColor: palette.tealTarjetasBg, alignItems: 'center', justifyContent: 'center', marginBottom: 14 },
   label:     { fontSize: 10, fontWeight: '800', color: palette.tealTarjetasIcon, letterSpacing: 1.5, marginBottom: 10 },
-  frontText: { fontSize: SM ? 26 : 32, fontWeight: '900', color: semantic.textPrimary, textAlign: 'center', letterSpacing: -0.5, lineHeight: SM ? 34 : 42 },
-  backText:  { fontSize: SM ? 15 : 17, color: semantic.textPrimary, textAlign: 'center', lineHeight: SM ? 24 : 28, fontWeight: '500' },
+  frontText: { fontFamily: 'Nunito', fontSize: SM ? 26 : 32, fontWeight: '900', color: semantic.textPrimary, textAlign: 'center', letterSpacing: -0.5, lineHeight: SM ? 34 : 42 },
+  backText:  { fontSize: SM ? 15 : 17, color: semantic.textPrimary, textAlign: 'center', lineHeight: SM ? 24 : 28, fontWeight: '600' },
   accentLine:{ width: 44, height: 4, borderRadius: 2, backgroundColor: palette.tealTarjetasIcon, marginTop: 20 },
   hint:      { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 14 },
   hintText:  { fontSize: 12, color: semantic.textTertiary, fontStyle: 'italic' },
@@ -1525,6 +1531,15 @@ export default function SessionPlayerScreen() {
   // (see the button's own call site), instead of animating border width.
   const ctaPressYSV = useSharedValue(0);
   const ctaPressStyle = useAnimatedStyle(() => ({ transform: [{ translateY: ctaPressYSV.value }] }));
+
+  // Flashcards' 3 SRS response buttons — same two-layer chunky press-sink,
+  // one fixed shared value per button (a .map() can't call hooks per item).
+  const srsPressY0SV = useSharedValue(0);
+  const srsPressY1SV = useSharedValue(0);
+  const srsPressY2SV = useSharedValue(0);
+  const srsPressStyle0 = useAnimatedStyle(() => ({ transform: [{ translateY: srsPressY0SV.value }] }));
+  const srsPressStyle1 = useAnimatedStyle(() => ({ transform: [{ translateY: srsPressY1SV.value }] }));
+  const srsPressStyle2 = useAnimatedStyle(() => ({ transform: [{ translateY: srsPressY2SV.value }] }));
 
   // Summary mode micro-reward animation
   const summaryRewardOpSV = useSharedValue(0);
@@ -5201,18 +5216,25 @@ export default function SessionPlayerScreen() {
           {cardFlipped ? (
             <View style={[fcs.srsRow, { paddingBottom: insets.bottom + 12 }]}>
               {[
-                { label: 'Me costó',   response: 'unknown' as const, Icon: Frown, color: palette.rojoError,     bg: palette.rojoErrorBg,       border: paletteExtras.rojoChipBorde },
-                { label: 'Casi',       response: 'doubt'   as const, Icon: Meh,   color: palette.ambarIcon,     bg: palette.ambarBg,           border: paletteExtras.amarilloBorde },
-                { label: '¡Lo sabía!', response: 'knew'    as const, Icon: Smile, color: paletteExtras.verdeChipBorde, bg: paletteExtras.verdeChipBg, border: paletteExtras.verdeChipBorde },
-              ].map(({ label, response, Icon, color, bg, border }) => (
-                <Pressable key={label} onPress={() => handleCardNext(response)} style={{ flex: 1 }}>
-                  <View style={[fcs.srsBtn, { borderColor: border }]}>
-                    <View style={[fcs.srsIconCircle, { backgroundColor: bg }]}>
-                      <Icon size={20} color={color} strokeWidth={2} />
-                    </View>
-                    <Text style={fcs.srsBtnText}>{label}</Text>
-                  </View>
-                </Pressable>
+                { label: 'Me costó',   response: 'unknown' as const, Icon: Frown, color: palette.rojoError,     bg: palette.rojoErrorBg,       border: paletteExtras.rojoChipBorde,  shadow: palette.rojoErrorDark,        pressY: srsPressY0SV, pressStyle: srsPressStyle0 },
+                { label: 'Casi',       response: 'doubt'   as const, Icon: Meh,   color: palette.ambarIcon,     bg: palette.ambarBg,           border: paletteExtras.amarilloBorde,  shadow: palette.ambarIcon,             pressY: srsPressY1SV, pressStyle: srsPressStyle1 },
+                { label: '¡Lo sabía!', response: 'knew'    as const, Icon: Smile, color: paletteExtras.verdeChipBorde, bg: paletteExtras.verdeChipBg, border: paletteExtras.verdeChipBorde, shadow: paletteExtras.verdeTextoOscuro, pressY: srsPressY2SV, pressStyle: srsPressStyle2 },
+              ].map(({ label, response, Icon, color, bg, border, shadow, pressY, pressStyle }) => (
+                <View key={label} style={{ flex: 1, position: 'relative' }}>
+                  <View style={[fcs.srsLip, { backgroundColor: shadow }]} />
+                  <Pressable
+                    onPress={() => handleCardNext(response)}
+                    onPressIn={() => { pressY.value = withTiming(3, { duration: 90 }); }}
+                    onPressOut={() => { pressY.value = withTiming(0, { duration: 90 }); }}
+                  >
+                    <Animated.View style={[fcs.srsBtn, { borderColor: border }, pressStyle]}>
+                      <View style={[fcs.srsIconCircle, { backgroundColor: bg }]}>
+                        <Icon size={20} color={color} strokeWidth={2} />
+                      </View>
+                      <Text style={fcs.srsBtnText}>{label}</Text>
+                    </Animated.View>
+                  </Pressable>
+                </View>
               ))}
             </View>
           ) : (
@@ -6271,11 +6293,17 @@ const qz = StyleSheet.create(withMisionFont({
 }));
 
 // ── Flashcard SRS buttons ──────────────────────────────────────────
+// Chunky/Duolingo-style: each button is a face + a separate fixed "lip"
+// layer behind it (see the button's own call site) instead of the old
+// diffuse 1px-border shadow — face has no border-bottom of its own, the
+// lip peeking out below it IS the depth cue, and it slides down to sink
+// on press.
 const fcs = StyleSheet.create(withMisionFont({
   srsRow: { flexDirection: 'row', gap: 8, paddingHorizontal: 16, paddingTop: 10 },
-  srsBtn: { backgroundColor: palette.blanco, borderWidth: 1, borderRadius: 16, paddingVertical: 12, paddingHorizontal: 6, alignItems: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.05, shadowRadius: 3, elevation: 1 },
+  srsBtn: { backgroundColor: palette.blanco, borderWidth: 2, borderRadius: 16, paddingVertical: 12, paddingHorizontal: 6, alignItems: 'center' },
+  srsLip: { position: 'absolute' as const, left: 0, right: 0, top: 3, bottom: 0, borderRadius: 16 },
   srsIconCircle: { width: 38, height: 38, borderRadius: 19, alignItems: 'center', justifyContent: 'center', marginBottom: 7 },
-  srsBtnText: { fontSize: SM ? 12 : 12.5, fontWeight: '700', color: semantic.textPrimary, textAlign: 'center' },
+  srsBtnText: { fontFamily: 'Nunito', fontSize: SM ? 12 : 12.5, fontWeight: '700', color: semantic.textPrimary, textAlign: 'center' },
 }));
 
 // ── Celebration ────────────────────────────────────────────────────
