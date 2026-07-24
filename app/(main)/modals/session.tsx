@@ -2677,8 +2677,8 @@ export default function SessionPlayerScreen() {
               const pal = CONCEPT_PALETTES[Math.max(0, missionColorIdx) % CONCEPT_PALETTES.length];
               const TipContainer: any = hasRevealGate ? Animated.View : View;
               const tipContainerStyle = hasRevealGate
-                ? [sum.tipBox, { borderLeftColor: pal.accent }, conceptTipRevealStyle]
-                : [sum.tipBox, { borderLeftColor: pal.accent }];
+                ? [sum.tipBox, conceptTipRevealStyle]
+                : [sum.tipBox];
               return (
                 // Wrapped in its own ScrollView so a longer concept (hook +
                 // card + example + tip + formal-definition toggle) is never
@@ -2760,7 +2760,7 @@ export default function SessionPlayerScreen() {
                         {!conceptRevealed ? (
                           <View style={sum.revealAffordance}>
                             <Text style={sum.revealAffordanceEmoji}>👇</Text>
-                            <Text style={[sum.revealAffordanceText, { color: pal.accent }]}>Toca para descubrir</Text>
+                            <Text style={[sum.revealAffordanceText, { color: palette.verdeXP }]}>Toca para descubrir</Text>
                           </View>
                         ) : (
                           <Animated.View style={conceptRevealStyle}>
@@ -5538,12 +5538,12 @@ const sum = StyleSheet.create(withMisionFont({
   conceptDecorCircle2: { position: 'absolute' as const, bottom: -22, left: -18, width: 64, height: 64, borderRadius: 32 },
 
   // Tip callout — its own standalone card below conceptTarjeta (not nested
-  // inside it), so a thin all-around border was added to read as a distinct
-  // card against the screen background, on top of the original white fill +
-  // left accent stripe. Icon/label in the concept's accent, body text in
-  // the same neutral slate as the hero line. Accent-dependent colors
-  // (stripe/icon/label) are applied inline at the call site.
-  tipBox:   { marginTop: SM ? 10 : 12, flexDirection: 'row' as const, alignItems: 'flex-start' as const, gap: 9, backgroundColor: palette.blanco, borderRadius: 10, padding: SM ? 10 : 11, borderWidth: 1, borderColor: palette.bordeClaro, borderLeftWidth: 3 },
+  // inside it), with the dedicated "Dato clave" color tokens (fixed, NOT
+  // the per-concept accent — this card's identity is "dato clave", not
+  // whichever concept it happens to belong to). Label color stays the
+  // concept accent (applied inline at the call site), body text in the
+  // same neutral slate as the hero line.
+  tipBox:   { marginTop: SM ? 10 : 12, flexDirection: 'row' as const, alignItems: 'flex-start' as const, gap: 9, backgroundColor: palette.fondoDatoClave, borderRadius: 10, padding: SM ? 10 : 11, borderWidth: 1, borderColor: palette.bordeDatoClave, borderLeftWidth: 3 },
   tipIcon:  { fontSize: 16, marginTop: 1 },
   tipLabel: { fontSize: 10, fontWeight: '800' as const, letterSpacing: 0.6, marginBottom: 3, textTransform: 'uppercase' as const },
   tipText:  { fontSize: SM ? 13 : 14, color: '#3A4A5E', lineHeight: SM ? 20 : 22, fontWeight: '600' as const },

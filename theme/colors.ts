@@ -41,6 +41,9 @@ export const palette = {
   tealTarjetasBg:   '#DCF5F1',
   tealTarjetasIcon: '#0F6E56',
 
+  fondoDatoClave: '#FFF4C2',
+  bordeDatoClave: '#FFC93C',
+  iconoDatoClave: '#FFB800',
   // ── Liga / Racha — ámbar ─────────────────────────────────────
   ambar:     '#FFB547',
   ambarBg:   '#FFF2E0',
