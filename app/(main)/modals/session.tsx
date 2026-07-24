@@ -55,6 +55,7 @@ import Animated, {
   runOnJS,
   useAnimatedReaction,
   useAnimatedStyle,
+  useReducedMotion,
   useSharedValue,
   withDelay,
   withRepeat,
@@ -561,6 +562,11 @@ const CONCEPT_PALETTES: Array<{ bg: string; border: string; iconBg: string; acce
   { bg: '#E6F6F6', border: '#B4E0E0', iconBg: '#2FA8A8', accent: '#1E7A7A' }, // turquesa
 ];
 
+// main_concept's tap-to-reveal card needs Reanimated-driven press feedback
+// (scale + shadow) on a Pressable — createAnimatedComponent once at module
+// scope rather than per-render.
+const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
+
 // ── Summary slide builder ─────────────────────────────────────────
 type SummarySlide =
   | BackendSlide
@@ -867,6 +873,38 @@ function renderHighlightedExplanation(
     <Text style={style}>
       {before}
       <Text style={{ color: accentColor, fontWeight: '800' as const }}>{match}</Text>
+      {after}
+    </Text>
+  );
+}
+
+// Tap-to-reveal card's "momento WOW" only: same split as
+// renderHighlightedExplanation, but the matched span is an Animated.Text
+// driven by the caller's own useAnimatedStyle results (color sweep +
+// sparkle) instead of a static accent color — those hooks must live at the
+// component's top level, so this function only ever receives already-built
+// animated styles, never calls a hook itself. Falls back to the plain
+// (non-animated) render when keyPhrase isn't found, same guardrail as
+// renderHighlightedExplanation.
+function renderAnimatedHighlightedExplanation(
+  text: string,
+  keyPhrase: string | null | undefined,
+  sweepStyle: any,
+  sparkleStyle: any,
+  style: any,
+) {
+  const idx = keyPhrase ? text.indexOf(keyPhrase) : -1;
+  if (!keyPhrase || idx === -1) {
+    return <MathText style={style}>{text}</MathText>;
+  }
+  const before = formatMath(text.slice(0, idx));
+  const match  = formatMath(text.slice(idx, idx + keyPhrase.length));
+  const after  = formatMath(text.slice(idx + keyPhrase.length));
+  return (
+    <Text style={style}>
+      {before}
+      <Animated.Text style={[{ fontWeight: '800' as const }, sweepStyle]}>{match}</Animated.Text>
+      <Animated.Text style={sparkleStyle}> ✨</Animated.Text>
       {after}
     </Text>
   );
@@ -1446,9 +1484,34 @@ export default function SessionPlayerScreen() {
   const conceptRevealOpSV = useSharedValue(0);
   const conceptRevealYSV  = useSharedValue(10);
   const conceptTipOpSV    = useSharedValue(0);
-  const conceptTipYSV     = useSharedValue(10);
+  const conceptTipYSV     = useSharedValue(16);
   const conceptRevealStyle = useAnimatedStyle(() => ({ opacity: conceptRevealOpSV.value, transform: [{ translateY: conceptRevealYSV.value }], marginTop: 12 }));
   const conceptTipRevealStyle = useAnimatedStyle(() => ({ opacity: conceptTipOpSV.value, transform: [{ translateY: conceptTipYSV.value }] }));
+
+  // Tap-to-reveal card — "momento WOW" choreography (card bounce, hook
+  // settle, key-phrase paint + sparkle) on top of the reveal/tip fade above.
+  // Lives at the component's top level (not inside main_concept's per-render
+  // IIFE) because hooks can't be called conditionally — pal.accent is a
+  // stable-enough value across the whole mission (missionColorIdx never
+  // changes once skillPath/currentSessionId are set) to compute here too,
+  // so main_concept's own render just reuses it instead of recomputing.
+  const missionColorIdx = skillPath?.missions?.findIndex(m => m.sessionId === currentSessionId) ?? -1;
+  const pal = CONCEPT_PALETTES[Math.max(0, missionColorIdx) % CONCEPT_PALETTES.length];
+  const reduceMotion = useReducedMotion();
+  const cardPressScaleSV  = useSharedValue(1);
+  const cardBounceScaleSV = useSharedValue(1);
+  const hookSettleYSV     = useSharedValue(0);
+  const keyPhraseSweepSV  = useSharedValue(0);
+  const sparkleOpSV       = useSharedValue(0);
+  const cardPressStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: cardPressScaleSV.value * cardBounceScaleSV.value }],
+    shadowOpacity: interpolate(cardPressScaleSV.value, [0.99, 1], [0.05, 0.08]),
+  }));
+  const hookSettleStyle = useAnimatedStyle(() => ({ transform: [{ translateY: hookSettleYSV.value }] }));
+  const keyPhraseSweepStyle = useAnimatedStyle(() => ({
+    color: interpolateColor(keyPhraseSweepSV.value, [0, 1], ['#3A4A5E', pal.accent]),
+  }));
+  const sparkleStyle = useAnimatedStyle(() => ({ opacity: sparkleOpSV.value }));
 
   // Summary mode micro-reward animation
   const summaryRewardOpSV = useSharedValue(0);
@@ -1605,19 +1668,69 @@ export default function SessionPlayerScreen() {
   useEffect(() => { setOrderTaps([]); }, [summaryIdx]);
   useEffect(() => { setShowFormalDef(false); }, [summaryIdx]);
   useEffect(() => { setConceptRevealed(false); }, [summaryIdx]);
-  // Tap-to-reveal card: fade+slide the reveal text in, then the tip box a
-  // short stagger later. Runs once per reveal (conceptRevealed only ever
-  // goes false→true within a slide — see the reset effect above).
+  // Hard-reset every tap-to-reveal shared value on every slide change —
+  // direct assignment cancels whatever animation was mid-flight, so
+  // advancing away from a concept mid-choreography never leaves a stale
+  // scale/translate/color on the NEXT concept's (already-mounted) card.
   useEffect(() => {
-    if (!conceptRevealed) return;
+    cardBounceScaleSV.value = 1;
+    hookSettleYSV.value = 0;
     conceptRevealOpSV.value = 0;
     conceptRevealYSV.value = 10;
+    keyPhraseSweepSV.value = 0;
+    sparkleOpSV.value = 0;
     conceptTipOpSV.value = 0;
-    conceptTipYSV.value = 10;
-    conceptRevealOpSV.value = withTiming(1, { duration: 260 });
-    conceptRevealYSV.value = withTiming(0, { duration: 260 });
-    conceptTipOpSV.value = withDelay(200, withTiming(1, { duration: 260 }));
-    conceptTipYSV.value = withDelay(200, withTiming(0, { duration: 260 }));
+    conceptTipYSV.value = 16;
+  }, [summaryIdx]); // eslint-disable-line react-hooks/exhaustive-deps
+  // Tap-to-reveal "momento WOW": card bounce → hook settles → reveal fades
+  // in → key phrase paints (+ sparkle) → Dato clave slides in, all under
+  // 1s with deliberate overlap (see the prompt's own timeline). Runs once
+  // per reveal (conceptRevealed only ever goes false→true within a slide —
+  // see the reset effect above). Reduce Motion collapses all of this to one
+  // simple simultaneous fade, no bounce/settle/sweep.
+  useEffect(() => {
+    if (!conceptRevealed) return;
+    cardBounceScaleSV.value = 1;
+    hookSettleYSV.value = 0;
+    conceptRevealOpSV.value = 0;
+    conceptRevealYSV.value = 10;
+    keyPhraseSweepSV.value = 0;
+    sparkleOpSV.value = 0;
+    conceptTipOpSV.value = 0;
+    conceptTipYSV.value = 16;
+
+    if (reduceMotion) {
+      // Simple simultaneous fade only — no bounce, no settle, and the key
+      // phrase lands directly on its final color (a smooth transition still
+      // reads as motion, which Reduce Motion asks to avoid).
+      keyPhraseSweepSV.value = 1;
+      conceptRevealOpSV.value = withTiming(1, { duration: 180 });
+      conceptTipOpSV.value = withTiming(1, { duration: 180 });
+      return;
+    }
+
+    // 0-250ms: the card itself bounces in reaction to the tap.
+    cardBounceScaleSV.value = withSequence(
+      withTiming(0.97, { duration: 90, easing: Easing.out(Easing.quad) }),
+      withTiming(1.02, { duration: 90, easing: Easing.out(Easing.quad) }),
+      withTiming(1, { duration: 70, easing: Easing.out(Easing.quad) }),
+    );
+    // 80-280ms: the question settles up a hair.
+    hookSettleYSV.value = 6;
+    hookSettleYSV.value = withDelay(80, withTiming(0, { duration: 200 }));
+    // 200-430ms: the answer fades + slides in.
+    conceptRevealOpSV.value = withDelay(200, withTiming(1, { duration: 230 }));
+    conceptRevealYSV.value = withDelay(200, withTiming(0, { duration: 230 }));
+    // 430-630ms: the key phrase paints from neutral to the concept's
+    // accent, with a small sparkle right at the tail end of the sweep.
+    keyPhraseSweepSV.value = withDelay(430, withTiming(1, { duration: 200 }));
+    sparkleOpSV.value = withDelay(560, withSequence(
+      withTiming(1, { duration: 70 }),
+      withTiming(0, { duration: 160 }),
+    ));
+    // 600-850ms: Dato clave slides up from below + fades in.
+    conceptTipOpSV.value = withDelay(600, withTiming(1, { duration: 250 }));
+    conceptTipYSV.value = withDelay(600, withTiming(0, { duration: 250 }));
   }, [conceptRevealed]); // eslint-disable-line react-hooks/exhaustive-deps
   // main_concept — replay the mascot pop + bubble entrance for each new card.
   useEffect(() => {
@@ -2662,19 +2775,19 @@ export default function SessionPlayerScreen() {
               const handleRevealConcept = () => {
                 if (!conceptRevealed) setConceptRevealed(true);
               };
-              const CardContainer: any = hasRevealGate ? Pressable : View;
+              // AnimatedPressable (not plain Pressable) so the card can carry
+              // the press-feedback scale/shadow style below — pal itself now
+              // comes from the component's top level (see its own comment),
+              // shared with the choreography's keyPhraseSweepStyle.
+              const CardContainer: any = hasRevealGate ? AnimatedPressable : View;
               const cardContainerProps = hasRevealGate ? {
                 onPress: handleRevealConcept,
+                onPressIn: () => { cardPressScaleSV.value = withTiming(0.99, { duration: 100 }); },
+                onPressOut: () => { cardPressScaleSV.value = withTiming(1, { duration: 150 }); },
                 disabled: conceptRevealed,
                 accessibilityRole: 'button' as const,
                 accessibilityHint: 'Toca para revelar la explicación',
               } : {};
-              // Color estable por misión: toda la sesión mantiene un mismo tema
-              // (estilo Duolingo), y misiones distintas se ven distintas entre sí.
-              const missionColorIdx = skillPath?.missions?.findIndex(
-                m => m.sessionId === currentSessionId
-              ) ?? -1;
-              const pal = CONCEPT_PALETTES[Math.max(0, missionColorIdx) % CONCEPT_PALETTES.length];
               const TipContainer: any = hasRevealGate ? Animated.View : View;
               const tipContainerStyle = hasRevealGate
                 ? [sum.tipBox, conceptTipRevealStyle]
@@ -2695,10 +2808,7 @@ export default function SessionPlayerScreen() {
                     </Animated.View>
                   </View>
                 )}
-                <CardContainer style={[sum.conceptTarjeta, { backgroundColor: pal.bg, borderColor: pal.border, overflow: 'hidden' }]} {...cardContainerProps}>
-                    {/* Decorative depth, not more text — two low-opacity
-                        circles in the concept's own accent, clipped to the
-                        card by overflow:'hidden' above. */}
+                <CardContainer style={[sum.conceptTarjeta, { backgroundColor: pal.bg }, hasRevealGate && cardPressStyle]} {...cardContainerProps}>
                     {/* No icon box here — the mascot in the hook above is the
                         one visual anchor; a second big icon competed with it.
                         The concept's color identity still comes through via
@@ -2755,8 +2865,12 @@ export default function SessionPlayerScreen() {
                       // Tap-to-reveal: only the hook shows until conceptRevealed —
                       // the affordance below is the card's only hint that there's
                       // more, since the whole card (CardContainer) is the tap target.
+                      // The hook sits in its own Animated.View so it can settle up
+                      // a hair right after the tap (see hookSettleStyle).
                       <>
-                        {renderHighlightedExplanation(teacherSplit.hook, slide.keyPhrase, pal.accent, sum.insightFallback)}
+                        <Animated.View style={hookSettleStyle}>
+                          {renderHighlightedExplanation(teacherSplit.hook, slide.keyPhrase, pal.accent, sum.insightFallback)}
+                        </Animated.View>
                         {!conceptRevealed ? (
                           <View style={sum.revealAffordance}>
                             <Text style={sum.revealAffordanceEmoji}>👇</Text>
@@ -2764,7 +2878,7 @@ export default function SessionPlayerScreen() {
                           </View>
                         ) : (
                           <Animated.View style={conceptRevealStyle}>
-                            {renderHighlightedExplanation(teacherSplit.reveal, slide.keyPhrase, pal.accent, sum.insightFallback)}
+                            {renderAnimatedHighlightedExplanation(teacherSplit.reveal, slide.keyPhrase, keyPhraseSweepStyle, sparkleStyle, sum.insightFallback)}
                           </Animated.View>
                         )}
                       </>
@@ -5425,8 +5539,15 @@ const sum = StyleSheet.create(withMisionFont({
   missionMetaChipText:{ fontSize: 12, color: palette.blanco, fontWeight: '700' },
   missionMetaChipXp:{ backgroundColor: LIME },
 
-  // Main concept — concept card, color rotates per CONCEPT_PALETTES entry
-  conceptTarjeta:   { borderWidth: 2, borderRadius: 22, padding: SM ? 18 : 22, marginTop: 4 },
+  // Main concept — concept card, color rotates per CONCEPT_PALETTES entry.
+  // Duolingo-style: no border, depth comes from a soft shadow instead
+  // (shadow* for iOS, elevation for Android — RN has no multi-layer
+  // box-shadow, so the prompt's two stacked shadows are blended into one).
+  conceptTarjeta:   {
+    borderRadius: 20, padding: SM ? 18 : 22, marginTop: 4,
+    shadowColor: '#111827', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.08, shadowRadius: 16,
+    elevation: 5,
+  },
   conceptIconBox:   { width: 54, height: 54, borderRadius: 16, alignItems: 'center', justifyContent: 'center', marginBottom: 14 },
   conceptIconEmoji: { fontSize: 30 },
   conceptKicker:    { fontSize: 12, fontWeight: '800', letterSpacing: 1, marginBottom: 4 },
