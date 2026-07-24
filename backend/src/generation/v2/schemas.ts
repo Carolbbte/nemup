@@ -77,7 +77,7 @@ const knowledgeConceptSchema: JsonSchema = {
     },
     keyPhrase: {
       type: ['string', 'null'],
-      description: 'A short (2-5 word) fragment to highlight in color — the most important idea in simpleExplanation. MUST be a literal substring of simpleExplanation (verbatim, not paraphrased). Null if no clear fragment is worth highlighting.',
+      description: 'A short (2-5 word) fragment to highlight in color — the most important idea in teacherExplanation. MUST be a literal substring of teacherExplanation (verbatim, not paraphrased). Null if no clear fragment is worth highlighting.',
     },
     advancedExamples: {
       type: 'array',

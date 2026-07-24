@@ -83,18 +83,19 @@ export interface SummarySlide {
   // analogy shown in mascot voice above the card. Null/absent on older
   // cached sessions or when comprehension.ts had no honest analogy.
   hook?: string | null;
-  // main_concept only, from KnowledgeConcept.teacherExplanation — the 2-3
-  // sentence narrative teaching moment (scenario → understanding → name),
-  // shown as the card's main teaching content, above simpleExplanation
-  // (kept on `definition`, the compact headline). Absent on older cached
-  // sessions generated before this field existed.
+  // main_concept only, from KnowledgeConcept.teacherExplanation — the
+  // curiosity-hook micro-intervention (question/scenario before the name),
+  // shown as the card's main body text, REPLACING simpleExplanation (kept
+  // on `definition`) when present. Absent on older cached sessions
+  // generated before this field existed — those fall back to `definition`.
   teacherExplanation?: string | null;
   // main_concept only, from KnowledgeConcept.keyPhrase — a short (2-5 word)
-  // fragment of `definition` (which holds simpleExplanation on this slide,
-  // see below) meant to be highlighted in color on the card. The frontend
-  // locates it via a literal substring search — absent/not found means no
-  // highlight, never a crash. Null/absent on older cached sessions or when
-  // comprehension.ts had no clear fragment to highlight.
+  // fragment of `teacherExplanation` (or of `definition` on older sessions
+  // that fall back to it, since keyPhrase always matches whichever text is
+  // actually displayed) meant to be highlighted in color on the card. The
+  // frontend locates it via a literal substring search — absent/not found
+  // means no highlight, never a crash. Null/absent on older cached sessions
+  // or when comprehension.ts had no clear fragment to highlight.
   keyPhrase?: string | null;
   // main_concept only, from KnowledgeConcept.definition (the FORMAL one —
   // `definition` on this slide holds simpleExplanation instead, see

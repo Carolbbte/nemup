@@ -79,14 +79,15 @@ INSTRUCCIONES:
     NUNCA genérico ni repetido entre conceptos (nada de 💡/✅/📚 igual para todos). Ej.: 🧬 para
     "Evolución", 🦴 para "Registro fósil", 🧪 para "Bioquímica y Biología Molecular". Si no hay un
     emoji temático claro para este concepto, devuelve null en vez de forzar uno genérico.
-2d. keyPhrase: un fragmento CORTO (2-5 palabras) que sea la idea más importante de simpleExplanation,
-    para resaltarlo en color en la tarjeta. CRÍTICO: debe ser un substring LITERAL de simpleExplanation
+2d. keyPhrase: un fragmento CORTO (2-5 palabras) que sea la idea más importante de teacherExplanation,
+    para resaltarlo en color en la tarjeta. CRÍTICO: debe ser un substring LITERAL de teacherExplanation
     — copiado carácter por carácter, sin parafrasear ni ajustar — porque el frontend lo busca dentro
-    de simpleExplanation para colorearlo; si no aparece tal cual, no se resalta nada. Si simpleExplanation
+    de teacherExplanation para colorearlo; si no aparece tal cual, no se resalta nada. Si teacherExplanation
     no tiene un fragmento claro que valga la pena resaltar, devuelve null.
-    ✓ simpleExplanation="Cómo tu especie cambia de generación en generación para sobrevivir mejor."
-      → keyPhrase="cambia de generación en generación" (substring literal, presente palabra por palabra).
-    ✗ keyPhrase="cambio generacional" (no es substring literal — está parafraseado, INVÁLIDO).
+    ✓ teacherExplanation="Encontraste un hueso enterrado hace millones de años. ¿Cómo podrías saber de
+      qué animal era? Justamente para responder preguntas como esa existe el registro fósil."
+      → keyPhrase="responder preguntas como esa" (substring literal, presente palabra por palabra).
+    ✗ keyPhrase="resolver esas dudas" (no es substring literal — está parafraseado, INVÁLIDO).
 3. definition: formal y precisa, tomada del material — no inventes contenido ajeno a él.
 4. example: un ejemplo concreto tomado o inferido del material, o null si no aplica. Máximo ~15
    palabras, UNA sola frase — concreto y directo, no una explicación adicional del concepto.

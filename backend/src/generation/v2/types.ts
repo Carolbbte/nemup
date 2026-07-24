@@ -78,11 +78,11 @@ export interface KnowledgeConcept {
   exampleEmoji?: string | null;
   /**
    * A short (2-5 word) fragment to highlight in color on the concept card —
-   * the single most important idea in `simpleExplanation`. MUST be a LITERAL
-   * substring of `simpleExplanation` (verbatim, not paraphrased) since the
-   * frontend locates it by string search to color it; a non-literal value
-   * simply won't be found and nothing gets highlighted. Null when no clear
-   * fragment is worth highlighting.
+   * the single most important idea in `teacherExplanation`. MUST be a
+   * LITERAL substring of `teacherExplanation` (verbatim, not paraphrased)
+   * since the frontend locates it by string search to color it; a
+   * non-literal value simply won't be found and nothing gets highlighted.
+   * Null when no clear fragment is worth highlighting.
    */
   keyPhrase: string | null;
   /**

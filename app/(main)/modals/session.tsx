@@ -159,8 +159,11 @@ type IllustrationType = 'educational' | 'diagram' | 'concept' | 'timeline' | 'ma
 // populated by assemble.ts from the concept's own hook/teacherExplanation/
 // definition/tips[0]. All optional: older cached sessions (generated before
 // these existed) simply omit them, and the renderer falls back to today's
-// behavior (no hook line, no teacher-explanation block, no tip box, no
-// formal-definition toggle) rather than breaking.
+// behavior (no hook line, no formal-definition toggle) rather than
+// breaking. `teacherExplanation` specifically REPLACES `definition`
+// (simpleExplanation) as the card's main body text when present — the
+// renderer falls back to `definition` only when `teacherExplanation` is
+// absent (older cached sessions), see main_concept's own render.
 // `blankSentence`/`blankChoices`/`blankAnswer`/`blankExplanation` —
 // fill_blank only, same shape Desafío's DesafioSlide already uses for the
 // same fields (see FillBlankContent) — the answer is still a LETTER
@@ -2612,6 +2615,13 @@ export default function SessionPlayerScreen() {
               const defLines = (slide.definition ?? '').split(/\\n|\n/).map(l => l.trim()).filter(Boolean);
               const isProcedural = defLines.length >= 3 && defLines.some(l => STEP_RE.test(l));
               const hasConnector = !!slide.connector?.includes('↓');
+              // Default-branch body text: teacherExplanation replaces
+              // simpleExplanation (slide.definition) as the card's main
+              // narrative — falls back to slide.definition on older cached
+              // sessions generated before teacherExplanation existed, so
+              // those keep showing today's content instead of an empty card.
+              const mainBodyText = slide.teacherExplanation?.trim() || slide.definition || '';
+              const bodyLines = mainBodyText.split(/\\n|\n/).map(l => l.trim()).filter(Boolean);
               // Color estable por misión: toda la sesión mantiene un mismo tema
               // (estilo Duolingo), y misiones distintas se ven distintas entre sí.
               const missionColorIdx = skillPath?.missions?.findIndex(
@@ -2646,9 +2656,6 @@ export default function SessionPlayerScreen() {
                     <MathText style={[sum.conceptTitle, { color: pal.accent }]}>
                       {`${slide.title}${slide?.emoji ? ' ' + slide.emoji : ''}`}
                     </MathText>
-                    {!!slide.teacherExplanation && (
-                      <MathText style={sum.teacherExplanationText}>{slide.teacherExplanation}</MathText>
-                    )}
                     {hasConnector ? (
                       <>
                         <View style={sum.chainContainer}>
@@ -2696,9 +2703,9 @@ export default function SessionPlayerScreen() {
                     ) : (
                       // Default: Duolingo-style insight — parse "* bullet" lines
                       <>
-                        {defLines.length > 0 ? (
+                        {bodyLines.length > 0 ? (
                           <View style={sum.insightList}>
-                            {defLines.map((line, i) => {
+                            {bodyLines.map((line, i) => {
                               const isBullet = line.startsWith('*');
                               const text = isBullet ? line.slice(1).trim() : line;
                               const lineStyle = [sum.insightLine, i === 0 && sum.insightLineMain];
@@ -2713,7 +2720,7 @@ export default function SessionPlayerScreen() {
                             })}
                           </View>
                         ) : (
-                          !!slide.definition && renderHighlightedExplanation(slide.definition, slide.keyPhrase, pal.accent, sum.insightFallback)
+                          !!mainBodyText && renderHighlightedExplanation(mainBodyText, slide.keyPhrase, pal.accent, sum.insightFallback)
                         )}
                       </>
                     )}
@@ -5340,12 +5347,6 @@ const sum = StyleSheet.create(withMisionFont({
   conceptIconEmoji: { fontSize: 30 },
   conceptKicker:    { fontSize: 12, fontWeight: '800', letterSpacing: 1, marginBottom: 4 },
   conceptTitle:     { fontSize: SM ? 21 : 23, fontWeight: '800', color: semantic.textPrimary, lineHeight: SM ? 26 : 28, marginBottom: 12 },
-  // The card's main teaching moment (KnowledgeConcept.teacherExplanation) —
-  // narrative body copy shown above the compact simpleExplanation content
-  // below, in the card's neutral slate (same family as insightLineMain/
-  // hookBubbleText), not the rotating accent — this is prose to read, not a
-  // label to shout.
-  teacherExplanationText: { fontSize: SM ? 15 : 16, fontWeight: '500' as const, color: '#3A4A5E', lineHeight: SM ? 22 : 25, marginBottom: SM ? 12 : 14 },
   mainCardDef:      { fontSize: SM ? 14 : 15, color: semantic.textPrimary, lineHeight: SM ? 21 : 24, fontWeight: '500' },
   workedExBox:      { backgroundColor: 'rgba(22,119,242,0.05)', borderRadius: 14, borderWidth: 1.5, borderColor: 'rgba(22,119,242,0.15)', padding: SM ? 14 : 16, marginBottom: SM ? 10 : 12 },
   workedExText:     { fontSize: SM ? 18 : 22, fontWeight: '800', color: BRAND, textAlign: 'center', letterSpacing: -0.3, lineHeight: SM ? 26 : 30 },
