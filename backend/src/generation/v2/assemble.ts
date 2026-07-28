@@ -925,6 +925,16 @@ export function buildSummarySlides(
   console.log('[TEMP-DIAG][classify] ko.concepts (id, name, middle-index target):',
     JSON.stringify(ko.concepts.map((c, i) => ({ i, id: c.id, name: c.name, isMiddleIdx: i === Math.floor(ko.concepts.length / 2) })), null, 2));
 
+  // Paso 3 (FEATURE_CONTENT_TYPE_V2, rol por concepto) — computed ONCE,
+  // outside the loop, and required (alongside capabilities.roleAware) before
+  // any concept can be treated as "lightweight supporting" below. Without
+  // this guard, a procedural/mixed session where the model tagged NO
+  // concept as "procedure" (every concept falls to the `?? 'supporting'`
+  // default) would strip EVERY concept's reinforcement_challenge instead of
+  // falling back to today's behavior — same fallback discipline
+  // buildSlotPlan (exerciseGenerator.ts) already applies on its own side.
+  const hasProcedureConcept = ko.concepts.some((c) => c.role === 'procedure');
+
   conceptTraversalOrder.forEach((concept, conceptIdx) => {
     const d = distractors[concept.id];
     if (!d) return; // no generated question — skip this concept's loop, keep the rest intact
@@ -1051,7 +1061,19 @@ export function buildSummarySlides(
     // [micro_challenge, main_concept] pushed above. Does NOT touch the
     // Cambio 2 callback's own single reinforcement_challenge (inserted
     // separately, right before the boss) — that one stays regardless.
-    if (!missionShorten) {
+    //
+    // Paso 3 (FEATURE_CONTENT_TYPE_V2, rol por concepto) — same skip, for a
+    // different reason: a "supporting" concept in a procedural/mixed
+    // session already got its one touch via micro_challenge above; a
+    // second reinforcement_challenge just repeats the recognition-style
+    // question instead of giving the actual "procedure" concept(s) more
+    // room. Requires hasProcedureConcept (see its own comment) — a
+    // procedural/mixed session where the model tagged no concept
+    // "procedure" at all falls back to today's behavior for every concept,
+    // never strips reinforcement from all of them.
+    const isLightweightSupporting =
+      capabilities.roleAware && hasProcedureConcept && (concept.role ?? 'supporting') === 'supporting';
+    if (!missionShorten && !isLightweightSupporting) {
       // Prefers a generated exercise (also guaranteed distinct); falls back to
       // the distinctiveTrait-derived recognition question, dropped entirely
       // when neither is available — one question per concept beats two

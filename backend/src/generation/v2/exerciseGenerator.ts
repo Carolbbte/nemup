@@ -266,7 +266,20 @@ function computeMaxTokens(itemCount: number): number {
  *      extra practice reps (round-robin, concepts with more variants first)
  *      until the session reaches exactly the target.
  */
-export function buildSlotPlan(concepts: KnowledgeConcept[]): SlotDescriptor[] {
+/**
+ * `roleAware` (FEATURE_CONTENT_TYPE_V2, Paso 3, default false — every
+ * existing caller/test is byte-identical without it) concentrates variant
+ * and depth-fill slots on `role === 'procedure'` concepts instead of
+ * spreading them evenly, so a procedural/mixed session's exercise pool
+ * leans toward the concept(s) that are an actual method/operation rather
+ * than the vocabulary that supports them. Only takes effect when the
+ * session has at least one concept tagged "procedure" — if `role` is
+ * absent entirely (older data) or the model tagged none, the plan is
+ * IDENTICAL to `roleAware: false` (see `procedureConcepts.length > 0`
+ * guards below), same fallback discipline assemble.ts's own
+ * `hasProcedureConcept` check applies on its side.
+ */
+export function buildSlotPlan(concepts: KnowledgeConcept[], roleAware: boolean = false): SlotDescriptor[] {
   const n = concepts.length;
   let nextId = 1;
   const makeId = () => `ej${nextId++}`;
@@ -285,12 +298,20 @@ export function buildSlotPlan(concepts: KnowledgeConcept[]): SlotDescriptor[] {
   }
 
   const target = TARGET_EXERCISES_PER_SESSION;
+  const procedureConcepts = roleAware ? concepts.filter((c) => c.role === 'procedure') : [];
+  const roleWeighted = procedureConcepts.length > 0;
 
   const pass1: SlotDescriptor[] = concepts.map((c) => ({ id: makeId(), concept: c, kind: 'base', difficulty: c.difficulty }));
   const maxVariants = concepts.reduce((max, c) => Math.max(max, c.advancedExamples.length), 0);
   for (let v = 0; v < maxVariants; v++) {
     for (const c of concepts) {
-      if (c.advancedExamples.length > v) {
+      // A "supporting" concept skips its own variant slots once the session
+      // is role-weighted — caps it to its 1 base exercise, concentrating
+      // variant coverage on the procedure concept(s) instead. Every concept
+      // still gets every variant (today's exact behavior) when roleWeighted
+      // is false.
+      const isCappedSupporting = roleWeighted && c.role !== 'procedure';
+      if (!isCappedSupporting && c.advancedExamples.length > v) {
         pass1.push({ id: makeId(), concept: c, kind: 'variant', variantIndex: v, difficulty: c.difficulty + 0.1 * (v + 1) });
       }
     }
@@ -300,7 +321,12 @@ export function buildSlotPlan(concepts: KnowledgeConcept[]): SlotDescriptor[] {
 
   const plan = pass1.slice();
   let remaining = target - pass1.length;
-  const priority = concepts.slice().sort((a, b) => b.advancedExamples.length - a.advancedExamples.length);
+  // Depth-fill round-robin: concentrated on procedure concepts when
+  // role-weighted, the original "everyone, hardest-variant-count first"
+  // order otherwise.
+  const priority = (roleWeighted ? procedureConcepts : concepts)
+    .slice()
+    .sort((a, b) => b.advancedExamples.length - a.advancedExamples.length);
   let i = 0;
   while (remaining > 0) {
     const c = priority[i % priority.length];
@@ -463,10 +489,13 @@ async function generateBatch(
 export async function generateExercises(
   concepts: KnowledgeConcept[],
   subject: string,
+  // FEATURE_CONTENT_TYPE_V2, Paso 3 — see buildSlotPlan's own doc comment.
+  // Default false: byte-identical to before this parameter existed.
+  roleAware: boolean = false,
 ): Promise<GeneratedExercise[]> {
   if (concepts.length === 0) return [];
 
-  const plan = buildSlotPlan(concepts);
+  const plan = buildSlotPlan(concepts, roleAware);
   const batches = batchPlan(plan);
 
   const results = await Promise.all(batches.map((batch) => generateBatch(batch, subject)));

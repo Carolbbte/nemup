@@ -269,6 +269,20 @@ ${buildTeacherExplanationInstruction()}
       (10x + 24) cm²." — es la respuesta correcta pero envuelta en prosa; usa solo "10x + 24".
     ✗ NO capturar: el material dice "Ejercicio 3: factoriza x² + 5x + 6" sin ninguna respuesta escrita
       → no se incluye (no hay respuesta en el material, y calcularla sería inventar).
+11. role: clasifica CADA concepto como:
+      - "procedure": es un MÉTODO u OPERACIÓN que el estudiante ejecuta (calcular, resolver, reducir,
+        factorizar, despejar, aplicar una fórmula, construir un procedimiento paso a paso).
+      - "supporting": es vocabulario, una definición, una clasificación/taxonomía o un concepto
+        teórico que sirve para ENTENDER o preparar el procedimiento, pero que no es en sí mismo un
+        cálculo (ej. "qué es un término algebraico", "partes de un término", "tipos de expresiones").
+    En material puramente teórico (biología, historia, etc.), TODOS los conceptos son "supporting".
+    En material de matemática/física, típicamente 1-2 conceptos son "procedure" (el/los cálculo(s)
+    centrales) y el resto "supporting" (el vocabulario que los sostiene).
+    Guíate por lo que el estudiante HACE con el concepto, no por la materia.
+    ✓ "Reducción de términos semejantes" → procedure (se ejecuta un cálculo).
+    ✓ "Clasificación de expresiones algebraicas" → supporting (se reconoce/clasifica, no se calcula).
+    ✓ "Partes de un término algebraico" → supporting (vocabulario).
+    ✗ marcar todo "procedure" en una guía de matemática solo porque la materia es matemática.
 
 Usa el material como única fuente. No agregues conceptos que no estén en él.`;
 }

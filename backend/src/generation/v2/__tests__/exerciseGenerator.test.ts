@@ -153,4 +153,40 @@ describe('buildSlotPlan', () => {
     const ids = plan.map((s) => s.id);
     expect(new Set(ids).size).toBe(ids.length);
   });
+
+  describe('roleAware (FEATURE_CONTENT_TYPE_V2, Paso 3)', () => {
+    it('is identical to roleAware=false when no concept is tagged "procedure" (role absent — symmetry with assemble.ts\'s own fallback)', () => {
+      const concepts = [
+        makeConcept('c1', 2, ['adv1a', 'adv1b']),
+        makeConcept('c2', 3, ['adv2a']),
+        makeConcept('c3', 4),
+      ];
+      const withRoleAwareOff = buildSlotPlan(concepts, false);
+      const withRoleAwareOnButNoProcedure = buildSlotPlan(concepts, true);
+      // Same shape: same slot kinds/counts per concept (ids differ since
+      // makeId() is a fresh counter per call, so compare structure not ids).
+      const shape = (plan: typeof withRoleAwareOff) => plan.map((s) => ({ concept: s.concept.id, kind: s.kind, variantIndex: s.variantIndex }));
+      expect(shape(withRoleAwareOnButNoProcedure)).toEqual(shape(withRoleAwareOff));
+    });
+
+    it('caps a "supporting" concept to its 1 base slot (no variants) once the session has a "procedure" concept', () => {
+      const procedure = { ...makeConcept('proc', 4, ['procVariant']), role: 'procedure' as const };
+      const supporting = { ...makeConcept('sup', 2, ['supVariant']), role: 'supporting' as const };
+      const plan = buildSlotPlan([procedure, supporting], true);
+
+      expect(plan.filter((s) => s.concept.id === 'sup' && s.kind === 'variant')).toHaveLength(0);
+      expect(plan.filter((s) => s.concept.id === 'proc' && s.kind === 'variant')).toHaveLength(1);
+    });
+
+    it('concentrates depth-fill practice slots on "procedure" concepts only', () => {
+      const procedure = { ...makeConcept('proc', 4), role: 'procedure' as const };
+      const supporting1 = { ...makeConcept('sup1', 2), role: 'supporting' as const };
+      const supporting2 = { ...makeConcept('sup2', 2), role: 'supporting' as const };
+      const plan = buildSlotPlan([procedure, supporting1, supporting2], true);
+
+      const practiceSlots = plan.filter((s) => s.kind === 'practice');
+      expect(practiceSlots.length).toBeGreaterThan(0);
+      expect(practiceSlots.every((s) => s.concept.id === 'proc')).toBe(true);
+    });
+  });
 });

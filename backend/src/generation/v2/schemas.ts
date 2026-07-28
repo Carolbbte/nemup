@@ -33,6 +33,7 @@ const knowledgeConceptSchema: JsonSchema = {
     'difficulty',
     'distinctiveTrait',
     'sourceQuote',
+    'role',
   ],
   properties: {
     id: {
@@ -104,6 +105,12 @@ const knowledgeConceptSchema: JsonSchema = {
       type: 'string',
       description:
         'LITERAL, word-for-word fragment of the transcription this concept was extracted from — never paraphrased, must be findable verbatim in the source text.',
+    },
+    role: {
+      type: 'string',
+      enum: ['procedure', 'supporting'],
+      description:
+        '"procedure" if this concept is a method/operation the student EXECUTES (calculate, solve, reduce, factor, apply a formula); "supporting" if it is vocabulary, a definition, a taxonomy, or theory that prepares for a procedure without being a calculation itself. In purely theoretical material, every concept is "supporting". Judge by what the student DOES with the concept, never by the subject alone.',
     },
   },
 };

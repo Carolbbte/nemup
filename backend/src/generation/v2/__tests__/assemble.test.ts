@@ -712,6 +712,57 @@ describe('buildSummarySlides — Fase 3: Acortamiento de la misión (MISSION_SHO
   });
 });
 
+describe('buildSummarySlides — rol por concepto (FEATURE_CONTENT_TYPE_V2, Paso 3)', () => {
+  // 2 concepts, no example/exampleShort/categories — deliberately ineligible
+  // for match_pairs/fill_blank/classify's exclusive slots, so both concepts
+  // reach the reinforcement_challenge branch this test is actually about.
+  const roleKo: KnowledgeObject = {
+    isSchoolContent: true, rejectionReason: null,
+    topic: 'Álgebra', subject: 'Matemática',
+    concepts: [
+      { id: 'proc', name: 'Reducción de términos semejantes', simpleExplanation: '', teacherExplanation: '', definition: '', example: null, exampleShort: null, hook: null, emoji: null, keyPhrase: null, advancedExamples: [], tips: [], difficulty: 3, distinctiveTrait: 'Es el único que ejecuta un cálculo.', sourceQuote: '', role: 'procedure' },
+      { id: 'sup', name: 'Término algebraico', simpleExplanation: '', teacherExplanation: '', definition: '', example: null, exampleShort: null, hook: null, emoji: null, keyPhrase: null, advancedExamples: [], tips: [], difficulty: 2, distinctiveTrait: 'Es el único que es vocabulario.', sourceQuote: '', role: 'supporting' },
+    ],
+    categories: [], workedExamples: [],
+  };
+  const roleDistractors: Record<string, DistractorSet> = {
+    proc: { question: '¿Cómo se reduce 2m + 3m?', correctText: '5m', distractors: asDistractors(['6m', '1m', '5m²']) },
+    sup: { question: '¿Qué es un término algebraico?', correctText: 'Coeficiente + parte literal', distractors: asDistractors(['Solo un número', 'Solo una letra', 'Una ecuación completa']) },
+  };
+
+  it('with roleAware and a real "procedure" concept: the "supporting" concept loses its reinforcement_challenge, "procedure" keeps both slides', () => {
+    const slides = buildSummarySlides(roleKo, roleDistractors, [], [], false, false, { ...DEFAULT_CAPABILITIES, roleAware: true });
+
+    const supReinforcement = slides.filter((s) => s.type === 'reinforcement_challenge' && s.definition?.includes('Término algebraico'));
+    const procReinforcement = slides.filter((s) => s.type === 'reinforcement_challenge' && s.definition?.includes('Reducción de términos semejantes'));
+    expect(supReinforcement).toHaveLength(0);
+    expect(procReinforcement).toHaveLength(1);
+
+    // "supporting" still gets its micro_challenge + main_concept — only the
+    // SECOND slide (reinforcement) is skipped, never the whole block.
+    expect(slides.filter((s) => s.type === 'micro_challenge')).toHaveLength(2);
+    expect(slides.some((s) => s.type === 'micro_challenge' && s.title?.includes('Término algebraico'))).toBe(true);
+    expect(slides.filter((s) => s.type === 'main_concept')).toHaveLength(2);
+  });
+
+  it('symmetry fix: roleAware on but NO concept tagged "procedure" (all fall to supporting) falls back to today\'s behavior for every concept — never strips every reinforcement', () => {
+    const noProcedureKo: KnowledgeObject = {
+      ...roleKo,
+      concepts: roleKo.concepts.map((c) => ({ ...c, role: undefined })),
+    };
+    const slides = buildSummarySlides(noProcedureKo, roleDistractors, [], [], false, false, { ...DEFAULT_CAPABILITIES, roleAware: true });
+
+    // Both concepts keep their reinforcement_challenge — hasProcedureConcept
+    // is false, so isLightweightSupporting never fires for anyone.
+    expect(slides.filter((s) => s.type === 'reinforcement_challenge')).toHaveLength(2);
+  });
+
+  it('roleAware=false (default capabilities) never skips reinforcement_challenge, even when roles are set', () => {
+    const slides = buildSummarySlides(roleKo, roleDistractors, [], [], false, false, DEFAULT_CAPABILITIES);
+    expect(slides.filter((s) => s.type === 'reinforcement_challenge')).toHaveLength(2);
+  });
+});
+
 describe('buildClassify — defensive cleanup of noisy category extraction', () => {
   const makeKo = (categories: KnowledgeCategory[]): KnowledgeObject => ({
     isSchoolContent: true, rejectionReason: null,

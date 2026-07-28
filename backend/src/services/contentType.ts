@@ -27,16 +27,29 @@ export type ContentType = 'conceptual' | 'procedural' | 'mixed';
  * respectively) — they are NOT content-type-gated today, and this table
  * does not change that.
  *
- * `quizStyle`/`missionExercises`/`workedSteps`/`findError` are RESERVED for
- * future iterations (per-concept role in mixed sessions, reactivating
- * find_error) — declared here so that work has a shape to fill in, but
- * nothing in assemble.ts reads them yet. Do not assume they have any
- * effect until something is wired to consume them.
+ * `roleAware` (Paso 3) is a REAL gate too — consumed by assemble.ts's
+ * per-concept loop and threaded into exerciseGenerator.ts's buildSlotPlan —
+ * see each one's own comment for exactly what it changes.
+ *
+ * `quizStyle`/`missionExercises`/`workedSteps`/`findError` are still
+ * RESERVED for future iterations (reactivating find_error) — declared here
+ * so that work has a shape to fill in, but nothing reads them yet. Do not
+ * assume they have any effect until something is wired to consume them.
  */
 export interface ContentCapabilities {
-  // ── Real gates — consumed by assemble.ts/buildDesafio ──────────────────
+  // ── Real gates — consumed by assemble.ts/buildDesafio/exerciseGenerator ─
   allowMatchPairs: boolean;
   allowExampleReinforcement: boolean;
+  // When true, assemble.ts consults each concept's `role` (comprehension.ts)
+  // to lighten a "supporting" concept's footprint (skips its second
+  // reinforcement_challenge) and exerciseGenerator.ts's buildSlotPlan
+  // concentrates variant/practice slots on "procedure" concepts. Both
+  // consumers ALSO require at least one concept actually tagged "procedure"
+  // in the session — if the model tagged none (or `role` is absent
+  // entirely), both fall back to today's unweighted behavior instead of
+  // stripping every concept's reinforcement. See assemble.ts's
+  // `hasProcedureConcept` guard.
+  roleAware: boolean;
 
   // ── Reserved for future iterations — NOT wired into assemble.ts yet ────
   quizStyle: 'conceptual' | 'exercise';
@@ -48,10 +61,12 @@ export interface ContentCapabilities {
 /** Default for any existing/new caller that doesn't pass capabilities —
  * identical to today's `allowMatchPairs = true, allowExampleReinforcement =
  * true` function defaults in assemble.ts, so omitting this parameter stays
- * byte-identical to before it existed. */
+ * byte-identical to before it existed. `roleAware: false` for the same
+ * reason — never consults `role` unless a caller opts in explicitly. */
 export const DEFAULT_CAPABILITIES: ContentCapabilities = {
   allowMatchPairs: true,
   allowExampleReinforcement: true,
+  roleAware: false,
   quizStyle: 'conceptual',
   missionExercises: ['fill_blank', 'match_pairs'],
   workedSteps: false,
@@ -62,6 +77,10 @@ export const CAPABILITIES: Record<ContentType, ContentCapabilities> = {
   conceptual: {
     allowMatchPairs: true,
     allowExampleReinforcement: true,
+    // Every concept is "supporting" by convention in conceptual sessions
+    // (per comprehension.ts's own instruction) — role-awareness would be a
+    // no-op here anyway, kept false for clarity and to match DEFAULT.
+    roleAware: false,
     quizStyle: 'conceptual',
     missionExercises: ['fill_blank', 'match_pairs'],
     workedSteps: false,
@@ -73,6 +92,7 @@ export const CAPABILITIES: Record<ContentType, ContentCapabilities> = {
     // match_pairs just because a regex miscounted it as CONCEPTUAL.
     allowMatchPairs: false,
     allowExampleReinforcement: false,
+    roleAware: true,
     quizStyle: 'exercise',
     missionExercises: ['worked_example'],
     workedSteps: true,
@@ -84,6 +104,7 @@ export const CAPABILITIES: Record<ContentType, ContentCapabilities> = {
     // that justifies match_pairs, so it stays enabled.
     allowMatchPairs: true,
     allowExampleReinforcement: true,
+    roleAware: true,
     quizStyle: 'exercise',
     missionExercises: ['fill_blank', 'match_pairs', 'worked_example'],
     workedSteps: true,

@@ -64,37 +64,16 @@ export async function generateSessionV2(
       : '[v2] Modo conceptual — sin ejemplos resueltos detectados en el material.',
   );
 
-  // Generated-exercise trigger: subject-based, not an AI-judged field on the
-  // KnowledgeObject — see exerciseGenerator.ts's isExercisableSubject for why
-  // (avoids the same run-to-run inconsistency workedExamples had). Independent
-  // of isProceduralMode above — generated exercises are ADDED on top of any
-  // material-derived worked examples, not a replacement for them.
-  const shouldGenerateExercises = isExercisableSubject(ko.subject ?? '');
-  if (!ko.subject) {
-    console.warn(`[v2][exerciseGenerator] ko.subject vino vacío — no se generarán ejercicios aunque el material lo amerite (topic="${ko.topic}").`);
-  }
-  let exercises = shouldGenerateExercises
-    ? await generateExercises(ko.concepts, ko.subject ?? '')
-    : [];
-
-  // ===== PUNTO DE EXTENSIÓN: capa de validación (Fase futura) =====
-  // Hoy `exercises` pasa directo, sin verificar que correctAnswer sea
-  // matemáticamente correcta — riesgo de producto asumido en esta fase (ver
-  // nota en exerciseGenerator.ts). FASE FUTURA: descomentar la línea
-  // siguiente cuando exista un verificador (math.js para álgebra, o un
-  // segundo LLM) — no requiere tocar el generador ni assemble.ts:
-  // exercises = await validateExercises(exercises);
-  // ================================================================
-
-  console.log(
-    shouldGenerateExercises
-      ? `[v2] Ejercicios generados: ${exercises.length} (subject="${ko.subject}")`
-      : `[v2] Material no ejercitable (subject="${ko.subject ?? ''}") — Misión con preguntas conceptuales.`,
-  );
-
-  const classification = classifyContent(transcription);
-  const wordCount = transcription.split(/\s+/).filter(Boolean).length;
-
+  // classification/contentType/capabilities are resolved here — right after
+  // buildKnowledgeObject/buildWorkedExampleSteps, BEFORE generateExercises —
+  // specifically so Paso 3's role-aware exercise weighting (below) can pass
+  // `capabilities.roleAware` into it. Safe to compute this early: neither
+  // `ko` nor `transcription` is mutated by generateDistractors/
+  // buildWorkedExampleSteps above (both only read `ko.concepts`/
+  // `ko.workedExamples` and return newly-built results) — confirmed by
+  // inspection before reordering, since this is the one place in this
+  // function where execution order was ever moved.
+  //
   // match_pairs ("Relaciona cada concepto con su ejemplo") fits CONCEPTUAL/
   // MEMORIZATION material well (term↔definition, concept↔example) but is a
   // forced, poorly-legible pairing on PROCEDURAL/math content (procedure
@@ -111,6 +90,8 @@ export async function generateSessionV2(
   // CONCEPTUAL when it has a definitional preamble (diagnosed case:
   // "Términos semejantes"), silently enabling match_pairs on content it was
   // designed to skip.
+  const classification = classifyContent(transcription);
+  const wordCount = transcription.split(/\s+/).filter(Boolean).length;
   const s = classification.scores;
   const legacyAllowMatchPairs =
     classification.type === 'CONCEPTUAL' ||
@@ -131,6 +112,34 @@ export async function generateSessionV2(
   const capabilities: ContentCapabilities = appConfig.content_type_v2
     ? CAPABILITIES[contentType]
     : { ...CAPABILITIES.conceptual, allowMatchPairs: legacyAllowMatchPairs, allowExampleReinforcement: legacyAllowMatchPairs };
+
+  // Generated-exercise trigger: subject-based, not an AI-judged field on the
+  // KnowledgeObject — see exerciseGenerator.ts's isExercisableSubject for why
+  // (avoids the same run-to-run inconsistency workedExamples had). Independent
+  // of isProceduralMode above — generated exercises are ADDED on top of any
+  // material-derived worked examples, not a replacement for them.
+  const shouldGenerateExercises = isExercisableSubject(ko.subject ?? '');
+  if (!ko.subject) {
+    console.warn(`[v2][exerciseGenerator] ko.subject vino vacío — no se generarán ejercicios aunque el material lo amerite (topic="${ko.topic}").`);
+  }
+  let exercises = shouldGenerateExercises
+    ? await generateExercises(ko.concepts, ko.subject ?? '', capabilities.roleAware)
+    : [];
+
+  // ===== PUNTO DE EXTENSIÓN: capa de validación (Fase futura) =====
+  // Hoy `exercises` pasa directo, sin verificar que correctAnswer sea
+  // matemáticamente correcta — riesgo de producto asumido en esta fase (ver
+  // nota en exerciseGenerator.ts). FASE FUTURA: descomentar la línea
+  // siguiente cuando exista un verificador (math.js para álgebra, o un
+  // segundo LLM) — no requiere tocar el generador ni assemble.ts:
+  // exercises = await validateExercises(exercises);
+  // ================================================================
+
+  console.log(
+    shouldGenerateExercises
+      ? `[v2] Ejercicios generados: ${exercises.length} (subject="${ko.subject}")`
+      : `[v2] Material no ejercitable (subject="${ko.subject ?? ''}") — Misión con preguntas conceptuales.`,
+  );
 
   const generation: GenerationResult = {
     subject: ko.subject || config.subject || 'Tema del material',
