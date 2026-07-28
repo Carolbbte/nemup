@@ -792,6 +792,80 @@ describe('buildSummarySlides — rol por concepto (FEATURE_CONTENT_TYPE_V2, Paso
     const slides = buildSummarySlides(roleKo, roleDistractors, [], [], false, false, DEFAULT_CAPABILITIES);
     expect(slides.filter((s) => s.type === 'reinforcement_challenge')).toHaveLength(2);
   });
+
+  describe('find_error (FEATURE_CONTENT_TYPE_V2, capabilities.findError)', () => {
+    const findErrorResult = {
+      conceptId: 'proc',
+      expression: '2m + 3m',
+      wrongStep: '6m',
+      question: '¿Qué está mal en este paso?',
+      errorExplanation: 'Sumó mal los coeficientes.',
+      correctStep: '5m',
+    };
+
+    it('replaces the "procedure" concept\'s micro_challenge with find_error when capabilities.findError is on and a result exists for it', () => {
+      const slides = buildSummarySlides(
+        roleKo, roleDistractors, [], [], false, false,
+        { ...DEFAULT_CAPABILITIES, findError: true },
+        new Map([['proc', findErrorResult]]),
+      );
+
+      expect(slides.some((s) => s.type === 'find_error' && s.expression === '2m + 3m' && s.correctStep === '5m')).toBe(true);
+      expect(slides.filter((s) => s.type === 'micro_challenge' && s.title?.includes('Reducción'))).toHaveLength(0);
+
+      // The "supporting" concept has no find_error entry — untouched, still
+      // gets its normal micro_challenge.
+      expect(slides.some((s) => s.type === 'micro_challenge' && s.title?.includes('Término algebraico'))).toBe(true);
+    });
+
+    it('falls back to the default micro_challenge when capabilities.findError is off, even with a result available in the map', () => {
+      const slides = buildSummarySlides(
+        roleKo, roleDistractors, [], [], false, false,
+        DEFAULT_CAPABILITIES,
+        new Map([['proc', findErrorResult]]),
+      );
+      expect(slides.some((s) => s.type === 'find_error')).toBe(false);
+      expect(slides.filter((s) => s.type === 'micro_challenge')).toHaveLength(2);
+    });
+
+    it('falls back to the default micro_challenge when findError is on but no result exists for that concept (no forced match)', () => {
+      const slides = buildSummarySlides(
+        roleKo, roleDistractors, [], [], false, false,
+        { ...DEFAULT_CAPABILITIES, findError: true },
+        new Map(), // empty — model returned matched:false or reconcileFindError rejected it
+      );
+      expect(slides.some((s) => s.type === 'find_error')).toBe(false);
+      expect(slides.filter((s) => s.type === 'micro_challenge')).toHaveLength(2);
+    });
+
+    // Exercise-pool cursor: skipping nextExercise() for the find_error
+    // concept's micro_challenge must not create a gap or drop an exercise —
+    // the pool is one shared FIFO queue, so the item simply becomes
+    // available to the NEXT consumer that does pull from it (here, the same
+    // concept's own reinforcement_challenge, since "proc" is processed
+    // start-to-finish before "sup" begins).
+    it('does not lose or double-consume a generated exercise when find_error skips nextExercise()', () => {
+      const ex1: GeneratedExercise = { statement: 'Ex uno', correctAnswer: 'A1', distractors: asDistractors(['B1', 'C1', 'D1']), hint: 'H1', kind: 'calculation' };
+      const ex2: GeneratedExercise = { statement: 'Ex dos', correctAnswer: 'A2', distractors: asDistractors(['B2', 'C2', 'D2']), hint: 'H2', kind: 'calculation' };
+
+      const slides = buildSummarySlides(
+        roleKo, roleDistractors, [], [ex1, ex2], false, false,
+        { ...DEFAULT_CAPABILITIES, findError: true },
+        new Map([['proc', findErrorResult]]),
+      );
+
+      // ex2 is reserved as the boss exercise (popped before the loop) — ex1
+      // is the only pool item available during the loop. proc's
+      // micro_challenge never calls nextExercise() (find_error branch), so
+      // ex1 is still there when proc's OWN reinforcement_challenge pulls —
+      // never skipped past, never given to "sup" instead.
+      const procReinforcement = slides.find((s) => s.type === 'reinforcement_challenge' && s.definition?.includes('Reducción de términos semejantes'));
+      expect(procReinforcement?.question).toBe('Ex uno');
+
+      const finalChallenge = slides.find((s) => s.type === 'final_challenge');
+      expect(finalChallenge?.question).toBe('Ex dos');
+    });
+  });
 });
 
 describe('buildClassify — defensive cleanup of noisy category extraction', () => {

@@ -59,7 +59,10 @@ export type SummarySlideType =
   // mission. Already a real type the frontend renders (session.tsx's own
   // client-side quality pass has synthesized these for the legacy content
   // path for a while); this is the first time the backend emits one.
-  | 'motivation';
+  | 'motivation'
+  // FEATURE_CONTENT_TYPE_V2 (capabilities.findError) — 1:1 replacement of a
+  // "procedure" concept's micro_challenge, see findError.ts/assemble.ts.
+  | 'find_error';
 
 export type IllustrationType = 'educational' | 'diagram' | 'concept' | 'timeline' | 'map' | 'process' | 'comparison';
 
@@ -144,6 +147,17 @@ export interface SummarySlide {
   statement?: string;
   answer?: string;
   steps?: string[];
+  // find_error only — `expression`/`correctStep` copied verbatim from the
+  // material's own workedExample (findError.ts never recalculates them);
+  // `wrongStep`/`errorExplanation` are model-invented but validated against
+  // `correctStep` (see findError.ts's reconcileFindError) before ever
+  // reaching this slide, same safety-net discipline as worked_example's
+  // steps/answer above. `question` (already declared) carries the reveal
+  // prompt ("¿Qué está mal en este paso?").
+  expression?: string;
+  wrongStep?: string;
+  errorExplanation?: string;
+  correctStep?: string;
   // motivation only — the frontend's render for this type reads message/sub
   // instead of definition/example (see session.tsx's motivCard). title/
   // definition/example are still filled with equivalent copy so this slide

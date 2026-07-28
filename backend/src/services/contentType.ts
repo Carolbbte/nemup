@@ -31,10 +31,19 @@ export type ContentType = 'conceptual' | 'procedural' | 'mixed';
  * per-concept loop and threaded into exerciseGenerator.ts's buildSlotPlan —
  * see each one's own comment for exactly what it changes.
  *
- * `quizStyle`/`missionExercises`/`workedSteps`/`findError` are still
- * RESERVED for future iterations (reactivating find_error) — declared here
- * so that work has a shape to fill in, but nothing reads them yet. Do not
- * assume they have any effect until something is wired to consume them.
+ * `findError` is ALSO a real gate — consumed by orchestrator.ts (whether to
+ * call findError.ts's generateFindError at all) and assemble.ts's
+ * per-concept loop (whether to replace a `role === 'procedure'` concept's
+ * micro_challenge with its find_error result). Kept `false` in every profile
+ * below on purpose — "ship inert first": the plumbing is complete and fully
+ * wired, but stays a no-op even with FEATURE_CONTENT_TYPE_V2 on until a
+ * later, separate change flips it to `true` for `procedural`/`mixed` once
+ * validated. Do not assume it has any effect while it reads `false` here.
+ *
+ * `quizStyle`/`missionExercises`/`workedSteps` are still RESERVED for future
+ * iterations — declared here so that work has a shape to fill in, but
+ * nothing reads them yet. Do not assume they have any effect until something
+ * is wired to consume them.
  */
 export interface ContentCapabilities {
   // ── Real gates — consumed by assemble.ts/buildDesafio/exerciseGenerator ─

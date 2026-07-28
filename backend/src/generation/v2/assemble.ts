@@ -24,6 +24,7 @@ import type { KnowledgeConcept, KnowledgeObject } from './types.js';
 import type { DistractorSet } from './distractors.js';
 import type { WorkedExampleResult } from './procedural.js';
 import type { GeneratedExercise } from './exerciseGenerator.js';
+import type { FindErrorResult } from './findError.js';
 import { DEFAULT_CAPABILITIES, type ContentCapabilities } from '../../services/contentType.js';
 
 // ── Desafío local type mirror — matches shared/desafio.ts field-for-field ───
@@ -831,6 +832,12 @@ export function buildSummarySlides(
   // riddle-based framing (distinctiveTrait), which stays coherent for both
   // content types.
   capabilities: ContentCapabilities = DEFAULT_CAPABILITIES,
+  // FEATURE_CONTENT_TYPE_V2 (capabilities.findError) — keyed by conceptId,
+  // from findError.ts's generateFindError (orchestrator.ts's only caller).
+  // Default `new Map()` keeps every existing caller/test byte-identical.
+  // Only consulted when capabilities.findError is true (see the per-concept
+  // loop below) — a non-empty map passed with the flag off is inert.
+  findErrorByConcept: Map<string, FindErrorResult> = new Map(),
 ): SummarySlide[] {
   if (ko.concepts.length === 0) return [];
 
@@ -970,23 +977,49 @@ export function buildSummarySlides(
     // breather at the concept 0→1 boundary still happens regardless.
     const cardFirst = missionArcV2 && conceptIdx === 0 ? true : conceptIdx % 2 === 1;
 
-    const microEx = nextExercise();
-    const micro = microEx ? fieldsFromExercise(microEx) : fieldsFromDistractorSet(d);
-    const microSlide: SummarySlide = {
-      type: 'micro_challenge',
-      emoji: '🧠',
-      title: cardFirst ? `Practica: ${concept.name}` : `¿Qué sabes de ${concept.name}?`,
-      definition: cardFirst
-        ? 'Ya viste este concepto — ponlo en práctica.'
-        : 'Responde antes de ver la respuesta — así el concepto se queda contigo.',
-      example: '',
-      question: micro.question,
-      options: micro.options,
-      correctAnswer: micro.correctAnswer,
-      ...(micro.wrongAnswerHints ? { wrongAnswerHints: micro.wrongAnswerHints } : {}),
-      ...(micro.hint ? { hint: micro.hint } : {}),
-    };
-    if (missionArcV2) usedQuestionTexts.add(micro.question);
+    // find_error (capabilities.findError): a NEW branch, not a rewrite of
+    // the existing one — a "procedure" concept with a validated find_error
+    // (findError.ts's reconcileFindError already rejected anything
+    // math-unsound) gets it INSTEAD of the conceptual MC framing below,
+    // which doesn't fit a procedure well. Deliberately skips nextExercise()
+    // here — the pool is one shared FIFO queue across every concept's
+    // micro_challenge/reinforcement_challenge (see its own comment above),
+    // so the item that would have gone to this slot simply stays available
+    // for a later pull instead of being lost or double-consumed.
+    const findError = capabilities.findError ? findErrorByConcept.get(concept.id) : undefined;
+    let microSlide: SummarySlide;
+    if (findError) {
+      microSlide = {
+        type: 'find_error',
+        emoji: '🔍',
+        title: `Encuentra el error: ${concept.name}`,
+        definition: 'Revisa el procedimiento resuelto y descubre dónde está el error.',
+        example: '',
+        question: findError.question,
+        expression: findError.expression,
+        wrongStep: findError.wrongStep,
+        errorExplanation: findError.errorExplanation,
+        correctStep: findError.correctStep,
+      };
+    } else {
+      const microEx = nextExercise();
+      const micro = microEx ? fieldsFromExercise(microEx) : fieldsFromDistractorSet(d);
+      microSlide = {
+        type: 'micro_challenge',
+        emoji: '🧠',
+        title: cardFirst ? `Practica: ${concept.name}` : `¿Qué sabes de ${concept.name}?`,
+        definition: cardFirst
+          ? 'Ya viste este concepto — ponlo en práctica.'
+          : 'Responde antes de ver la respuesta — así el concepto se queda contigo.',
+        example: '',
+        question: micro.question,
+        options: micro.options,
+        correctAnswer: micro.correctAnswer,
+        ...(micro.wrongAnswerHints ? { wrongAnswerHints: micro.wrongAnswerHints } : {}),
+        ...(micro.hint ? { hint: micro.hint } : {}),
+      };
+      if (missionArcV2) usedQuestionTexts.add(micro.question);
+    }
 
     const cardSlide: SummarySlide = {
       type: 'main_concept',

@@ -8,6 +8,7 @@ import type { GeneratedSession, SessionConfig } from '../../types.js';
 import { buildKnowledgeObject } from './comprehension.js';
 import { generateDistractors } from './distractors.js';
 import { buildWorkedExampleSteps } from './procedural.js';
+import { generateFindError, type FindErrorResult } from './findError.js';
 import { generateExercises, isExercisableSubject } from './exerciseGenerator.js';
 import { buildFlashcards, buildQuestions, buildDesafio, buildSummarySlides } from './assemble.js';
 import { CAPABILITIES, resolveContentType, type ContentCapabilities } from '../../services/contentType.js';
@@ -113,6 +114,19 @@ export async function generateSessionV2(
     ? CAPABILITIES[contentType]
     : { ...CAPABILITIES.conceptual, allowMatchPairs: legacyAllowMatchPairs, allowExampleReinforcement: legacyAllowMatchPairs };
 
+  // find_error: only ever attempted for concepts the model itself tagged
+  // "procedure", and only when the material actually has solved exercises to
+  // derive expression/correctStep from — no candidate concepts or no worked
+  // examples means zero AI calls, same short-circuit buildWorkedExampleSteps
+  // and generateFindError itself already apply. `capabilities.findError` is
+  // false in every CAPABILITIES profile today (ship-inert-first rollout —
+  // see contentType.ts) so this is a no-op call today regardless of content
+  // type; flipping it on later needs no change here.
+  const procedureConcepts = ko.concepts.filter((c) => c.role === 'procedure');
+  const findErrorByConcept: Map<string, FindErrorResult> = capabilities.findError && procedureConcepts.length > 0 && ko.workedExamples.length > 0
+    ? await generateFindError(procedureConcepts, ko.workedExamples)
+    : new Map();
+
   // Generated-exercise trigger: subject-based, not an AI-judged field on the
   // KnowledgeObject — see exerciseGenerator.ts's isExercisableSubject for why
   // (avoids the same run-to-run inconsistency workedExamples had). Independent
@@ -149,7 +163,7 @@ export async function generateSessionV2(
     summary: {
       id: randomUUID(),
       title: ko.topic || 'Resumen del material',
-      slides: buildSummarySlides(ko, distractors, workedExampleResults, exercises, appConfig.mission_arc_v2, appConfig.mission_shorten, capabilities),
+      slides: buildSummarySlides(ko, distractors, workedExampleResults, exercises, appConfig.mission_arc_v2, appConfig.mission_shorten, capabilities, findErrorByConcept),
       sourceQuotes: [],
     },
     groundingScore: 0, // placeholder — replaced below with the real validateGrounding() result
