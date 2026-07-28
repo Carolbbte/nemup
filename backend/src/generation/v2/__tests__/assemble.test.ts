@@ -323,6 +323,37 @@ describe('buildSummarySlides — worked examples in Misión', () => {
     expect(workedSlides).toHaveLength(1);
     expect(workedSlides[0].statement).toBe('b');
   });
+
+  // MAX_WORKED_EXAMPLE_SLIDES — a material with many solved exercises (e.g.
+  // "Reducción de términos semejantes 2019", 5 workedExamples) used to
+  // produce 5 near-identical "Así se resuelve" screens in a row.
+  it('caps to MAX_WORKED_EXAMPLE_SLIDES (2) worked_example slides, keeping the first ones in material order, when there are more than 2 validated results', () => {
+    const slides = buildSummarySlides(ko, distractors, [
+      { statement: 'ej1', answer: 'r1', steps: ['paso1'] },
+      { statement: 'ej2', answer: 'r2', steps: ['paso2'] },
+      { statement: 'ej3', answer: 'r3', steps: ['paso3'] },
+      { statement: 'ej4', answer: 'r4', steps: ['paso4'] },
+      { statement: 'ej5', answer: 'r5', steps: ['paso5'] },
+    ]);
+
+    expect(slides.filter((s) => s.type === 'worked_example_intro')).toHaveLength(1);
+    const workedSlides = slides.filter((s) => s.type === 'worked_example');
+    expect(workedSlides).toHaveLength(2);
+    expect(workedSlides.map((s) => s.statement)).toEqual(['ej1', 'ej2']);
+  });
+
+  // Non-regression: sessions with <= MAX_WORKED_EXAMPLE_SLIDES results are
+  // completely unaffected by the cap (the .slice is a no-op).
+  it('is unaffected by the cap when there is only 1 workedExample (intro + 1, same as before)', () => {
+    const slides = buildSummarySlides(ko, distractors, [
+      { statement: 'único', answer: 'r', steps: ['paso'] },
+    ]);
+
+    expect(slides.filter((s) => s.type === 'worked_example_intro')).toHaveLength(1);
+    const workedSlides = slides.filter((s) => s.type === 'worked_example');
+    expect(workedSlides).toHaveLength(1);
+    expect(workedSlides[0].statement).toBe('único');
+  });
 });
 
 describe('buildSummarySlides — generated exercises', () => {

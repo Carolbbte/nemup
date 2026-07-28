@@ -392,6 +392,20 @@ function buildMultipleChoiceSlideFor(
 }
 
 /**
+ * Misión-only cap (buildSummarySlides, NOT buildDesafio — Desafío is off by
+ * default today and untouched here) on how many worked_example slides show
+ * in a row. A material with many solved exercises (e.g. 5) used to produce
+ * 5 near-identical "Así se resuelve" screens back to back — the same
+ * monotony teacherExplanation's pattern repertoire was built to avoid on
+ * concept cards. The student's 12 generatedExercises (exerciseGenerator.ts)
+ * already provide active practice on every worked-example-eligible concept,
+ * so trimming the PASSIVE walkthroughs loses no practice, only repetition.
+ * A plain named constant, not a feature flag — per-content-type
+ * capabilities already cover the flag surface this pipeline needs.
+ */
+const MAX_WORKED_EXAMPLE_SLIDES = 2;
+
+/**
  * Presentation-only safety net on top of procedural.ts's own validation gate
  * — never re-validates or alters any WorkedExampleResult itself. If at least
  * one worked example validated real steps, show ONLY those (dropping the
@@ -1126,7 +1140,14 @@ export function buildSummarySlides(
   // own comment for why this shows a filtered set, not workedExampleResults raw —
   // the `if` below reads its LENGTH, not workedExampleResults', so the intro
   // is never pushed with nothing validated to follow it.
-  const displayedWorkedExamples = selectWorkedExamplesForDisplay(workedExampleResults);
+  //
+  // Capped to MAX_WORKED_EXAMPLE_SLIDES here (Misión only — buildDesafio's
+  // own displayedWorkedExamples above is untouched). No `difficulty` field
+  // exists on WorkedExample/WorkedExampleResult to sort by, so this keeps
+  // the material's own order (comprehension.ts extracts front-to-back,
+  // which in practice goes simple → complex) and takes the first N — a
+  // no-op slice whenever there are already <= MAX_WORKED_EXAMPLE_SLIDES.
+  const displayedWorkedExamples = selectWorkedExamplesForDisplay(workedExampleResults).slice(0, MAX_WORKED_EXAMPLE_SLIDES);
   if (displayedWorkedExamples.length > 0) {
     // A dedicated type, NOT 'main_concept' — this is a transition screen, not
     // a real taught concept. Giving it 'main_concept' used to make it count
