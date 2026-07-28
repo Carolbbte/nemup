@@ -1,6 +1,6 @@
+import { isExercisableSubject } from '../generation/v2/exerciseGenerator.js';
 import type { KnowledgeObject } from '../generation/v2/types.js';
 import type { ClassificationResult } from './pedagogicalClassifier.js';
-import { isExercisableSubject } from '../generation/v2/exerciseGenerator.js';
 
 /**
  * Single source of truth for "conceptual vs procedural vs mixed", replacing
@@ -105,7 +105,7 @@ export const CAPABILITIES: Record<ContentType, ContentCapabilities> = {
     quizStyle: 'exercise',
     missionExercises: ['worked_example'],
     workedSteps: true,
-    findError: false,
+    findError: true,
   },
   mixed: {
     // `mixed` here means real category grouping WAS detected alongside

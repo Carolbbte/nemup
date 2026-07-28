@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { isExercisableSubject, isValidGeneratedExercise, buildSlotPlan, TARGET_EXERCISES_PER_SESSION } from '../exerciseGenerator.js';
-import type { GeneratedExercise, RawGeneratedExercise } from '../exerciseGenerator.js';
+import { isExercisableSubject, isValidGeneratedExercise, buildSlotPlan, applyMathValidation, TARGET_EXERCISES_PER_SESSION } from '../exerciseGenerator.js';
+import type { GeneratedExercise, RawGeneratedExercise, RankedExercise } from '../exerciseGenerator.js';
 import type { KnowledgeConcept } from '../types.js';
 
 describe('isExercisableSubject', () => {
@@ -188,5 +188,49 @@ describe('buildSlotPlan', () => {
       expect(practiceSlots.length).toBeGreaterThan(0);
       expect(practiceSlots.every((s) => s.concept.id === 'proc')).toBe(true);
     });
+  });
+});
+
+// applyMathValidation is EXERCISE_VALIDATION_MODE-gated at the top of
+// exerciseGenerator.ts — with the constant at its current 'log-only' value,
+// this exercises the real (non-mocked) validateCalculationExercise but never
+// reaches the 'enforce' regeneration branch (which calls the OpenAI SDK), so
+// no network mocking is needed here. See that constant's own comment for why
+// 'enforce' isn't unit-tested end-to-end: it's simply inert today.
+describe('applyMathValidation (EXERCISE_VALIDATION_MODE = "log-only" today)', () => {
+  const asDistractors = (texts: string[]) => texts.map((text) => ({ text, explanation: `Explicación de ${text}.` }));
+
+  const makeRanked = (overrides: Partial<RawGeneratedExercise> = {}): RankedExercise => ({
+    exercise: {
+      slotId: 'ej1',
+      statement: 'Calcula (x+6)(x+4) con x=3',
+      correctAnswer: '260', // wrong — the real value is 63
+      distractors: asDistractors(['56', '70', '49']),
+      hint: 'Multiplica los binomios.',
+      kind: 'calculation',
+      checkExpression: '(x+6)(x+4)',
+      variables: [{ name: 'x', value: 3 }],
+      ...overrides,
+    },
+    difficulty: 3,
+  });
+
+  it('never removes an invalid exercise from the pool — output is byte-identical to input', async () => {
+    const ranked = [makeRanked()];
+    const result = await applyMathValidation(ranked, [], 'Matemática');
+    expect(result).toEqual(ranked);
+    expect(result).toHaveLength(1);
+  });
+
+  it('is also a no-op when every exercise is already valid', async () => {
+    const ranked = [makeRanked({ correctAnswer: '63' })];
+    const result = await applyMathValidation(ranked, [], 'Matemática');
+    expect(result).toEqual(ranked);
+  });
+
+  it('never touches "recognition"-kind exercises — exempt from math validation regardless of garbage fields', async () => {
+    const ranked = [makeRanked({ kind: 'recognition', checkExpression: '', variables: [], correctAnswer: 'cualquier cosa' })];
+    const result = await applyMathValidation(ranked, [], 'Matemática');
+    expect(result).toEqual(ranked);
   });
 });

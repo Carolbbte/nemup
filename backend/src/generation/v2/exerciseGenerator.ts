@@ -3,7 +3,27 @@ import { config } from '../../config.js';
 import { withOpenAIRetry } from '../../services/openaiRetry.js';
 import { recordUsage } from '../../services/usageTracking.js';
 import { sanitizeMathText } from '../../services/mathNotation.js';
+import { validateCalculationExercise } from './exerciseValidator.js';
 import type { KnowledgeConcept } from './types.js';
+
+/**
+ * Controls what validateCalculationExercise's verdict does to the pool — a
+ * plain source constant, NOT an env flag (every other content-type/rollout
+ * gate in this codebase routes through capabilities.* / config.ts; this one
+ * doesn't need per-environment control, just a deliberate two-step rollout):
+ *   'log-only' — validate and console.warn every discard candidate, but
+ *     never actually remove anything. Output is byte-identical to before
+ *     this layer existed. Start here to measure how many/which exercises
+ *     WOULD be discarded, and — critically — to see the 'unverifiable' rate
+ *     separately from 'invalid' (see exerciseValidator.ts's own comment on
+ *     why those two must never be conflated).
+ *   'enforce' — actually discard 'invalid'/'unverifiable' exercises, with
+ *     one regeneration attempt for the exact discarded slots before giving
+ *     up on them. Only flip this once log-only's logs show a low
+ *     'unverifiable' rate — a high one means the preprocessor/prompt needs
+ *     work first, not that enforce is safe.
+ */
+const EXERCISE_VALIDATION_MODE: 'log-only' | 'enforce' = 'log-only';
 
 const openai = new OpenAI({ apiKey: config.openai_api_key });
 
@@ -37,6 +57,16 @@ export interface GeneratedExercise {
   distractors: { text: string; explanation: string }[];
   hint: string;
   kind: 'calculation' | 'recognition';
+  // checkExpression/variables — machine-checkable math contract, only
+  // meaningful for kind === 'calculation' (empty/[] for 'recognition', which
+  // isn't numeric). Consumed by exerciseValidator.ts's
+  // validateCalculationExercise: `checkExpression` evaluated with
+  // `variables` substituted must equal `correctAnswer`, never the reverse —
+  // correctAnswer is never recalculated, only checked against it. See
+  // exerciseValidator.ts for why this can't be a free-form
+  // Record<string,number> (OpenAI strict-mode schemas forbid dynamic keys).
+  checkExpression?: string;
+  variables?: { name: string; value: number }[];
 }
 
 /** GeneratedExercise plus the slot label the model must echo back — the
@@ -107,7 +137,15 @@ ser EXACTAMENTE esa etiqueta. Así identificamos cuál ejercicio es cuál sin de
 NOTACIÓN MATEMÁTICA: escribe todo en texto plano, NUNCA en LaTeX. Prohibido usar backslash o comandos LaTeX
 (nada de \\frac, \\left, \\right, \\(...\\), \\[...\\], ni llaves {} para agrupar). Fracciones: "2/3", nunca
 "\\frac{2}{3}". Exponentes: "x^2" o "x²", nunca en llaves. Estas reglas aplican a TODO texto que escribas:
-enunciado, respuesta correcta, distractores y pista.`;
+enunciado, respuesta correcta, distractores y pista.
+Para ejercicios de tipo "calculation", además de las opciones incluye checkExpression (la expresión
+matemática CONCRETA a evaluar para resolver el ejercicio, en texto plano parseable: usa * para multiplicar,
+^ para potencias, sin LaTeX ni prosa — ej. "(5*x^2*y + 8) * (5*x^2*y + 5)" para un área que es producto de
+lados) y variables (las sustituciones numéricas que el enunciado fija, como un array de {"name","value"}, ej.
+[{"name":"x","value":1},{"name":"y","value":2}], o [] si el ejercicio es puramente simbólico como desarrollar
+un producto sin valores dados). La opción correcta DEBE ser exactamente el resultado de evaluar/desarrollar
+checkExpression con esas variables — no la aproximes ni la redondees distinto. Para ejercicios "recognition"
+(no numéricos), dejá checkExpression como string vacío y variables como array vacío.`;
 
 type SlotKind = 'base' | 'variant' | 'practice';
 
@@ -191,7 +229,7 @@ function buildExerciseSchema(itemCount: number) {
         items: {
           type: 'object',
           additionalProperties: false,
-          required: ['slotId', 'statement', 'correctAnswer', 'distractors', 'hint', 'kind'],
+          required: ['slotId', 'statement', 'correctAnswer', 'distractors', 'hint', 'kind', 'checkExpression', 'variables'],
           properties: {
             slotId: { type: 'string', description: 'Debe ser exactamente uno de los [id="..."] indicados en el prompt — identifica cuál ejercicio pedido es este.' },
             statement: { type: 'string', description: 'Enunciado del ejercicio nuevo.' },
@@ -212,6 +250,20 @@ function buildExerciseSchema(itemCount: number) {
             },
             hint: { type: 'string', description: 'Pista que orienta el método sin revelar la respuesta.' },
             kind: { type: 'string', enum: ['calculation', 'recognition'] },
+            checkExpression: { type: 'string', description: 'Solo para kind="calculation": la expresión matemática concreta que resuelve el ejercicio, sintaxis mathjs (* para multiplicar, ^ para potencias). String vacío para kind="recognition".' },
+            variables: {
+              type: 'array',
+              description: 'Solo para kind="calculation": sustituciones numéricas que el enunciado fija. Array vacío si el ejercicio es simbólico o kind="recognition".',
+              items: {
+                type: 'object',
+                additionalProperties: false,
+                required: ['name', 'value'],
+                properties: {
+                  name: { type: 'string', description: 'Nombre de la variable, una sola letra (ej. "x").' },
+                  value: { type: 'number', description: 'Valor numérico sustituido.' },
+                },
+              },
+            },
           },
         },
       },
@@ -376,8 +428,14 @@ function batchPlan(plan: SlotDescriptor[]): SlotDescriptor[][] {
 
 // ── Generation, with truncation-safe retry ─────────────────────────────────
 
-interface RankedExercise {
-  exercise: GeneratedExercise;
+// `exercise` keeps `slotId` (RawGeneratedExercise, not GeneratedExercise)
+// all the way through generateExercises internally — needed so 'enforce'
+// mode can regenerate the EXACT discarded slot rather than an approximation.
+// Stripped to plain GeneratedExercise only at generateExercises's final
+// return. Exported for testability only (same convention as SlotDescriptor/
+// RawGeneratedExercise above) — external callers only ever see GeneratedExercise.
+export interface RankedExercise {
+  exercise: RawGeneratedExercise;
   difficulty: number;
 }
 
@@ -440,10 +498,7 @@ async function generateBatch(
         if (!ok) console.warn(`[ExerciseGenerator] ejercicio con forma inválida o slotId desconocido descartado (slotId="${item?.slotId}").`);
         return ok;
       })
-      .map((item) => {
-        const { slotId, ...exercise } = item;
-        return { exercise, difficulty: difficultyById.get(slotId)! };
-      });
+      .map((item) => ({ exercise: item, difficulty: difficultyById.get(item.slotId)! }));
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     const isTruncation = message.startsWith('TRUNCATED');
@@ -476,15 +531,9 @@ async function generateBatch(
  * "Premature close" errors on long documents, and the same principle behind
  * this module's own truncation fix above).
  *
- * ===== PUNTO DE EXTENSIÓN: capa de validación (Fase futura) =====
- * Hoy `correctAnswer` se devuelve SIN verificar que sea correcta — riesgo
- * de producto asumido en esta fase (a diferencia de workedExamples, aquí no
- * hay una respuesta ya escrita en el material contra la cual reconciliar).
- * Cuando exista un verificador (math.js para álgebra, o un segundo LLM),
- * debe llamarse justo después de esta función, antes de assemble.ts:
- *   exercises = await validateExercises(exercises);
- * Firma prevista: validateExercises(exercises: GeneratedExercise[]): Promise<GeneratedExercise[]>
- * ================================================================
+ * Math-truth validation (exerciseValidator.ts's validateCalculationExercise,
+ * mathjs-based) runs right below, controlled by EXERCISE_VALIDATION_MODE —
+ * see that constant's own comment for the log-only → enforce rollout.
  */
 export async function generateExercises(
   concepts: KnowledgeConcept[],
@@ -499,7 +548,10 @@ export async function generateExercises(
   const batches = batchPlan(plan);
 
   const results = await Promise.all(batches.map((batch) => generateBatch(batch, subject)));
-  const ranked = results.flat();
+  let ranked = results.flat();
+  if (ranked.length === 0) return [];
+
+  ranked = await applyMathValidation(ranked, plan, subject);
   if (ranked.length === 0) return [];
 
   // Boss selection scans the ACTUALLY GENERATED (and valid) exercises, never
@@ -514,5 +566,77 @@ export async function generateExercises(
   const [boss] = ranked.splice(bossIdx, 1);
   ranked.push(boss);
 
-  return ranked.map((r) => r.exercise);
+  return ranked.map(({ exercise: { slotId, ...exercise } }) => exercise);
+}
+
+/**
+ * Runs validateCalculationExercise over every ranked exercise and applies
+ * EXERCISE_VALIDATION_MODE's policy:
+ *   - 'log-only': logs each discard candidate (split 'invalid' vs
+ *     'unverifiable' — see exerciseValidator.ts) and returns `ranked`
+ *     UNCHANGED. Byte-identical output to before this function existed.
+ *   - 'enforce': removes 'invalid'/'unverifiable' items, attempts ONE
+ *     regeneration pass for exactly those slots (reusing batchPlan/
+ *     generateBatch), validates the retry, and keeps it only if it now
+ *     passes — otherwise that slot is simply dropped from the pool (never
+ *     forced through). The Misión's pool targets 12 and consumes ~9-10, so a
+ *     handful of drops is safe; assemble.ts's fieldsFromDistractorSet
+ *     fallback covers a concept that ends up with no generated exercise at
+ *     all, same as when shouldGenerateExercises is false upstream.
+ *
+ * Exported for testability only — see exerciseGenerator.test.ts. The
+ * 'enforce' regeneration branch calls generateBatch (real OpenAI SDK) and is
+ * therefore only exercised there when EXERCISE_VALIDATION_MODE is actually
+ * 'enforce' AND bad slots exist; with the constant at its current 'log-only'
+ * value this function never reaches that branch, so testing it here never
+ * needs network mocking.
+ */
+export async function applyMathValidation(
+  ranked: RankedExercise[],
+  plan: SlotDescriptor[],
+  subject: string,
+): Promise<RankedExercise[]> {
+  const checked = ranked.map((r) => ({ ...r, validation: validateCalculationExercise(r.exercise) }));
+  const invalidCount = checked.filter((c) => !c.validation.ok && c.validation.reason === 'invalid').length;
+  const unverifiableCount = checked.filter((c) => !c.validation.ok && c.validation.reason === 'unverifiable').length;
+
+  for (const c of checked) {
+    if (!c.validation.ok) {
+      console.warn(
+        `[ExerciseValidator] mode=${EXERCISE_VALIDATION_MODE} reason=${c.validation.reason} slotId=${c.exercise.slotId} — ${c.validation.message}`,
+      );
+    }
+  }
+  if (invalidCount > 0 || unverifiableCount > 0) {
+    console.log(`[ExerciseValidator] resumen: invalid=${invalidCount} unverifiable=${unverifiableCount} de ${checked.length} ejercicio(s) evaluados.`);
+  }
+
+  if (EXERCISE_VALIDATION_MODE === 'log-only') {
+    return ranked;
+  }
+
+  // 'enforce' from here down.
+  const badSlotIds = new Set(checked.filter((c) => !c.validation.ok).map((c) => c.exercise.slotId));
+  if (badSlotIds.size === 0) return ranked;
+
+  const retrySlots = plan.filter((s) => badSlotIds.has(s.id));
+  console.warn(`[ExerciseValidator] enforce: regenerando ${retrySlots.length} slot(s) inválido(s), un solo intento.`);
+  const retryBatches = batchPlan(retrySlots);
+  const retryResults = (await Promise.all(retryBatches.map((b) => generateBatch(b, subject)))).flat();
+  const retryById = new Map(retryResults.map((r) => [r.exercise.slotId, r]));
+
+  const survivors: RankedExercise[] = [];
+  for (const c of checked) {
+    if (c.validation.ok) {
+      survivors.push({ exercise: c.exercise, difficulty: c.difficulty });
+      continue;
+    }
+    const retry = retryById.get(c.exercise.slotId);
+    if (retry && validateCalculationExercise(retry.exercise).ok) {
+      survivors.push(retry);
+    } else {
+      console.warn(`[ExerciseValidator] enforce: slotId=${c.exercise.slotId} sigue inválido tras un reintento — se descarta del pool.`);
+    }
+  }
+  return survivors;
 }
