@@ -989,17 +989,27 @@ export function buildSummarySlides(
     const findError = capabilities.findError ? findErrorByConcept.get(concept.id) : undefined;
     let microSlide: SummarySlide;
     if (findError) {
+      // ALWAYS multiple choice — errorExplanation (the correct diagnosis)
+      // and errorDistractors (2 honest-but-wrong ones) become options via
+      // the exact same shuffleWithLetterAnswer every other MC slide uses,
+      // so the frontend's existing MC answer/feedback machinery just works
+      // (no bespoke tap-to-reveal state needed). No "Encuentra el error:"
+      // prefix or literal label on purpose — the neutral structure
+      // (problem → student's attempt → "¿Cuál es el error?") speaks for
+      // itself, per the redesign spec.
+      const { options, correctAnswer } = shuffleWithLetterAnswer(findError.errorExplanation, findError.errorDistractors);
       microSlide = {
         type: 'find_error',
         emoji: '🔍',
-        title: `Encuentra el error: ${concept.name}`,
-        definition: 'Revisa el procedimiento resuelto y descubre dónde está el error.',
+        title: concept.name,
+        definition: '',
         example: '',
         question: findError.question,
         expression: findError.expression,
         wrongStep: findError.wrongStep,
-        errorExplanation: findError.errorExplanation,
         correctStep: findError.correctStep,
+        options,
+        correctAnswer,
       };
     } else {
       const microEx = nextExercise();

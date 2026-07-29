@@ -31,7 +31,6 @@ import {
   Meh,
   RefreshCw,
   RotateCcw,
-  Search,
   Smile,
   WandSparkles,
   X,
@@ -182,7 +181,7 @@ type IllustrationType = 'educational' | 'diagram' | 'concept' | 'timeline' | 'ma
 // `classifyPrompt`/`classifyCategories`/`classifyItems` — classify only,
 // same shape Desafío's DesafioSlide already uses. The answer is an object
 // mapping each item's id to the assigned category.
-type BackendSlide = { type: SummarySlideType; emoji: string; title: string; definition: string; example: string; visualHint?: string; illustrationType?: IllustrationType; connector?: string | null; question?: string | null; options?: string[] | null; correctAnswer?: string | null; wrongAnswerHints?: Record<string, string> | null; hint?: string; hook?: string | null; teacherExplanation?: string | null; keyPhrase?: string | null; formalDefinition?: string; tip?: string; blankSentence?: string; blankChoices?: { letter: string; text: string }[]; blankAnswer?: string; blankExplanation?: string; pairs?: { id: string; left: string; right: string; leftIcon?: string; rightIcon?: string }[]; pairsPrompt?: string; classifyPrompt?: string; classifyCategories?: string[]; classifyItems?: { id: string; text: string; category: string }[]; requeued?: boolean; requeuedFrom?: string | null; statement?: string; answer?: string; steps?: string[]; message?: string; sub?: string; expression?: string; wrongStep?: string; errorExplanation?: string; correctStep?: string };
+type BackendSlide = { type: SummarySlideType; emoji: string; title: string; definition: string; example: string; visualHint?: string; illustrationType?: IllustrationType; connector?: string | null; question?: string | null; options?: string[] | null; correctAnswer?: string | null; wrongAnswerHints?: Record<string, string> | null; hint?: string; hook?: string | null; teacherExplanation?: string | null; keyPhrase?: string | null; formalDefinition?: string; tip?: string; blankSentence?: string; blankChoices?: { letter: string; text: string }[]; blankAnswer?: string; blankExplanation?: string; pairs?: { id: string; left: string; right: string; leftIcon?: string; rightIcon?: string }[]; pairsPrompt?: string; classifyPrompt?: string; classifyCategories?: string[]; classifyItems?: { id: string; text: string; category: string }[]; requeued?: boolean; requeuedFrom?: string | null; statement?: string; answer?: string; steps?: string[]; message?: string; sub?: string; expression?: string; wrongStep?: string; correctStep?: string };
 type LegacySection = { heading: string; content: string; keyPoints: string[] };
 type Session = {
   id?: string; userId?: string;
@@ -1340,11 +1339,6 @@ export default function SessionPlayerScreen() {
   // meaningful when splitTeacherExplanation finds a real hook/reveal split
   // (see that card's own render); reset per slide same as showFormalDef.
   const [conceptRevealed, setConceptRevealed] = useState(false);
-  // Tap-to-reveal on the find_error slide (capabilities.findError) — its own
-  // state, deliberately not reusing conceptRevealed: that one drives
-  // main_concept-specific choreography (cardBounceScaleSV's own effect,
-  // keyed on conceptRevealed) that find_error has no reason to trigger.
-  const [findErrorRevealed, setFindErrorRevealed] = useState(false);
 
   // match_pairs — own, simple orchestration (NOT desafio.tsx's handlers,
   // which are fused with streak/energy/retry/auto-advance). `pairsMatched`/
@@ -1706,7 +1700,6 @@ export default function SessionPlayerScreen() {
   useEffect(() => { setOrderTaps([]); }, [summaryIdx]);
   useEffect(() => { setShowFormalDef(false); }, [summaryIdx]);
   useEffect(() => { setConceptRevealed(false); }, [summaryIdx]);
-  useEffect(() => { setFindErrorRevealed(false); }, [summaryIdx]);
   // Hard-reset every tap-to-reveal shared value on every slide change —
   // direct assignment cancels whatever animation was mid-flight, so
   // advancing away from a concept mid-choreography never leaves a stale
@@ -3146,67 +3139,86 @@ export default function SessionPlayerScreen() {
 
               </ScrollView>
             ) : slide?.type === 'find_error' ? (
-              // 1:1 replacement of a "procedure" concept's micro_challenge
-              // (assemble.ts) — reuses worked_example's header/challenge-card
-              // tokens (we*) and main_concept's tap-to-reveal affordance
-              // (revealAffordance*), rather than a whole new visual system.
-              // wrongStep/correctStep/errorExplanation are pre-validated on
-              // the backend (findError.ts's reconcileFindError) — nothing
-              // here re-derives or re-checks them.
-              <ScrollView style={{ flex: 1 }} contentContainerStyle={{ flexGrow: 1, paddingBottom: 24 }} showsVerticalScrollIndicator={false}>
-                <View style={sum.weHeaderWrap}>
-                  <View style={sum.weHeaderRow}>
-                    <View style={[sum.weIconBox, { backgroundColor: semantic.error }]}>
-                      <Search size={22} color={palette.blanco} strokeWidth={2} />
+              // Always multiple choice (assemble.ts builds options/correctAnswer
+              // via shuffleWithLetterAnswer, same as every other MC slide) —
+              // no tap-to-reveal, no pre-answer spoiler. Neutral presentation:
+              // the problem and the student's attempt are shown side by side
+              // with no red/error tinting on either — the student judges which
+              // diagnosis is right, they aren't told upfront. Options-list JSX
+              // below is the same block micro_challenge/reinforcement_challenge
+              // use, so acierto/error feedback and requeue-on-wrong behave
+              // identically. Only after answering (fbActive, in the shared
+              // bottom bar) does this branch's own "LO CORRECTO ES" box reveal
+              // the real correctStep.
+              (() => {
+                const answered = quizAnswers[summaryIdx];
+                return (
+                  <ScrollView style={{ flex: 1 }} contentContainerStyle={{ flexGrow: 1, paddingBottom: 24 }} showsVerticalScrollIndicator={false}>
+                    <View style={sum.findErrorProblemBox}>
+                      <Text style={sum.findErrorProblemLabel}>El problema:</Text>
+                      <MathText style={sum.findErrorProblemText}>{(slide.expression)}</MathText>
                     </View>
-                    <View style={{ flex: 1 }}>
-                      <Text style={[sum.weKicker, { color: semantic.error }]}>ENCUENTRA EL ERROR</Text>
-                      <Text style={sum.weTitle}>{slide.title}</Text>
-                    </View>
-                  </View>
-                  <Text style={sum.weSubtitle}>{slide.question}</Text>
-                </View>
 
-                <View style={sum.weChallengeCard}>
-                  <View style={sum.weChallengeTop}>
-                    <Text style={sum.weChallengeLabel}>PROCEDIMIENTO</Text>
-                  </View>
-                  <MathText style={sum.weChallengeText}>{(slide.expression)}</MathText>
-                </View>
-
-                <View style={sum.findErrorWrongBox}>
-                  <View style={sum.findErrorWrongIcon}>
-                    <X size={16} color={palette.blanco} strokeWidth={3} />
-                  </View>
-                  <View style={{ flex: 1 }}>
-                    <Text style={sum.findErrorWrongLabel}>PASO REALIZADO</Text>
-                    <MathText style={sum.findErrorWrongText}>{(slide.wrongStep)}</MathText>
-                  </View>
-                </View>
-
-                {!findErrorRevealed ? (
-                  <Pressable
-                    onPress={() => setFindErrorRevealed(true)}
-                    style={sum.revealAffordance}
-                    accessibilityRole="button"
-                    accessibilityHint="Toca para ver la explicación del error"
-                  >
-                    <Text style={sum.revealAffordanceEmoji}>👇</Text>
-                    <Text style={[sum.revealAffordanceText, { color: palette.verdeXP }]}>Toca para descubrir el error</Text>
-                  </Pressable>
-                ) : (
-                  <View style={sum.weResultBox}>
-                    <View style={sum.weResultCheck}>
-                      <Check size={16} color={palette.blanco} strokeWidth={3} />
+                    <View style={sum.findErrorAttemptBox}>
+                      <Text style={sum.findErrorAttemptLabel}>Un estudiante lo resolvió así:</Text>
+                      <MathText style={sum.findErrorAttemptText}>{(slide.wrongStep)}</MathText>
                     </View>
-                    <View style={{ flex: 1 }}>
-                      <Text style={sum.weResultLabel}>LO CORRECTO ERA</Text>
-                      <MathText style={sum.weResultText}>{(slide.correctStep)}</MathText>
-                      <MathText style={sum.findErrorExplanationText}>{(slide.errorExplanation)}</MathText>
-                    </View>
-                  </View>
-                )}
-              </ScrollView>
+
+                    <MathText style={sum.quizQuestionFull}>{slide.question}</MathText>
+                    {slide.options?.length ? (
+                      <View key={`options-${summaryIdx}-${answered ?? 'none'}`} style={{ gap: 12, marginTop: 14 }}>
+                        {slide.options.slice(0, 4).map((opt, i) => {
+                          const letter    = LETTERS[i];
+                          const isOpt     = slide.correctAnswer === letter;
+                          const showGreen = !!answered && isOpt;
+                          const showRed   = answered === letter && !isOpt;
+                          const dimmed    = !!answered && !isOpt && answered !== letter;
+                          return (
+                            <Animated.View key={i} style={[wrongShakeStyle, optAnimStyles[i], optEnterStyles[i], showGreen && correctGlowStyle]}>
+                              <Pressable
+                                onPress={() => {
+                                  if (!answered) {
+                                    missionStreakRef.current = isOpt ? missionStreakRef.current + 1 : 0;
+                                    setMissionStreak(missionStreakRef.current);
+                                    setQuizAnswers(prev => ({ ...prev, [summaryIdx]: letter }));
+                                    if (!isOpt) insertCorrectiveSlide(slide as BackendSlide, letter);
+                                  }
+                                }}
+                                onPressIn={() => { optScaleArr[i].value = withSequence(withTiming(0.96, { duration: 60 }), withSpring(1, { damping: 12, stiffness: 300 })); }} style={[sum.quizOption, showGreen && sum.quizOptCorrect, showRed && sum.quizOptWrong, { opacity: dimmed ? 0.35 : 1 }]}
+                              >
+                                <View style={[sum.quizLetter, showGreen && sum.quizLetterGreen, showRed && sum.quizLetterRed]}>
+                                  {showGreen ? (
+                                    <Check size={16} color={palette.blanco} strokeWidth={3} />
+                                  ) : showRed ? (
+                                    <X size={16} color={palette.blanco} strokeWidth={3} />
+                                  ) : (
+                                    <Text style={sum.quizLetterText}>{letter}</Text>
+                                  )}
+                                </View>
+                                <MathText style={[sum.quizOptText, showGreen && { color: paletteExtras.verdeTextoOscuro, fontWeight: '700' }, showRed && { color: palette.rojoErrorDark, fontWeight: '700' }]}>{opt}</MathText>
+                              </Pressable>
+                            </Animated.View>
+                          );
+                        })}
+                      </View>
+                    ) : (
+                      <Text style={sum.introDef}>Este contenido no tiene opciones disponibles — desliza para continuar.</Text>
+                    )}
+
+                    {!!answered && (
+                      <View style={[sum.weResultBox, { marginTop: 16 }]}>
+                        <View style={sum.weResultCheck}>
+                          <Check size={16} color={palette.blanco} strokeWidth={3} />
+                        </View>
+                        <View style={{ flex: 1 }}>
+                          <Text style={sum.weResultLabel}>LO CORRECTO ES</Text>
+                          <MathText style={sum.weResultText}>{(slide.correctStep)}</MathText>
+                        </View>
+                      </View>
+                    )}
+                  </ScrollView>
+                );
+              })()
             ) : slide?.type === 'comprehension' ? (
               (() => {
                 return (
@@ -4707,7 +4719,7 @@ export default function SessionPlayerScreen() {
                 </View>
               );
             }
-            const MISSION_QUIZ_TYPES = new Set(['micro_challenge', 'reinforcement_challenge', 'comprehension', 'mini_quiz', 'final_challenge', 'decide']);
+            const MISSION_QUIZ_TYPES = new Set(['micro_challenge', 'reinforcement_challenge', 'comprehension', 'mini_quiz', 'final_challenge', 'decide', 'find_error']);
             // fill_blank's answer/choices live in blankAnswer/blankChoices,
             // not correctAnswer/options, so the check below misses it
             // entirely — it fell through to the always-enabled generic
@@ -4760,11 +4772,11 @@ export default function SessionPlayerScreen() {
             const isConceptGated = slide?.type === 'main_concept'
               && !!splitTeacherExplanation(bs?.teacherExplanation).reveal
               && !conceptRevealed;
-            // find_error's own tap-to-reveal gate — mirrors isConceptGated's
-            // shape (a reveal-only slide, not a lettered-answer one, so it
-            // never joins isMissionInteractive above).
-            const isFindErrorGated = slide?.type === 'find_error' && !findErrorRevealed;
-            const showChoose = (slide?.type === 'quiz' && !slideQuizAnswered) || (isMissionInteractive && !missionAnswered) || isMatchPairsIncomplete || isConceptGated || isFindErrorGated;
+            // find_error is now a plain MC slide (see its render branch) —
+            // joins MISSION_QUIZ_TYPES above, so it's already gated by
+            // isMissionInteractive like micro_challenge/reinforcement_challenge;
+            // no bespoke gate needed here anymore.
+            const showChoose = (slide?.type === 'quiz' && !slideQuizAnswered) || (isMissionInteractive && !missionAnswered) || isMatchPairsIncomplete || isConceptGated;
 
             return (
               <View style={fbActive
@@ -4796,7 +4808,7 @@ export default function SessionPlayerScreen() {
                   </View>
                 ) : showChoose ? (
                   <View key={`cta-choose-${summaryIdx}`} style={g.ctaBtnOff}>
-                    <Text style={g.ctaTextOff}>{isMatchPairsIncomplete ? 'Completa los pares' : (isConceptGated || isFindErrorGated) ? 'Toca para descubrir' : 'Elige una opción'}</Text>
+                    <Text style={g.ctaTextOff}>{isMatchPairsIncomplete ? 'Completa los pares' : isConceptGated ? 'Toca para descubrir' : 'Elige una opción'}</Text>
                   </View>
                 ) : (
                   <View style={{ width: '100%', position: 'relative' }}>
@@ -6090,16 +6102,20 @@ const sum = StyleSheet.create(withMisionFont({
   weResultLabel:   { fontSize: 10, fontWeight: '800', color: paletteExtras.verdeTextoOscuro, letterSpacing: 0.8, marginBottom: 2 },
   weResultText:    { fontSize: SM ? 17 : 19, fontWeight: '800', color: paletteExtras.verdeTextoOscuro },
 
-  // find_error (capabilities.findError) — "wrong step" box mirrors
-  // weResultBox's shape (icon + label + value) but red-toned, since this is
-  // the mistake being shown, not the resolution. Everything else in that
-  // slide reuses weHeaderWrap/weChallengeCard/weResultBox/revealAffordance
-  // as-is (see the 'find_error' render branch).
-  findErrorWrongBox:        { flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: palette.rojoErrorBg, borderRadius: 16, paddingVertical: SM ? 10 : 12, paddingHorizontal: SM ? 12 : 14, borderWidth: 1.5, borderColor: semantic.error, marginBottom: 12 },
-  findErrorWrongIcon:       { width: 30, height: 30, borderRadius: 15, backgroundColor: semantic.error, alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
-  findErrorWrongLabel:      { fontSize: 10, fontWeight: '800', color: palette.rojoErrorDark, letterSpacing: 0.8, marginBottom: 2 },
-  findErrorWrongText:       { fontSize: SM ? 17 : 19, fontWeight: '800', color: palette.rojoErrorDark },
-  findErrorExplanationText: { fontSize: 13, color: paletteExtras.verdeTextoOscuro, lineHeight: 18, marginTop: 4 },
+  // find_error (capabilities.findError) — NEUTRAL presentation on purpose:
+  // no red/error tinting on either box, since the point is for the student
+  // to JUDGE whether the resolution is right, not be shown a spoiler before
+  // answering. Same plain card shape for both "problem" and "attempt",
+  // distinguished only by label text. weResultBox (green, pre-existing) is
+  // reused as-is for the post-answer "LO CORRECTO ES" reveal — that one
+  // legitimately shows resolved state, since it only renders after the
+  // student has already answered.
+  findErrorProblemBox:  { backgroundColor: palette.blanco, borderRadius: 16, borderWidth: 1, borderColor: palette.bordeClaro, paddingVertical: SM ? 10 : 12, paddingHorizontal: SM ? 12 : 14, marginBottom: 10 },
+  findErrorProblemLabel:{ fontSize: 12, fontWeight: '700', color: semantic.textSecondary, marginBottom: 4 },
+  findErrorProblemText: { fontSize: SM ? 16 : 18, fontWeight: '700', color: semantic.textPrimary },
+  findErrorAttemptBox:  { backgroundColor: paletteExtras.grisFondoDone, borderRadius: 16, borderWidth: 1, borderColor: palette.bordeClaro, paddingVertical: SM ? 10 : 12, paddingHorizontal: SM ? 12 : 14, marginBottom: 16 },
+  findErrorAttemptLabel:{ fontSize: 12, fontWeight: '700', color: semantic.textSecondary, marginBottom: 4 },
+  findErrorAttemptText: { fontSize: SM ? 16 : 18, fontWeight: '700', color: semantic.textPrimary },
 
   // Cheer bar — fixed/generic, last element before the (separate, fixed)
   // bottom CTA bar.

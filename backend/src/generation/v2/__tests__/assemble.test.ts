@@ -798,19 +798,33 @@ describe('buildSummarySlides — rol por concepto (FEATURE_CONTENT_TYPE_V2, Paso
       conceptId: 'proc',
       expression: '2m + 3m',
       wrongStep: '6m',
-      question: '¿Qué está mal en este paso?',
+      question: '¿Cuál es el error?',
       errorExplanation: 'Sumó mal los coeficientes.',
+      errorDistractors: ['Restó en vez de sumar.', 'Multiplicó los coeficientes.'],
       correctStep: '5m',
     };
 
-    it('replaces the "procedure" concept\'s micro_challenge with find_error when capabilities.findError is on and a result exists for it', () => {
+    it('replaces the "procedure" concept\'s micro_challenge with a multiple-choice find_error when capabilities.findError is on and a result exists for it', () => {
       const slides = buildSummarySlides(
         roleKo, roleDistractors, [], [], false, false,
         { ...DEFAULT_CAPABILITIES, findError: true },
         new Map([['proc', findErrorResult]]),
       );
 
-      expect(slides.some((s) => s.type === 'find_error' && s.expression === '2m + 3m' && s.correctStep === '5m')).toBe(true);
+      const slide = slides.find((s) => s.type === 'find_error');
+      expect(slide).toBeDefined();
+      expect(slide?.expression).toBe('2m + 3m');
+      expect(slide?.correctStep).toBe('5m');
+      // No "Encuentra el error:" prefix — the title is just the concept name.
+      expect(slide?.title).toBe('Reducción de términos semejantes');
+      // Always multiple choice: 3 options (1 correct + 2 distractors), the
+      // correct one being errorExplanation's text.
+      expect(slide?.options).toHaveLength(3);
+      expect(slide?.options).toEqual(expect.arrayContaining(['Sumó mal los coeficientes.', 'Restó en vez de sumar.', 'Multiplicó los coeficientes.']));
+      expect(['A', 'B', 'C']).toContain(slide?.correctAnswer);
+      const correctIdx = slide!.options!.indexOf('Sumó mal los coeficientes.');
+      expect(slide?.correctAnswer).toBe(['A', 'B', 'C', 'D'][correctIdx]);
+
       expect(slides.filter((s) => s.type === 'micro_challenge' && s.title?.includes('Reducción'))).toHaveLength(0);
 
       // The "supporting" concept has no find_error entry — untouched, still

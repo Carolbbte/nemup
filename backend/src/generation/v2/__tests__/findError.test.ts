@@ -4,6 +4,13 @@
  * procedure concepts / no worked examples). Deliberately does NOT mock the
  * OpenAI SDK — only the deterministic logic that decides whether a
  * model-invented "error" is safe to teach is exercised here.
+ *
+ * reconcileFindError now uses REAL math evaluation (exerciseValidator.ts's
+ * expressionsEqual) instead of procedural.ts's text-similarity resultsMatch
+ * — the star test below ("(x+6)(x+4)-x²" → "x²+6x+4x+24-x²") is the exact
+ * production bug this upgrade fixes: the old resultsMatch-based guard could
+ * NOT catch that wrongStep, since it's a different STRING but the same
+ * VALUE as correctStep (just unsimplified).
  */
 
 import { describe, it, expect } from 'vitest';
@@ -14,21 +21,22 @@ const rawItem = (overrides: Partial<RawFindErrorItem> = {}): RawFindErrorItem =>
   matched: true,
   expression: '4x + 3y − 2x + 5y',
   wrongStep: '6x + 8y',
-  question: '¿Qué está mal en este paso?',
   errorExplanation: 'Sumó los coeficientes de x en vez de restarlos.',
+  errorDistractors: ['Restó los coeficientes de y en vez de sumarlos.', 'Mezcló los términos en x e y.'],
   correctStep: '2x + 8y',
   ...overrides,
 });
 
 describe('reconcileFindError (pure safety gate)', () => {
-  it('accepts a well-formed, genuinely-wrong item', () => {
+  it('accepts a well-formed item where wrongStep is genuinely wrong and correctStep genuinely solves expression', () => {
     const result = reconcileFindError(rawItem());
     expect(result).toEqual({
       conceptId: 'c1',
       expression: '4x + 3y − 2x + 5y',
       wrongStep: '6x + 8y',
-      question: '¿Qué está mal en este paso?',
+      question: '¿Cuál es el error?',
       errorExplanation: 'Sumó los coeficientes de x en vez de restarlos.',
+      errorDistractors: ['Restó los coeficientes de y en vez de sumarlos.', 'Mezcló los términos en x e y.'],
       correctStep: '2x + 8y',
     });
   });
@@ -37,23 +45,51 @@ describe('reconcileFindError (pure safety gate)', () => {
     expect(reconcileFindError(rawItem({ matched: false }))).toBeNull();
   });
 
-  it('returns null when any field is empty or whitespace-only', () => {
+  it('returns null when any required field is empty or whitespace-only', () => {
     expect(reconcileFindError(rawItem({ expression: '' }))).toBeNull();
     expect(reconcileFindError(rawItem({ wrongStep: '   ' }))).toBeNull();
-    expect(reconcileFindError(rawItem({ question: '' }))).toBeNull();
     expect(reconcileFindError(rawItem({ errorExplanation: '  ' }))).toBeNull();
     expect(reconcileFindError(rawItem({ correctStep: '' }))).toBeNull();
   });
 
-  // The critical guard: a "wrongStep" that's actually correct (just
-  // reformatted) would teach the student the wrong lesson — must be
-  // rejected, reusing procedural.ts's own validated math-aware comparator.
-  it('returns null when wrongStep is mathematically the same as correctStep (literal duplicate)', () => {
-    expect(reconcileFindError(rawItem({ wrongStep: '2x + 8y', correctStep: '2x + 8y' }))).toBeNull();
+  it('returns null when fewer than 2 honest errorDistractors survive sanitization', () => {
+    expect(reconcileFindError(rawItem({ errorDistractors: [] }))).toBeNull();
+    expect(reconcileFindError(rawItem({ errorDistractors: ['solo uno'] }))).toBeNull();
+    expect(reconcileFindError(rawItem({ errorDistractors: ['uno', '   '] }))).toBeNull(); // one is blank after trim
   });
 
-  it('returns null when wrongStep is only a reordering of correctStep\'s terms', () => {
+  // Star test — the exact production bug this mathjs-based guard exists to
+  // catch: wrongStep is a DIFFERENT STRING but the SAME VALUE as
+  // correctStep (just not simplified) — not an error at all.
+  it('rejects the exact reported bug: wrongStep is the unsimplified but mathematically identical form of correctStep', () => {
+    const result = reconcileFindError(rawItem({
+      expression: '(x+6)(x+4)-x²',
+      wrongStep: 'x²+6x+4x+24-x²',
+      correctStep: '10x+24',
+    }));
+    expect(result).toBeNull();
+  });
+
+  it('rejects when wrongStep is only a reordering of correctStep\'s terms (still the same value)', () => {
     expect(reconcileFindError(rawItem({ wrongStep: '8y + 2x', correctStep: '2x + 8y' }))).toBeNull();
+  });
+
+  it('accepts a genuinely different wrongStep for the star test\'s expression, with the real correctStep', () => {
+    const result = reconcileFindError(rawItem({
+      expression: '(x+6)(x+4)-x²',
+      wrongStep: '10x+28', // plausible off-by-constant mistake, genuinely different from 10x+24
+      correctStep: '10x+24',
+    }));
+    expect(result).not.toBeNull();
+  });
+
+  it('rejects when correctStep does NOT actually solve expression (second guard)', () => {
+    const result = reconcileFindError(rawItem({
+      expression: '(x+6)(x+4)',
+      wrongStep: '10x+24', // wrong on purpose but different from the (wrong) correctStep below
+      correctStep: '11x+24', // does not equal (x+6)(x+4) = x^2+10x+24 for all x
+    }));
+    expect(result).toBeNull();
   });
 
   it('sanitizes LaTeX-ish leftovers and trims whitespace on every field', () => {
