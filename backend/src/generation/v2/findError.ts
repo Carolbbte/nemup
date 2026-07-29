@@ -31,25 +31,34 @@ const ORDER_ERROR_RE = /\bt[eé]rminos?\s+mal\s+ubicad|\bmal\s+ubicad|\breorden|
 
 /**
  * A validated "find the error" exercise for one `role === 'procedure'`
- * concept, ALWAYS multiple choice: `errorExplanation` (the correct
- * diagnosis) and `errorDistractors` (2 honest-but-wrong diagnoses) become
- * the slide's options via shuffleWithLetterAnswer in assemble.ts — same
- * option-building convention as every other MC slide in this app.
- * `expression`/`correctStep` are always the material's own workedExample
- * statement/answer, copied verbatim — never recalculated. `wrongStep`/
- * `errorExplanation`/`errorDistractors` are model-invented but only ever
- * reach this shape after passing `reconcileFindError`'s validation below,
- * which uses REAL math evaluation (exerciseValidator.ts's mathjs-based
- * expressionsEqual), not just a text-similarity heuristic.
+ * concept, ALWAYS multiple choice. Structured by construction, not
+ * free-text: the model never authors `wrongStep` or the correct diagnosis
+ * directly (an earlier free-text version let the model swap which of the
+ * MC options was actually correct, since nothing tied the diagnosis text to
+ * the real term that changed). Instead:
+ *   - `wrongStep` is DERIVED here (reconcileFindError) by substituting
+ *     `correctTerm` → `wrongTerm` inside `correctForm` — a mechanical
+ *     string operation, not model prose.
+ *   - `errorExplanation` (the correct MC option) is TEMPLATED from
+ *     `correctTerm`/`wrongTerm`/`errorReason` — it can only ever name the
+ *     term that actually changed, by construction.
+ * `errorDistractors` (2 honest-but-wrong diagnoses of OTHER terms) still
+ * come from the model, same option-building convention as every other MC
+ * slide (shuffleWithLetterAnswer in assemble.ts).
  */
 export interface FindErrorResult {
   conceptId: string;
   expression: string;
+  /** The correct, unsimplified step — a genuine intermediate resolution of `expression`. */
+  correctForm: string;
+  /** `correctForm` with `correctTerm` swapped for `wrongTerm` — mechanically derived, never model-authored. */
   wrongStep: string;
+  correctTerm: string;
+  wrongTerm: string;
   question: string;
+  /** Templated from correctTerm/wrongTerm/errorReason — see FindErrorResult's own comment. */
   errorExplanation: string;
   errorDistractors: string[];
-  correctStep: string;
 }
 
 /** Raw per-item shape returned by the model, before validation. Exported for testability only. */
@@ -57,68 +66,60 @@ export interface RawFindErrorItem {
   conceptId: string;
   matched: boolean;
   expression: string;
-  wrongStep: string;
-  errorExplanation: string;
+  correctForm: string;
+  correctTerm: string;
+  wrongTerm: string;
+  /** Short reason phrase — always present in the schema (strict mode requires it), empty string when there's nothing to add beyond the term swap itself. */
+  errorReason: string;
   errorDistractors: string[];
-  correctStep: string;
 }
 
 const SYSTEM_PROMPT = `Eres un diseñador de ejercicios "encuentra el error" para estudiantes chilenos de enseñanza media.
 Para cada concepto de tipo PROCEDIMIENTO que se te entregue, buscá entre los ejercicios YA RESUELTOS del material
 el que mejor corresponda a ese concepto. Si encontrás uno que calza, generá el ejercicio siguiendo este orden
-EXACTO — el diagnóstico manda, el paso mal se DERIVA de él (nunca al revés, o el diagnóstico y el paso mal
-terminan sueltos entre sí y el diagnóstico describe un error que en realidad no está):
+EXACTO. El backend construye el paso mal y el diagnóstico correcto a partir de lo que entregues acá — vos NUNCA
+escribís el paso mal ni el texto de la opción correcta directamente, solo los ingredientes:
 
-1. Elegí UN error específico y localizable, tomado de un error común real (no distribuir a todos los
-   términos, error de signo al abrir paréntesis, combinar términos no semejantes, no aplicar el
-   exponente a todo el factor, orden de operaciones equivocado — ej. sumar antes de multiplicar —,
-   aritmética mal en un producto/suma).
+1. Tomá la operación del material (expression, copiada literal — nunca la recalculés ni la cambies).
 
-2. Escribí "errorExplanation" describiendo SOLO ese error: nombrá exactamente el término u operación
-   que queda mal, y NADA MÁS. Prohibido mencionar o atribuir un error a un término que en realidad
-   quedó correcto. Máximo 15 palabras.
+2. Escribí "correctForm": la forma CORRECTA de resolver expression, con TODOS los términos bien, en
+   texto plano sintaxis mathjs (usa * y ^). Debe ser matemáticamente igual a expression — es un paso
+   correcto de resolverla, no la respuesta final simplificada.
+     Ej. para expression="(x+6)(x+4)-x^2": correctForm = "x^2 + 6*x + 4*x + 24 - x^2"
 
-3. Derivá "wrongStep" aplicando SOLO ese error a la solución correcta: cambiá EXACTAMENTE UN término;
-   todos los demás términos quedan CORRECTOS, tal como están en la solución. El paso mal debe ser
-   LIMPIO y NATURAL — lo que un estudiante REALMENTE escribiría al cometer ese error, no un artefacto
-   raro (ej. para (x+6)(x+4), "olvidó multiplicar 4 por x" se ve como "x² + 6x + 4 + 24" — el término
-   4x quedó como 4 —, NO como "x² + 6 + 4x + 24", un 6 suelto que nadie escribe).
+3. Elegí UN término de correctForm que un estudiante escribiría mal por un error común real (no
+   distribuir a todos los términos, error de signo al abrir paréntesis, combinar términos no
+   semejantes, no aplicar el exponente a todo el factor, orden de operaciones equivocado — ej. sumar
+   antes de multiplicar —, aritmética mal en un producto/suma), y dá:
+   - "correctTerm": ese término tal como aparece literal en correctForm (ej. "4*x"). DEBE ser una
+     transcripción EXACTA de una porción de correctForm — el backend lo busca ahí como substring.
+   - "wrongTerm": cómo queda ese término al cometer el error (ej. "4"). Matemáticamente DISTINTO de
+     correctTerm.
+   - "errorReason": frase corta del porqué, máximo 10 palabras (ej. "olvidó multiplicar por x"), o
+     string vacío si el nombre de los campos ya es autoexplicativo.
 
-4. AUTOCHEQUEO antes de devolver: comparé wrongStep con la solución correcta término por término.
-   - Debe diferir en EXACTAMENTE UN término, y ese término debe ser el que describe errorExplanation.
-   - Si difiere en más de un término, o si el término que menciona errorExplanation en realidad quedó
-     correcto en wrongStep, corregí uno de los dos hasta que coincidan, o si no podés, marcá
-     "matched": false. Nunca entregues un diagnóstico que describa un error que no está en el paso.
+4. "errorDistractors": exactamente 2 diagnósticos INCORRECTOS pero que sean errores PLAUSIBLES DE ESTE
+   MISMO ejercicio, sobre OTROS términos u operaciones — NUNCA otra explicación del mismo correctTerm,
+   y NUNCA errores de otro tema ni categorías genéricas que no apliquen a este ejercicio.
+     ✓ Para (x+6)(x+4), si el error elegido fue en el término 4x: "Sumó 6+4 en vez de multiplicar los
+       términos cruzados", "Multiplicó mal 6·4".
+     ✗ Para el mismo caso: otra frase que describa el mismo término 4x con otras palabras — sería una
+       segunda "correcta" encubierta. ✗ "No aplicar el exponente a todo el factor" — no hay exponente
+       sobre un factor acá, es de otro tema.
+   Los 2 distractores deben ser DISTINTOS entre sí.
 
 PROHIBIDO:
-  - Usar "orden de los términos" / "términos mal ubicados" / "reordenó los términos" como error o
-    como diagnóstico: reordenar una suma NO es un error (a + b = b + a). Distinto de "orden de
-    operaciones equivocado" (sumar antes de multiplicar), que sí es un error real y sigue permitido.
-  - Sobre-describir: si solo cambió el término x·4, el diagnóstico habla SOLO de x·4, nunca del 6x
-    que quedó bien.
-    ✓ BUENO (paso mal "x² + 6x + 4 + 24 − x²"): errorExplanation = "Calculó x·4 como 4; olvidó
-      multiplicar ese término por x. Debía ser 4x." (habla solo del término que cambió).
-    ✗ MALO (sobre-describe): "No multiplicó 6 por x, sumó 4 en vez de 4x" — el 6x está correcto en
-      el paso, no corresponde mencionarlo.
-    ✗ MALO (orden): "Términos independiente y lineal mal ubicados" — el orden no es un error.
+  - Usar "orden de los términos" / "términos mal ubicados" / "reordenó los términos" como error, ni
+    como correctTerm/wrongTerm ni como errorDistractor: reordenar una suma NO es un error
+    (a + b = b + a). Distinto de "orden de operaciones equivocado" (sumar antes de multiplicar), que
+    sí es un error real y sigue permitido.
+  - Elegir un correctTerm que en realidad ya está bien en cualquier resolución razonable — tiene que
+    ser un término donde el error que describís en errorReason realmente aplica.
 
-"errorDistractors" — exactamente 2 diagnósticos INCORRECTOS pero que sean errores PLAUSIBLES DE ESTE
-MISMO ejercicio: otras maneras en que alguien podría equivocarse resolviendo ESTA operación. NUNCA
-errores de otro tema ni categorías genéricas que no apliquen a este ejercicio, y nunca "orden de los
-términos" (mismo motivo de arriba).
-  ✓ Para (x+6)(x+4): "Sumó 6+4 en vez de multiplicar los términos cruzados", "Olvidó el producto
-    4·x", "Multiplicó mal 6·4".
-  ✗ Para (x+6)(x+4): "No aplicar el exponente a todo el factor" o "Error de signo al eliminar
-    paréntesis" — no hay exponente sobre un factor ni signos que eliminar aquí; son de otro tema.
-Los 2 distractores deben ser DISTINTOS entre sí y del diagnóstico correcto, y solo el correcto debe
-describir realmente el error de wrongStep.
-
-Copiá "expression" (el planteo) y "correctStep" (la respuesta correcta) LITERALES del ejercicio
-resuelto — nunca los recalculés ni los cambies.
-Si NINGÚN ejercicio resuelto corresponde de forma razonable a un concepto, o no podés construir un
-error real/único/natural/localizable para esta operación con 2 distractores honestos DEL MISMO
-problema, marcá "matched": false y dejá los demás campos como string vacío (o array vacío para
-errorDistractors) — nunca fuerces una correspondencia que no tiene sentido.
+Si NINGÚN ejercicio resuelto corresponde de forma razonable a un concepto, o no podés construir
+correctForm/correctTerm/wrongTerm/2 distractores honestos para esta operación, marcá "matched": false
+y dejá los demás campos como string vacío (o array vacío para errorDistractors) — nunca fuerces una
+correspondencia que no tiene sentido.
 Si hay más de un concepto y suficientes ejercicios resueltos distintos, usá un ejercicio DIFERENTE para
 cada concepto en vez de repetir el mismo — evitá que dos conceptos generen el mismo "encuentra el error".
 NOTACIÓN MATEMÁTICA: escribe todo en texto plano, NUNCA en LaTeX. Prohibido usar backslash o comandos LaTeX
@@ -165,21 +166,22 @@ function buildFindErrorSchema(itemCount: number) {
         items: {
           type: 'object',
           additionalProperties: false,
-          required: ['conceptId', 'matched', 'expression', 'wrongStep', 'errorExplanation', 'errorDistractors', 'correctStep'],
+          required: ['conceptId', 'matched', 'expression', 'correctForm', 'correctTerm', 'wrongTerm', 'errorReason', 'errorDistractors'],
           properties: {
             conceptId: { type: 'string', description: 'Debe ser exactamente uno de los conceptId indicados en el prompt.' },
-            matched: { type: 'boolean', description: 'true si construiste un error real, único y localizable con 2 distractores honestos; false si no.' },
+            matched: { type: 'boolean', description: 'true si construiste correctForm/correctTerm/wrongTerm/2 distractores honestos; false si no.' },
             expression: { type: 'string', description: 'El planteo del ejercicio resuelto, copiado literal del material. String vacío si matched=false.' },
-            wrongStep: { type: 'string', description: 'Un paso/resultado con UN error real del catálogo indicado, matemáticamente distinto de correctStep. String vacío si matched=false.' },
-            errorExplanation: { type: 'string', description: 'El diagnóstico CORRECTO: por qué wrongStep es incorrecto, máximo 15 palabras. String vacío si matched=false.' },
+            correctForm: { type: 'string', description: 'La forma correcta (no simplificada) de resolver expression, con todos los términos bien, sintaxis mathjs. String vacío si matched=false.' },
+            correctTerm: { type: 'string', description: 'Un término de correctForm, transcripto EXACTO — debe aparecer literal dentro de correctForm. String vacío si matched=false.' },
+            wrongTerm: { type: 'string', description: 'Ese mismo término tal como queda al cometer el error, matemáticamente distinto de correctTerm. String vacío si matched=false.' },
+            errorReason: { type: 'string', description: 'Frase corta (máx 10 palabras) del porqué del error, o string vacío si no hace falta.' },
             errorDistractors: {
               type: 'array',
               minItems: 2,
               maxItems: 2,
               items: { type: 'string' },
-              description: '2 diagnósticos incorrectos pero plausibles (otros errores reales que NO se cometieron). Array vacío si matched=false.',
+              description: '2 diagnósticos incorrectos pero plausibles sobre OTROS términos de este mismo ejercicio. Array vacío si matched=false.',
             },
-            correctStep: { type: 'string', description: 'La respuesta correcta, copiada literal del material. String vacío si matched=false.' },
           },
         },
       },
@@ -193,92 +195,128 @@ function buildFindErrorSchema(itemCount: number) {
 }
 
 /**
- * Pure safety gate — no ground truth is handed to the model (unlike
- * procedural.ts's known-answer reconcile), so this is the only place
- * standing between a math mistake and the student being taught the WRONG
- * thing as "the error". Two independent mathjs checks, both required to
- * pass (see exerciseValidator.ts's expressionsEqual — the same real
- * evaluation engine generateExercises uses, not a second heuristic):
- *   1. wrongStep must be CONFIRMED different from correctStep — rejects the
- *      exact reported bug ("x²+6x+4x+24−x²" is the same value as "10x+24",
- *      just unsimplified — not an error at all).
- *   2. correctStep must be CONFIRMED to equal expression's own evaluated
- *      value — catches a correctStep that doesn't actually solve the
- *      stated problem.
- * Either check returning `null` (unverifiable — couldn't parse/evaluate,
- * NOT proof the math is wrong) is ALSO a reject, same as a confirmed
- * mismatch: find_error has no separate 'log-only' mode like
- * generateExercises's math validator — an item that can't be confirmed
- * correct is never shown, only silently skipped in favor of the concept's
- * default mechanic. Exported for testing without mocking the SDK.
+ * Pure safety gate. No ground truth is handed to the model — this is the
+ * only place standing between a math mistake and the student being taught
+ * the WRONG thing as "the error". Unlike the earlier free-text design,
+ * `wrongStep` and the correct MC option are never trusted as model prose:
+ *
+ *   1. `correctTerm` must appear literally inside `correctForm` (a plain
+ *      substring search) — this is what lets `wrongStep` be DERIVED by
+ *      substitution instead of authored, so it can never drift from
+ *      `errorExplanation` (the bug this whole redesign fixes: a correct
+ *      diagnosis and a wrong-but-unrelated wrongStep, or the correct/
+ *      distractor swapped).
+ *   2. `correctForm` must be CONFIRMED (via exerciseValidator.ts's
+ *      expressionsEqual — the same mathjs engine generateExercises uses,
+ *      not a second heuristic) to equal `expression`'s own value.
+ *   3. `correctTerm` must be CONFIRMED different from `wrongTerm`.
+ *   4. Coherence: `correctForm − wrongStep` must be CONFIRMED equal to
+ *      `correctTerm − wrongTerm` — since wrongStep is a literal-substring
+ *      substitution, this holds algebraically only when that substitution
+ *      touched exactly the intended term and nothing else (it fails, for
+ *      example, if `correctTerm` didn't actually occur where intended, or
+ *      collided with an unrelated substring).
+ * Any of these returning unconfirmed (`false` or, for the boolean checks,
+ * `null`/not-found) rejects the whole item — find_error has no separate
+ * 'log-only' mode like generateExercises's math validator, an item that
+ * can't be confirmed correct is never shown. Exported for testing without
+ * mocking the SDK.
  */
 export function reconcileFindError(item: RawFindErrorItem): FindErrorResult | null {
   if (!item.matched) return null;
 
   const expression = sanitizeMathText(item.expression).trim();
-  const wrongStep = sanitizeMathText(item.wrongStep).trim();
-  const correctStep = sanitizeMathText(item.correctStep).trim();
-  const errorExplanation = sanitizeMathText(item.errorExplanation).trim();
+  const correctForm = sanitizeMathText(item.correctForm).trim();
+  const correctTerm = sanitizeMathText(item.correctTerm).trim();
+  const wrongTerm = sanitizeMathText(item.wrongTerm).trim();
+  const errorReason = sanitizeMathText(item.errorReason ?? '').trim();
   const errorDistractors = (item.errorDistractors ?? [])
     .map((d) => sanitizeMathText(d).trim())
     .filter((d) => d.length > 0);
 
-  if (!expression || !wrongStep || !correctStep || !errorExplanation) return null;
+  if (!expression || !correctForm || !correctTerm || !wrongTerm) return null;
   if (errorDistractors.length < 2) return null;
 
-  // Cheap format check, before the more expensive mathjs evaluation below —
-  // the 3 alternatives (correct diagnosis + 2 distractors) must all read as
-  // distinct options, or the MC slide has a duplicate/near-duplicate
-  // alternative (either a giveaway or a broken "pick the right one"
-  // question). Not a semantic check — see normalizeForDedupe's own comment.
+  // Derive wrongStep by substitution (first occurrence only — "changed
+  // exactly one term" means one specific instance, not every textual match
+  // of the same substring).
+  const termIdx = correctForm.indexOf(correctTerm);
+  if (termIdx === -1) {
+    console.warn(`[FindError] descartado (unverifiable) — correctTerm "${correctTerm}" no aparece literal en correctForm "${correctForm}".`);
+    return null;
+  }
+  const wrongStep = correctForm.slice(0, termIdx) + wrongTerm + correctForm.slice(termIdx + correctTerm.length);
+
+  const errorExplanation = `El término ${correctTerm} quedó como ${wrongTerm}${errorReason ? ` — ${errorReason}` : ''}.`;
+
+  // Cheap format checks, before the more expensive mathjs evaluation below.
   const alternatives = [errorExplanation, ...errorDistractors.slice(0, 2)];
   const distinctCount = new Set(alternatives.map(normalizeForDedupe)).size;
   if (distinctCount < alternatives.length) {
     console.warn(`[FindError] descartado (formato) — errorExplanation/errorDistractors tienen duplicados o casi-duplicados: ${JSON.stringify(alternatives)}`);
     return null;
   }
-
-  // "Orden de los términos" is not a real error (commutativity) — reject if
-  // it slipped past the prompt's explicit prohibition. Logged with its own
-  // reason so this is distinguishable from a math-invalid/unverifiable
-  // discard.
-  if (alternatives.some((a) => ORDER_ERROR_RE.test(a))) {
+  if ([errorReason, ...errorDistractors].some((a) => ORDER_ERROR_RE.test(a))) {
     console.warn(`[FindError] descartado (reason=orden-invalido) — un diagnóstico menciona reordenar/mal ubicar términos, que no es un error real: ${JSON.stringify(alternatives)}`);
+    return null;
+  }
+  // A distractor mentioning correctTerm would be a second (encubierta)
+  // description of the SAME term the correct option already covers — best
+  // effort literal check, not semantic (same discipline as the checks above).
+  if (errorDistractors.slice(0, 2).some((d) => d.includes(correctTerm))) {
+    console.warn(`[FindError] descartado (formato) — un distractor menciona correctTerm "${correctTerm}", sería una segunda "correcta" encubierta.`);
     return null;
   }
 
   const exprMathjs = toMathjsSyntax(expression);
+  const formMathjs = toMathjsSyntax(correctForm);
   const wrongMathjs = toMathjsSyntax(wrongStep);
-  const correctMathjs = toMathjsSyntax(correctStep);
+  const correctTermMathjs = toMathjsSyntax(correctTerm);
+  const wrongTermMathjs = toMathjsSyntax(wrongTerm);
 
-  const wrongVsCorrect = expressionsEqual(wrongMathjs, correctMathjs, {});
-  if (wrongVsCorrect === true) {
-    console.warn(`[FindError] descartado (invalid) — wrongStep es matemáticamente igual a correctStep, no hay error real. wrongStep="${wrongStep}" correctStep="${correctStep}"`);
+  const formVsExpr = expressionsEqual(formMathjs, exprMathjs, {});
+  if (formVsExpr === false) {
+    console.warn(`[FindError] descartado (invalid) — correctForm no resuelve expression. expression="${expression}" correctForm="${correctForm}"`);
     return null;
   }
-  if (wrongVsCorrect === null) {
-    console.warn(`[FindError] descartado (unverifiable) — no se pudo comparar wrongStep vs correctStep. wrongStep="${wrongStep}" correctStep="${correctStep}"`);
+  if (formVsExpr === null) {
+    console.warn(`[FindError] descartado (unverifiable) — no se pudo comparar correctForm vs expression. expression="${expression}" correctForm="${correctForm}"`);
     return null;
   }
 
-  const exprVsCorrect = expressionsEqual(exprMathjs, correctMathjs, {});
-  if (exprVsCorrect === false) {
-    console.warn(`[FindError] descartado (invalid) — correctStep no resuelve expression. expression="${expression}" correctStep="${correctStep}"`);
+  const termsDiffer = expressionsEqual(correctTermMathjs, wrongTermMathjs, {});
+  if (termsDiffer === true) {
+    console.warn(`[FindError] descartado (invalid) — correctTerm y wrongTerm son matemáticamente iguales, no hay error real. correctTerm="${correctTerm}" wrongTerm="${wrongTerm}"`);
     return null;
   }
-  if (exprVsCorrect === null) {
-    console.warn(`[FindError] descartado (unverifiable) — no se pudo comparar expression vs correctStep. expression="${expression}" correctStep="${correctStep}"`);
+  if (termsDiffer === null) {
+    console.warn(`[FindError] descartado (unverifiable) — no se pudo comparar correctTerm vs wrongTerm. correctTerm="${correctTerm}" wrongTerm="${wrongTerm}"`);
+    return null;
+  }
+
+  // Coherence — the check that makes the correct/distractor-swap bug
+  // structurally impossible: confirms the ONLY value-level difference
+  // between correctForm and the derived wrongStep is exactly this term swap.
+  const coherent = expressionsEqual(`(${formMathjs}) - (${wrongMathjs})`, `(${correctTermMathjs}) - (${wrongTermMathjs})`, {});
+  if (coherent === false) {
+    console.warn(`[FindError] descartado (invalid) — la sustitución no es coherente: correctForm-wrongStep no coincide con correctTerm-wrongTerm. correctForm="${correctForm}" wrongStep="${wrongStep}" correctTerm="${correctTerm}" wrongTerm="${wrongTerm}"`);
+    return null;
+  }
+  if (coherent === null) {
+    console.warn(`[FindError] descartado (unverifiable) — no se pudo verificar la coherencia de la sustitución. correctForm="${correctForm}" wrongStep="${wrongStep}"`);
     return null;
   }
 
   return {
     conceptId: item.conceptId,
     expression,
+    correctForm,
     wrongStep,
+    correctTerm,
+    wrongTerm,
     question: FIND_ERROR_QUESTION,
     errorExplanation,
     errorDistractors: errorDistractors.slice(0, 2),
-    correctStep,
   };
 }
 

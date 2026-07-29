@@ -1007,7 +1007,11 @@ export function buildSummarySlides(
         question: findError.question,
         expression: findError.expression,
         wrongStep: findError.wrongStep,
-        correctStep: findError.correctStep,
+        // correctForm (the correct, unsimplified step) fills the slide's
+        // existing correctStep field — same field, sourced differently now
+        // (mechanically derived/validated, see findError.ts's own comment).
+        correctStep: findError.correctForm,
+        correctTerm: findError.correctTerm,
         options,
         correctAnswer,
       };

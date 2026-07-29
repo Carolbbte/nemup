@@ -5,12 +5,13 @@
  * OpenAI SDK — only the deterministic logic that decides whether a
  * model-invented "error" is safe to teach is exercised here.
  *
- * reconcileFindError now uses REAL math evaluation (exerciseValidator.ts's
- * expressionsEqual) instead of procedural.ts's text-similarity resultsMatch
- * — the star test below ("(x+6)(x+4)-x²" → "x²+6x+4x+24-x²") is the exact
- * production bug this upgrade fixes: the old resultsMatch-based guard could
- * NOT catch that wrongStep, since it's a different STRING but the same
- * VALUE as correctStep (just unsimplified).
+ * Structured redesign: the model no longer authors wrongStep or the correct
+ * diagnosis text directly. It gives correctForm/correctTerm/wrongTerm, and
+ * the backend DERIVES wrongStep (substitution) and TEMPLATES the correct MC
+ * option — this is what makes the exact production bug (correct diagnosis
+ * and wrongStep drifting apart, or the correct option and a distractor
+ * swapped) structurally impossible rather than merely discouraged by a
+ * prompt instruction.
  */
 
 import { describe, it, expect } from 'vitest';
@@ -20,25 +21,33 @@ const rawItem = (overrides: Partial<RawFindErrorItem> = {}): RawFindErrorItem =>
   conceptId: 'c1',
   matched: true,
   expression: '4x + 3y − 2x + 5y',
-  wrongStep: '6x + 8y',
-  errorExplanation: 'Sumó los coeficientes de x en vez de restarlos.',
+  correctForm: '4x + 3y − 2x + 5y',
+  correctTerm: '4x',
+  wrongTerm: '6x',
+  errorReason: 'sumó mal los coeficientes de x',
   errorDistractors: ['Restó los coeficientes de y en vez de sumarlos.', 'Mezcló los términos en x e y.'],
-  correctStep: '2x + 8y',
   ...overrides,
 });
 
 describe('reconcileFindError (pure safety gate)', () => {
-  it('accepts a well-formed item where wrongStep is genuinely wrong and correctStep genuinely solves expression', () => {
+  it('derives wrongStep by substitution and templates errorExplanation from correctTerm/wrongTerm/errorReason', () => {
     const result = reconcileFindError(rawItem());
     expect(result).toEqual({
       conceptId: 'c1',
       expression: '4x + 3y − 2x + 5y',
-      wrongStep: '6x + 8y',
+      correctForm: '4x + 3y − 2x + 5y',
+      wrongStep: '6x + 3y − 2x + 5y',
+      correctTerm: '4x',
+      wrongTerm: '6x',
       question: '¿Cuál es el error?',
-      errorExplanation: 'Sumó los coeficientes de x en vez de restarlos.',
+      errorExplanation: 'El término 4x quedó como 6x — sumó mal los coeficientes de x.',
       errorDistractors: ['Restó los coeficientes de y en vez de sumarlos.', 'Mezcló los términos en x e y.'],
-      correctStep: '2x + 8y',
     });
+  });
+
+  it('omits the trailing " — reason" clause when errorReason is empty', () => {
+    const result = reconcileFindError(rawItem({ errorReason: '' }));
+    expect(result?.errorExplanation).toBe('El término 4x quedó como 6x.');
   });
 
   it('returns null when matched is false, regardless of the other fields', () => {
@@ -47,93 +56,109 @@ describe('reconcileFindError (pure safety gate)', () => {
 
   it('returns null when any required field is empty or whitespace-only', () => {
     expect(reconcileFindError(rawItem({ expression: '' }))).toBeNull();
-    expect(reconcileFindError(rawItem({ wrongStep: '   ' }))).toBeNull();
-    expect(reconcileFindError(rawItem({ errorExplanation: '  ' }))).toBeNull();
-    expect(reconcileFindError(rawItem({ correctStep: '' }))).toBeNull();
+    expect(reconcileFindError(rawItem({ correctForm: '   ' }))).toBeNull();
+    expect(reconcileFindError(rawItem({ correctTerm: '' }))).toBeNull();
+    expect(reconcileFindError(rawItem({ wrongTerm: '  ' }))).toBeNull();
   });
 
   it('returns null when fewer than 2 honest errorDistractors survive sanitization', () => {
     expect(reconcileFindError(rawItem({ errorDistractors: [] }))).toBeNull();
     expect(reconcileFindError(rawItem({ errorDistractors: ['solo uno'] }))).toBeNull();
-    expect(reconcileFindError(rawItem({ errorDistractors: ['uno', '   '] }))).toBeNull(); // one is blank after trim
   });
 
-  // Star test — the exact production bug this mathjs-based guard exists to
-  // catch: wrongStep is a DIFFERENT STRING but the SAME VALUE as
-  // correctStep (just not simplified) — not an error at all.
-  it('rejects the exact reported bug: wrongStep is the unsimplified but mathematically identical form of correctStep', () => {
+  // The star check — correctTerm must be a literal substring of correctForm,
+  // since wrongStep is derived by substitution, not authored.
+  it('returns null when correctTerm does not appear literally in correctForm', () => {
     const result = reconcileFindError(rawItem({
-      expression: '(x+6)(x+4)-x²',
-      wrongStep: 'x²+6x+4x+24-x²',
-      correctStep: '10x+24',
+      correctForm: '4x + 3y − 2x + 5y',
+      correctTerm: '7x', // never appears in correctForm
     }));
     expect(result).toBeNull();
   });
 
-  it('rejects when wrongStep is only a reordering of correctStep\'s terms (still the same value)', () => {
-    expect(reconcileFindError(rawItem({ wrongStep: '8y + 2x', correctStep: '2x + 8y' }))).toBeNull();
-  });
-
-  it('accepts a genuinely different wrongStep for the star test\'s expression, with the real correctStep', () => {
+  // Real production bug this redesign fixes: (x+6)(x+4)-x² with the
+  // x·4 → 4 mistake. Verifies the exact derivation and template.
+  it('handles the real reported case: (x+6)(x+4)-x² with the x·4 → 4 mistake', () => {
     const result = reconcileFindError(rawItem({
-      expression: '(x+6)(x+4)-x²',
-      wrongStep: '10x+28', // plausible off-by-constant mistake, genuinely different from 10x+24
-      correctStep: '10x+24',
+      expression: '(x+6)(x+4)-x^2',
+      correctForm: 'x^2 + 6x + 4x + 24 - x^2',
+      correctTerm: '4x',
+      wrongTerm: '4',
+      errorReason: 'olvidó multiplicar por x',
     }));
-    expect(result).not.toBeNull();
+    expect(result?.wrongStep).toBe('x^2 + 6x + 4 + 24 - x^2');
+    expect(result?.errorExplanation).toBe('El término 4x quedó como 4 — olvidó multiplicar por x.');
   });
 
-  it('rejects when correctStep does NOT actually solve expression (second guard)', () => {
+  it('rejects when correctForm does not actually resolve expression', () => {
     const result = reconcileFindError(rawItem({
       expression: '(x+6)(x+4)',
-      wrongStep: '10x+24', // wrong on purpose but different from the (wrong) correctStep below
-      correctStep: '11x+24', // does not equal (x+6)(x+4) = x^2+10x+24 for all x
+      correctForm: 'x^2 + 11x + 24', // wrong — should be 10x, not 11x
+      correctTerm: '11x',
+      wrongTerm: '10x',
     }));
     expect(result).toBeNull();
   });
 
-  // Lightweight format check (not semantic — see normalizeForDedupe's own
-  // comment): the correct diagnosis and its 2 distractors must all read as
-  // distinct alternatives.
-  it('rejects when a distractor is a literal duplicate of errorExplanation', () => {
+  it('rejects when correctTerm and wrongTerm are mathematically the same value', () => {
     const result = reconcileFindError(rawItem({
-      errorExplanation: 'Sumó los coeficientes de x en vez de restarlos.',
-      errorDistractors: ['Sumó los coeficientes de x en vez de restarlos.', 'Mezcló los términos en x e y.'],
+      correctForm: '4x + 3y − 2x + 5y',
+      correctTerm: '4x',
+      wrongTerm: '2x + 2x', // same value as 4x, not a real error
     }));
     expect(result).toBeNull();
   });
 
-  it('rejects when the two distractors are near-duplicates of each other (case/whitespace only)', () => {
+  // Coherence check: correctTerm "4x" is ALSO a substring of "24x" earlier
+  // in correctForm — indexOf finds that unintended FIRST occurrence (inside
+  // "24x", corrupting it into "24" + " + 4x") instead of the intended
+  // standalone "4x" term. The resulting substitution is real but NOT
+  // coherent: correctForm-wrongStep reduces to "24x-24", which does not
+  // equal correctTerm-wrongTerm ("4x-4") for all x — the coherence check
+  // catches this collision even though the naive substring search didn't.
+  it('rejects when correctTerm collides with an unintended substring earlier in correctForm', () => {
     const result = reconcileFindError(rawItem({
-      errorDistractors: ['Restó los coeficientes de y en vez de sumarlos.', '  restó   los coeficientes de y en vez de sumarlos.  '],
+      expression: '24x + 4x',
+      correctForm: '24x + 4x',
+      correctTerm: '4x',
+      wrongTerm: '4',
     }));
     expect(result).toBeNull();
   });
 
-  it('accepts when all 3 alternatives are genuinely distinct text', () => {
-    const result = reconcileFindError(rawItem());
-    expect(result).not.toBeNull();
-  });
-
-  // "Orden de los términos" is not a real error (commutativity) — the
-  // prompt forbids it, this is the code backstop.
-  it('rejects when errorExplanation describes "reordering terms" as the error', () => {
+  // Lightweight format checks.
+  it('rejects when a distractor is a literal duplicate of the templated correct option', () => {
     const result = reconcileFindError(rawItem({
-      errorExplanation: 'Términos independiente y lineal mal ubicados.',
+      errorDistractors: ['El término 4x quedó como 6x — sumó mal los coeficientes de x.', 'Mezcló los términos en x e y.'],
     }));
     expect(result).toBeNull();
   });
 
-  it('rejects when a distractor describes "reordering terms" as an error', () => {
+  it('rejects when a distractor mentions correctTerm (a second, encubierta description of the same term)', () => {
     const result = reconcileFindError(rawItem({
-      errorDistractors: ['Reordenó los términos de la expresión.', 'Mezcló los términos en x e y.'],
+      correctTerm: '4x',
+      errorDistractors: ['Olvidó multiplicar 4x por otro factor.', 'Mezcló los términos en x e y.'],
     }));
     expect(result).toBeNull();
   });
 
-  it('does NOT reject a legitimate "orden de operaciones" (order of operations) error, only "orden de los términos"', () => {
+  it('rejects when errorReason mentions "orden de los términos" (not a real error)', () => {
     const result = reconcileFindError(rawItem({
-      errorExplanation: 'Sumó antes de multiplicar — orden de operaciones equivocado.',
+      errorReason: 'reordenó los términos de la expresión',
+    }));
+    expect(result).toBeNull();
+  });
+
+  it('rejects when a distractor mentions "términos mal ubicados"', () => {
+    const result = reconcileFindError(rawItem({
+      errorDistractors: ['Términos independiente y lineal mal ubicados.', 'Mezcló los términos en x e y.'],
+    }));
+    expect(result).toBeNull();
+  });
+
+  it('does NOT reject a legitimate "orden de operaciones" (order of operations) error', () => {
+    const result = reconcileFindError(rawItem({
+      errorReason: 'sumó antes de multiplicar, orden de operaciones equivocado',
     }));
     expect(result).not.toBeNull();
   });
@@ -141,10 +166,10 @@ describe('reconcileFindError (pure safety gate)', () => {
   it('sanitizes LaTeX-ish leftovers and trims whitespace on every field', () => {
     const result = reconcileFindError(rawItem({
       expression: '  4x + 3y − 2x + 5y  ',
-      correctStep: '  2x + 8y  ',
+      correctForm: '  4x + 3y − 2x + 5y  ',
     }));
     expect(result?.expression).toBe('4x + 3y − 2x + 5y');
-    expect(result?.correctStep).toBe('2x + 8y');
+    expect(result?.correctForm).toBe('4x + 3y − 2x + 5y');
   });
 });
 

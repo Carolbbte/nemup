@@ -181,7 +181,7 @@ type IllustrationType = 'educational' | 'diagram' | 'concept' | 'timeline' | 'ma
 // `classifyPrompt`/`classifyCategories`/`classifyItems` — classify only,
 // same shape Desafío's DesafioSlide already uses. The answer is an object
 // mapping each item's id to the assigned category.
-type BackendSlide = { type: SummarySlideType; emoji: string; title: string; definition: string; example: string; visualHint?: string; illustrationType?: IllustrationType; connector?: string | null; question?: string | null; options?: string[] | null; correctAnswer?: string | null; wrongAnswerHints?: Record<string, string> | null; hint?: string; hook?: string | null; teacherExplanation?: string | null; keyPhrase?: string | null; formalDefinition?: string; tip?: string; blankSentence?: string; blankChoices?: { letter: string; text: string }[]; blankAnswer?: string; blankExplanation?: string; pairs?: { id: string; left: string; right: string; leftIcon?: string; rightIcon?: string }[]; pairsPrompt?: string; classifyPrompt?: string; classifyCategories?: string[]; classifyItems?: { id: string; text: string; category: string }[]; requeued?: boolean; requeuedFrom?: string | null; statement?: string; answer?: string; steps?: string[]; message?: string; sub?: string; expression?: string; wrongStep?: string; correctStep?: string };
+type BackendSlide = { type: SummarySlideType; emoji: string; title: string; definition: string; example: string; visualHint?: string; illustrationType?: IllustrationType; connector?: string | null; question?: string | null; options?: string[] | null; correctAnswer?: string | null; wrongAnswerHints?: Record<string, string> | null; hint?: string; hook?: string | null; teacherExplanation?: string | null; keyPhrase?: string | null; formalDefinition?: string; tip?: string; blankSentence?: string; blankChoices?: { letter: string; text: string }[]; blankAnswer?: string; blankExplanation?: string; pairs?: { id: string; left: string; right: string; leftIcon?: string; rightIcon?: string }[]; pairsPrompt?: string; classifyPrompt?: string; classifyCategories?: string[]; classifyItems?: { id: string; text: string; category: string }[]; requeued?: boolean; requeuedFrom?: string | null; statement?: string; answer?: string; steps?: string[]; message?: string; sub?: string; expression?: string; wrongStep?: string; correctStep?: string; correctTerm?: string };
 type LegacySection = { heading: string; content: string; keyPoints: string[] };
 type Session = {
   id?: string; userId?: string;
@@ -3213,6 +3213,9 @@ export default function SessionPlayerScreen() {
                         <View style={{ flex: 1 }}>
                           <Text style={sum.weResultLabel}>LO CORRECTO ES</Text>
                           <MathText style={sum.weResultText}>{(slide.correctStep)}</MathText>
+                          {!!slide.correctTerm && (
+                            <MathText style={sum.findErrorCorrectTermText}>{`Debía ser: ${slide.correctTerm}`}</MathText>
+                          )}
                         </View>
                       </View>
                     )}
@@ -6116,6 +6119,10 @@ const sum = StyleSheet.create(withMisionFont({
   findErrorAttemptBox:  { backgroundColor: paletteExtras.grisFondoDone, borderRadius: 16, borderWidth: 1, borderColor: palette.bordeClaro, paddingVertical: SM ? 10 : 12, paddingHorizontal: SM ? 12 : 14, marginBottom: 16 },
   findErrorAttemptLabel:{ fontSize: 12, fontWeight: '700', color: semantic.textSecondary, marginBottom: 4 },
   findErrorAttemptText: { fontSize: SM ? 16 : 18, fontWeight: '700', color: semantic.textPrimary },
+  // Structured find_error redesign — correctTerm is now guaranteed (by the
+  // backend's coherence check) to be the exact term that changed, so it's
+  // safe to call out on its own line under the full correct form above.
+  findErrorCorrectTermText: { fontSize: 13, color: paletteExtras.verdeTextoOscuro, marginTop: 4, fontWeight: '600' },
 
   // Cheer bar — fixed/generic, last element before the (separate, fixed)
   // bottom CTA bar.

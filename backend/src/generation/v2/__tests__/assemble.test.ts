@@ -797,11 +797,13 @@ describe('buildSummarySlides — rol por concepto (FEATURE_CONTENT_TYPE_V2, Paso
     const findErrorResult = {
       conceptId: 'proc',
       expression: '2m + 3m',
-      wrongStep: '6m',
+      correctForm: '2m + 3m',
+      wrongStep: '2m + 5m',
+      correctTerm: '3m',
+      wrongTerm: '5m',
       question: '¿Cuál es el error?',
       errorExplanation: 'Sumó mal los coeficientes.',
       errorDistractors: ['Restó en vez de sumar.', 'Multiplicó los coeficientes.'],
-      correctStep: '5m',
     };
 
     it('replaces the "procedure" concept\'s micro_challenge with a multiple-choice find_error when capabilities.findError is on and a result exists for it', () => {
@@ -814,7 +816,9 @@ describe('buildSummarySlides — rol por concepto (FEATURE_CONTENT_TYPE_V2, Paso
       const slide = slides.find((s) => s.type === 'find_error');
       expect(slide).toBeDefined();
       expect(slide?.expression).toBe('2m + 3m');
-      expect(slide?.correctStep).toBe('5m');
+      // correctForm fills the slide's correctStep field (see assemble.ts's own comment).
+      expect(slide?.correctStep).toBe('2m + 3m');
+      expect(slide?.correctTerm).toBe('3m');
       // No "Encuentra el error:" prefix — the title is just the concept name.
       expect(slide?.title).toBe('Reducción de términos semejantes');
       // Always multiple choice: 3 options (1 correct + 2 distractors), the

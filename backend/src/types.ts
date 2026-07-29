@@ -150,18 +150,20 @@ export interface SummarySlide {
   // find_error only — ALWAYS multiple choice (see assemble.ts): `options`/
   // `correctAnswer` (already declared above) carry the diagnosis
   // alternatives, built the exact same way as every other MC slide via
-  // shuffleWithLetterAnswer, from findError.ts's `errorExplanation` (correct
-  // diagnosis) + `errorDistractors` (2 honest wrong ones) — no bespoke
-  // answer shape. `expression`/`correctStep` are copied verbatim from the
-  // material's own workedExample (findError.ts never recalculates them);
-  // `wrongStep` is model-invented but validated with real math evaluation
-  // against both `correctStep` and `expression` (findError.ts's
-  // reconcileFindError, using exerciseValidator.ts's expressionsEqual)
-  // before ever reaching this slide. `question` (already declared) is the
-  // fixed prompt "¿Cuál es el error?".
+  // shuffleWithLetterAnswer, from findError.ts's `errorExplanation` (now a
+  // TEMPLATED string, not model prose — see findError.ts's own comment) +
+  // `errorDistractors` (2 honest wrong ones). `wrongStep` is no longer
+  // model-authored either — it's DERIVED by substituting `correctTerm` →
+  // `wrongTerm` inside the correct step (`correctStep`, sourced from
+  // findError.ts's `correctForm`), then confirmed with real math evaluation
+  // (findError.ts's reconcileFindError, using exerciseValidator.ts's
+  // expressionsEqual) before ever reaching this slide. `correctTerm` is
+  // shown on reveal ("Debía ser: ..."). `question` (already declared) is
+  // the fixed prompt "¿Cuál es el error?".
   expression?: string;
   wrongStep?: string;
   correctStep?: string;
+  correctTerm?: string;
   // motivation only — the frontend's render for this type reads message/sub
   // instead of definition/example (see session.tsx's motivCard). title/
   // definition/example are still filled with equivalent copy so this slide
