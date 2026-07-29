@@ -13,6 +13,14 @@ const openai = new OpenAI({ apiKey: config.openai_api_key });
  * call can get wrong or phrase inconsistently across concepts). */
 const FIND_ERROR_QUESTION = '¿Cuál es el error?';
 
+/** Cheap trim+lowercase+collapsed-whitespace normalization for the
+ * duplicate-alternative check below — never a semantic comparison (that's
+ * the prompt's job), just enough to catch a literal or near-literal repeat
+ * across errorExplanation/errorDistractors. */
+function normalizeForDedupe(s: string): string {
+  return s.trim().toLowerCase().replace(/\s+/g, ' ');
+}
+
 /**
  * A validated "find the error" exercise for one `role === 'procedure'`
  * concept, ALWAYS multiple choice: `errorExplanation` (the correct
@@ -49,29 +57,40 @@ export interface RawFindErrorItem {
 
 const SYSTEM_PROMPT = `Eres un diseñador de ejercicios "encuentra el error" para estudiantes chilenos de enseñanza media.
 Para cada concepto de tipo PROCEDIMIENTO que se te entregue, buscá entre los ejercicios YA RESUELTOS del material
-el que mejor corresponda a ese concepto. Si encontrás uno que calza, construí una resolución con UN error
-DELIBERADO, tomado de esta lista de errores comunes REALES (elegí el que aplique al ejercicio):
-  - No distribuir a todos los términos, ej. 2(x+3) → 2x+3 (olvidó el 3).
-  - Error de signo al eliminar paréntesis, ej. −(a−b) → −a−b.
-  - Combinar términos NO semejantes, ej. 3x + 2y → 5xy.
-  - No aplicar el exponente a todo el factor, ej. (2x)² → 2x².
-  - Orden de operaciones equivocado.
-Requisitos INNEGOCIABLES:
-  - Copiá "expression" (el planteo) y "correctStep" (la respuesta correcta) LITERALES del ejercicio
-    resuelto — nunca los recalculés ni los cambies.
-  - El error debe ser ÚNICO (uno solo), REAL (el paso queda genuinamente mal) y LOCALIZABLE (se puede
-    señalar el término exacto donde ocurre). "wrongStep" debe ser matemáticamente DISTINTO de
-    "correctStep" — si tu paso mal da el mismo resultado que el correcto (aunque esté sin simplificar
-    o expresado distinto), NO es un error de verdad: descartá ese ítem (matched: false).
-  - "errorExplanation": una frase corta y amable que nombra el error específico que aplicaste (el
-    diagnóstico CORRECTO), máximo 15 palabras.
-  - "errorDistractors": exactamente 2 diagnósticos INCORRECTOS pero plausibles — otros errores reales
-    de la lista de arriba que el estudiante NO cometió en este caso. Deben ser honestos: describir
-    errores genuinos y distintos entre sí y del correcto, nunca absurdos ni inventados sin sentido.
+el que mejor corresponda a ese concepto. Si encontrás uno que calza, genera el ejercicio siguiendo estos 3 pasos:
+
+1. "wrongStep" — una resolución con UN error deliberado, tomado de un error común real (no distribuir
+   a todos los términos, error de signo al abrir paréntesis, combinar términos no semejantes, no
+   aplicar el exponente a todo el factor, orden de operaciones, aritmética en un producto/suma).
+   El error debe ser:
+     - ÚNICO: exactamente un error, el resto del paso correcto.
+     - LIMPIO y NATURAL: el paso mal debe ser lo que un estudiante REALMENTE escribiría al cometer
+       ese error, no un artefacto raro. Ej. para (x+6)(x+4), un error de "olvidó un producto
+       cruzado" se ve como "x² + 4x + 24" (falta el 6x entero), NO como "x² + 6 + 4x + 24" (un 6
+       suelto que nadie escribe).
+     - VERIFICABLE distinto del correcto (wrongStep ≠ correctStep).
+
+2. "errorExplanation" — describe con PRECISIÓN el error que efectivamente está en wrongStep: nombrá el
+   término o paso exacto que quedó mal y por qué. Debe corresponder término a término con la
+   diferencia real entre wrongStep y correctStep. No una descripción vaga ni de un error distinto al
+   que aplicaste. Máximo 15 palabras.
+
+3. "errorDistractors" — exactamente 2 diagnósticos INCORRECTOS pero que sean errores PLAUSIBLES DE ESTE
+   MISMO ejercicio: otras maneras en que alguien podría equivocarse resolviendo ESTA operación. NUNCA
+   errores de otro tema ni categorías genéricas que no apliquen a este ejercicio.
+     ✓ Para (x+6)(x+4): "Sumó 6+4 en vez de multiplicar los términos cruzados", "Olvidó el producto
+       4·x", "Multiplicó mal 6·4".
+     ✗ Para (x+6)(x+4): "No aplicar el exponente a todo el factor" o "Error de signo al eliminar
+       paréntesis" — no hay exponente sobre un factor ni signos que eliminar aquí; son de otro tema.
+   Los 2 distractores deben ser DISTINTOS entre sí y del diagnóstico correcto, y solo el correcto debe
+   describir realmente el error de wrongStep.
+
+Copiá "expression" (el planteo) y "correctStep" (la respuesta correcta) LITERALES del ejercicio
+resuelto — nunca los recalculés ni los cambies.
 Si NINGÚN ejercicio resuelto corresponde de forma razonable a un concepto, o no podés construir un
-error real/único/localizable con 2 distractores honestos, marcá "matched": false y dejá los demás
-campos como string vacío (o array vacío para errorDistractors) — nunca fuerces una correspondencia
-que no tiene sentido.
+error real/único/natural/localizable para esta operación con 2 distractores honestos DEL MISMO
+problema, marcá "matched": false y dejá los demás campos como string vacío (o array vacío para
+errorDistractors) — nunca fuerces una correspondencia que no tiene sentido.
 Si hay más de un concepto y suficientes ejercicios resueltos distintos, usá un ejercicio DIFERENTE para
 cada concepto en vez de repetir el mismo — evitá que dos conceptos generen el mismo "encuentra el error".
 NOTACIÓN MATEMÁTICA: escribe todo en texto plano, NUNCA en LaTeX. Prohibido usar backslash o comandos LaTeX
@@ -178,6 +197,18 @@ export function reconcileFindError(item: RawFindErrorItem): FindErrorResult | nu
 
   if (!expression || !wrongStep || !correctStep || !errorExplanation) return null;
   if (errorDistractors.length < 2) return null;
+
+  // Cheap format check, before the more expensive mathjs evaluation below —
+  // the 3 alternatives (correct diagnosis + 2 distractors) must all read as
+  // distinct options, or the MC slide has a duplicate/near-duplicate
+  // alternative (either a giveaway or a broken "pick the right one"
+  // question). Not a semantic check — see normalizeForDedupe's own comment.
+  const alternatives = [errorExplanation, ...errorDistractors.slice(0, 2)];
+  const distinctCount = new Set(alternatives.map(normalizeForDedupe)).size;
+  if (distinctCount < alternatives.length) {
+    console.warn(`[FindError] descartado (formato) — errorExplanation/errorDistractors tienen duplicados o casi-duplicados: ${JSON.stringify(alternatives)}`);
+    return null;
+  }
 
   const exprMathjs = toMathjsSyntax(expression);
   const wrongMathjs = toMathjsSyntax(wrongStep);

@@ -92,6 +92,29 @@ describe('reconcileFindError (pure safety gate)', () => {
     expect(result).toBeNull();
   });
 
+  // Lightweight format check (not semantic — see normalizeForDedupe's own
+  // comment): the correct diagnosis and its 2 distractors must all read as
+  // distinct alternatives.
+  it('rejects when a distractor is a literal duplicate of errorExplanation', () => {
+    const result = reconcileFindError(rawItem({
+      errorExplanation: 'Sumó los coeficientes de x en vez de restarlos.',
+      errorDistractors: ['Sumó los coeficientes de x en vez de restarlos.', 'Mezcló los términos en x e y.'],
+    }));
+    expect(result).toBeNull();
+  });
+
+  it('rejects when the two distractors are near-duplicates of each other (case/whitespace only)', () => {
+    const result = reconcileFindError(rawItem({
+      errorDistractors: ['Restó los coeficientes de y en vez de sumarlos.', '  restó   los coeficientes de y en vez de sumarlos.  '],
+    }));
+    expect(result).toBeNull();
+  });
+
+  it('accepts when all 3 alternatives are genuinely distinct text', () => {
+    const result = reconcileFindError(rawItem());
+    expect(result).not.toBeNull();
+  });
+
   it('sanitizes LaTeX-ish leftovers and trims whitespace on every field', () => {
     const result = reconcileFindError(rawItem({
       expression: '  4x + 3y − 2x + 5y  ',
