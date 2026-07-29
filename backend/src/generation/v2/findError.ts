@@ -21,6 +21,14 @@ function normalizeForDedupe(s: string): string {
   return s.trim().toLowerCase().replace(/\s+/g, ' ');
 }
 
+// "Reordering terms" is never a real error (a + b = b + a) — the prompt
+// explicitly forbids it (see SYSTEM_PROMPT's PROHIBIDO section), but a model
+// can still slip past a prompt instruction, so this is a cheap backstop.
+// Deliberately does NOT match "orden de operaciones" (a real, still-allowed
+// error type, e.g. sumar antes de multiplicar) — only the commutativity
+// mistake ("orden de los términos" / "mal ubicados" / "reordenó").
+const ORDER_ERROR_RE = /\bt[eé]rminos?\s+mal\s+ubicad|\bmal\s+ubicad|\breorden|\borden\s+de\s+los\s+t[eé]rminos|posici[oó]n\s+de\s+los\s+t[eé]rminos/i;
+
 /**
  * A validated "find the error" exercise for one `role === 'procedure'`
  * concept, ALWAYS multiple choice: `errorExplanation` (the correct
@@ -57,33 +65,53 @@ export interface RawFindErrorItem {
 
 const SYSTEM_PROMPT = `Eres un diseñador de ejercicios "encuentra el error" para estudiantes chilenos de enseñanza media.
 Para cada concepto de tipo PROCEDIMIENTO que se te entregue, buscá entre los ejercicios YA RESUELTOS del material
-el que mejor corresponda a ese concepto. Si encontrás uno que calza, genera el ejercicio siguiendo estos 3 pasos:
+el que mejor corresponda a ese concepto. Si encontrás uno que calza, generá el ejercicio siguiendo este orden
+EXACTO — el diagnóstico manda, el paso mal se DERIVA de él (nunca al revés, o el diagnóstico y el paso mal
+terminan sueltos entre sí y el diagnóstico describe un error que en realidad no está):
 
-1. "wrongStep" — una resolución con UN error deliberado, tomado de un error común real (no distribuir
-   a todos los términos, error de signo al abrir paréntesis, combinar términos no semejantes, no
-   aplicar el exponente a todo el factor, orden de operaciones, aritmética en un producto/suma).
-   El error debe ser:
-     - ÚNICO: exactamente un error, el resto del paso correcto.
-     - LIMPIO y NATURAL: el paso mal debe ser lo que un estudiante REALMENTE escribiría al cometer
-       ese error, no un artefacto raro. Ej. para (x+6)(x+4), un error de "olvidó un producto
-       cruzado" se ve como "x² + 4x + 24" (falta el 6x entero), NO como "x² + 6 + 4x + 24" (un 6
-       suelto que nadie escribe).
-     - VERIFICABLE distinto del correcto (wrongStep ≠ correctStep).
+1. Elegí UN error específico y localizable, tomado de un error común real (no distribuir a todos los
+   términos, error de signo al abrir paréntesis, combinar términos no semejantes, no aplicar el
+   exponente a todo el factor, orden de operaciones equivocado — ej. sumar antes de multiplicar —,
+   aritmética mal en un producto/suma).
 
-2. "errorExplanation" — describe con PRECISIÓN el error que efectivamente está en wrongStep: nombrá el
-   término o paso exacto que quedó mal y por qué. Debe corresponder término a término con la
-   diferencia real entre wrongStep y correctStep. No una descripción vaga ni de un error distinto al
-   que aplicaste. Máximo 15 palabras.
+2. Escribí "errorExplanation" describiendo SOLO ese error: nombrá exactamente el término u operación
+   que queda mal, y NADA MÁS. Prohibido mencionar o atribuir un error a un término que en realidad
+   quedó correcto. Máximo 15 palabras.
 
-3. "errorDistractors" — exactamente 2 diagnósticos INCORRECTOS pero que sean errores PLAUSIBLES DE ESTE
-   MISMO ejercicio: otras maneras en que alguien podría equivocarse resolviendo ESTA operación. NUNCA
-   errores de otro tema ni categorías genéricas que no apliquen a este ejercicio.
-     ✓ Para (x+6)(x+4): "Sumó 6+4 en vez de multiplicar los términos cruzados", "Olvidó el producto
-       4·x", "Multiplicó mal 6·4".
-     ✗ Para (x+6)(x+4): "No aplicar el exponente a todo el factor" o "Error de signo al eliminar
-       paréntesis" — no hay exponente sobre un factor ni signos que eliminar aquí; son de otro tema.
-   Los 2 distractores deben ser DISTINTOS entre sí y del diagnóstico correcto, y solo el correcto debe
-   describir realmente el error de wrongStep.
+3. Derivá "wrongStep" aplicando SOLO ese error a la solución correcta: cambiá EXACTAMENTE UN término;
+   todos los demás términos quedan CORRECTOS, tal como están en la solución. El paso mal debe ser
+   LIMPIO y NATURAL — lo que un estudiante REALMENTE escribiría al cometer ese error, no un artefacto
+   raro (ej. para (x+6)(x+4), "olvidó multiplicar 4 por x" se ve como "x² + 6x + 4 + 24" — el término
+   4x quedó como 4 —, NO como "x² + 6 + 4x + 24", un 6 suelto que nadie escribe).
+
+4. AUTOCHEQUEO antes de devolver: comparé wrongStep con la solución correcta término por término.
+   - Debe diferir en EXACTAMENTE UN término, y ese término debe ser el que describe errorExplanation.
+   - Si difiere en más de un término, o si el término que menciona errorExplanation en realidad quedó
+     correcto en wrongStep, corregí uno de los dos hasta que coincidan, o si no podés, marcá
+     "matched": false. Nunca entregues un diagnóstico que describa un error que no está en el paso.
+
+PROHIBIDO:
+  - Usar "orden de los términos" / "términos mal ubicados" / "reordenó los términos" como error o
+    como diagnóstico: reordenar una suma NO es un error (a + b = b + a). Distinto de "orden de
+    operaciones equivocado" (sumar antes de multiplicar), que sí es un error real y sigue permitido.
+  - Sobre-describir: si solo cambió el término x·4, el diagnóstico habla SOLO de x·4, nunca del 6x
+    que quedó bien.
+    ✓ BUENO (paso mal "x² + 6x + 4 + 24 − x²"): errorExplanation = "Calculó x·4 como 4; olvidó
+      multiplicar ese término por x. Debía ser 4x." (habla solo del término que cambió).
+    ✗ MALO (sobre-describe): "No multiplicó 6 por x, sumó 4 en vez de 4x" — el 6x está correcto en
+      el paso, no corresponde mencionarlo.
+    ✗ MALO (orden): "Términos independiente y lineal mal ubicados" — el orden no es un error.
+
+"errorDistractors" — exactamente 2 diagnósticos INCORRECTOS pero que sean errores PLAUSIBLES DE ESTE
+MISMO ejercicio: otras maneras en que alguien podría equivocarse resolviendo ESTA operación. NUNCA
+errores de otro tema ni categorías genéricas que no apliquen a este ejercicio, y nunca "orden de los
+términos" (mismo motivo de arriba).
+  ✓ Para (x+6)(x+4): "Sumó 6+4 en vez de multiplicar los términos cruzados", "Olvidó el producto
+    4·x", "Multiplicó mal 6·4".
+  ✗ Para (x+6)(x+4): "No aplicar el exponente a todo el factor" o "Error de signo al eliminar
+    paréntesis" — no hay exponente sobre un factor ni signos que eliminar aquí; son de otro tema.
+Los 2 distractores deben ser DISTINTOS entre sí y del diagnóstico correcto, y solo el correcto debe
+describir realmente el error de wrongStep.
 
 Copiá "expression" (el planteo) y "correctStep" (la respuesta correcta) LITERALES del ejercicio
 resuelto — nunca los recalculés ni los cambies.
@@ -207,6 +235,15 @@ export function reconcileFindError(item: RawFindErrorItem): FindErrorResult | nu
   const distinctCount = new Set(alternatives.map(normalizeForDedupe)).size;
   if (distinctCount < alternatives.length) {
     console.warn(`[FindError] descartado (formato) — errorExplanation/errorDistractors tienen duplicados o casi-duplicados: ${JSON.stringify(alternatives)}`);
+    return null;
+  }
+
+  // "Orden de los términos" is not a real error (commutativity) — reject if
+  // it slipped past the prompt's explicit prohibition. Logged with its own
+  // reason so this is distinguishable from a math-invalid/unverifiable
+  // discard.
+  if (alternatives.some((a) => ORDER_ERROR_RE.test(a))) {
+    console.warn(`[FindError] descartado (reason=orden-invalido) — un diagnóstico menciona reordenar/mal ubicar términos, que no es un error real: ${JSON.stringify(alternatives)}`);
     return null;
   }
 

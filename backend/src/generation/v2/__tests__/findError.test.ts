@@ -115,6 +115,29 @@ describe('reconcileFindError (pure safety gate)', () => {
     expect(result).not.toBeNull();
   });
 
+  // "Orden de los términos" is not a real error (commutativity) — the
+  // prompt forbids it, this is the code backstop.
+  it('rejects when errorExplanation describes "reordering terms" as the error', () => {
+    const result = reconcileFindError(rawItem({
+      errorExplanation: 'Términos independiente y lineal mal ubicados.',
+    }));
+    expect(result).toBeNull();
+  });
+
+  it('rejects when a distractor describes "reordering terms" as an error', () => {
+    const result = reconcileFindError(rawItem({
+      errorDistractors: ['Reordenó los términos de la expresión.', 'Mezcló los términos en x e y.'],
+    }));
+    expect(result).toBeNull();
+  });
+
+  it('does NOT reject a legitimate "orden de operaciones" (order of operations) error, only "orden de los términos"', () => {
+    const result = reconcileFindError(rawItem({
+      errorExplanation: 'Sumó antes de multiplicar — orden de operaciones equivocado.',
+    }));
+    expect(result).not.toBeNull();
+  });
+
   it('sanitizes LaTeX-ish leftovers and trims whitespace on every field', () => {
     const result = reconcileFindError(rawItem({
       expression: '  4x + 3y − 2x + 5y  ',
