@@ -138,14 +138,22 @@ NOTACIÓN MATEMÁTICA: escribe todo en texto plano, NUNCA en LaTeX. Prohibido us
 (nada de \\frac, \\left, \\right, \\(...\\), \\[...\\], ni llaves {} para agrupar). Fracciones: "2/3", nunca
 "\\frac{2}{3}". Exponentes: "x^2" o "x²", nunca en llaves. Estas reglas aplican a TODO texto que escribas:
 enunciado, respuesta correcta, distractores y pista.
-Para ejercicios de tipo "calculation", además de las opciones incluye checkExpression (la expresión
-matemática CONCRETA a evaluar para resolver el ejercicio, en texto plano parseable: usa * para multiplicar,
-^ para potencias, sin LaTeX ni prosa — ej. "(5*x^2*y + 8) * (5*x^2*y + 5)" para un área que es producto de
-lados) y variables (las sustituciones numéricas que el enunciado fija, como un array de {"name","value"}, ej.
-[{"name":"x","value":1},{"name":"y","value":2}], o [] si el ejercicio es puramente simbólico como desarrollar
-un producto sin valores dados). La opción correcta DEBE ser exactamente el resultado de evaluar/desarrollar
-checkExpression con esas variables — no la aproximes ni la redondees distinto. Para ejercicios "recognition"
-(no numéricos), dejá checkExpression como string vacío y variables como array vacío.`;
+Para ejercicios de tipo "calculation", además de las opciones incluye checkExpression y variables —
+un motor matemático (no vos) evalúa checkExpression para verificar que la opción correcta sea real:
+  - checkExpression: transcribe la operación EXACTA del enunciado a texto plano mathjs (usa * y ^),
+    SIN resolverla, expandirla ni simplificarla — el motor hace la cuenta.
+      ✓ Para "(5x²y+8)(5x²y+5)": checkExpression = "(5*x^2*y + 8) * (5*x^2*y + 5)"
+      ✗ NO la expandas vos: "25*x^4*y^2 + 40*x^2*y + 40" — si te equivocás al expandir a mano,
+        invalidás una respuesta que en realidad era correcta.
+  - variables: las sustituciones numéricas que el enunciado fija, como un array de {"name","value"}
+    (ej. [{"name":"x","value":1},{"name":"y","value":2}]). Si el enunciado fija valores, ponelos acá
+    (o directamente como números concretos dentro de checkExpression, ej. "7^2") — nunca dejes una
+    variable libre sin valor cuando la respuesta correcta es un número concreto, el motor no puede
+    verificarla así. Array vacío [] solo cuando el ejercicio es puramente simbólico (ej. desarrollar
+    un producto sin valores dados, con una respuesta también simbólica).
+La opción correcta DEBE ser exactamente el resultado de evaluar checkExpression con esas variables —
+no la aproximes ni la redondees distinto. Para ejercicios "recognition" (no numéricos), dejá
+checkExpression como string vacío y variables como array vacío.`;
 
 type SlotKind = 'base' | 'variant' | 'practice';
 

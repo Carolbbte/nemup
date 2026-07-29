@@ -16,7 +16,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { toMathjsSyntax, extractFreeSymbols, expressionsEqual, validateCalculationExercise } from '../exerciseValidator.js';
+import { toMathjsSyntax, extractFreeSymbols, expressionsEqual, validateCalculationExercise, stripUnitSuffix } from '../exerciseValidator.js';
 import type { GeneratedExercise } from '../exerciseGenerator.js';
 
 describe('toMathjsSyntax (preprocessor — the fragile piece)', () => {
@@ -189,5 +189,85 @@ describe('validateCalculationExercise', () => {
       correctAnswer: 'no es matemática',
     }));
     expect(result).toEqual({ ok: true });
+  });
+
+  // Fix 2: unit stripping — "49 cm²" is correct for a side of 7 (x²=49),
+  // the trailing unit must not break the comparison.
+  it('strips a trailing unit from correctAnswer before comparing (ej1: false-positive fix)', () => {
+    const result = validateCalculationExercise(makeExercise({
+      checkExpression: 'x^2',
+      variables: [{ name: 'x', value: 7 }],
+      correctAnswer: '49 cm²',
+      distractors: asDistractors(['36 cm²', '56 cm²', '42 cm²']),
+    }));
+    expect(result).toEqual({ ok: true });
+  });
+
+  it('does NOT strip a unit-like letter that is part of a longer algebraic expression (never just the trailing char)', () => {
+    // "7m + 6n" must reach mathjs untouched — "m" here is a variable, not
+    // the unit "metros", and stripUnitSuffix only ever matches a string
+    // that is ENTIRELY "<number><unit>".
+    const result = validateCalculationExercise(makeExercise({
+      checkExpression: '2*m - 5*n + 6*m - m + 11*n',
+      variables: [],
+      correctAnswer: '7m + 6n',
+      distractors: asDistractors(['m + 6n', '7m + 17n', '13m']),
+    }));
+    expect(result).toEqual({ ok: true });
+  });
+
+  // Fix 1 (raw checkExpression, verified here via the validator): ej6 — a
+  // pre-expanded checkExpression the model got wrong ("25x^4y^2+40x^2y+40",
+  // missing a 25x²y term) used to reject the genuinely correct answer. With
+  // checkExpression as the RAW, unexpanded operation, mathjs does the
+  // expansion itself and the real correct answer validates.
+  it('accepts the real correctAnswer when checkExpression is the raw (unexpanded) operation (ej6 false-positive fix)', () => {
+    const result = validateCalculationExercise(makeExercise({
+      checkExpression: '(5*x^2*y + 8) * (5*x^2*y + 5)',
+      variables: [],
+      correctAnswer: '25x^4y^2+65x^2y+40',
+      distractors: asDistractors(['25x^4y^2+40x^2y+40', '25x^4y^2+40', '65x^2y+40']),
+    }));
+    expect(result).toEqual({ ok: true });
+  });
+
+  // Fix 3: checkExpression left a free variable unresolved, but
+  // correctAnswer is a concrete number — no ground truth to check against.
+  // Must be unverifiable, never invalid (the answer may well be right).
+  it('marks unverifiable (not invalid) when checkExpression has an unresolved free variable but correctAnswer is a concrete number', () => {
+    const result = validateCalculationExercise(makeExercise({
+      checkExpression: 'x^2',
+      variables: [], // x never substituted
+      correctAnswer: '49',
+      distractors: asDistractors(['36', '56', '42']),
+    }));
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.reason).toBe('unverifiable');
+  });
+
+  // The genuine "correct value absent/wrong" case must still be caught as
+  // invalid once checkExpression is fully resolved — Fix 3 only protects
+  // the unresolved-variable case, it must not swallow real bugs.
+  it('still rejects as invalid (not unverifiable) when checkExpression is fully resolved and correctAnswer is genuinely wrong', () => {
+    const result = validateCalculationExercise(makeExercise({ correctAnswer: '260' }));
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.reason).toBe('invalid');
+  });
+});
+
+describe('stripUnitSuffix', () => {
+  it('strips a unit when the entire string is a bare number followed by it', () => {
+    expect(stripUnitSuffix('49 cm²')).toBe('49');
+    expect(stripUnitSuffix('12km')).toBe('12');
+    expect(stripUnitSuffix('-3.5 kg')).toBe('-3.5');
+  });
+
+  it('leaves a multi-term algebraic expression untouched, even with a unit-like trailing letter', () => {
+    expect(stripUnitSuffix('7m + 6n')).toBe('7m + 6n');
+    expect(stripUnitSuffix('x^2 + 3')).toBe('x^2 + 3');
+  });
+
+  it('leaves a string with no recognizable unit untouched', () => {
+    expect(stripUnitSuffix('10x + 24')).toBe('10x + 24');
   });
 });

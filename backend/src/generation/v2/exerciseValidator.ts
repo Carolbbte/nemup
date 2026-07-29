@@ -246,12 +246,43 @@ export function expressionsEqual(
   return true;
 }
 
+// ── Unit stripping ───────────────────────────────────────────────────────
+
+// Only matches when the ENTIRE trimmed string is a bare number followed by
+// a unit (e.g. "49 cm²" → "49") — never inside a longer expression like
+// "7m + 6n". That whole-string requirement is what makes it safe to include
+// single-letter units (m, g, s) here despite them colliding with common
+// single-letter variable names (procedural.ts's own TRAILING_UNIT_RE
+// deliberately excludes bare "m" for exactly that collision) — a multi-term
+// algebraic answer never matches this pattern, so the ambiguity only
+// applies to a correctAnswer/distractor that's nothing but "<number><unit>",
+// where "unit" is overwhelmingly the intended reading in this app's math/
+// physics/chemistry exercises.
+const UNIT_SUFFIX_RE = /^(-?\d+(?:[.,]\d+)?)\s*(cm²|cm2|cm³|cm3|mm²|mm2|km²|km2|m²|m2|m³|m3|cm|mm|km|kg|mg|ml|°c|°f|kg|g|l|m|s)\.?$/i;
+
+/** Exported for testing. */
+export function stripUnitSuffix(raw: string): string {
+  const trimmed = raw.trim();
+  const m = UNIT_SUFFIX_RE.exec(trimmed);
+  return m ? m[1] : trimmed;
+}
+
 // ── Public API ────────────────────────────────────────────────────────────
 
 /**
  * Validates one generated exercise's math. No-op (`ok:true`) for
  * `kind !== 'calculation'` — `recognition` exercises aren't numeric and are
  * exempt, same scoping the spec asks for.
+ *
+ * `invalid` is only ever returned when the comparison is trustworthy: either
+ * checkExpression is a fully-resolvable raw operation (post the "never
+ * pre-solve it yourself" prompt instruction in exerciseGenerator.ts) that
+ * genuinely disagrees with correctAnswer, or a distractor self-referentially
+ * matches correctAnswer (no external ground truth needed for that one — see
+ * its own comment below). Anything the validator merely COULDN'T read
+ * (missing/unparseable checkExpression, unresolved free variables against a
+ * concrete answer) is `unverifiable`, never `invalid` — it must never be the
+ * answer's fault that the check itself has a gap.
  *
  * Doesn't separately check "correctAnswer is among the displayed options" —
  * that's not an independent risk here: assemble.ts's fieldsFromExercise
@@ -269,7 +300,7 @@ export function validateCalculationExercise(ex: GeneratedExercise): ExerciseVali
     return { ok: false, reason: 'unverifiable', message: 'checkExpression ausente.' };
   }
 
-  const checkExpr = toMathjsSyntax(rawCheck);
+  const checkExpr = toMathjsSyntax(stripUnitSuffix(rawCheck));
   try {
     parse(checkExpr);
   } catch {
@@ -280,7 +311,31 @@ export function validateCalculationExercise(ex: GeneratedExercise): ExerciseVali
     (ex.variables ?? []).map((v) => [v.name, v.value]),
   );
 
-  const correctExpr = toMathjsSyntax(ex.correctAnswer ?? '');
+  const correctExpr = toMathjsSyntax(stripUnitSuffix(ex.correctAnswer ?? ''));
+
+  // Fix 3: checkExpression still has a free variable the exercise never
+  // substituted, but correctAnswer is a concrete number — there is no
+  // ground truth to check the answer against. Not the answer's fault (it
+  // may well be correct), so this must be 'unverifiable', never 'invalid':
+  // without this guard, expressionsEqual would substitute a RANDOM value
+  // for the unresolved symbol and almost always find a mismatch, wrongly
+  // discarding a good exercise.
+  let checkFreeSymbols: string[];
+  let correctFreeSymbols: string[];
+  try {
+    checkFreeSymbols = extractFreeSymbols(checkExpr).filter((s) => !(s in fixedVars));
+    correctFreeSymbols = extractFreeSymbols(correctExpr);
+  } catch {
+    return { ok: false, reason: 'unverifiable', message: `correctAnswer no parseable: "${ex.correctAnswer}" → "${correctExpr}".` };
+  }
+  if (checkFreeSymbols.length > 0 && correctFreeSymbols.length === 0) {
+    return {
+      ok: false,
+      reason: 'unverifiable',
+      message: `checkExpression tiene variable(s) libre(s) sin sustituir (${checkFreeSymbols.join(', ')}) pero correctAnswer es un valor concreto — no se puede establecer verdad de terreno.`,
+    };
+  }
+
   const correctEq = expressionsEqual(checkExpr, correctExpr, fixedVars);
   if (correctEq === null) {
     return { ok: false, reason: 'unverifiable', message: `correctAnswer no parseable: "${ex.correctAnswer}" → "${correctExpr}".` };
@@ -290,13 +345,16 @@ export function validateCalculationExercise(ex: GeneratedExercise): ExerciseVali
   }
 
   for (const d of ex.distractors ?? []) {
-    const distractorExpr = toMathjsSyntax(d.text ?? '');
+    const distractorExpr = toMathjsSyntax(stripUnitSuffix(d.text ?? ''));
     const distractorEq = expressionsEqual(checkExpr, distractorExpr, fixedVars);
     // A distractor that fails to parse is NOT unverifiable for the whole
     // exercise — distractors are free-form "plausible wrong answers" and
     // aren't required to be clean expressions (e.g. "olvidó aplicar el
     // exponente" could be prose). Only an explicit math MATCH (distractorEq
-    // === true) is actionable here; null/false are both fine.
+    // === true) is actionable here; null/false are both fine. This check
+    // never needs the Fix 3 guard above either — it's self-referential
+    // (checkExpression vs the exercise's OWN distractor text), no external
+    // ground truth required, so it stays high-confidence regardless.
     if (distractorEq === true) {
       return { ok: false, reason: 'invalid', message: `distractor "${d.text}" es matemáticamente igual a correctAnswer — dos opciones "correctas".` };
     }
