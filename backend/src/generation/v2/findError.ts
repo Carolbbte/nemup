@@ -1,9 +1,10 @@
+import { parse, evaluate } from 'mathjs';
 import OpenAI from 'openai';
 import { config } from '../../config.js';
 import { withOpenAIRetry } from '../../services/openaiRetry.js';
 import { recordUsage } from '../../services/usageTracking.js';
 import { sanitizeMathText } from '../../services/mathNotation.js';
-import { toMathjsSyntax, expressionsEqual } from './exerciseValidator.js';
+import { toMathjsSyntax, toDisplayMath, expressionsEqual, extractFreeSymbols } from './exerciseValidator.js';
 import type { KnowledgeConcept, WorkedExample } from './types.js';
 
 const openai = new OpenAI({ apiKey: config.openai_api_key });
@@ -28,6 +29,87 @@ function normalizeForDedupe(s: string): string {
 // error type, e.g. sumar antes de multiplicar) — only the commutativity
 // mistake ("orden de los términos" / "mal ubicados" / "reordenó").
 const ORDER_ERROR_RE = /\bt[eé]rminos?\s+mal\s+ubicad|\bmal\s+ubicad|\breorden|\borden\s+de\s+los\s+t[eé]rminos|posici[oó]n\s+de\s+los\s+t[eé]rminos/i;
+
+// ── Single-term-delta guard (see reconcileFindError's own comment) ─────────
+
+/** Symbol names that are mathjs constants, not student variables. */
+const MONOMIAL_BUILTINS = new Set(['e', 'pi', 'i', 'Infinity', 'NaN']);
+
+/**
+ * Canonical "variable shape" of a single monomial (e.g. "4*x" -> "x^1",
+ * "5*x^2*y" -> "x^2y^1", "24" -> ""), or `null` if the expression is not a
+ * pure product/power/constant — i.e. it has a top-level +/-, meaning it's
+ * not one term at all.
+ *
+ * This is the mechanism behind the "single-term delta" guarantee, and it
+ * deliberately does NOT ask mathjs's `simplify()` to prove that property
+ * structurally on a full expression — empirically, `simplify()` doesn't
+ * reliably reduce even simple cases to a canonical single-node form (e.g.
+ * `simplify("4*(x+1) - 4*x")` returns the UNREDUCED `"4 * (x + 1) - 4 * x"`,
+ * which LOOKS like two terms at the top level despite being the constant 4
+ * — a naive "is the top node an add/subtract" check would wrongly reject
+ * it). Comparing correctTerm's and wrongTerm's shapes directly sidesteps
+ * that: two same-shape monomials always combine into exactly one term when
+ * subtracted, by definition — no need to trust simplify's output shape.
+ */
+function monomialSignature(mathjsExpr: string): string | null {
+  let node: any;
+  try {
+    node = parse(mathjsExpr);
+  } catch {
+    return null;
+  }
+
+  const powers = new Map<string, number>();
+  let isMonomial = true;
+
+  function walk(n: any, expFactor: number): void {
+    if (!isMonomial) return;
+    if (n.type === 'ConstantNode') return;
+    if (n.type === 'SymbolNode') {
+      if (!MONOMIAL_BUILTINS.has(n.name)) powers.set(n.name, (powers.get(n.name) ?? 0) + expFactor);
+      return;
+    }
+    if (n.type === 'ParenthesisNode') { walk(n.content, expFactor); return; }
+    if (n.type === 'OperatorNode') {
+      if (n.fn === 'multiply') { walk(n.args[0], expFactor); walk(n.args[1], expFactor); return; }
+      if (n.fn === 'unaryMinus' || n.fn === 'unaryPlus') { walk(n.args[0], expFactor); return; }
+      if (n.fn === 'pow' && n.args[1].type === 'ConstantNode') { walk(n.args[0], expFactor * Number(n.args[1].value)); return; }
+    }
+    isMonomial = false; // add/subtract/divide/function-call/anything else — not a pure monomial
+  }
+
+  walk(node, 1);
+  if (!isMonomial) return null;
+  return [...powers.entries()]
+    .filter(([, exp]) => Math.abs(exp) > 1e-9)
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([name, exp]) => `${name}^${exp}`)
+    .join('');
+}
+
+/** True iff `mathjsExpr` evaluates to (very close to) zero — checked at two
+ * distinct fixed points for every free symbol, so a coincidental single-
+ * point zero (e.g. "x - 3" at x=3) doesn't produce a false positive. */
+function isZeroValue(mathjsExpr: string): boolean {
+  try {
+    const node: any = parse(mathjsExpr);
+    if (node.type === 'ConstantNode') return Number(node.value) === 0;
+    const symbols = extractFreeSymbols(mathjsExpr);
+    if (symbols.length === 0) {
+      const value = evaluate(mathjsExpr, {});
+      return typeof value === 'number' && Math.abs(value) < 1e-9;
+    }
+    for (const trial of [3, 7]) {
+      const scope = Object.fromEntries(symbols.map((s) => [s, trial]));
+      const value = evaluate(mathjsExpr, scope);
+      if (!(typeof value === 'number' && Math.abs(value) < 1e-9)) return false;
+    }
+    return true;
+  } catch {
+    return false;
+  }
+}
 
 /**
  * A validated "find the error" exercise for one `role === 'procedure'`
@@ -87,15 +169,29 @@ escribís el paso mal ni el texto de la opción correcta directamente, solo los 
    correcto de resolverla, no la respuesta final simplificada.
      Ej. para expression="(x+6)(x+4)-x^2": correctForm = "x^2 + 6*x + 4*x + 24 - x^2"
 
-3. Elegí UN término de correctForm que un estudiante escribiría mal por un error común real (no
-   distribuir a todos los términos, error de signo al abrir paréntesis, combinar términos no
-   semejantes, no aplicar el exponente a todo el factor, orden de operaciones equivocado — ej. sumar
-   antes de multiplicar —, aritmética mal en un producto/suma), y dá:
+3. Elegí UN término COMPLETO de correctForm y un error real que lo afecte ENTERO — preferí siempre
+   estos tipos, que dan un resultado final limpio y un delta de un solo término:
+   - Omitir un término cruzado por completo (ej. olvidó sumar 4x): wrongTerm = "0".
+   - Aritmética mal en un coeficiente o constante (ej. 6·4 debía ser 24, puso 20): correctTerm="24",
+     wrongTerm="20".
+   - Olvidar restar un término (ej. no restar x²): wrongTerm = "0" para ese término.
+   - Error de signo en un término completo (ej. +4x en vez de -4x): correctTerm="-4*x",
+     wrongTerm="+4*x". IMPORTANTE en este caso: escribí el signo "+" explícito en wrongTerm (nunca
+     dejarlo implícito como "4*x") — el backend sustituye correctTerm por wrongTerm como texto
+     literal dentro de correctForm, así que si el signo no queda explícito se rompe la sintaxis del
+     resto de la expresión.
+   EVITÁ corromper una PARTE interna de un término (ej. "6*x" → "6+x") — eso da un resultado final
+   raro e irreconocible. El error va SIEMPRE sobre el término completo, nunca dentro de él.
+   Dá:
    - "correctTerm": ese término tal como aparece literal en correctForm (ej. "4*x"). DEBE ser una
      transcripción EXACTA de una porción de correctForm — el backend lo busca ahí como substring.
-   - "wrongTerm": cómo queda ese término al cometer el error (ej. "4"). Matemáticamente DISTINTO de
-     correctTerm.
-   - "errorReason": frase corta del porqué, máximo 10 palabras (ej. "olvidó multiplicar por x"), o
+   - "wrongTerm": cómo queda ese término al cometer el error. REGLA INNEGOCIABLE: wrongTerm debe tener
+     EXACTAMENTE la misma parte literal que correctTerm (mismas letras, mismos exponentes — solo puede
+     cambiar el coeficiente o el signo), O ser exactamente "0" si el error es omitir el término
+     completo. Nunca uses un wrongTerm con letras o exponentes distintos a los de correctTerm (ej.
+     correctTerm="4*x" con wrongTerm="4" está PROHIBIDO — cambia la parte literal). Matemáticamente
+     DISTINTO de correctTerm en valor.
+   - "errorReason": frase corta del porqué, máximo 10 palabras (ej. "olvidó sumar este término"), o
      string vacío si el nombre de los campos ya es autoexplicativo.
 
 4. "errorDistractors": exactamente 2 diagnósticos INCORRECTOS pero que sean errores PLAUSIBLES DE ESTE
@@ -111,10 +207,12 @@ escribís el paso mal ni el texto de la opción correcta directamente, solo los 
 PROHIBIDO:
   - Usar "orden de los términos" / "términos mal ubicados" / "reordenó los términos" como error, ni
     como correctTerm/wrongTerm ni como errorDistractor: reordenar una suma NO es un error
-    (a + b = b + a). Distinto de "orden de operaciones equivocado" (sumar antes de multiplicar), que
-    sí es un error real y sigue permitido.
+    (a + b = b + a).
   - Elegir un correctTerm que en realidad ya está bien en cualquier resolución razonable — tiene que
     ser un término donde el error que describís en errorReason realmente aplica.
+  - wrongTerm con una parte literal (letras/exponentes) DISTINTA de correctTerm, salvo que sea
+    exactamente "0" (omisión total). Esto es lo más importante de todo el ejercicio: si lo violás, el
+    resultado final del ejercicio no se puede calcular de forma limpia y el ítem se descarta entero.
 
 Si NINGÚN ejercicio resuelto corresponde de forma razonable a un concepto, o no podés construir
 correctForm/correctTerm/wrongTerm/2 distractores honestos para esta operación, marcá "matched": false
@@ -197,30 +295,38 @@ function buildFindErrorSchema(itemCount: number) {
 /**
  * Pure safety gate. No ground truth is handed to the model — this is the
  * only place standing between a math mistake and the student being taught
- * the WRONG thing as "the error". Unlike the earlier free-text design,
- * `wrongStep` and the correct MC option are never trusted as model prose:
+ * the WRONG thing as "the error". `wrongStep` and the correct MC option are
+ * never trusted as model prose:
  *
  *   1. `correctTerm` must appear literally inside `correctForm` (a plain
  *      substring search) — this is what lets `wrongStep` be DERIVED by
  *      substitution instead of authored, so it can never drift from
- *      `errorExplanation` (the bug this whole redesign fixes: a correct
+ *      `errorExplanation` (the bug the structured redesign fixed: a correct
  *      diagnosis and a wrong-but-unrelated wrongStep, or the correct/
  *      distractor swapped).
  *   2. `correctForm` must be CONFIRMED (via exerciseValidator.ts's
  *      expressionsEqual — the same mathjs engine generateExercises uses,
  *      not a second heuristic) to equal `expression`'s own value.
  *   3. `correctTerm` must be CONFIRMED different from `wrongTerm`.
- *   4. Coherence: `correctForm − wrongStep` must be CONFIRMED equal to
- *      `correctTerm − wrongTerm` — since wrongStep is a literal-substring
- *      substitution, this holds algebraically only when that substitution
- *      touched exactly the intended term and nothing else (it fails, for
- *      example, if `correctTerm` didn't actually occur where intended, or
- *      collided with an unrelated substring).
- * Any of these returning unconfirmed (`false` or, for the boolean checks,
- * `null`/not-found) rejects the whole item — find_error has no separate
- * 'log-only' mode like generateExercises's math validator, an item that
- * can't be confirmed correct is never shown. Exported for testing without
- * mocking the SDK.
+ *   4. `correctTerm`/`wrongTerm` must share the same monomial "shape" (same
+ *      variables and exponents — see monomialSignature's own comment for
+ *      why this, not a structural inspection of a fully-simplified
+ *      expression, is what actually guarantees the final answer's delta
+ *      reduces to a single term), or `wrongTerm` must be a confirmed zero
+ *      (a full term omission).
+ * Any of these returning unconfirmed (`false`/`null`/not-found/mismatched
+ * shape) rejects the whole item — find_error has no separate 'log-only'
+ * mode like generateExercises's math validator, an item that can't be
+ * confirmed correct is never shown. Exported for testing without mocking
+ * the SDK.
+ *
+ * `correctForm`/`wrongStep` in the returned FindErrorResult are NOT the raw
+ * unsimplified step text — they're the pretty-printed, simplified FINAL
+ * answers (`correctFinal`/`wrongFinal`), since the student is meant to see
+ * "a student got this final answer, find the error", not an intermediate
+ * expansion. Kept under the same field names to avoid touching assemble.ts/
+ * the frontend, which only ever read them as "the correct thing"/"the
+ * wrong thing" — see FindErrorResult's own comment.
  */
 export function reconcileFindError(item: RawFindErrorItem): FindErrorResult | null {
   if (!item.matched) return null;
@@ -247,7 +353,16 @@ export function reconcileFindError(item: RawFindErrorItem): FindErrorResult | nu
   }
   const wrongStep = correctForm.slice(0, termIdx) + wrongTerm + correctForm.slice(termIdx + correctTerm.length);
 
-  const errorExplanation = `El término ${correctTerm} quedó como ${wrongTerm}${errorReason ? ` — ${errorReason}` : ''}.`;
+  const correctTermMathjs = toMathjsSyntax(correctTerm);
+  const wrongTermMathjs = toMathjsSyntax(wrongTerm);
+  // Pretty-printed up front (toDisplayMath falls back to the raw input on a
+  // parse failure, so this is safe even before the terms are validated
+  // below) — both for the template AND so the "distractor mentions the
+  // term" check compares against the notation a distractor would actually
+  // use ("4x"), not the internal mathjs form ("4*x").
+  const correctTermDisplay = toDisplayMath(correctTermMathjs);
+  const wrongTermDisplay = toDisplayMath(wrongTermMathjs);
+  const errorExplanation = `El término ${correctTermDisplay} quedó como ${wrongTermDisplay}${errorReason ? ` — ${errorReason}` : ''}.`;
 
   // Cheap format checks, before the more expensive mathjs evaluation below.
   const alternatives = [errorExplanation, ...errorDistractors.slice(0, 2)];
@@ -262,17 +377,15 @@ export function reconcileFindError(item: RawFindErrorItem): FindErrorResult | nu
   }
   // A distractor mentioning correctTerm would be a second (encubierta)
   // description of the SAME term the correct option already covers — best
-  // effort literal check, not semantic (same discipline as the checks above).
-  if (errorDistractors.slice(0, 2).some((d) => d.includes(correctTerm))) {
-    console.warn(`[FindError] descartado (formato) — un distractor menciona correctTerm "${correctTerm}", sería una segunda "correcta" encubierta.`);
+  // effort literal check (both notations), not semantic.
+  if (errorDistractors.slice(0, 2).some((d) => d.includes(correctTerm) || d.includes(correctTermDisplay))) {
+    console.warn(`[FindError] descartado (formato) — un distractor menciona correctTerm "${correctTermDisplay}", sería una segunda "correcta" encubierta.`);
     return null;
   }
 
   const exprMathjs = toMathjsSyntax(expression);
   const formMathjs = toMathjsSyntax(correctForm);
   const wrongMathjs = toMathjsSyntax(wrongStep);
-  const correctTermMathjs = toMathjsSyntax(correctTerm);
-  const wrongTermMathjs = toMathjsSyntax(wrongTerm);
 
   const formVsExpr = expressionsEqual(formMathjs, exprMathjs, {});
   if (formVsExpr === false) {
@@ -294,26 +407,23 @@ export function reconcileFindError(item: RawFindErrorItem): FindErrorResult | nu
     return null;
   }
 
-  // Coherence — the check that makes the correct/distractor-swap bug
-  // structurally impossible: confirms the ONLY value-level difference
-  // between correctForm and the derived wrongStep is exactly this term swap.
-  const coherent = expressionsEqual(`(${formMathjs}) - (${wrongMathjs})`, `(${correctTermMathjs}) - (${wrongTermMathjs})`, {});
-  if (coherent === false) {
-    console.warn(`[FindError] descartado (invalid) — la sustitución no es coherente: correctForm-wrongStep no coincide con correctTerm-wrongTerm. correctForm="${correctForm}" wrongStep="${wrongStep}" correctTerm="${correctTerm}" wrongTerm="${wrongTerm}"`);
-    return null;
-  }
-  if (coherent === null) {
-    console.warn(`[FindError] descartado (unverifiable) — no se pudo verificar la coherencia de la sustitución. correctForm="${correctForm}" wrongStep="${wrongStep}"`);
+  // The single-term-delta guarantee (Fix 3) — see monomialSignature's own
+  // comment for why this shape comparison, not a structural check on a
+  // simplified full expression, is what's actually reliable here.
+  const correctSig = monomialSignature(correctTermMathjs);
+  const wrongSig = isZeroValue(wrongTermMathjs) ? correctSig : monomialSignature(wrongTermMathjs);
+  if (correctSig === null || wrongSig === null || correctSig !== wrongSig) {
+    console.warn(`[FindError] descartado (invalid) — correctTerm y wrongTerm no comparten la misma parte literal (y wrongTerm no es una omisión total) — el resultado final no tendría un delta de un solo término. correctTerm="${correctTerm}" wrongTerm="${wrongTerm}"`);
     return null;
   }
 
   return {
     conceptId: item.conceptId,
     expression,
-    correctForm,
-    wrongStep,
-    correctTerm,
-    wrongTerm,
+    correctForm: toDisplayMath(formMathjs),
+    wrongStep: toDisplayMath(wrongMathjs),
+    correctTerm: correctTermDisplay,
+    wrongTerm: wrongTermDisplay,
     question: FIND_ERROR_QUESTION,
     errorExplanation,
     errorDistractors: errorDistractors.slice(0, 2),

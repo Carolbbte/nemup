@@ -3160,7 +3160,7 @@ export default function SessionPlayerScreen() {
                     </View>
 
                     <View style={sum.findErrorAttemptBox}>
-                      <Text style={sum.findErrorAttemptLabel}>Un estudiante lo resolvió así:</Text>
+                      <Text style={sum.findErrorAttemptLabel}>Un estudiante llegó a este resultado:</Text>
                       <MathText style={sum.findErrorAttemptText}>{(slide.wrongStep)}</MathText>
                     </View>
 

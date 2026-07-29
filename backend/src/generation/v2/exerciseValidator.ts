@@ -10,7 +10,7 @@
  * hallucinating a second time. This is real arithmetic/CAS evaluation.
  */
 
-import { evaluate, parse } from 'mathjs';
+import { evaluate, parse, simplify } from 'mathjs';
 import { sanitizeMathText } from '../../services/mathNotation.js';
 import type { GeneratedExercise } from './exerciseGenerator.js';
 
@@ -156,6 +156,64 @@ export function toMathjsSyntax(raw: string): string {
     .replace(/,/g, '.'); // decimal comma
 
   return render(tokenize(s));
+}
+
+// ── mathjs syntax → student-facing display notation ─────────────────────────
+
+const SUPERSCRIPT_DIGITS = ['⁰', '¹', '²', '³', '⁴', '⁵', '⁶', '⁷', '⁸', '⁹'];
+
+/** Custom per-node override passed to mathjs Node#toString — returning
+ * `undefined` falls back to mathjs's own (precedence-aware) default
+ * rendering for that node, so this only needs to special-case the two
+ * things toMathjsSyntax's forward direction introduces: explicit `^N` and
+ * explicit `*`. */
+function displayHandler(node: any, options: any): string | undefined {
+  if (node.type === 'OperatorNode' && node.fn === 'pow') {
+    const exp = node.args[1];
+    if (exp.type === 'ConstantNode' && Number.isInteger(exp.value) && exp.value >= 0 && exp.value <= 9) {
+      return `${node.args[0].toString({ ...options, handler: displayHandler })}${SUPERSCRIPT_DIGITS[exp.value]}`;
+    }
+    return undefined;
+  }
+  if (node.type === 'OperatorNode' && node.fn === 'multiply') {
+    const [a, b] = node.args;
+    // Both sides plain numbers ("6*4") — resolve to the computed value
+    // ("24") rather than showing an unresolved product, per the spec.
+    if (a.type === 'ConstantNode' && b.type === 'ConstantNode') {
+      return String(Number(a.value) * Number(b.value));
+    }
+    // Implicit multiplication — no visible operator between the two sides.
+    return `${a.toString({ ...options, handler: displayHandler })}${b.toString({ ...options, handler: displayHandler })}`;
+  }
+  return undefined;
+}
+
+/**
+ * Converts a mathjs-syntax expression into student-facing display notation:
+ * implicit multiplication, unicode superscripts for small integer exponents,
+ * and a resolved value where two plain numbers are multiplied together.
+ * Attempts `simplify()` first to also combine like terms in an already-flat
+ * sum (e.g. "6*x + 4*x" → "10x") — but this is DISPLAY ONLY, never used for
+ * correctness logic. `simplify()` is not reliable at fully expanding a raw
+ * product of parenthesized sums (confirmed empirically: it left
+ * "(x+6)*(x+4)-x^2" completely unexpanded, and mangled a more complex case
+ * into a wrong-looking factored form) — the same "mañas" procedural.ts's own
+ * `resultsMatch` comment already documents avoiding for equivalence checks.
+ * Callers must only ever feed this an expression whose mathematical
+ * correctness was ALREADY confirmed some other way (numeric evaluation) —
+ * an occasional imperfectly-reduced (but not wrong) display is an
+ * acceptable tradeoff here; it would not be for a pass/fail check.
+ */
+export function toDisplayMath(mathjsExpr: string): string {
+  try {
+    return simplify(mathjsExpr).toString({ handler: displayHandler });
+  } catch {
+    try {
+      return parse(mathjsExpr).toString({ handler: displayHandler });
+    } catch {
+      return mathjsExpr;
+    }
+  }
 }
 
 // ── Free-symbol extraction ──────────────────────────────────────────────────

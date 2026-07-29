@@ -16,7 +16,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { toMathjsSyntax, extractFreeSymbols, expressionsEqual, validateCalculationExercise, stripUnitSuffix } from '../exerciseValidator.js';
+import { toMathjsSyntax, toDisplayMath, extractFreeSymbols, expressionsEqual, validateCalculationExercise, stripUnitSuffix } from '../exerciseValidator.js';
 import type { GeneratedExercise } from '../exerciseGenerator.js';
 
 describe('toMathjsSyntax (preprocessor — the fragile piece)', () => {
@@ -68,6 +68,29 @@ describe('toMathjsSyntax (preprocessor — the fragile piece)', () => {
 
   it('handles a realistic checkExpression end-to-end: area of a rectangle with algebraic sides', () => {
     expect(toMathjsSyntax('(5x²y + 8)(5x²y + 5)')).toBe('(5*x^2*y+8)*(5*x^2*y+5)');
+  });
+});
+
+describe('toDisplayMath (mathjs syntax -> student-facing notation, display only)', () => {
+  it('converts integer exponents to unicode superscripts', () => {
+    expect(toDisplayMath('x^2')).toBe('x²');
+  });
+
+  it('resolves a product of two plain numbers to its computed value', () => {
+    expect(toDisplayMath('6*4')).toBe('24');
+  });
+
+  it('renders multiplication implicitly (no visible "*")', () => {
+    expect(toDisplayMath('4*x')).toBe('4x');
+  });
+
+  it('combines like terms in an already-flat sum', () => {
+    expect(toDisplayMath('6*x + 4*x + 24 - 0*x')).toBe('10x + 24');
+  });
+
+  it('falls back to a parsed (unsimplified) rendering when simplify() would throw, and to the raw input when nothing parses', () => {
+    // Malformed input — never crashes, degrades gracefully.
+    expect(toDisplayMath('(((')).toBe('(((');
   });
 });
 
