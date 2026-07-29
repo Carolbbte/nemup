@@ -92,6 +92,18 @@ describe('toDisplayMath (mathjs syntax -> student-facing notation, display only)
     // Malformed input — never crashes, degrades gracefully.
     expect(toDisplayMath('(((')).toBe('(((');
   });
+
+  // mathjs's own default rendering wraps a negated product in parens
+  // ("-(4x)") — not wrong, but not how a student writes a negative term.
+  // Only unwrapped for a simple term (constant/symbol/product/power); a
+  // negated SUM keeps its parens (dropping them would change the meaning).
+  it('renders a negated simple term without parentheses ("-4x", not "-(4x)")', () => {
+    expect(toDisplayMath('-4*x')).toBe('-4x');
+  });
+
+  it('keeps parentheses around a negated sum (dropping them would change the meaning)', () => {
+    expect(toDisplayMath('-(x+6)')).toBe('-x - 6');
+  });
 });
 
 describe('extractFreeSymbols', () => {

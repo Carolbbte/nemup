@@ -5,15 +5,17 @@
  * OpenAI SDK — only the deterministic logic that decides whether a
  * model-invented "error" is safe to teach is exercised here.
  *
- * "Final answer" redesign: correctForm/wrongStep in the returned
- * FindErrorResult are no longer the raw unsimplified step — they're the
- * pretty-printed, simplified FINAL answers, and correctTerm/wrongTerm must
- * share the same monomial "shape" (or wrongTerm must be a confirmed zero —
- * a full term omission), which is what guarantees the final answer's delta
- * reduces to exactly one term. A correctTerm/wrongTerm pair with a DIFFERENT
- * literal part (e.g. "4x" -> "4", the star example from the previous
- * design) is now REJECTED, since it would corrupt a whole term into a
- * different kind of term instead of giving a clean single-term delta.
+ * Voz cercana: errorExplanation ya no es texto libre del modelo con un
+ * "porqué" opcional pegado — es SIEMPRE uno de 3 templates fijos
+ * (omisión/signo/valor), elegido determinísticamente a partir de
+ * correctTerm/wrongTerm. El modelo ya no envía `errorReason` — el contrato
+ * se achicó porque los 3 templates cubren, sin ambigüedad, los únicos 3
+ * tipos de error que la validación estructural admite.
+ *
+ * Notación de alumno: toda opción (correcta + distractores) pasa por
+ * lightPrettyPrint antes de guardarse — un swap de tokens sobre texto libre
+ * (no un parseo de expresión), para que ningún "*"/"^" crudo del modelo
+ * llegue a pantalla.
  */
 
 import { describe, it, expect } from 'vitest';
@@ -25,30 +27,74 @@ const rawItem = (overrides: Partial<RawFindErrorItem> = {}): RawFindErrorItem =>
   expression: '4*x + 3*y - 2*x + 5*y',
   correctForm: '4*x + 3*y - 2*x + 5*y',
   correctTerm: '4*x',
-  wrongTerm: '6*x', // same shape (x^1), different coefficient — valid under the new rule
-  errorReason: 'sumó mal los coeficientes de x',
+  wrongTerm: '6*x', // misma forma (x^1), distinto coeficiente — tipo "value"
   errorDistractors: ['Restó los coeficientes de y en vez de sumarlos.', 'Mezcló los términos en x e y.'],
   ...overrides,
 });
 
-describe('reconcileFindError (pure safety gate)', () => {
-  it('derives wrongStep/correctForm as pretty-printed SIMPLIFIED final answers, and templates errorExplanation with pretty terms', () => {
+describe('reconcileFindError — voz cercana por tipo de error', () => {
+  it('tipo "value" (mismo monomio, distinto coeficiente): "Puso W en vez de C."', () => {
     const result = reconcileFindError(rawItem());
-    // correctForm final: 4x+3y-2x+5y = 2x+8y. wrongForm final: 6x+3y-2x+5y = 4x+8y.
-    // (mathjs's own term ordering, not a correctness concern — display only.)
-    expect(result?.correctForm).toBe('8y + 2x');
-    expect(result?.wrongStep).toBe('8y + 4x');
-    expect(result?.correctTerm).toBe('4x');
-    expect(result?.wrongTerm).toBe('6x');
-    expect(result?.errorExplanation).toBe('El término 4x quedó como 6x — sumó mal los coeficientes de x.');
-    expect(result?.question).toBe('¿Cuál es el error?');
+    expect(result?.errorExplanation).toBe('Puso 6x en vez de 4x.');
   });
 
-  it('omits the trailing " — reason" clause when errorReason is empty', () => {
-    const result = reconcileFindError(rawItem({ errorReason: '' }));
-    expect(result?.errorExplanation).toBe('El término 4x quedó como 6x.');
+  it('tipo "value" con constantes puras (ej. 24 -> 20): "Puso 20 en vez de 24."', () => {
+    const result = reconcileFindError(rawItem({
+      expression: '(x+6)*(x+4)-x^2',
+      correctForm: 'x^2 + 6*x + 4*x + 24 - x^2',
+      correctTerm: '24',
+      wrongTerm: '20',
+    }));
+    expect(result?.errorExplanation).toBe('Puso 20 en vez de 24.');
+    expect(result?.correctForm).toBe('10x + 24');
+    expect(result?.wrongStep).toBe('10x + 20');
   });
 
+  it('tipo "omission" (wrongTerm=0): "Le faltó el T: se olvidó de ese término."', () => {
+    const result = reconcileFindError(rawItem({
+      expression: '(x+6)*(x+4)-x^2',
+      correctForm: 'x^2 + 6*x + 4*x + 24 - x^2',
+      correctTerm: '4*x',
+      wrongTerm: '0',
+    }));
+    expect(result?.errorExplanation).toBe('Le faltó el 4x: se olvidó de ese término.');
+    expect(result?.correctForm).toBe('10x + 24');
+    expect(result?.wrongStep).toBe('6x + 24');
+  });
+
+  // wrongTerm lleva el signo "+" explícito — un "4*x" a secas rompería la
+  // sintaxis de la sustitución (ver el propio comentario del prompt).
+  it('tipo "sign" (wrongTerm = -correctTerm): "Le cambió el signo: puso W en vez de C."', () => {
+    const result = reconcileFindError(rawItem({
+      expression: '(x+6)*(x-4)',
+      correctForm: 'x^2 -4*x +6*x -24',
+      correctTerm: '-4*x',
+      wrongTerm: '+4*x',
+    }));
+    expect(result?.errorExplanation).toBe('Le cambió el signo: puso 4x en vez de -4x.');
+    expect(result?.correctForm).toBe('2x + x² - 24');
+    expect(result?.wrongStep).toBe('10x + x² - 24');
+  });
+});
+
+describe('reconcileFindError — notación de alumno en TODAS las opciones', () => {
+  it('limpia "*" y "^" del texto de un distractor (red de seguridad de presentación)', () => {
+    const result = reconcileFindError(rawItem({
+      errorDistractors: ['Multiplicó mal 6*4.', 'Olvidó elevar x^2 al cuadrado.'],
+    }));
+    expect(result?.errorDistractors).toEqual(['Multiplicó mal 6·4.', 'Olvidó elevar x² al cuadrado.']);
+  });
+
+  it('ninguna opción (correcta ni distractor) contiene "*" ni "^" en el resultado final', () => {
+    const result = reconcileFindError(rawItem({
+      errorDistractors: ['Sumó 6*x en vez de restarlo.', 'Confundió x^2 con 2*x.'],
+    }));
+    const allOptionText = [result?.errorExplanation, ...(result?.errorDistractors ?? [])].join(' ');
+    expect(allOptionText).not.toMatch(/[*^]/);
+  });
+});
+
+describe('reconcileFindError (pure safety gate)', () => {
   it('returns null when matched is false, regardless of the other fields', () => {
     expect(reconcileFindError(rawItem({ matched: false }))).toBeNull();
   });
@@ -92,10 +138,9 @@ describe('reconcileFindError (pure safety gate)', () => {
     expect(result).toBeNull();
   });
 
-  // The star check — a different LITERAL PART (not just a different
-  // coefficient) is now rejected outright, since it wouldn't give a
-  // single-term final-answer delta (the exact production bug this
-  // "final answer" redesign targets: "4x" corrupted into a bare "4").
+  // El chequeo estrella — una parte literal DISTINTA (no solo un coeficiente
+  // distinto) se rechaza directamente, porque no daría un delta de un solo
+  // término en el resultado final.
   it('rejects when wrongTerm has a different literal part than correctTerm (not a coefficient/sign-only change)', () => {
     const result = reconcileFindError(rawItem({
       expression: '(x+6)*(x+4)-x^2',
@@ -106,53 +151,9 @@ describe('reconcileFindError (pure safety gate)', () => {
     expect(result).toBeNull();
   });
 
-  // The same real case, done the COMPLIANT way: omitting the term entirely
-  // (wrongTerm="0") gives a clean single-term final-answer delta.
-  it('accepts the real reported case using the compliant "omit the whole term" pattern', () => {
-    const result = reconcileFindError(rawItem({
-      expression: '(x+6)*(x+4)-x^2',
-      correctForm: 'x^2 + 6*x + 4*x + 24 - x^2',
-      correctTerm: '4*x',
-      wrongTerm: '0',
-      errorReason: 'olvidó sumar este término',
-    }));
-    // correct final: 10x+24. wrong final (4x term dropped): 6x+24.
-    expect(result?.correctForm).toBe('10x + 24');
-    expect(result?.wrongStep).toBe('6x + 24');
-    expect(result?.errorExplanation).toBe('El término 4x quedó como 0 — olvidó sumar este término.');
-  });
-
-  // The wrongTerm MUST carry an explicit "+" sign here — a bare "4*x" would
-  // leave the substitution result ("x^2 4*x +6*x -24") missing an operator
-  // between the previous term and this one, a real syntax gotcha the prompt
-  // now explicitly calls out.
-  it('accepts a sign-flip error (same literal part, opposite sign, explicit "+" on wrongTerm)', () => {
-    const result = reconcileFindError(rawItem({
-      expression: '(x+6)*(x-4)',
-      correctForm: 'x^2 -4*x +6*x -24', // correct term here is -4x
-      correctTerm: '-4*x',
-      wrongTerm: '+4*x',
-    }));
-    expect(result).not.toBeNull();
-    expect(result?.correctForm).toBe('2x + x² - 24');
-    expect(result?.wrongStep).toBe('10x + x² - 24');
-  });
-
-  it('accepts a pure constant arithmetic error (both correctTerm and wrongTerm are plain numbers)', () => {
-    const result = reconcileFindError(rawItem({
-      expression: '(x+6)*(x+4)-x^2',
-      correctForm: 'x^2 + 6*x + 4*x + 24 - x^2',
-      correctTerm: '24',
-      wrongTerm: '20',
-    }));
-    expect(result?.correctForm).toBe('10x + 24');
-    expect(result?.wrongStep).toBe('10x + 20');
-  });
-
-  // Lightweight format checks — unaffected by the redesign.
   it('rejects when a distractor is a literal duplicate of the templated correct option', () => {
     const result = reconcileFindError(rawItem({
-      errorDistractors: ['El término 4x quedó como 6x — sumó mal los coeficientes de x.', 'Mezcló los términos en x e y.'],
+      errorDistractors: ['Puso 6x en vez de 4x.', 'Mezcló los términos en x e y.'],
     }));
     expect(result).toBeNull();
   });
@@ -164,8 +165,10 @@ describe('reconcileFindError (pure safety gate)', () => {
     expect(result).toBeNull();
   });
 
-  it('rejects when errorReason mentions "orden de los términos" (not a real error)', () => {
-    const result = reconcileFindError(rawItem({ errorReason: 'reordenó los términos de la expresión' }));
+  it('rejects when a distractor mentions "orden de los términos" (not a real error)', () => {
+    const result = reconcileFindError(rawItem({
+      errorDistractors: ['Reordenó los términos de la expresión.', 'Mezcló los términos en x e y.'],
+    }));
     expect(result).toBeNull();
   });
 

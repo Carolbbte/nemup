@@ -111,6 +111,65 @@ function isZeroValue(mathjsExpr: string): boolean {
   }
 }
 
+// ── Voz cercana: template de la opción correcta por tipo de error ─────────
+
+type FindErrorKind = 'omission' | 'sign' | 'value';
+
+/** Distingue los 3 tipos de error que la validación estructural ya admite
+ * (misma forma monomial, o wrongTerm cero) — determinístico a partir de
+ * correctTerm/wrongTerm, sin depender de texto libre del modelo. */
+function detectErrorKind(correctTermMathjs: string, wrongTermMathjs: string): FindErrorKind {
+  if (isZeroValue(wrongTermMathjs)) return 'omission';
+  if (expressionsEqual(wrongTermMathjs, `-(${correctTermMathjs})`, {}) === true) return 'sign';
+  return 'value';
+}
+
+/**
+ * Arma el texto de la opción correcta en voz cercana ("como alguien mayor
+ * que te explica"), no de manual — un template fijo por tipo de error,
+ * nunca texto libre del modelo (mismo espíritu que el resto del diseño
+ * estructurado: la coherencia se garantiza construyendo el texto, no
+ * confiando en que el modelo lo redacte bien). Ya no usa `errorReason` — los
+ * 3 templates cubren, sin ambigüedad, los únicos 3 tipos de error que la
+ * validación de arriba permite, así que no hace falta pedirle al modelo una
+ * razón adicional en texto libre.
+ */
+function buildErrorExplanation(correctTermMathjs: string, wrongTermMathjs: string, correctTermDisplay: string, wrongTermDisplay: string): string {
+  switch (detectErrorKind(correctTermMathjs, wrongTermMathjs)) {
+    case 'omission':
+      return `Le faltó el ${correctTermDisplay}: se olvidó de ese término.`;
+    case 'sign':
+      return `Le cambió el signo: puso ${wrongTermDisplay} en vez de ${correctTermDisplay}.`;
+    case 'value':
+    default:
+      return `Puso ${wrongTermDisplay} en vez de ${correctTermDisplay}.`;
+  }
+}
+
+const SUPERSCRIPT_DIGITS: Record<string, string> = { '0': '⁰', '1': '¹', '2': '²', '3': '³', '4': '⁴', '5': '⁵', '6': '⁶', '7': '⁷', '8': '⁸', '9': '⁹' };
+
+/**
+ * Conversión LIVIANA de sintaxis mathjs incrustada en texto libre (la prosa
+ * de un distractor, ej. "Multiplicó mal 6*4") a notación de alumno — un
+ * swap de tokens sobre el string, NUNCA un parseo completo de expresión
+ * (rompería con la prosa en español mezclada alrededor). Red de seguridad
+ * de presentación: se aplica siempre, incluso si el modelo ya siguió la
+ * instrucción del prompt de usar notación de alumno directamente.
+ *   - "x*x" (mismo símbolo) -> "x²".
+ *   - "6*4" (número·número) -> "6·4" — multiplicación EXPLÍCITA, porque
+ *     "64" sería ambiguo con el número 64.
+ *   - "6*x" (coeficiente·variable) -> "6x" — multiplicación implícita,
+ *     misma convención que toDisplayMath usa para expresiones puras.
+ *   - "^2"/"^3" -> "²"/"³" (un solo dígito).
+ */
+function lightPrettyPrint(text: string): string {
+  return text
+    .replace(/\b([a-zA-Z]\w*)\*\1\b/g, '$1²')
+    .replace(/(\d)\s*\*\s*(\d)/g, '$1·$2')
+    .replace(/\*/g, '')
+    .replace(/\^([0-9])/g, (_, d: string) => SUPERSCRIPT_DIGITS[d]);
+}
+
 /**
  * A validated "find the error" exercise for one `role === 'procedure'`
  * concept, ALWAYS multiple choice. Structured by construction, not
@@ -121,9 +180,10 @@ function isZeroValue(mathjsExpr: string): boolean {
  *   - `wrongStep` is DERIVED here (reconcileFindError) by substituting
  *     `correctTerm` → `wrongTerm` inside `correctForm` — a mechanical
  *     string operation, not model prose.
- *   - `errorExplanation` (the correct MC option) is TEMPLATED from
- *     `correctTerm`/`wrongTerm`/`errorReason` — it can only ever name the
- *     term that actually changed, by construction.
+ *   - `errorExplanation` (the correct MC option) is TEMPLATED (by error
+ *     kind — omission/sign/value, see buildErrorExplanation) from
+ *     `correctTerm`/`wrongTerm` — it can only ever name the term that
+ *     actually changed, by construction.
  * `errorDistractors` (2 honest-but-wrong diagnoses of OTHER terms) still
  * come from the model, same option-building convention as every other MC
  * slide (shuffleWithLetterAnswer in assemble.ts).
@@ -138,7 +198,7 @@ export interface FindErrorResult {
   correctTerm: string;
   wrongTerm: string;
   question: string;
-  /** Templated from correctTerm/wrongTerm/errorReason — see FindErrorResult's own comment. */
+  /** Templated by tipo de error (omisión/signo/valor) desde correctTerm/wrongTerm — ver buildErrorExplanation. */
   errorExplanation: string;
   errorDistractors: string[];
 }
@@ -151,8 +211,6 @@ export interface RawFindErrorItem {
   correctForm: string;
   correctTerm: string;
   wrongTerm: string;
-  /** Short reason phrase — always present in the schema (strict mode requires it), empty string when there's nothing to add beyond the term swap itself. */
-  errorReason: string;
   errorDistractors: string[];
 }
 
@@ -191,8 +249,6 @@ escribís el paso mal ni el texto de la opción correcta directamente, solo los 
      completo. Nunca uses un wrongTerm con letras o exponentes distintos a los de correctTerm (ej.
      correctTerm="4*x" con wrongTerm="4" está PROHIBIDO — cambia la parte literal). Matemáticamente
      DISTINTO de correctTerm en valor.
-   - "errorReason": frase corta del porqué, máximo 10 palabras (ej. "olvidó sumar este término"), o
-     string vacío si el nombre de los campos ya es autoexplicativo.
 
 4. "errorDistractors": exactamente 2 diagnósticos INCORRECTOS pero que sean errores PLAUSIBLES DE ESTE
    MISMO ejercicio, sobre OTROS términos u operaciones — NUNCA otra explicación del mismo correctTerm,
@@ -203,13 +259,19 @@ escribís el paso mal ni el texto de la opción correcta directamente, solo los 
        segunda "correcta" encubierta. ✗ "No aplicar el exponente a todo el factor" — no hay exponente
        sobre un factor acá, es de otro tema.
    Los 2 distractores deben ser DISTINTOS entre sí.
+   NOTACIÓN DE ALUMNO en el texto de errorDistractors — nunca sintaxis de código: usá "·" o "×" para
+   multiplicar y superíndices (x²) para potencias. NUNCA "*" ni "^". Ej.: "Multiplicó mal 6·4", nunca
+   "Multiplicó mal 6*4".
+   VOZ: cercana y directa, como alguien mayor que sabe del tema explicándole a un adolescente — nunca
+   de manual. Nombrá el término concreto, nunca "dicho término" ni "el mencionado término". Corto
+   (máximo 12 palabras aprox.).
 
 PROHIBIDO:
   - Usar "orden de los términos" / "términos mal ubicados" / "reordenó los términos" como error, ni
     como correctTerm/wrongTerm ni como errorDistractor: reordenar una suma NO es un error
     (a + b = b + a).
   - Elegir un correctTerm que en realidad ya está bien en cualquier resolución razonable — tiene que
-    ser un término donde el error que describís en errorReason realmente aplica.
+    ser un término donde el error elegido realmente aplica.
   - wrongTerm con una parte literal (letras/exponentes) DISTINTA de correctTerm, salvo que sea
     exactamente "0" (omisión total). Esto es lo más importante de todo el ejercicio: si lo violás, el
     resultado final del ejercicio no se puede calcular de forma limpia y el ítem se descarta entero.
@@ -264,7 +326,7 @@ function buildFindErrorSchema(itemCount: number) {
         items: {
           type: 'object',
           additionalProperties: false,
-          required: ['conceptId', 'matched', 'expression', 'correctForm', 'correctTerm', 'wrongTerm', 'errorReason', 'errorDistractors'],
+          required: ['conceptId', 'matched', 'expression', 'correctForm', 'correctTerm', 'wrongTerm', 'errorDistractors'],
           properties: {
             conceptId: { type: 'string', description: 'Debe ser exactamente uno de los conceptId indicados en el prompt.' },
             matched: { type: 'boolean', description: 'true si construiste correctForm/correctTerm/wrongTerm/2 distractores honestos; false si no.' },
@@ -272,13 +334,12 @@ function buildFindErrorSchema(itemCount: number) {
             correctForm: { type: 'string', description: 'La forma correcta (no simplificada) de resolver expression, con todos los términos bien, sintaxis mathjs. String vacío si matched=false.' },
             correctTerm: { type: 'string', description: 'Un término de correctForm, transcripto EXACTO — debe aparecer literal dentro de correctForm. String vacío si matched=false.' },
             wrongTerm: { type: 'string', description: 'Ese mismo término tal como queda al cometer el error, matemáticamente distinto de correctTerm. String vacío si matched=false.' },
-            errorReason: { type: 'string', description: 'Frase corta (máx 10 palabras) del porqué del error, o string vacío si no hace falta.' },
             errorDistractors: {
               type: 'array',
               minItems: 2,
               maxItems: 2,
               items: { type: 'string' },
-              description: '2 diagnósticos incorrectos pero plausibles sobre OTROS términos de este mismo ejercicio. Array vacío si matched=false.',
+              description: '2 diagnósticos incorrectos pero plausibles sobre OTROS términos de este mismo ejercicio, en notación de alumno (· y superíndices, nunca * ni ^). Array vacío si matched=false.',
             },
           },
         },
@@ -335,9 +396,11 @@ export function reconcileFindError(item: RawFindErrorItem): FindErrorResult | nu
   const correctForm = sanitizeMathText(item.correctForm).trim();
   const correctTerm = sanitizeMathText(item.correctTerm).trim();
   const wrongTerm = sanitizeMathText(item.wrongTerm).trim();
-  const errorReason = sanitizeMathText(item.errorReason ?? '').trim();
+  // lightPrettyPrint acá también — red de seguridad uniforme sobre TODO
+  // texto de opción (correcta + distractores), por si el modelo no siguió
+  // la instrucción de notación de alumno en su prosa libre.
   const errorDistractors = (item.errorDistractors ?? [])
-    .map((d) => sanitizeMathText(d).trim())
+    .map((d) => lightPrettyPrint(sanitizeMathText(d).trim()))
     .filter((d) => d.length > 0);
 
   if (!expression || !correctForm || !correctTerm || !wrongTerm) return null;
@@ -362,7 +425,9 @@ export function reconcileFindError(item: RawFindErrorItem): FindErrorResult | nu
   // use ("4x"), not the internal mathjs form ("4*x").
   const correctTermDisplay = toDisplayMath(correctTermMathjs);
   const wrongTermDisplay = toDisplayMath(wrongTermMathjs);
-  const errorExplanation = `El término ${correctTermDisplay} quedó como ${wrongTermDisplay}${errorReason ? ` — ${errorReason}` : ''}.`;
+  // Voz cercana, por tipo de error — nunca texto libre del modelo (ver
+  // buildErrorExplanation's own comment).
+  const errorExplanation = lightPrettyPrint(buildErrorExplanation(correctTermMathjs, wrongTermMathjs, correctTermDisplay, wrongTermDisplay));
 
   // Cheap format checks, before the more expensive mathjs evaluation below.
   const alternatives = [errorExplanation, ...errorDistractors.slice(0, 2)];
@@ -371,7 +436,7 @@ export function reconcileFindError(item: RawFindErrorItem): FindErrorResult | nu
     console.warn(`[FindError] descartado (formato) — errorExplanation/errorDistractors tienen duplicados o casi-duplicados: ${JSON.stringify(alternatives)}`);
     return null;
   }
-  if ([errorReason, ...errorDistractors].some((a) => ORDER_ERROR_RE.test(a))) {
+  if (errorDistractors.some((a) => ORDER_ERROR_RE.test(a))) {
     console.warn(`[FindError] descartado (reason=orden-invalido) — un diagnóstico menciona reordenar/mal ubicar términos, que no es un error real: ${JSON.stringify(alternatives)}`);
     return null;
   }

@@ -185,6 +185,15 @@ function displayHandler(node: any, options: any): string | undefined {
     // Implicit multiplication — no visible operator between the two sides.
     return `${a.toString({ ...options, handler: displayHandler })}${b.toString({ ...options, handler: displayHandler })}`;
   }
+  if (node.type === 'OperatorNode' && node.fn === 'unaryMinus') {
+    const arg = node.args[0];
+    // Only for a simple negated term (constant/symbol/product/power) — "-4x"
+    // not "-(4x)". Left to mathjs's own default (parenthesized) rendering
+    // when the argument is itself a sum, where dropping the parens WOULD
+    // change the meaning (e.g. "-(a+b)" must never become "-a+b").
+    if (arg.type === 'OperatorNode' && (arg.fn === 'add' || arg.fn === 'subtract')) return undefined;
+    return `-${arg.toString({ ...options, handler: displayHandler })}`;
+  }
   return undefined;
 }
 
