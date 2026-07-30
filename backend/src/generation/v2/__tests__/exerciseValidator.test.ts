@@ -16,7 +16,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { toMathjsSyntax, toDisplayMath, extractFreeSymbols, expressionsEqual, validateCalculationExercise, stripUnitSuffix } from '../exerciseValidator.js';
+import { toMathjsSyntax, toDisplayMath, extractFreeSymbols, expressionsEqual, validateCalculationExercise, stripUnitSuffix, combineLikeTerms, isAdditiveTermOf } from '../exerciseValidator.js';
 import type { GeneratedExercise } from '../exerciseGenerator.js';
 
 describe('toMathjsSyntax (preprocessor — the fragile piece)', () => {
@@ -103,6 +103,91 @@ describe('toDisplayMath (mathjs syntax -> student-facing notation, display only)
 
   it('keeps parentheses around a negated sum (dropping them would change the meaning)', () => {
     expect(toDisplayMath('-(x+6)')).toBe('-x - 6');
+  });
+
+  // Fix 2b — explicit regression guard: a coefficient of 2 must survive
+  // (never collapse "2x" into "x"); a coefficient of exactly 1 is the only
+  // one that gets omitted.
+  it('never drops a non-1 coefficient next to a variable', () => {
+    expect(toDisplayMath('2*x')).toBe('2x');
+    expect(toDisplayMath('2*x^2')).toBe('2x²');
+  });
+
+  it('omits a coefficient of exactly 1 (and -1), never any other value', () => {
+    expect(toDisplayMath('1*x')).toBe('x');
+    expect(toDisplayMath('-1*x')).toBe('-x');
+  });
+});
+
+describe('combineLikeTerms (deterministic, never uses simplify())', () => {
+  // The exact case that broke simplify(): it correctly combined 5x+8x into
+  // 13x, but then FACTORED a common 2 out of the leftover "2*x^2" and "2*x"
+  // into "2*(x^2+x)", corrupting the "2x" term's own coefficient when
+  // rendered term-by-term. combineLikeTerms must never do this.
+  it('combines like terms across a mix of degrees without simplify()\'s factoring bug', () => {
+    // 5x + 2x + 8x = 15x (three x-terms here, not two — see the next test
+    // for the ticket's own 2-term example).
+    expect(combineLikeTerms('2*x^2 + 5*x + 3 - 4*x^2 + 2*x + 8*x')).toBe('-2x² + 15x + 3');
+  });
+
+  it('handles the exact ticket example (no extra terms, ordered by degree descending)', () => {
+    expect(combineLikeTerms('2*x^2 + 3 - 4*x^2 + 2*x + 8*x')).toBe('-2x² + 10x + 3');
+  });
+
+  it('drops a group that cancels to zero entirely', () => {
+    expect(combineLikeTerms('3*x - 3*x + 5')).toBe('5');
+  });
+
+  it('returns "0" when everything cancels', () => {
+    expect(combineLikeTerms('x - x')).toBe('0');
+  });
+
+  it('never collapses a coefficient of 2 into 1 while combining', () => {
+    expect(combineLikeTerms('2*x + 8*x')).toBe('10x');
+    // A lone non-combining term keeps its own coefficient untouched.
+    expect(combineLikeTerms('2*x + 3*y')).toBe('2x + 3y');
+  });
+
+  it('omits a coefficient of exactly 1 after combining, never any other value', () => {
+    expect(combineLikeTerms('3*x - 2*x')).toBe('x');
+    expect(combineLikeTerms('2*x - 3*x')).toBe('-x');
+  });
+
+  it('falls back to a pretty-printed (uncombined) rendering when the expression is not a flat sum of monomials', () => {
+    // An unexpanded product slipping through — can't safely decompose into
+    // additive terms, so this must not fabricate a combined result.
+    expect(combineLikeTerms('(x+1)*(x+2)')).toBe(toDisplayMath('(x+1)*(x+2)'));
+  });
+
+  it('falls back to the raw input on genuinely malformed syntax', () => {
+    expect(combineLikeTerms('(((')).toBe('(((');
+  });
+});
+
+describe('isAdditiveTermOf', () => {
+  // Star test — a model-authored "-5*x^2*y" failing to string-match the
+  // "- 5*x^2*y" that literally appears inside correctForm (minus rendered
+  // as a spaced binary operator, not glued to the coefficient) was a real
+  // false-reject seen in production logs.
+  it('matches a term regardless of spacing/sign formatting differences', () => {
+    expect(isAdditiveTermOf('-4*x^2*y + 7*x^2*y - 5*x^2*y', '-5*x^2*y')).toBe(true);
+    expect(isAdditiveTermOf('-4*x + 3*x + 5*x - 4*y - 8*z', '-8*z')).toBe(true);
+  });
+
+  it('matches regardless of which side glues the sign to the coefficient', () => {
+    // Same value, differently formatted — must still match.
+    expect(isAdditiveTermOf('10*x+24', '+24')).toBe(true);
+  });
+
+  it('returns false when the term genuinely is not one of the additive terms', () => {
+    expect(isAdditiveTermOf('-4*x^2*y + 7*x^2*y - 5*x^2*y', '2*x^2*y')).toBe(false);
+    // Right variable shape, wrong coefficient (3x^2*y not present as a term).
+    expect(isAdditiveTermOf('-4*x^2*y + 7*x^2*y - 5*x^2*y', '3*x^2*y')).toBe(false);
+  });
+
+  it('returns false (never throws) on malformed input', () => {
+    expect(isAdditiveTermOf('(((', 'x')).toBe(false);
+    expect(isAdditiveTermOf('x + 1', '(((')).toBe(false);
   });
 });
 

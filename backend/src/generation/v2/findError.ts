@@ -4,7 +4,7 @@ import { config } from '../../config.js';
 import { withOpenAIRetry } from '../../services/openaiRetry.js';
 import { recordUsage } from '../../services/usageTracking.js';
 import { sanitizeMathText } from '../../services/mathNotation.js';
-import { toMathjsSyntax, toDisplayMath, expressionsEqual, extractFreeSymbols } from './exerciseValidator.js';
+import { toMathjsSyntax, expressionsEqual, extractFreeSymbols, parseMonomial, signatureFromPowers, isAdditiveTermOf, combineLikeTerms } from './exerciseValidator.js';
 import type { KnowledgeConcept, WorkedExample } from './types.js';
 
 const openai = new OpenAI({ apiKey: config.openai_api_key });
@@ -32,14 +32,14 @@ const ORDER_ERROR_RE = /\bt[eé]rminos?\s+mal\s+ubicad|\bmal\s+ubicad|\breorden|
 
 // ── Single-term-delta guard (see reconcileFindError's own comment) ─────────
 
-/** Symbol names that are mathjs constants, not student variables. */
-const MONOMIAL_BUILTINS = new Set(['e', 'pi', 'i', 'Infinity', 'NaN']);
-
 /**
  * Canonical "variable shape" of a single monomial (e.g. "4*x" -> "x^1",
  * "5*x^2*y" -> "x^2y^1", "24" -> ""), or `null` if the expression is not a
  * pure product/power/constant — i.e. it has a top-level +/-, meaning it's
- * not one term at all.
+ * not one term at all. Thin wrapper over exerciseValidator.ts's
+ * parseMonomial/signatureFromPowers (shared with combineLikeTerms/
+ * isAdditiveTermOf — same monomial-decomposition engine, not reimplemented
+ * here).
  *
  * This is the mechanism behind the "single-term delta" guarantee, and it
  * deliberately does NOT ask mathjs's `simplify()` to prove that property
@@ -59,33 +59,8 @@ function monomialSignature(mathjsExpr: string): string | null {
   } catch {
     return null;
   }
-
-  const powers = new Map<string, number>();
-  let isMonomial = true;
-
-  function walk(n: any, expFactor: number): void {
-    if (!isMonomial) return;
-    if (n.type === 'ConstantNode') return;
-    if (n.type === 'SymbolNode') {
-      if (!MONOMIAL_BUILTINS.has(n.name)) powers.set(n.name, (powers.get(n.name) ?? 0) + expFactor);
-      return;
-    }
-    if (n.type === 'ParenthesisNode') { walk(n.content, expFactor); return; }
-    if (n.type === 'OperatorNode') {
-      if (n.fn === 'multiply') { walk(n.args[0], expFactor); walk(n.args[1], expFactor); return; }
-      if (n.fn === 'unaryMinus' || n.fn === 'unaryPlus') { walk(n.args[0], expFactor); return; }
-      if (n.fn === 'pow' && n.args[1].type === 'ConstantNode') { walk(n.args[0], expFactor * Number(n.args[1].value)); return; }
-    }
-    isMonomial = false; // add/subtract/divide/function-call/anything else — not a pure monomial
-  }
-
-  walk(node, 1);
-  if (!isMonomial) return null;
-  return [...powers.entries()]
-    .filter(([, exp]) => Math.abs(exp) > 1e-9)
-    .sort(([a], [b]) => a.localeCompare(b))
-    .map(([name, exp]) => `${name}^${exp}`)
-    .join('');
+  const monomial = parseMonomial(node);
+  return monomial ? signatureFromPowers(monomial.powers) : null;
 }
 
 /** True iff `mathjsExpr` evaluates to (very close to) zero — checked at two
@@ -177,9 +152,11 @@ function lightPrettyPrint(text: string): string {
  * directly (an earlier free-text version let the model swap which of the
  * MC options was actually correct, since nothing tied the diagnosis text to
  * the real term that changed). Instead:
- *   - `wrongStep` is DERIVED here (reconcileFindError) by substituting
- *     `correctTerm` → `wrongTerm` inside `correctForm` — a mechanical
- *     string operation, not model prose.
+ *   - `wrongStep` is DERIVED here (reconcileFindError) MATHEMATICALLY as
+ *     `correctForm − correctTerm + wrongTerm` — an arithmetic expression,
+ *     not a text substitution, so formatting (spacing, glued vs spaced
+ *     signs) can never break it the way a substring search could (see
+ *     isAdditiveTermOf's own comment for the exact false-reject this fixed).
  *   - `errorExplanation` (the correct MC option) is TEMPLATED (by error
  *     kind — omission/sign/value, see buildErrorExplanation) from
  *     `correctTerm`/`wrongTerm` — it can only ever name the term that
@@ -191,9 +168,9 @@ function lightPrettyPrint(text: string): string {
 export interface FindErrorResult {
   conceptId: string;
   expression: string;
-  /** The correct, unsimplified step — a genuine intermediate resolution of `expression`. */
+  /** The correct, COMBINED final answer (via combineLikeTerms — never simplify(), see its own comment) — never the raw unsimplified step. */
   correctForm: string;
-  /** `correctForm` with `correctTerm` swapped for `wrongTerm` — mechanically derived, never model-authored. */
+  /** correctForm − correctTerm + wrongTerm, mathematically derived and then combined — never model-authored, never a text substitution. */
   wrongStep: string;
   correctTerm: string;
   wrongTerm: string;
@@ -234,15 +211,14 @@ escribís el paso mal ni el texto de la opción correcta directamente, solo los 
      wrongTerm="20".
    - Olvidar restar un término (ej. no restar x²): wrongTerm = "0" para ese término.
    - Error de signo en un término completo (ej. +4x en vez de -4x): correctTerm="-4*x",
-     wrongTerm="+4*x". IMPORTANTE en este caso: escribí el signo "+" explícito en wrongTerm (nunca
-     dejarlo implícito como "4*x") — el backend sustituye correctTerm por wrongTerm como texto
-     literal dentro de correctForm, así que si el signo no queda explícito se rompe la sintaxis del
-     resto de la expresión.
+     wrongTerm="+4*x" (o "4*x", da igual — el backend interpreta el signo matemáticamente).
    EVITÁ corromper una PARTE interna de un término (ej. "6*x" → "6+x") — eso da un resultado final
    raro e irreconocible. El error va SIEMPRE sobre el término completo, nunca dentro de él.
    Dá:
-   - "correctTerm": ese término tal como aparece literal en correctForm (ej. "4*x"). DEBE ser una
-     transcripción EXACTA de una porción de correctForm — el backend lo busca ahí como substring.
+   - "correctTerm": ese término tal como aparece en correctForm (ej. "4*x"). El backend lo confirma
+     MATEMÁTICAMENTE contra los términos de correctForm — no hace falta que el formato coincida al
+     pie de la letra (espacios, signo pegado o no), pero SÍ debe ser realmente uno de los términos
+     que aparecen en correctForm, no uno inventado.
    - "wrongTerm": cómo queda ese término al cometer el error. REGLA INNEGOCIABLE: wrongTerm debe tener
      EXACTAMENTE la misma parte literal que correctTerm (mismas letras, mismos exponentes — solo puede
      cambiar el coeficiente o el signo), O ser exactamente "0" si el error es omitir el término
@@ -359,12 +335,15 @@ function buildFindErrorSchema(itemCount: number) {
  * the WRONG thing as "the error". `wrongStep` and the correct MC option are
  * never trusted as model prose:
  *
- *   1. `correctTerm` must appear literally inside `correctForm` (a plain
- *      substring search) — this is what lets `wrongStep` be DERIVED by
- *      substitution instead of authored, so it can never drift from
- *      `errorExplanation` (the bug the structured redesign fixed: a correct
- *      diagnosis and a wrong-but-unrelated wrongStep, or the correct/
- *      distractor swapped).
+ *   1. `correctTerm` must be CONFIRMED (via exerciseValidator.ts's
+ *      isAdditiveTermOf — a mathjs-based comparison, not a substring search)
+ *      to be one of `correctForm`'s additive terms. A plain substring search
+ *      (`correctForm.indexOf(correctTerm)`) used to live here — it falsely
+ *      rejected valid items whose formatting merely differed (a
+ *      model-authored "-5*x^2*y" not matching the literal "- 5*x^2*y" that
+ *      appears inside correctForm, minus rendered as a spaced binary
+ *      operator instead of glued to the coefficient), starving find_error
+ *      down to 1 of 3 concepts in a real production run.
  *   2. `correctForm` must be CONFIRMED (via exerciseValidator.ts's
  *      expressionsEqual — the same mathjs engine generateExercises uses,
  *      not a second heuristic) to equal `expression`'s own value.
@@ -382,12 +361,13 @@ function buildFindErrorSchema(itemCount: number) {
  * the SDK.
  *
  * `correctForm`/`wrongStep` in the returned FindErrorResult are NOT the raw
- * unsimplified step text — they're the pretty-printed, simplified FINAL
- * answers (`correctFinal`/`wrongFinal`), since the student is meant to see
- * "a student got this final answer, find the error", not an intermediate
- * expansion. Kept under the same field names to avoid touching assemble.ts/
- * the frontend, which only ever read them as "the correct thing"/"the
- * wrong thing" — see FindErrorResult's own comment.
+ * unsimplified step text — they're the COMBINED (via combineLikeTerms —
+ * exerciseValidator.ts's deterministic, non-simplify()-based term combiner)
+ * FINAL answers, since the student is meant to see "a student got this
+ * final answer, find the error", not an intermediate expansion. Kept under
+ * the same field names to avoid touching assemble.ts/the frontend, which
+ * only ever read them as "the correct thing"/"the wrong thing" — see
+ * FindErrorResult's own comment.
  */
 export function reconcileFindError(item: RawFindErrorItem): FindErrorResult | null {
   if (!item.matched) return null;
@@ -406,25 +386,14 @@ export function reconcileFindError(item: RawFindErrorItem): FindErrorResult | nu
   if (!expression || !correctForm || !correctTerm || !wrongTerm) return null;
   if (errorDistractors.length < 2) return null;
 
-  // Derive wrongStep by substitution (first occurrence only — "changed
-  // exactly one term" means one specific instance, not every textual match
-  // of the same substring).
-  const termIdx = correctForm.indexOf(correctTerm);
-  if (termIdx === -1) {
-    console.warn(`[FindError] descartado (unverifiable) — correctTerm "${correctTerm}" no aparece literal en correctForm "${correctForm}".`);
-    return null;
-  }
-  const wrongStep = correctForm.slice(0, termIdx) + wrongTerm + correctForm.slice(termIdx + correctTerm.length);
-
   const correctTermMathjs = toMathjsSyntax(correctTerm);
   const wrongTermMathjs = toMathjsSyntax(wrongTerm);
-  // Pretty-printed up front (toDisplayMath falls back to the raw input on a
-  // parse failure, so this is safe even before the terms are validated
-  // below) — both for the template AND so the "distractor mentions the
-  // term" check compares against the notation a distractor would actually
-  // use ("4x"), not the internal mathjs form ("4*x").
-  const correctTermDisplay = toDisplayMath(correctTermMathjs);
-  const wrongTermDisplay = toDisplayMath(wrongTermMathjs);
+  // combineLikeTerms doubles as a safe single-term pretty-printer here (a
+  // lone monomial is just "one group, nothing to combine") — never uses
+  // simplify() internally, unlike the old toDisplayMath-based version, so
+  // there's no risk of the same factoring corruption Fix 2a exists to fix.
+  const correctTermDisplay = combineLikeTerms(correctTermMathjs);
+  const wrongTermDisplay = combineLikeTerms(wrongTermMathjs);
   // Voz cercana, por tipo de error — nunca texto libre del modelo (ver
   // buildErrorExplanation's own comment).
   const errorExplanation = lightPrettyPrint(buildErrorExplanation(correctTermMathjs, wrongTermMathjs, correctTermDisplay, wrongTermDisplay));
@@ -450,7 +419,6 @@ export function reconcileFindError(item: RawFindErrorItem): FindErrorResult | nu
 
   const exprMathjs = toMathjsSyntax(expression);
   const formMathjs = toMathjsSyntax(correctForm);
-  const wrongMathjs = toMathjsSyntax(wrongStep);
 
   const formVsExpr = expressionsEqual(formMathjs, exprMathjs, {});
   if (formVsExpr === false) {
@@ -459,6 +427,18 @@ export function reconcileFindError(item: RawFindErrorItem): FindErrorResult | nu
   }
   if (formVsExpr === null) {
     console.warn(`[FindError] descartado (unverifiable) — no se pudo comparar correctForm vs expression. expression="${expression}" correctForm="${correctForm}"`);
+    return null;
+  }
+
+  // Bug 1 fix: confirms correctTerm is MATHEMATICALLY one of correctForm's
+  // additive terms — replaces a plain substring search
+  // (correctForm.indexOf(correctTerm)), which was fragile to formatting (a
+  // model-authored "-5*x^2*y" failing to match the literal "- 5*x^2*y" that
+  // appears inside correctForm, minus rendered as a spaced binary operator
+  // instead of glued to the coefficient — a real false-reject seen in
+  // production logs, starving find_error down to 1 of 3 concepts).
+  if (!isAdditiveTermOf(formMathjs, correctTermMathjs)) {
+    console.warn(`[FindError] descartado (invalid) — correctTerm "${correctTerm}" no es un término de correctForm "${correctForm}" (comparación matemática, no substring). `);
     return null;
   }
 
@@ -482,11 +462,20 @@ export function reconcileFindError(item: RawFindErrorItem): FindErrorResult | nu
     return null;
   }
 
+  // Bug 1's second half: wrongStep is now derived MATHEMATICALLY
+  // (correctForm − correctTerm + wrongTerm) instead of by text substitution
+  // — formatting (spacing, glued vs spaced signs) can never break this,
+  // since it's an arithmetic expression, not a string edit.
+  const wrongMathjs = `(${formMathjs}) - (${correctTermMathjs}) + (${wrongTermMathjs})`;
+
   return {
     conceptId: item.conceptId,
     expression,
-    correctForm: toDisplayMath(formMathjs),
-    wrongStep: toDisplayMath(wrongMathjs),
+    // Bug 2 fix: combineLikeTerms (deterministic, never simplify()) instead
+    // of toDisplayMath — the student sees a genuinely combined final
+    // answer, with every coefficient intact.
+    correctForm: combineLikeTerms(formMathjs),
+    wrongStep: combineLikeTerms(wrongMathjs),
     correctTerm: correctTermDisplay,
     wrongTerm: wrongTermDisplay,
     question: FIND_ERROR_QUESTION,

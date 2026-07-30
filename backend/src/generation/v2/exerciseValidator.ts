@@ -240,6 +240,191 @@ export function extractFreeSymbols(mathjsExpr: string): string[] {
   return [...names];
 }
 
+// ── Monomial decomposition — combining like terms WITHOUT simplify() ───────
+
+/** A single monomial's numeric coefficient and variable "shape" (exponent
+ * per variable, e.g. {x: 2, y: 1} for a 5x²y-type term; empty for a bare
+ * constant). */
+export interface Monomial {
+  coefficient: number;
+  powers: Map<string, number>;
+}
+
+/**
+ * Parses a single mathjs node as a monomial (product of a numeric
+ * coefficient and variables raised to constant integer powers), or `null`
+ * if it isn't one (contains a top-level +/-, a division, a function call,
+ * etc. — i.e. it's not one term). Exported so callers needing just the
+ * shape (no coefficient) can still build it from this.
+ */
+export function parseMonomial(node: any): Monomial | null {
+  let coefficient = 1;
+  const powers = new Map<string, number>();
+  let ok = true;
+
+  function walk(n: any, expFactor: number): void {
+    if (!ok) return;
+    if (n.type === 'ConstantNode') { coefficient *= Math.pow(Number(n.value), expFactor); return; }
+    if (n.type === 'SymbolNode') {
+      if (MATHJS_BUILTINS.has(n.name)) { ok = false; return; }
+      powers.set(n.name, (powers.get(n.name) ?? 0) + expFactor);
+      return;
+    }
+    if (n.type === 'ParenthesisNode') { walk(n.content, expFactor); return; }
+    if (n.type === 'OperatorNode') {
+      if (n.fn === 'multiply') { walk(n.args[0], expFactor); walk(n.args[1], expFactor); return; }
+      if (n.fn === 'unaryMinus') { coefficient *= -1; walk(n.args[0], expFactor); return; }
+      if (n.fn === 'unaryPlus') { walk(n.args[0], expFactor); return; }
+      if (n.fn === 'pow' && n.args[1].type === 'ConstantNode') { walk(n.args[0], expFactor * Number(n.args[1].value)); return; }
+    }
+    ok = false; // add/subtract/divide/function-call/anything else — not a pure monomial
+  }
+
+  walk(node, 1);
+  return ok ? { coefficient, powers } : null;
+}
+
+/** Canonical string key for a monomial's variable shape (e.g. "x^2y^1", "" for a constant) — order-independent, used to group like terms. */
+export function signatureFromPowers(powers: Map<string, number>): string {
+  return [...powers.entries()]
+    .filter(([, exp]) => Math.abs(exp) > 1e-9)
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([name, exp]) => `${name}^${exp}`)
+    .join('');
+}
+
+/**
+ * Walks a mathjs node's top-level +/- chain, collecting each additive term
+ * as a parsed Monomial (with `sign` already folded into its coefficient).
+ * Returns `null` if ANY top-level term isn't a pure monomial (e.g. a
+ * genuinely unexpanded product survived) — callers must treat that as "we
+ * can't safely decompose this", never guess.
+ */
+function collectAdditiveMonomials(node: any, sign: number): Monomial[] | null {
+  if (node.type === 'ParenthesisNode') return collectAdditiveMonomials(node.content, sign);
+  if (node.type === 'OperatorNode' && node.fn === 'add') {
+    const a = collectAdditiveMonomials(node.args[0], sign);
+    const b = collectAdditiveMonomials(node.args[1], sign);
+    return a && b ? [...a, ...b] : null;
+  }
+  if (node.type === 'OperatorNode' && node.fn === 'subtract') {
+    const a = collectAdditiveMonomials(node.args[0], sign);
+    const b = collectAdditiveMonomials(node.args[1], -sign);
+    return a && b ? [...a, ...b] : null;
+  }
+  if (node.type === 'OperatorNode' && node.fn === 'unaryMinus') return collectAdditiveMonomials(node.args[0], -sign);
+  if (node.type === 'OperatorNode' && node.fn === 'unaryPlus') return collectAdditiveMonomials(node.args[0], sign);
+  const m = parseMonomial(node);
+  return m ? [{ coefficient: m.coefficient * sign, powers: m.powers }] : null;
+}
+
+function totalDegree(powers: Map<string, number>): number {
+  return [...powers.values()].reduce((sum, e) => sum + e, 0);
+}
+
+function toSuperscript(n: number): string {
+  return String(n).split('').map((d) => SUPERSCRIPT_DIGITS[Number(d)] ?? d).join('');
+}
+
+/** Renders one combined monomial in student notation — coefficient omitted
+ * only when it's exactly 1 (or -1) AND there are variables (a bare constant
+ * always shows its number, even "1"). `isFirst` controls whether a leading
+ * "+" is rendered (never) and whether a negative sign attaches directly
+ * ("-2x²") vs as a spaced operator (" - 2x²"). */
+function renderMonomial(m: Monomial, isFirst: boolean): string {
+  const abs = Math.abs(m.coefficient);
+  const hasVars = m.powers.size > 0;
+  const varPart = [...m.powers.entries()]
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([name, exp]) => (Math.abs(exp - 1) < 1e-9 ? name : `${name}${toSuperscript(exp)}`))
+    .join('');
+  const coefStr = hasVars && Math.abs(abs - 1) < 1e-9
+    ? ''
+    : (Number.isInteger(abs) ? String(abs) : abs.toFixed(2).replace(/\.?0+$/, ''));
+  const body = `${coefStr}${varPart}`;
+  if (isFirst) return m.coefficient < 0 ? `-${body}` : body;
+  return m.coefficient < 0 ? ` - ${body}` : ` + ${body}`;
+}
+
+/**
+ * Combines like terms in a flat additive mathjs expression — DETERMINISTIC,
+ * never uses `simplify()`. This exists because `simplify()` is not reliable
+ * for exactly this operation: `simplify("2*x^2 + 5*x + 3 - 4*x^2 + 2*x + 8*x")`
+ * (confirmed empirically) returns `"13*x + 2*(x^2 + x) + 3 - 4*x^2"` — it
+ * correctly combined 5x+8x into 13x, but then FACTORED a common 2 out of
+ * the leftover "2*x^2" and "2*x" into `2*(x^2+x)`, silently corrupting the
+ * "2x" term's own coefficient when later pretty-printed term-by-term. This
+ * function instead parses the expression into monomials directly (via
+ * parseMonomial/collectAdditiveMonomials — no CAS, no restructuring),
+ * groups by variable shape, sums coefficients, drops zero-coefficient
+ * groups, and renders highest-degree-first — the literal operation these
+ * exercises are teaching, not a general algebraic simplification.
+ *
+ * Falls back to `toDisplayMath` (pretty-print without combining) if the
+ * expression isn't a flat sum of monomials (an unexpanded product slipped
+ * through) — never fabricates a combined result it can't actually compute.
+ */
+export function combineLikeTerms(mathjsExpr: string): string {
+  let node: any;
+  try {
+    node = parse(mathjsExpr);
+  } catch {
+    return mathjsExpr;
+  }
+
+  const monomials = collectAdditiveMonomials(node, 1);
+  if (!monomials) return toDisplayMath(mathjsExpr);
+
+  const groups = new Map<string, Monomial>();
+  for (const m of monomials) {
+    const sig = signatureFromPowers(m.powers);
+    const existing = groups.get(sig);
+    if (existing) existing.coefficient += m.coefficient;
+    else groups.set(sig, { coefficient: m.coefficient, powers: m.powers });
+  }
+
+  const combined = [...groups.values()]
+    .filter((g) => Math.abs(g.coefficient) > 1e-9)
+    .sort((a, b) => totalDegree(b.powers) - totalDegree(a.powers));
+
+  if (combined.length === 0) return '0';
+  return combined.map((g, i) => renderMonomial(g, i === 0)).join('');
+}
+
+/**
+ * True iff `correctTermMathjs` is (mathematically) one of `correctFormMathjs`'s
+ * top-level additive terms — same or opposite sign counts as long as the
+ * VALUE matches, since a term's sign is part of its value. Replaces a plain
+ * substring search (`correctForm.indexOf(correctTerm)`), which is fragile
+ * to formatting (a model-authored "-5*x^2*y" failing to match the literal
+ * "- 5*x^2*y" that appears inside correctForm, with the minus rendered as a
+ * spaced binary operator instead of glued to the coefficient — a real
+ * false-reject observed in production logs). Returns `false` (never throws)
+ * if either side fails to parse, or if correctForm isn't a flat sum of
+ * monomials — callers must treat that as "can't confirm", same as any
+ * other unverifiable case.
+ */
+export function isAdditiveTermOf(correctFormMathjs: string, correctTermMathjs: string): boolean {
+  let formNode: any;
+  let termNode: any;
+  try {
+    formNode = parse(correctFormMathjs);
+    termNode = parse(correctTermMathjs);
+  } catch {
+    return false;
+  }
+  const term = parseMonomial(termNode);
+  if (!term) return false;
+  const formTerms = collectAdditiveMonomials(formNode, 1);
+  if (!formTerms) return false;
+
+  const termSig = signatureFromPowers(term.powers);
+  return formTerms.some((t) =>
+    signatureFromPowers(t.powers) === termSig
+    && Math.abs(t.coefficient - term.coefficient) < 1e-6 * Math.max(1, Math.abs(t.coefficient)),
+  );
+}
+
 // ── Point-substitution equality (works for both numeric and symbolic) ──────
 
 const TRIALS = 5;
