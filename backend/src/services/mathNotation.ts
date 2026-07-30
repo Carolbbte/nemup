@@ -41,9 +41,21 @@ export function sanitizeMathText(text: string): string {
   // "^" + digit superscript detector still matches it).
   result = result.replace(/\^\{(-?\d+)\}/g, '^$1');
 
-  // Any other stray LaTeX command (\alpha, \text, ...) — drop the backslash,
-  // keep the word, so it degrades to readable text instead of a raw
-  // backslash rather than crashing or vanishing.
+  // \command{content} for any other single-argument LaTeX command not
+  // already special-cased above (\text{cm}, \mathrm{kg}, \vec{v}, ...) —
+  // unwrap to just the content, same "drop the wrapper, keep the payload"
+  // treatment \sqrt{} already gets. MUST run before the generic
+  // backslash-word strip right below: since real Chilean grouping braces
+  // are now deliberately preserved (see the comment at the bottom of this
+  // function), a stray "\text{cm}" would otherwise only lose its backslash
+  // ("text{cm}") and the leftover braces would survive as a visible LaTeX
+  // artifact — never confused with real grouping notation, since a
+  // legitimate grouping brace is never immediately preceded by "\word".
+  result = result.replace(/\\[a-zA-Z]+\s*\{([^{}]*)\}/g, '$1');
+
+  // Any other stray LaTeX command with no braces (\alpha, \pi, ...) — drop
+  // the backslash, keep the word, so it degrades to readable text instead
+  // of a raw backslash rather than crashing or vanishing.
   result = result.replace(/\\([a-zA-Z]+)/g, '$1');
 
   // `{`/`}` are deliberately left untouched (an unconditional strip used to

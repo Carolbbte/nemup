@@ -55,4 +55,17 @@ describe('sanitizeMathText', () => {
   it('no confunde una llave de agrupación real con una de LaTeX ya resuelta (\\frac sigue funcionando)', () => {
     expect(sanitizeMathText('\\frac{2}{3} + {5 - 1}')).toBe('2/3 + {5 - 1}');
   });
+
+  // Al dejar de borrar TODA llave, un comando LaTeX no reconocido con
+  // argumento entre llaves (\text{}, \mathrm{}, \vec{}, ...) ya no debe
+  // dejar una llave huérfana visible — se desenvuelve al contenido, mismo
+  // trato que \sqrt{} ya recibe.
+  it('desenvuelve un comando LaTeX genérico con argumento entre llaves, sin dejar llaves huérfanas', () => {
+    expect(sanitizeMathText('5\\text{cm}')).toBe('5cm');
+    expect(sanitizeMathText('3\\mathrm{kg} + 2\\mathrm{kg}')).toBe('3kg + 2kg');
+  });
+
+  it('el desenvuelto de comando LaTeX no toca una llave de agrupación real justo al lado', () => {
+    expect(sanitizeMathText('5\\text{cm} + {3 - 1}')).toBe('5cm + {3 - 1}');
+  });
 });
