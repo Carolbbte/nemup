@@ -31,6 +31,15 @@ function normalizeForDedupe(s: string): string {
 // mistake ("orden de los términos" / "mal ubicados" / "reordenó").
 const ORDER_ERROR_RE = /\bt[eé]rminos?\s+mal\s+ubicad|\bmal\s+ubicad|\breorden|\borden\s+de\s+los\s+t[eé]rminos|posici[oó]n\s+de\s+los\s+t[eé]rminos/i;
 
+// "Hizo X en vez de hacer X correctamente" names no real error — a real
+// production example: "Sumó 2x y 8x en vez de sumarlos correctamente." The
+// tell isn't verb repetition (fragile to detect) but the vacuous
+// "correctamente"/"bien" tail on an "en vez de ..." clause — a distractor
+// that actually names a concrete wrong operation/result never needs to say
+// "the right way" at all, it just SAYS the wrong thing (see SYSTEM_PROMPT's
+// ✓/✗ examples for this exact pattern).
+const CIRCULAR_DISTRACTOR_RE = /en vez de\s+\w+(?:los?|las?)?\s+(?:correctamente|bien)\b/i;
+
 // ── Single-term-delta guard (see reconcileFindError's own comment) ─────────
 
 /**
@@ -252,12 +261,20 @@ escribís el paso mal ni el texto de la opción correcta directamente, solo los 
 
 4. "errorDistractors": exactamente 2 diagnósticos INCORRECTOS pero que sean errores PLAUSIBLES DE ESTE
    MISMO ejercicio, sobre OTROS términos u operaciones — NUNCA otra explicación del mismo correctTerm,
-   y NUNCA errores de otro tema ni categorías genéricas que no apliquen a este ejercicio.
+   y NUNCA errores de otro tema ni categorías genéricas que no apliquen a este ejercicio. Cada uno debe
+   describir un error CONCRETO y específico — una operación o resultado equivocado PUNTUAL, distinto del
+   error real y distinto entre sí. PROHIBIDO el patrón circular "hizo X en vez de hacer X correctamente" /
+   "…en vez de sumarlos correctamente" / "…en vez de restarlos bien": no nombra ningún error real, solo
+   dice que está mal.
      ✓ Para (x+6)(x+4), si el error elegido fue en el término 4x: "Sumó 6+4 en vez de multiplicar los
        términos cruzados", "Multiplicó mal 6·4".
+     ✓ CONCRETOS: "Sumó mal los coeficientes de x: le dio 8x en vez de 15x.", "Le cambió el signo al 4x².",
+       "Combinó el 2x² con los términos en x."
      ✗ Para el mismo caso: otra frase que describa el mismo término 4x con otras palabras — sería una
        segunda "correcta" encubierta. ✗ "No aplicar el exponente a todo el factor" — no hay exponente
        sobre un factor acá, es de otro tema.
+     ✗ CIRCULARES (prohibidos): "Sumó 2x y 8x en vez de sumarlos correctamente.", "Restó 4x² en vez de
+       sumarlo con 2x² correctamente."
    Los 2 distractores deben ser DISTINTOS entre sí.
    NOTACIÓN DE ALUMNO en el texto de errorDistractors — nunca sintaxis de código: usá "·" o "×" para
    multiplicar y superíndices (x²) para potencias. NUNCA "*" ni "^". Ej.: "Multiplicó mal 6·4", nunca
@@ -270,6 +287,8 @@ PROHIBIDO:
   - Usar "orden de los términos" / "términos mal ubicados" / "reordenó los términos" como error, ni
     como correctTerm/wrongTerm ni como errorDistractor: reordenar una suma NO es un error
     (a + b = b + a).
+  - El patrón circular "hizo X en vez de hacer X correctamente" (ej. "…en vez de sumarlos correctamente",
+    "…en vez de restarlos bien") como errorDistractor: no nombra un error concreto, se descarta.
   - Elegir un correctTerm que en realidad ya está bien en cualquier resolución razonable — tiene que
     ser un término donde el error elegido realmente aplica.
   - wrongTerm con una parte literal (letras/exponentes) DISTINTA de correctTerm, salvo que sea
@@ -431,6 +450,10 @@ export function reconcileFindError(item: RawFindErrorItem): FindErrorResult | nu
   }
   if (errorDistractors.some((a) => ORDER_ERROR_RE.test(a))) {
     console.warn(`[FindError] descartado (reason=orden-invalido) — un diagnóstico menciona reordenar/mal ubicar términos, que no es un error real: ${JSON.stringify(alternatives)}`);
+    return null;
+  }
+  if (errorDistractors.some((a) => CIRCULAR_DISTRACTOR_RE.test(a))) {
+    console.warn(`[FindError] descartado (reason=distractor-circular) — un diagnóstico dice "hizo X en vez de hacerlo bien" sin nombrar un error concreto: ${JSON.stringify(alternatives)}`);
     return null;
   }
   // A distractor mentioning correctTerm would be a second (encubierta)

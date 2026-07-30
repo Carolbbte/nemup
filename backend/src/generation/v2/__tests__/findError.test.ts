@@ -170,6 +170,36 @@ describe('reconcileFindError — notación de alumno en TODAS las opciones', () 
   });
 });
 
+describe('reconcileFindError — distractores circulares (sin error concreto)', () => {
+  it('rechaza "…en vez de sumarlos correctamente" (caso real de producción)', () => {
+    const result = reconcileFindError(rawItem({
+      errorDistractors: ['Sumó 2x y 8x en vez de sumarlos correctamente.', 'Mezcló los términos en x e y.'],
+    }));
+    expect(result).toBeNull();
+  });
+
+  it('rechaza "…en vez de restarlo con 2x² correctamente"', () => {
+    const result = reconcileFindError(rawItem({
+      errorDistractors: ['Restó 4x² en vez de sumarlo con 2x² correctamente.', 'Mezcló los términos en x e y.'],
+    }));
+    expect(result).toBeNull();
+  });
+
+  it('rechaza la variante "…en vez de restarlos bien"', () => {
+    const result = reconcileFindError(rawItem({
+      errorDistractors: ['Sumó los coeficientes en vez de restarlos bien.', 'Mezcló los términos en x e y.'],
+    }));
+    expect(result).toBeNull();
+  });
+
+  it('acepta un distractor concreto que nombra un error específico', () => {
+    const result = reconcileFindError(rawItem({
+      errorDistractors: ['Multiplicó el 3y por 2 sin motivo.', 'Restó los coeficientes de y en vez de sumarlos.'],
+    }));
+    expect(result).not.toBeNull();
+  });
+});
+
 describe('reconcileFindError (pure safety gate)', () => {
   it('returns null when matched is false, regardless of the other fields', () => {
     expect(reconcileFindError(rawItem({ matched: false }))).toBeNull();
