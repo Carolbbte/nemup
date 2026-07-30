@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { isExercisableSubject, isValidGeneratedExercise, buildSlotPlan, applyMathValidation, TARGET_EXERCISES_PER_SESSION } from '../exerciseGenerator.js';
-import type { GeneratedExercise, RawGeneratedExercise, RankedExercise } from '../exerciseGenerator.js';
+import { isExercisableSubject, isValidGeneratedExercise, buildSlotPlan, applyMathValidation, attachConceptIds, TARGET_EXERCISES_PER_SESSION } from '../exerciseGenerator.js';
+import type { GeneratedExercise, RawGeneratedExercise, RankedExercise, SlotDescriptor } from '../exerciseGenerator.js';
 import type { KnowledgeConcept } from '../types.js';
 
 describe('isExercisableSubject', () => {
@@ -232,5 +232,41 @@ describe('applyMathValidation (EXERCISE_VALIDATION_MODE = "log-only" today)', ()
     const ranked = [makeRanked({ kind: 'recognition', checkExpression: '', variables: [], correctAnswer: 'cualquier cosa' })];
     const result = await applyMathValidation(ranked, [], 'Matemática');
     expect(result).toEqual(ranked);
+  });
+});
+
+// find_error's pool-sourcing (findError.ts's selectPoolCandidatesForFindError)
+// needs to know which concept each generated exercise came from — attachConceptIds
+// is the only place that association survives past slotId being stripped.
+describe('attachConceptIds', () => {
+  const c1 = makeConcept('c1', 2);
+  const c2 = makeConcept('c2', 3);
+  const slot = (id: string, concept: KnowledgeConcept): SlotDescriptor => ({ id, concept, kind: 'base', difficulty: concept.difficulty });
+
+  it('maps each exercise back to the concept its slotId was planned for', () => {
+    const plan: SlotDescriptor[] = [slot('ej1', c1), slot('ej2', c2)];
+    const ranked: RankedExercise[] = [
+      { exercise: { ...makeExercise({ slotId: 'ej1' }) }, difficulty: 2 },
+      { exercise: { ...makeExercise({ slotId: 'ej2' }) }, difficulty: 3 },
+    ];
+
+    const result = attachConceptIds(ranked, plan);
+
+    expect(result[0].conceptId).toBe('c1');
+    expect(result[1].conceptId).toBe('c2');
+  });
+
+  it('strips slotId from the returned shape', () => {
+    const plan: SlotDescriptor[] = [slot('ej1', c1)];
+    const ranked: RankedExercise[] = [{ exercise: makeExercise({ slotId: 'ej1' }), difficulty: 2 }];
+
+    const result = attachConceptIds(ranked, plan);
+
+    expect(result[0]).not.toHaveProperty('slotId');
+  });
+
+  it('leaves conceptId undefined for a slotId with no match in the plan (defensive, should not happen in practice)', () => {
+    const result = attachConceptIds([{ exercise: makeExercise({ slotId: 'orphan' }), difficulty: 1 }], []);
+    expect(result[0].conceptId).toBeUndefined();
   });
 });

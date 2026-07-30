@@ -67,6 +67,13 @@ export interface GeneratedExercise {
   // Record<string,number> (OpenAI strict-mode schemas forbid dynamic keys).
   checkExpression?: string;
   variables?: { name: string; value: number }[];
+  // Which concept (by id) this exercise was generated for — populated by
+  // attachConceptIds below via the plan's slotId->concept mapping, `undefined`
+  // for any GeneratedExercise built outside generateExercises (e.g. test
+  // literals). Lets find_error borrow a concept's OWN generated exercise as a
+  // source when the material's workedExamples run short — see findError.ts's
+  // selectPoolCandidatesForFindError, the only reader of this field.
+  conceptId?: string;
 }
 
 /** GeneratedExercise plus the slot label the model must echo back — the
@@ -574,7 +581,22 @@ export async function generateExercises(
   const [boss] = ranked.splice(bossIdx, 1);
   ranked.push(boss);
 
-  return ranked.map(({ exercise: { slotId, ...exercise } }) => exercise);
+  return attachConceptIds(ranked, plan);
+}
+
+/**
+ * Maps each ranked exercise's `slotId` back to the concept it was planned
+ * for (via `plan` — the same lookup `generateBatch` already does for
+ * difficulty, just keyed to `concept.id` instead) and strips `slotId` from
+ * the final shape, same as before this was extracted. A slotId with no match
+ * in `plan` (shouldn't happen — every ranked exercise's slotId came from
+ * this exact plan) leaves `conceptId` `undefined` rather than throwing.
+ * Exported for testability only — generateExercises's own OpenAI call isn't
+ * unit-tested (see this file's `applyMathValidation` doc comment).
+ */
+export function attachConceptIds(ranked: RankedExercise[], plan: SlotDescriptor[]): GeneratedExercise[] {
+  const conceptIdBySlot = new Map(plan.map((s) => [s.id, s.concept.id]));
+  return ranked.map(({ exercise: { slotId, ...exercise } }) => ({ ...exercise, conceptId: conceptIdBySlot.get(slotId) }));
 }
 
 /**

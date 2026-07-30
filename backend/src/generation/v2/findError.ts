@@ -4,8 +4,9 @@ import { config } from '../../config.js';
 import { withOpenAIRetry } from '../../services/openaiRetry.js';
 import { recordUsage } from '../../services/usageTracking.js';
 import { sanitizeMathText } from '../../services/mathNotation.js';
-import { toMathjsSyntax, expressionsEqual, extractFreeSymbols, parseMonomial, signatureFromPowers, isAdditiveTermOf, combineLikeTerms } from './exerciseValidator.js';
+import { toMathjsSyntax, expressionsEqual, extractFreeSymbols, parseMonomial, signatureFromPowers, isAdditiveTermOf, combineLikeTerms, validateCalculationExercise } from './exerciseValidator.js';
 import type { KnowledgeConcept, WorkedExample } from './types.js';
+import type { GeneratedExercise } from './exerciseGenerator.js';
 
 const openai = new OpenAI({ apiKey: config.openai_api_key });
 
@@ -61,6 +62,29 @@ function monomialSignature(mathjsExpr: string): string | null {
   }
   const monomial = parseMonomial(node);
   return monomial ? signatureFromPowers(monomial.powers) : null;
+}
+
+/**
+ * Top-level additive-term count of a COMBINED (via combineLikeTerms, never
+ * simplify() — see its own comment) mathjs expression. Used only to prefer a
+ * multi-term ("reducción de términos") generated exercise as a find_error
+ * source over a pure product/numeric-evaluation one (e.g. "(x+6)*(x+4)" con
+ * x=3 fijo) — the latter's correctAnswer collapses to a single value, and
+ * find_error's whole premise (corrupt ONE term among several, see
+ * reconcileFindError's own comment) has nothing to grab onto there. Checked
+ * against `correctAnswer` (the exercise's own already-verified final value),
+ * never `checkExpression` — an unexpanded product's checkExpression LOOKS
+ * single-shaped even when its correctAnswer is a genuine multi-term
+ * polynomial (e.g. "(5*x^2*y+8)*(5*x^2*y+5)"), so judging by checkExpression's
+ * surface syntax would wrongly exclude a perfectly good candidate.
+ * combineLikeTerms's renderMonomial never puts a bare space-sign-space INSIDE
+ * a single rendered term (exponents render as superscript unicode, not "^",
+ * and there are no other internal spaces) — so splitting on that exact
+ * pattern safely counts terms without re-parsing the combined result.
+ */
+function additiveTermCount(mathjsExpr: string): number {
+  const combined = combineLikeTerms(mathjsExpr);
+  return combined === '0' ? 0 : combined.split(/\s[+-]\s/).length;
 }
 
 /** True iff `mathjsExpr` evaluates to (very close to) zero — checked at two
@@ -536,4 +560,91 @@ export async function generateFindError(
 
   console.log(`[FindError] ${results.size}/${procedureConcepts.length} concepto(s) procedure con find_error válido.`);
   return results;
+}
+
+// ── Sourcing from the generated-exercise pool (not just the material) ──────
+
+/**
+ * For each `uncoveredConcepts` procedure concept (one generateFindError
+ * already failed to cover from the material's own workedExamples — no
+ * worked example at all, or none the model could turn into a valid item),
+ * picks that SAME concept's own `kind: 'calculation'` generated exercise
+ * (exerciseGenerator.ts's pool, tagged via `conceptId` — see
+ * GeneratedExercise's own comment) to use as a find_error source instead —
+ * never a different concept's exercise, matched by `conceptId`, not by
+ * topic-guessing.
+ *
+ * Two hard requirements, both checked regardless of exerciseGenerator.ts's
+ * own EXERCISE_VALIDATION_MODE (which may be 'log-only' — this gate is
+ * unconditional here; find_error can't afford to build a "spot the error"
+ * exercise on top of an exercise whose own "correct" answer might itself be
+ * wrong):
+ *   1. `validateCalculationExercise` must confirm the exercise's own
+ *      correctAnswer actually resolves checkExpression, and no distractor
+ *      secretly equals it.
+ *   2. The exercise's correctAnswer must have >= 2 additive terms (see
+ *      additiveTermCount's own comment) — a pure product/numeric-evaluation
+ *      exercise has no "one term among several" for find_error to corrupt.
+ * A concept with no exercise passing both is simply left out of the
+ * returned arrays — no forced/degraded match, same "no candidate left
+ * without a fallback" discipline as the rest of this feature.
+ *
+ * Returns `{concepts, examples}` in lockstep (same index = same concept),
+ * shaped to feed directly into `generateFindError` as a second, smaller
+ * call — reuses that function (and reconcileFindError's entire safety gate)
+ * completely unchanged; this only decides WHICH exercise each concept gets
+ * to work from. `examples[i].statement` is the exercise's `checkExpression`
+ * (the verified, unexpanded planteo — plays the same role a material
+ * workedExample's literal statement does), not the prose `statement` field,
+ * which may wrap the expression in scenario framing the model would then
+ * have to re-extract.
+ */
+export function selectPoolCandidatesForFindError(
+  uncoveredConcepts: KnowledgeConcept[],
+  exercises: GeneratedExercise[],
+): { concepts: KnowledgeConcept[]; examples: WorkedExample[] } {
+  const concepts: KnowledgeConcept[] = [];
+  const examples: WorkedExample[] = [];
+
+  for (const concept of uncoveredConcepts) {
+    const candidate = exercises.find((ex) => {
+      if (ex.conceptId !== concept.id || ex.kind !== 'calculation') return false;
+      if (!ex.checkExpression?.trim()) return false;
+      if (!validateCalculationExercise(ex).ok) return false;
+      return additiveTermCount(toMathjsSyntax(ex.correctAnswer)) >= 2;
+    });
+    if (!candidate) continue;
+    concepts.push(concept);
+    examples.push({ statement: candidate.checkExpression!, answer: candidate.correctAnswer });
+  }
+
+  return { concepts, examples };
+}
+
+/**
+ * Cambio 3 — the exercise find_error just consumed from the generated pool
+ * must never ALSO show up as a normal calculation MC in the same session
+ * (orchestrator.ts calls this for every pool-sourced FindErrorResult, before
+ * passing `exercises` on to buildSummarySlides/buildDesafio). Matches by
+ * mathematical equivalence (expressionsEqual over toMathjsSyntax) rather
+ * than object identity or raw text, so it's correct even if the model
+ * reformatted `result.expression` slightly while transcribing the
+ * candidate's checkExpression — same principle assemble.ts's own
+ * cross-mechanic dedup (computeExerciseSignature) already relies on. Pure —
+ * returns a NEW array, never mutates `exercises` — and a no-op (returns
+ * `exercises` as-is) if no match is found, which should only happen if
+ * `result` didn't actually come from this pool.
+ */
+export function removeConsumedPoolExercise(
+  exercises: GeneratedExercise[],
+  result: FindErrorResult,
+): GeneratedExercise[] {
+  const target = toMathjsSyntax(result.expression);
+  const idx = exercises.findIndex((ex) =>
+    ex.kind === 'calculation'
+    && !!ex.checkExpression
+    && expressionsEqual(toMathjsSyntax(ex.checkExpression), target, {}) === true,
+  );
+  if (idx === -1) return exercises;
+  return [...exercises.slice(0, idx), ...exercises.slice(idx + 1)];
 }

@@ -8,7 +8,7 @@ import type { GeneratedSession, SessionConfig } from '../../types.js';
 import { buildKnowledgeObject } from './comprehension.js';
 import { generateDistractors } from './distractors.js';
 import { buildWorkedExampleSteps } from './procedural.js';
-import { generateFindError, type FindErrorResult } from './findError.js';
+import { generateFindError, selectPoolCandidatesForFindError, removeConsumedPoolExercise, type FindErrorResult } from './findError.js';
 import { generateExercises, isExercisableSubject } from './exerciseGenerator.js';
 import { buildFlashcards, buildQuestions, buildDesafio, buildSummarySlides, partitionWorkedExamplesForFindError } from './assemble.js';
 import { CAPABILITIES, resolveContentType, type ContentCapabilities } from '../../services/contentType.js';
@@ -114,35 +114,19 @@ export async function generateSessionV2(
     ? CAPABILITIES[contentType]
     : { ...CAPABILITIES.conceptual, allowMatchPairs: legacyAllowMatchPairs, allowExampleReinforcement: legacyAllowMatchPairs };
 
-  // find_error: only ever attempted for concepts the model itself tagged
-  // "procedure", and only when the material actually has solved exercises to
-  // derive expression/correctStep from — no candidate concepts or no worked
-  // examples means zero AI calls, same short-circuit buildWorkedExampleSteps
-  // and generateFindError itself already apply. `capabilities.findError` is
-  // false in every CAPABILITIES profile today (ship-inert-first rollout —
-  // see contentType.ts) so this is a no-op call today regardless of content
-  // type; flipping it on later needs no change here.
-  //
-  // No-repeat-within-a-session: workedExamples are a SHARED resource between
-  // find_error and the worked_example ("paso a paso") slides — both used to
-  // pick independently from the full ko.workedExamples list, so they could
-  // land on the exact same exercise (find_error deriving its error from the
-  // very statement already shown step-by-step). partitionWorkedExamplesForFindError
-  // runs the SAME selection buildSummarySlides uses later to decide what's
-  // shown as worked_example, computed early so find_error can be restricted
-  // to whatever's left over.
-  const workedExamplesForFindError = partitionWorkedExamplesForFindError(ko.workedExamples, workedExampleResults);
-
-  const procedureConcepts = ko.concepts.filter((c) => c.role === 'procedure');
-  const findErrorByConcept: Map<string, FindErrorResult> = capabilities.findError && procedureConcepts.length > 0 && workedExamplesForFindError.length > 0
-    ? await generateFindError(procedureConcepts, workedExamplesForFindError)
-    : new Map();
-
   // Generated-exercise trigger: subject-based, not an AI-judged field on the
   // KnowledgeObject — see exerciseGenerator.ts's isExercisableSubject for why
   // (avoids the same run-to-run inconsistency workedExamples had). Independent
   // of isProceduralMode above — generated exercises are ADDED on top of any
   // material-derived worked examples, not a replacement for them.
+  //
+  // Computed BEFORE find_error (moved up from after it) specifically so
+  // find_error's pool-sourcing fallback below can draw from `exercises` —
+  // confirmed safe to reorder: generateExercises only reads ko.concepts/
+  // ko.subject/capabilities.roleAware (all already resolved above), and
+  // nothing between here and the old position depended on execution order,
+  // only on the final values (same check this function's own comment above
+  // already documents for the classification/capabilities move).
   const shouldGenerateExercises = isExercisableSubject(ko.subject ?? '');
   if (!ko.subject) {
     console.warn(`[v2][exerciseGenerator] ko.subject vino vacío — no se generarán ejercicios aunque el material lo amerite (topic="${ko.topic}").`);
@@ -165,6 +149,62 @@ export async function generateSessionV2(
       ? `[v2] Ejercicios generados: ${exercises.length} (subject="${ko.subject}")`
       : `[v2] Material no ejercitable (subject="${ko.subject ?? ''}") — Misión con preguntas conceptuales.`,
   );
+
+  // find_error: only ever attempted for concepts the model itself tagged
+  // "procedure". `capabilities.findError` is false in every CAPABILITIES
+  // profile today (ship-inert-first rollout — see contentType.ts) so this is
+  // a no-op today regardless of content type; flipping it on later needs no
+  // change here.
+  //
+  // No-repeat-within-a-session: workedExamples are a SHARED resource between
+  // find_error and the worked_example ("paso a paso") slides — both used to
+  // pick independently from the full ko.workedExamples list, so they could
+  // land on the exact same exercise (find_error deriving its error from the
+  // very statement already shown step-by-step). partitionWorkedExamplesForFindError
+  // runs the SAME selection buildSummarySlides uses later to decide what's
+  // shown as worked_example, computed early so find_error can be restricted
+  // to whatever's left over.
+  //
+  // Two-phase sourcing (fixes find_error starving on a material with too few
+  // solved exercises to reserve one for paso-a-paso AND still have one left
+  // for find_error — e.g. a 1-worked-example guide):
+  //   Fase 1 (material): exactly today's behavior — one AI call over every
+  //     procedure concept against the leftover workedExamples pool.
+  //   Fase 2 (pool): for whichever procedure concepts fase 1 left uncovered
+  //     (no worked example at all, or none the model could turn into a valid
+  //     item), selectPoolCandidatesForFindError picks each concept's OWN
+  //     validated, multi-term generated exercise (exerciseGenerator.ts's
+  //     pool — see that function's own comment for the two hard
+  //     requirements) and a second, smaller generateFindError call runs
+  //     against just those — the exact same function/prompt/safety gate as
+  //     fase 1, never duplicated logic, just a different candidate list.
+  // Every pool-sourced result then has its source exercise removed from
+  // `exercises` (removeConsumedPoolExercise, math-equivalence match) BEFORE
+  // `exercises` is handed to buildSummarySlides below — otherwise that same
+  // exercise could also surface as a normal calculation micro_challenge,
+  // breaking the "no repeat within a session" guarantee (Cambio 3).
+  const workedExamplesForFindError = partitionWorkedExamplesForFindError(ko.workedExamples, workedExampleResults);
+  const procedureConcepts = ko.concepts.filter((c) => c.role === 'procedure');
+  const findErrorByConcept = new Map<string, FindErrorResult>();
+
+  if (capabilities.findError && procedureConcepts.length > 0) {
+    if (workedExamplesForFindError.length > 0) {
+      const fromMaterial = await generateFindError(procedureConcepts, workedExamplesForFindError);
+      fromMaterial.forEach((result, conceptId) => findErrorByConcept.set(conceptId, result));
+    }
+
+    const uncovered = procedureConcepts.filter((c) => !findErrorByConcept.has(c.id));
+    const { concepts: poolConcepts, examples: poolExamples } = selectPoolCandidatesForFindError(uncovered, exercises);
+
+    if (poolConcepts.length > 0) {
+      const fromPool = await generateFindError(poolConcepts, poolExamples);
+      fromPool.forEach((result, conceptId) => {
+        findErrorByConcept.set(conceptId, result);
+        exercises = removeConsumedPoolExercise(exercises, result);
+      });
+      console.log(`[v2][FindError] ${fromPool.size}/${poolConcepts.length} concepto(s) adicionales con find_error desde el pool de ejercicios generados (no del material).`);
+    }
+  }
 
   const generation: GenerationResult = {
     subject: ko.subject || config.subject || 'Tema del material',

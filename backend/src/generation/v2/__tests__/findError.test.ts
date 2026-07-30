@@ -26,7 +26,9 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { generateFindError, reconcileFindError, type RawFindErrorItem } from '../findError.js';
+import { generateFindError, reconcileFindError, selectPoolCandidatesForFindError, removeConsumedPoolExercise, type RawFindErrorItem, type FindErrorResult } from '../findError.js';
+import type { GeneratedExercise } from '../exerciseGenerator.js';
+import type { KnowledgeConcept } from '../types.js';
 
 const rawItem = (overrides: Partial<RawFindErrorItem> = {}): RawFindErrorItem => ({
   conceptId: 'c1',
@@ -259,6 +261,157 @@ describe('reconcileFindError (pure safety gate)', () => {
       correctForm: '  4*x + 3*y - 2*x + 5*y  ',
     }));
     expect(result).not.toBeNull();
+  });
+});
+
+// find_error desde el pool de ejercicios generados (no solo del material) —
+// selectPoolCandidatesForFindError (Cambio 1 + Cambio 2) y
+// removeConsumedPoolExercise (Cambio 3), ambas puras/sin llamar al SDK.
+const makeConcept = (id: string): KnowledgeConcept => ({
+  id,
+  name: `Concepto ${id}`,
+  simpleExplanation: '',
+  teacherExplanation: '',
+  definition: '',
+  example: null,
+  exampleShort: null,
+  hook: null,
+  emoji: null,
+  keyPhrase: null,
+  advancedExamples: [],
+  tips: [],
+  difficulty: 2,
+  distinctiveTrait: '',
+  sourceQuote: '',
+});
+
+const makeGeneratedExercise = (overrides: Partial<GeneratedExercise> = {}): GeneratedExercise => ({
+  statement: 'Reduce: 4*x + 3*y - 2*x + 5*y',
+  correctAnswer: '2*x + 8*y', // 2 términos — multi-término, elegible
+  distractors: [
+    { text: '6*x + 8*y', explanation: 'Sumó en vez de restar.' },
+    { text: '2*x + 2*y', explanation: 'Restó en vez de sumar.' },
+    { text: '2*x*y + 8*x*y', explanation: 'Mezcló términos.' },
+  ],
+  hint: 'Agrupa por separado.',
+  kind: 'calculation',
+  checkExpression: '4*x + 3*y - 2*x + 5*y',
+  variables: [],
+  conceptId: 'c1',
+  ...overrides,
+});
+
+describe('selectPoolCandidatesForFindError', () => {
+  it('elige el ejercicio calculation validado y multi-término del propio concepto', () => {
+    const concept = makeConcept('c1');
+    const { concepts, examples } = selectPoolCandidatesForFindError([concept], [makeGeneratedExercise()]);
+
+    expect(concepts).toEqual([concept]);
+    expect(examples).toEqual([{ statement: '4*x + 3*y - 2*x + 5*y', answer: '2*x + 8*y' }]);
+  });
+
+  it('ignora un ejercicio de OTRO concepto, aunque sea válido y multi-término', () => {
+    const concept = makeConcept('c1');
+    const exercises = [makeGeneratedExercise({ conceptId: 'c2' })];
+
+    const { concepts, examples } = selectPoolCandidatesForFindError([concept], exercises);
+    expect(concepts).toEqual([]);
+    expect(examples).toEqual([]);
+  });
+
+  it('ignora un ejercicio "recognition" (no numérico, no aplica find_error)', () => {
+    const concept = makeConcept('c1');
+    const exercises = [makeGeneratedExercise({ kind: 'recognition' })];
+
+    const { concepts } = selectPoolCandidatesForFindError([concept], exercises);
+    expect(concepts).toEqual([]);
+  });
+
+  it('Cambio 2 — ignora un ejercicio cuya correctAnswer NO valida contra checkExpression, sin importar EXERCISE_VALIDATION_MODE global', () => {
+    const concept = makeConcept('c1');
+    const exercises = [makeGeneratedExercise({ correctAnswer: '999*x' })]; // no coincide con checkExpression
+
+    const { concepts } = selectPoolCandidatesForFindError([concept], exercises);
+    expect(concepts).toEqual([]);
+  });
+
+  it('ignora un ejercicio de producto/evaluación numérica (correctAnswer de un solo término) — nada que corromper como "un término entre varios"', () => {
+    const concept = makeConcept('c1');
+    const exercises = [makeGeneratedExercise({
+      statement: 'Calcula (x+6)(x+4) con x=3',
+      checkExpression: '(x+6)*(x+4)',
+      variables: [{ name: 'x', value: 3 }],
+      correctAnswer: '63', // un solo valor, no una suma de términos
+    })];
+
+    const { concepts, examples } = selectPoolCandidatesForFindError([concept], exercises);
+    expect(concepts).toEqual([]);
+    expect(examples).toEqual([]);
+  });
+
+  it('dos conceptos, cada uno con su propio candidato — no se cruzan', () => {
+    const c1 = makeConcept('c1');
+    const c2 = makeConcept('c2');
+    const exercises = [
+      makeGeneratedExercise({ conceptId: 'c1', checkExpression: '4*x + 3*y - 2*x + 5*y', correctAnswer: '2*x + 8*y' }),
+      makeGeneratedExercise({ conceptId: 'c2', checkExpression: '2*a + 3*b - a', correctAnswer: '2*a + 3*b - a' }),
+    ];
+
+    const { concepts, examples } = selectPoolCandidatesForFindError([c1, c2], exercises);
+    expect(concepts.map((c) => c.id)).toEqual(['c1', 'c2']);
+    expect(examples[0].statement).toBe('4*x + 3*y - 2*x + 5*y');
+    expect(examples[1].statement).toBe('2*a + 3*b - a');
+  });
+
+  it('un concepto sin ningún candidato elegible queda simplemente afuera (sin forzar nada)', () => {
+    const concept = makeConcept('c1');
+    const result = selectPoolCandidatesForFindError([concept], []);
+    expect(result).toEqual({ concepts: [], examples: [] });
+  });
+});
+
+describe('removeConsumedPoolExercise', () => {
+  const makeResult = (overrides: Partial<FindErrorResult> = {}): FindErrorResult => ({
+    conceptId: 'c1',
+    expression: '4*x + 3*y - 2*x + 5*y',
+    correctForm: '2x + 8y',
+    wrongStep: '6x + 8y',
+    correctTerm: '4x',
+    wrongTerm: '6x',
+    question: '¿Cuál es el error?',
+    errorExplanation: 'Puso 6x en vez de 4x.',
+    errorDistractors: ['a', 'b'],
+    ...overrides,
+  });
+
+  it('saca el ejercicio cuyo checkExpression es matemáticamente igual a result.expression', () => {
+    const target = makeGeneratedExercise();
+    const other = makeGeneratedExercise({ conceptId: 'c2', checkExpression: '2*a + 3*a', correctAnswer: '5*a' });
+
+    const result = removeConsumedPoolExercise([other, target], makeResult());
+
+    expect(result).toEqual([other]);
+  });
+
+  it('compara por equivalencia matemática, no por texto literal (formato distinto, mismo valor)', () => {
+    const target = makeGeneratedExercise({ checkExpression: '4*x+3*y-2*x+5*y' }); // sin espacios
+    const result = removeConsumedPoolExercise([target], makeResult({ expression: '4*x + 3*y - 2*x + 5*y' }));
+
+    expect(result).toEqual([]);
+  });
+
+  it('no toca nada (no-op) cuando ningún ejercicio corresponde al resultado', () => {
+    const exercises = [makeGeneratedExercise({ checkExpression: '2*a + 3*a', correctAnswer: '5*a' })];
+    const result = removeConsumedPoolExercise(exercises, makeResult());
+
+    expect(result).toEqual(exercises);
+  });
+
+  it('no muta el array original', () => {
+    const exercises = [makeGeneratedExercise()];
+    removeConsumedPoolExercise(exercises, makeResult());
+
+    expect(exercises).toHaveLength(1);
   });
 });
 
