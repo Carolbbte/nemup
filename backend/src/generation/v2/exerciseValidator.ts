@@ -75,8 +75,23 @@ function tokenize(s: string): Token[] {
   while (i < s.length) {
     const c = s[i];
     if (/\s/.test(c)) { i++; continue; }
-    if (c === '(') { tokens.push({ kind: 'lparen' }); i++; continue; }
-    if (c === ')') { tokens.push({ kind: 'rparen' }); i++; continue; }
+    // '{'/'[' and '}'/']' are treated as plain grouping parens — Chilean
+    // math notation nests signos de agrupación as ( ) → [ ] → { } for
+    // readability (e.g. "5 - {3 - [2 + 4]}"), and worked examples copied
+    // verbatim from source material can carry that notation straight
+    // through. Left unhandled, these fell into the "unknown character,
+    // skip it" branch below — silently DELETED rather than caught as an
+    // error, which corrupts the expression's value instead of failing
+    // loudly (confirmed: "5 - {3 - [2 + 4 - (1+1)]}", correct value 6,
+    // evaluated to 2 once the deleted braces/brackets left "5-3-2+4-(1+1)"
+    // behind). Mapping them to lparen/rparen here — rather than converting
+    // to literal "(" text upstream in sanitizeMathText — keeps this purely
+    // an INTERNAL parsing concern: the student-facing text (sanitizeMathText's
+    // own output, shown as-is in the UI) still displays the original
+    // bracket shapes, only this math-checking/derivation path treats them
+    // as equivalent to parens.
+    if (c === '(' || c === '[' || c === '{') { tokens.push({ kind: 'lparen' }); i++; continue; }
+    if (c === ')' || c === ']' || c === '}') { tokens.push({ kind: 'rparen' }); i++; continue; }
     if (/[+\-*/^]/.test(c)) { tokens.push({ kind: 'op', text: c }); i++; continue; }
     if (/[0-9.]/.test(c)) {
       let j = i;

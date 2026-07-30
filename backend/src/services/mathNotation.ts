@@ -46,8 +46,17 @@ export function sanitizeMathText(text: string): string {
   // backslash rather than crashing or vanishing.
   result = result.replace(/\\([a-zA-Z]+)/g, '$1');
 
-  // Orphan braces left by any unhandled brace-grouping command.
-  result = result.replace(/[{}]/g, '');
-
+  // `{`/`}` are deliberately left untouched (an unconditional strip used to
+  // live here) — every LaTeX construct that actually USES braces as syntax
+  // (\frac{}{}, \sqrt{}, ^{N}) is already resolved above, so anything still
+  // wearing a brace at this point is Chilean-notation signos de agrupación
+  // (e.g. "5 - {3 - [2 + 4]}", the third nesting level after ( ) and [ ]),
+  // not LaTeX cruft — deleting it silently changed the expression's value
+  // ("5 - {3 - X}" becoming "5 - 3 - X"). This is display-facing text (the
+  // student sees this string as-is), so it keeps the original bracket
+  // shapes rather than converting them to "(" — exerciseValidator.ts's
+  // toMathjsSyntax is the one place that needs `{`/`[` to behave like `(`
+  // for evaluation, and it does that internally, without altering what's
+  // shown on screen.
   return result;
 }

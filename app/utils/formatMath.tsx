@@ -8,14 +8,21 @@ const SUPERSCRIPT: Record<string, string> = {
 const SUPERSCRIPT_CHARS = Object.values(SUPERSCRIPT).join('');
 
 /**
- * Converts plain-text exponent notation to Unicode superscripts, and a raw
+ * Converts plain-text exponent notation to Unicode superscripts, a raw
  * multiplication asterisk to the student-facing "·" (e.g. "11 * xy" →
- * "11 · xy", "6*4" → "6·4"). "x^2" → "x²", "-6m^4" → "-6m⁴", "3x^10" → "3x¹⁰".
- * Only handles digit exponents (not variables or fractions) — a bare `^` or
- * `^x` is left untouched by the `\^(\d+)` pattern. The `*` → "·" swap is a
- * global, unconditional replace — safe because no Misión copy uses "*" for
- * anything else (no markdown emphasis in this content), confirmed before
- * adding this.
+ * "11 · xy", "6*4" → "6·4"), and collapses a doubled sign left over from
+ * subtracting/adding a negative (e.g. "5 - -3" → "5 + 3", "5 + -3" →
+ * "5 - 3") — an artifact mathjs's own default stringifier can produce
+ * (confirmed: it doesn't fold subtract(A, negative-constant) into "A + N"),
+ * and one nothing upstream currently cleans up. "x^2" → "x²", "-6m^4" →
+ * "-6m⁴", "3x^10" → "3x¹⁰". Only handles digit exponents (not variables or
+ * fractions) — a bare `^` or `^x` is left untouched by the `\^(\d+)`
+ * pattern. The `*` → "·" swap is a global, unconditional replace — safe
+ * because no Misión copy uses "*" for anything else (no markdown emphasis
+ * in this content), confirmed before adding this. The two doubled-sign
+ * replacements chain correctly even across 3+ signs in a row (a rare but
+ * possible "- - -3") since each pass resolves against the previous pass's
+ * output, not the original string.
  */
 export function formatMath(input: string | null | undefined): string {
   if (!input) return '';
@@ -23,7 +30,9 @@ export function formatMath(input: string | null | undefined): string {
     .replace(/\^(\d+)/g, (_, digits: string) =>
       digits.split('').map((d: string) => SUPERSCRIPT[d] ?? d).join('')
     )
-    .replace(/\*/g, '·');
+    .replace(/\*/g, '·')
+    .replace(/-\s*-/g, '+ ')
+    .replace(/\+\s*-/g, '- ');
 }
 
 // Denominator restricted to digits (plain or superscript) — NOT letters —

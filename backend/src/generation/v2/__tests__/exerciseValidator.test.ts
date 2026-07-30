@@ -16,6 +16,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
+import { evaluate } from 'mathjs';
 import { toMathjsSyntax, toDisplayMath, extractFreeSymbols, expressionsEqual, validateCalculationExercise, stripUnitSuffix, combineLikeTerms, isAdditiveTermOf } from '../exerciseValidator.js';
 import type { GeneratedExercise } from '../exerciseGenerator.js';
 
@@ -68,6 +69,23 @@ describe('toMathjsSyntax (preprocessor — the fragile piece)', () => {
 
   it('handles a realistic checkExpression end-to-end: area of a rectangle with algebraic sides', () => {
     expect(toMathjsSyntax('(5x²y + 8)(5x²y + 5)')).toBe('(5*x^2*y+8)*(5*x^2*y+5)');
+  });
+
+  // Signos de agrupación anidados (notación chilena: ( ) → [ ] → { }) — antes
+  // de este fix, '{' y '[' caían en la rama "unknown character, skip it" del
+  // tokenizer y se BORRABAN sin avisar, corrompiendo el valor en vez de
+  // fallar limpio ("5 - {3 - [2 + 4 - (1+1)]}", valor real 6, evaluaba a 2).
+  // '{'/'[' se tratan como '(' y '}'/']' como ')' — solo en esta conversión
+  // interna, nunca en el texto que ve el alumno (ver mathNotation.ts).
+  it('trata las llaves y corchetes de agrupación como paréntesis, no los borra', () => {
+    const result = toMathjsSyntax('5 - {3 - [2 + 4 - (1+1)]}');
+    expect(result).toBe('5-(3-(2+4-(1+1)))');
+    expect(evaluate(result)).toBe(6);
+  });
+
+  it('mezcla de llaves/corchetes con coeficiente implícito sigue insertando la multiplicación', () => {
+    expect(toMathjsSyntax('2[x+3]')).toBe('2*(x+3)');
+    expect(toMathjsSyntax('2{x+3}')).toBe('2*(x+3)');
   });
 });
 
@@ -275,6 +293,20 @@ describe('validateCalculationExercise', () => {
       variables: [{ name: 'x', value: 3 }],
       correctAnswer: '63',
       distractors: asDistractors(['56', '70', '49']),
+    }));
+    expect(result).toEqual({ ok: true });
+  });
+
+  // Signos de agrupación anidados en checkExpression — antes de este fix, las
+  // llaves/corchetes se borraban silenciosamente y el motor comparaba contra
+  // un valor distinto del real (2 en vez de 6), rechazando de forma falsa un
+  // correctAnswer legítimo.
+  it('valida correctamente un checkExpression con llaves y corchetes de agrupación anidados', () => {
+    const result = validateCalculationExercise(makeExercise({
+      checkExpression: '5 - {3 - [2 + 4 - (1+1)]}',
+      variables: [],
+      correctAnswer: '6',
+      distractors: asDistractors(['2', '4', '8']),
     }));
     expect(result).toEqual({ ok: true });
   });

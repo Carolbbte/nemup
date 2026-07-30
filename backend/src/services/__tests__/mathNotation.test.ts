@@ -39,4 +39,20 @@ describe('sanitizeMathText', () => {
   it('handles empty/falsy input without throwing', () => {
     expect(sanitizeMathText('')).toBe('');
   });
+
+  // Signos de agrupación anidados (notación chilena: ( ) → [ ] → { }) — un
+  // strip incondicional de '{'/'}' vivía acá antes, y borraba estas llaves
+  // sin condición, cambiando el significado de la expresión ("5 - {3 - X}"
+  // pasaba a "5 - 3 - X"). Cada construcción LaTeX que SÍ usa llaves como
+  // sintaxis (\frac{}{}, \sqrt{}, ^{N}) ya se resuelve arriba en esta misma
+  // función — cualquier llave que sobrevive hasta acá es agrupación real,
+  // no un resto de LaTeX, así que ahora se preserva tal cual (igual que ya
+  // se preservaban los corchetes '['/']').
+  it('preserva las llaves/corchetes de agrupación anidados — no las borra', () => {
+    expect(sanitizeMathText('5 - {3 - [2 + 4 - (1+1)]}')).toBe('5 - {3 - [2 + 4 - (1+1)]}');
+  });
+
+  it('no confunde una llave de agrupación real con una de LaTeX ya resuelta (\\frac sigue funcionando)', () => {
+    expect(sanitizeMathText('\\frac{2}{3} + {5 - 1}')).toBe('2/3 + {5 - 1}');
+  });
 });
