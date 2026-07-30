@@ -18,9 +18,11 @@
  */
 
 import { randomUUID } from 'crypto';
+import { parse } from 'mathjs';
 import { shuffleArray } from '../../services/generationService.js';
+import { toMathjsSyntax, expressionsEqual } from './exerciseValidator.js';
 import type { Flashcard, MultipleChoiceQuestion, DifficultyLevel, SummarySlide } from '../../types.js';
-import type { KnowledgeConcept, KnowledgeObject } from './types.js';
+import type { KnowledgeConcept, KnowledgeObject, WorkedExample } from './types.js';
 import type { DistractorSet } from './distractors.js';
 import type { WorkedExampleResult } from './procedural.js';
 import type { GeneratedExercise } from './exerciseGenerator.js';
@@ -403,8 +405,14 @@ function buildMultipleChoiceSlideFor(
  * so trimming the PASSIVE walkthroughs loses no practice, only repetition.
  * A plain named constant, not a feature flag — per-content-type
  * capabilities already cover the flag surface this pipeline needs.
+ *
+ * Exported (along with selectWorkedExamplesForDisplay below) so
+ * orchestrator.ts can compute the SAME "which workedExamples get shown as
+ * worked_example slides" selection BEFORE calling generateFindError — that's
+ * what lets find_error be restricted to only the workedExamples NOT already
+ * reserved for a paso-a-paso slide (see orchestrator.ts's own comment).
  */
-const MAX_WORKED_EXAMPLE_SLIDES = 2;
+export const MAX_WORKED_EXAMPLE_SLIDES = 2;
 
 /**
  * Presentation-only safety net on top of procedural.ts's own validation gate
@@ -415,9 +423,70 @@ const MAX_WORKED_EXAMPLE_SLIDES = 2;
  * single degraded slide rather than stacking 2+ "RESUELVE ESTO → RESULTADO"
  * screens in a row, each offering no derivation.
  */
-function selectWorkedExamplesForDisplay(results: WorkedExampleResult[]): WorkedExampleResult[] {
+export function selectWorkedExamplesForDisplay(results: WorkedExampleResult[]): WorkedExampleResult[] {
   const withSteps = results.filter((r) => !!r.steps?.length);
   return withSteps.length > 0 ? withSteps : results.slice(0, 1);
+}
+
+/**
+ * Splits `workedExamples` into the ones already reserved for a
+ * worked_example ("paso a paso") slide vs the rest — the SAME selection
+ * selectWorkedExamplesForDisplay + MAX_WORKED_EXAMPLE_SLIDES makes, computed
+ * from `workedExampleResults` (which preserves statement/answer verbatim
+ * from the matching WorkedExample, never recomputes them, so matching by
+ * that pair is exact). orchestrator.ts calls this BEFORE generateFindError
+ * so find_error is only ever attempted on the leftover, unreserved
+ * examples — otherwise find_error and worked_example could independently
+ * pick the exact same material exercise (the reported bug). Exported here
+ * (rather than left inline in orchestrator.ts) purely for testability —
+ * orchestrator.ts itself makes real AI calls and isn't unit-tested.
+ */
+export function partitionWorkedExamplesForFindError(
+  workedExamples: WorkedExample[],
+  workedExampleResults: WorkedExampleResult[],
+): WorkedExample[] {
+  const reserved = selectWorkedExamplesForDisplay(workedExampleResults).slice(0, MAX_WORKED_EXAMPLE_SLIDES);
+  const reservedKeys = new Set(reserved.map((r) => `${r.statement}|||${r.answer}`));
+  return workedExamples.filter((we) => !reservedKeys.has(`${we.statement}|||${we.answer}`));
+}
+
+// ── No-repeat-within-a-session: dedup de ejercicios entre mecánicas ───────
+
+/**
+ * Firma de un ejercicio (worked_example/find_error/generatedExercise) para
+ * detectar repeticiones DENTRO de la misma Misión, aunque aparezcan en
+ * mecánicas distintas. Best-effort, nunca produce un falso positivo
+ * peligroso (rechazar algo que en realidad era distinto):
+ *   - Si el texto parsea como sintaxis matemática (vía toMathjsSyntax +
+ *     mathjs.parse), la firma es esa forma — dos firmas así se comparan por
+ *     EQUIVALENCIA MATEMÁTICA real (expressionsEqual), no por texto crudo,
+ *     así "2xy + 4xy + 5xy" y "2*x*y+4*x*y+5*x*y" colisionan igual.
+ *   - Si no parsea (el texto trae prosa real, ej. el enunciado de un
+ *     GeneratedExercise con escenario), cae a texto normalizado
+ *     (trim+minúsculas+espacios colapsados) — más débil, pero sigue
+ *     detectando repeticiones literales o casi literales.
+ */
+interface ExerciseSignature {
+  mathjsExpr: string | null;
+  normalizedText: string;
+}
+
+function computeExerciseSignature(text: string): ExerciseSignature {
+  const normalizedText = text.trim().toLowerCase().replace(/\s+/g, ' ');
+  let mathjsExpr: string | null = null;
+  try {
+    const candidate = toMathjsSyntax(text);
+    parse(candidate); // valida que sea sintaxis realmente parseable, no solo que la conversión no tirara
+    mathjsExpr = candidate;
+  } catch {
+    mathjsExpr = null;
+  }
+  return { mathjsExpr, normalizedText };
+}
+
+function signaturesMatch(a: ExerciseSignature, b: ExerciseSignature): boolean {
+  if (a.mathjsExpr && b.mathjsExpr) return expressionsEqual(a.mathjsExpr, b.mathjsExpr, {}) === true;
+  return a.normalizedText === b.normalizedText;
 }
 
 /**
@@ -858,21 +927,59 @@ export function buildSummarySlides(
   // Cambio 2 callback avoid repeating a question word-for-word when a fresh
   // variant is available. Never read/written when the flag is off.
   const usedQuestionTexts = new Set<string>();
+
+  // No-repeat-within-a-session — displayedWorkedExamples is computed HERE
+  // (moved up from the end of this function, where it used to live right
+  // before being pushed as slides) so its signatures are registered BEFORE
+  // the boss/pool/find_error selections below ever run. Whichever exercise
+  // gets shown as worked_example is "claimed" first; nothing downstream
+  // (find_error, generated-exercise pool) can land on the same one.
+  const displayedWorkedExamples = selectWorkedExamplesForDisplay(workedExampleResults).slice(0, MAX_WORKED_EXAMPLE_SLIDES);
+  const usedExerciseSignatures: ExerciseSignature[] = [];
+  const registerExercise = (text: string): void => { usedExerciseSignatures.push(computeExerciseSignature(text)); };
+  const isDuplicateExercise = (text: string): boolean => {
+    const candidate = computeExerciseSignature(text);
+    return usedExerciseSignatures.some((used) => signaturesMatch(candidate, used));
+  };
+  displayedWorkedExamples.forEach((result) => registerExercise(result.statement));
+
   // exerciseGenerator.ts places its single hardest-difficulty exercise LAST
   // on purpose (see generateExercises's boss selection) so final_challenge
   // gets it deliberately — reserved here BEFORE the per-concept loop can
   // consume it, rather than hoping whatever's left in the pool by the time
-  // we reach final_challenge happens to be the hard one.
+  // we reach final_challenge happens to be the hard one. Scans from the end
+  // (pop-order) for the first candidate that ISN'T a repeat of something
+  // already claimed above — if every remaining candidate is a duplicate,
+  // there's simply no boss from the pool (falls through to bossDistractor
+  // near the end of this function, same as an empty pool always did).
   const exercisePool = [...generatedExercises];
-  const bossExercise = exercisePool.length > 0 ? exercisePool.pop() : undefined;
+  let bossExercise: GeneratedExercise | undefined;
+  for (let i = exercisePool.length - 1; i >= 0; i--) {
+    if (!isDuplicateExercise(exercisePool[i].statement)) {
+      bossExercise = exercisePool.splice(i, 1)[0];
+      break;
+    }
+  }
+  if (bossExercise) registerExercise(bossExercise.statement);
   // Pool consumed in order, not mapped to a specific concept — the generated
   // exercises already share the document's subject/concepts, so which exact
   // concept "gets" which exercise doesn't matter pedagogically. Empty when
   // shouldGenerateExercises was false upstream, so every `nextExercise()`
   // call below returns undefined and every slide falls through to the exact
   // pre-existing distractor/trait-based behavior — conceptual material is
-  // untouched.
-  const nextExercise = (): GeneratedExercise | undefined => exercisePool.shift();
+  // untouched. Skips (and permanently drops) any candidate that duplicates
+  // something already claimed — never returns a repeat, same discipline as
+  // the boss selection above.
+  const nextExercise = (): GeneratedExercise | undefined => {
+    while (exercisePool.length > 0) {
+      const candidate = exercisePool.shift()!;
+      if (!isDuplicateExercise(candidate.statement)) {
+        registerExercise(candidate.statement);
+        return candidate;
+      }
+    }
+    return undefined;
+  };
 
   // Caps how many concepts in one session get the "¿cuál de estas opciones
   // es un ejemplo de X?" framing from buildReinforcementFromTrait — with
@@ -986,9 +1093,19 @@ export function buildSummarySlides(
     // micro_challenge/reinforcement_challenge (see its own comment above),
     // so the item that would have gone to this slot simply stays available
     // for a later pull instead of being lost or double-consumed.
-    const findError = capabilities.findError ? findErrorByConcept.get(concept.id) : undefined;
+    // No-repeat-within-a-session: a find_error candidate whose expression
+    // was ALREADY claimed (as a worked_example, or by an earlier concept's
+    // find_error/generated exercise) falls back to this concept's normal
+    // micro_challenge instead — same "no forced match" discipline the rest
+    // of find_error's design already follows (see findError.ts).
+    const findErrorCandidate = capabilities.findError ? findErrorByConcept.get(concept.id) : undefined;
+    const findError = findErrorCandidate && !isDuplicateExercise(findErrorCandidate.expression) ? findErrorCandidate : undefined;
+    if (findErrorCandidate && !findError) {
+      console.warn(`[assemble] find_error omitido para "${concept.name}" — su expresión ya se usó en otra mecánica de esta sesión: "${findErrorCandidate.expression}"`);
+    }
     let microSlide: SummarySlide;
     if (findError) {
+      registerExercise(findError.expression);
       // ALWAYS multiple choice — errorExplanation (the correct diagnosis)
       // and errorDistractors (2 honest-but-wrong ones) become options via
       // the exact same shuffleWithLetterAnswer every other MC slide uses,
@@ -1188,13 +1305,15 @@ export function buildSummarySlides(
   // the `if` below reads its LENGTH, not workedExampleResults', so the intro
   // is never pushed with nothing validated to follow it.
   //
-  // Capped to MAX_WORKED_EXAMPLE_SLIDES here (Misión only — buildDesafio's
-  // own displayedWorkedExamples above is untouched). No `difficulty` field
-  // exists on WorkedExample/WorkedExampleResult to sort by, so this keeps
-  // the material's own order (comprehension.ts extracts front-to-back,
-  // which in practice goes simple → complex) and takes the first N — a
-  // no-op slice whenever there are already <= MAX_WORKED_EXAMPLE_SLIDES.
-  const displayedWorkedExamples = selectWorkedExamplesForDisplay(workedExampleResults).slice(0, MAX_WORKED_EXAMPLE_SLIDES);
+  // displayedWorkedExamples was computed near the top of this function now
+  // (no-repeat-within-a-session — its signatures had to be registered
+  // BEFORE the boss/pool/find_error selections above could run), not
+  // recomputed here. Capped to MAX_WORKED_EXAMPLE_SLIDES (Misión only —
+  // buildDesafio's own displayedWorkedExamples is untouched). No `difficulty`
+  // field exists on WorkedExample/WorkedExampleResult to sort by, so that
+  // selection keeps the material's own order (comprehension.ts extracts
+  // front-to-back, which in practice goes simple → complex) and takes the
+  // first N — a no-op slice whenever there are already <= MAX_WORKED_EXAMPLE_SLIDES.
   if (displayedWorkedExamples.length > 0) {
     // A dedicated type, NOT 'main_concept' — this is a transition screen, not
     // a real taught concept. Giving it 'main_concept' used to make it count

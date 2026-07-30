@@ -10,7 +10,7 @@ import { generateDistractors } from './distractors.js';
 import { buildWorkedExampleSteps } from './procedural.js';
 import { generateFindError, type FindErrorResult } from './findError.js';
 import { generateExercises, isExercisableSubject } from './exerciseGenerator.js';
-import { buildFlashcards, buildQuestions, buildDesafio, buildSummarySlides } from './assemble.js';
+import { buildFlashcards, buildQuestions, buildDesafio, buildSummarySlides, partitionWorkedExamplesForFindError } from './assemble.js';
 import { CAPABILITIES, resolveContentType, type ContentCapabilities } from '../../services/contentType.js';
 
 /**
@@ -122,9 +122,20 @@ export async function generateSessionV2(
   // false in every CAPABILITIES profile today (ship-inert-first rollout —
   // see contentType.ts) so this is a no-op call today regardless of content
   // type; flipping it on later needs no change here.
+  //
+  // No-repeat-within-a-session: workedExamples are a SHARED resource between
+  // find_error and the worked_example ("paso a paso") slides — both used to
+  // pick independently from the full ko.workedExamples list, so they could
+  // land on the exact same exercise (find_error deriving its error from the
+  // very statement already shown step-by-step). partitionWorkedExamplesForFindError
+  // runs the SAME selection buildSummarySlides uses later to decide what's
+  // shown as worked_example, computed early so find_error can be restricted
+  // to whatever's left over.
+  const workedExamplesForFindError = partitionWorkedExamplesForFindError(ko.workedExamples, workedExampleResults);
+
   const procedureConcepts = ko.concepts.filter((c) => c.role === 'procedure');
-  const findErrorByConcept: Map<string, FindErrorResult> = capabilities.findError && procedureConcepts.length > 0 && ko.workedExamples.length > 0
-    ? await generateFindError(procedureConcepts, ko.workedExamples)
+  const findErrorByConcept: Map<string, FindErrorResult> = capabilities.findError && procedureConcepts.length > 0 && workedExamplesForFindError.length > 0
+    ? await generateFindError(procedureConcepts, workedExamplesForFindError)
     : new Map();
 
   // Generated-exercise trigger: subject-based, not an AI-judged field on the

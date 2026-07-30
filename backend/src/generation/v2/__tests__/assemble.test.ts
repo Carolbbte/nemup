@@ -9,10 +9,11 @@
  */
 
 import { describe, it, expect, vi } from 'vitest';
-import { buildSummarySlides, shuffleWithLetterAnswer, buildReinforcementFromTrait, buildClassify } from '../assemble.js';
-import type { KnowledgeObject, KnowledgeConcept, KnowledgeCategory } from '../types.js';
+import { buildSummarySlides, shuffleWithLetterAnswer, buildReinforcementFromTrait, buildClassify, partitionWorkedExamplesForFindError } from '../assemble.js';
+import type { KnowledgeObject, KnowledgeConcept, KnowledgeCategory, WorkedExample } from '../types.js';
 import type { DistractorSet } from '../distractors.js';
 import type { GeneratedExercise } from '../exerciseGenerator.js';
+import type { WorkedExampleResult } from '../procedural.js';
 import { DEFAULT_CAPABILITIES } from '../../../services/contentType.js';
 
 const LETTERS = ['A', 'B', 'C', 'D'];
@@ -883,6 +884,113 @@ describe('buildSummarySlides — rol por concepto (FEATURE_CONTENT_TYPE_V2, Paso
       const finalChallenge = slides.find((s) => s.type === 'final_challenge');
       expect(finalChallenge?.question).toBe('Ex dos');
     });
+  });
+
+  describe('no-repeat-within-a-session (dedup entre mecánicas)', () => {
+    const dedupKo: KnowledgeObject = {
+      ...roleKo,
+      workedExamples: [{ statement: '2*x*y + 4*x*y + 5*x*y', answer: '11xy' }],
+    };
+    const dedupWorkedExampleResults: WorkedExampleResult[] = [
+      { statement: '2*x*y + 4*x*y + 5*x*y', answer: '11xy', steps: ['Agrupa términos', 'Suma coeficientes'] },
+    ];
+
+    it('descarta el find_error cuya expresión ya se usó como worked_example — comparación por equivalencia matemática, no texto crudo', () => {
+      const collidingFindError = {
+        conceptId: 'proc',
+        // Misma expresión que el workedExample de arriba, pero en notación
+        // de alumno (sin *) en vez de sintaxis mathjs — deben colisionar
+        // igual, ya que la firma compara equivalencia matemática real.
+        expression: '2xy + 4xy + 5xy',
+        correctForm: '11xy',
+        wrongStep: '9xy',
+        correctTerm: '11xy',
+        wrongTerm: '9xy',
+        question: '¿Cuál es el error?',
+        errorExplanation: 'Sumó mal los coeficientes.',
+        errorDistractors: ['Restó en vez de sumar.', 'Multiplicó los coeficientes.'],
+      };
+      const slides = buildSummarySlides(
+        dedupKo, roleDistractors, dedupWorkedExampleResults, [], false, false,
+        { ...DEFAULT_CAPABILITIES, findError: true },
+        new Map([['proc', collidingFindError]]),
+      );
+
+      // find_error se omitió — "proc" cae a su micro_challenge normal.
+      expect(slides.some((s) => s.type === 'find_error')).toBe(false);
+      expect(slides.some((s) => s.type === 'micro_challenge' && s.title?.includes('Reducción'))).toBe(true);
+
+      // El worked_example sigue apareciendo — fue lo primero en reservarse.
+      expect(slides.some((s) => s.type === 'worked_example')).toBe(true);
+    });
+
+    it('acepta el find_error cuando su expresión es genuinamente distinta del worked_example ya mostrado', () => {
+      const distinctFindError = {
+        conceptId: 'proc',
+        expression: '3a + 2a', // expresión DISTINTA del workedExample (2xy+4xy+5xy)
+        correctForm: '5a',
+        wrongStep: '1a',
+        correctTerm: '5a',
+        wrongTerm: '1a',
+        question: '¿Cuál es el error?',
+        errorExplanation: 'Restó en vez de sumar.',
+        errorDistractors: ['Multiplicó los coeficientes.', 'Sumó los exponentes.'],
+      };
+      const slides = buildSummarySlides(
+        dedupKo, roleDistractors, dedupWorkedExampleResults, [], false, false,
+        { ...DEFAULT_CAPABILITIES, findError: true },
+        new Map([['proc', distinctFindError]]),
+      );
+      expect(slides.some((s) => s.type === 'find_error')).toBe(true);
+    });
+
+    it('descarta un ejercicio generado (micro_challenge/reinforcement/boss) cuyo statement ya se usó como worked_example', () => {
+      // ex1 repite el mismo ejercicio que el workedExample (notación distinta,
+      // mismo valor matemático) — debe saltarse, dejando el pool con ex2 solo.
+      const ex1: GeneratedExercise = {
+        statement: '2xy + 4xy + 5xy', correctAnswer: '11xy',
+        distractors: asDistractors(['10xy', '12xy', '9xy']), hint: 'H1', kind: 'calculation',
+      };
+      const ex2: GeneratedExercise = {
+        statement: '3a + 2a', correctAnswer: '5a',
+        distractors: asDistractors(['1a', '6a', '5a²']), hint: 'H2', kind: 'calculation',
+      };
+      const slides = buildSummarySlides(
+        dedupKo, roleDistractors, dedupWorkedExampleResults, [ex1, ex2], false, false,
+        DEFAULT_CAPABILITIES, // findError off — "proc" consume del pool normalmente
+      );
+
+      // Ningún slide interactivo termina mostrando el statement duplicado.
+      const questionTexts = slides.map((s) => s.question).filter((q): q is string => !!q);
+      expect(questionTexts.filter((q) => q === '2xy + 4xy + 5xy')).toHaveLength(0);
+    });
+  });
+});
+
+describe('partitionWorkedExamplesForFindError', () => {
+  const we = (statement: string, answer: string): WorkedExample => ({ statement, answer });
+  const result = (statement: string, answer: string, steps: string[] | null): WorkedExampleResult => ({ statement, answer, steps });
+
+  it('excludes the workedExamples reserved for worked_example display (up to MAX_WORKED_EXAMPLE_SLIDES=2), keeping only the rest', () => {
+    const examples = [we('a', '1'), we('b', '2'), we('c', '3')];
+    const results = [result('a', '1', ['paso']), result('b', '2', ['paso']), result('c', '3', ['paso'])];
+    const free = partitionWorkedExamplesForFindError(examples, results);
+    expect(free).toEqual([we('c', '3')]);
+  });
+
+  it('returns [] when every workedExample is already reserved (nothing left for find_error)', () => {
+    const examples = [we('a', '1'), we('b', '2')];
+    const results = [result('a', '1', ['paso']), result('b', '2', ['paso'])];
+    const free = partitionWorkedExamplesForFindError(examples, results);
+    expect(free).toEqual([]);
+  });
+
+  it('returns every workedExample when none validated steps (selectWorkedExamplesForDisplay falls back to just the first one)', () => {
+    const examples = [we('a', '1'), we('b', '2'), we('c', '3')];
+    const results = [result('a', '1', null), result('b', '2', null), result('c', '3', null)];
+    // Only "a" (the first) gets reserved as the B-mínima fallback slide — b/c stay free.
+    const free = partitionWorkedExamplesForFindError(examples, results);
+    expect(free).toEqual([we('b', '2'), we('c', '3')]);
   });
 });
 
