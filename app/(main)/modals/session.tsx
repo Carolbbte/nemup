@@ -3005,7 +3005,7 @@ export default function SessionPlayerScreen() {
               const stmt = nextWorked?.statement?.trim();
               const exercisePrompt = stmt ? (stmt.includes('=') ? stmt : `${stmt} = ?`) : null;
               return (
-                <View>
+                <ScrollView style={{ flex: 1 }} contentContainerStyle={{ flexGrow: 1, paddingBottom: 24 }} showsVerticalScrollIndicator={false}>
                   <View style={sum.weiHeaderRow}>
                     <View>
                       <View style={sum.weiPill}>
@@ -3072,7 +3072,7 @@ export default function SessionPlayerScreen() {
                       </View>
                     </View>
                   )}
-                </View>
+                </ScrollView>
               );
             })() : slide?.type === 'worked_example' ? (
               // Statement/answer are copied verbatim from the source material
@@ -3509,25 +3509,35 @@ export default function SessionPlayerScreen() {
                       // already rendered its own bigger title above.
                       promptText=""
                       showHeader={false}
-                      // Concept names (left) are short (1–2 words). With the
-                      // chip now full-width (chipStacked alignItems:'stretch'),
-                      // normal 2-line word wrap fits them cleanly; NOT using
+                      // Concept names (left) run longer in practice than the
+                      // "1–2 words" this comment used to assume (real
+                      // examples: "Partes de un término", "Clasificación de
+                      // expresiones algebraicas") — at fontSize 15 a single
+                      // long word could exceed MP_CARD_W's own width and
+                      // break mid-word even before hitting the line cap
+                      // ("Clasificac ión"), and numberOfLines:2 then
+                      // ellipsis-truncated whatever didn't fit. Smaller
+                      // fontSize gives more characters per line (fixes the
+                      // mid-word break); numberOfLines:4 gives enough lines
+                      // that the ellipsis is never actually needed for a
+                      // realistic concept name. NOT using
                       // adjustsFontSizeToFit here — on Android it mis-measures
                       // multiline width and breaks words mid-word ("Evoluci/ón").
-                      leftChipTextStyle={{ fontSize: 15, lineHeight: 19, fontWeight: '800' }}
-                      leftChipNumberOfLines={2}
+                      leftChipTextStyle={{ fontSize: 13, lineHeight: 17, fontWeight: '800' }}
+                      leftChipNumberOfLines={4}
                       // Row background/border are fully owned by rowColors/
                       // rowBgColors below now — passing chipBackgroundColor
                       // here would be dead weight (accentColor/accentBgColor
                       // always win once set) and the border tint stays only
                       // the per-row accent color, not a fixed blue.
                       targetBorderColor={palette.bordeClaro}
-                      targetTextStyle={{ fontSize: 15, lineHeight: 19, fontWeight: '800', color: palette.charcoal }}
-                      // 3 (not 4) lines — most examples are short (2-4
-                      // words); adjustsFontSizeToFit + minimumFontScale is
-                      // still the safety valve for the rare longer one,
-                      // without reserving height every row doesn't need.
-                      targetTextNumberOfLines={3}
+                      targetTextStyle={{ fontSize: 13, lineHeight: 17, fontWeight: '800', color: palette.charcoal }}
+                      // Matches leftChipNumberOfLines' own bump (2→4) — same
+                      // reasoning: a realistic example/definition can run
+                      // longer than "2-4 words". adjustsFontSizeToFit +
+                      // minimumFontScale (set automatically below via
+                      // rowColors) stays as an extra safety valve on top.
+                      targetTextNumberOfLines={4}
                       // Cycling per-row accent (left card border/icon-circle
                       // + connector's left port) — decorative "connect from
                       // here" affordance only, never a hint about the
@@ -3540,12 +3550,13 @@ export default function SessionPlayerScreen() {
                       // Every card (both columns, every row) gets the SAME
                       // fixed height instead of growing with its own text —
                       // pairRow's alignItems:'stretch' only equalized height
-                      // within a row, not across rows. Shrunk from 150 to
-                      // 120 (with matching smaller paddingVertical/gap
-                      // overrides inside MatchChipLeft/target) plus a
-                      // tighter rowGap below, so all 3 rows fit on screen
-                      // without needing to scroll.
-                      uniformCardHeight={120}
+                      // within a row, not across rows. 150 (up from 120) —
+                      // headroom for the icon circle plus up to 4 lines at
+                      // the smaller 13px font (leftChipTextStyle/
+                      // targetTextStyle above) without clipping; the outer
+                      // ScrollView (this branch already has one) covers
+                      // however tall 3 rows end up being.
+                      uniformCardHeight={150}
                       cardWidth={MP_CARD_W}
                       rowGap={10}
                       // Misión's slide has no real conceptIndex (Desafío's
@@ -5639,9 +5650,9 @@ const sum = StyleSheet.create(withMisionFont({
   wowDataBox:   { backgroundColor: palette.blanco, borderRadius: 16, padding: SM ? 14 : 16, marginTop: 4, alignSelf: 'stretch' },
   wowContext:   { fontSize: SM ? 11 : 12, color: semantic.textSecondary, textAlign: 'center', fontWeight: '600', marginTop: 12, lineHeight: SM ? 17 : 19 },
 
-  quizQuestion:      { fontSize: SM ? 18 : 20, fontWeight: '800', color: semantic.textPrimary, lineHeight: SM ? 25 : 29, letterSpacing: -0.2 },
+  quizQuestion:      { fontSize: SM ? 18 : 20, fontWeight: '800', color: semantic.textPrimary, lineHeight: SM ? 25 : 29, letterSpacing: -0.2, textAlign: 'center' },
   // Full-screen question — no card wrapper, sits directly on slideArea's background.
-  quizQuestionFull:  { fontSize: SM ? 20 : 22, fontWeight: '800', color: semantic.textPrimary, lineHeight: SM ? 27 : 30, letterSpacing: -0.3, marginBottom: SM ? 20 : 24 },
+  quizQuestionFull:  { fontSize: SM ? 20 : 22, fontWeight: '800', color: semantic.textPrimary, lineHeight: SM ? 27 : 30, letterSpacing: -0.3, marginBottom: SM ? 20 : 24, textAlign: 'center' },
   // borderBottomWidth: 4 is the key "physical key" illusion — Duolingo-style button volume.
   // Same borderColor on all 4 sides — the clean-key look comes from the thickness
   // difference, not from a darker bottom border (that reads as a dirty shadow).
@@ -5735,8 +5746,11 @@ const sum = StyleSheet.create(withMisionFont({
   conceptCardText:  { fontSize: SM ? 16 : 18, fontWeight: '600', color: semantic.textPrimary, lineHeight: SM ? 24 : 28 },
 
   // ── worked_example_intro (REPASO) — mockup redesign ─────────────────────
-  // Fits without a ScrollView on purpose (see the branch's own comment on
-  // dropping weiCheerCard under SM instead of scrolling).
+  // Wrapped in a ScrollView (its own render branch) so a long exercise
+  // expression (weiExpr, unclamped — grows with content) can never push
+  // the rest of the card or the "Siguiente" CTA below it off-screen; the
+  // SCREEN_H >= 640 gate below still drops weiCheerCard on short screens so
+  // the common case rarely needs to actually scroll.
   weiHeaderRow:   { position: 'relative', overflow: 'visible', marginBottom: 16 },
   weiPill:        { alignSelf: 'flex-start', backgroundColor: palette.azul, borderRadius: 20, paddingVertical: 6, paddingHorizontal: 12, marginBottom: 10 },
   weiPillText:    { fontSize: 12, fontWeight: '800', color: palette.blanco, letterSpacing: 0.5 },
@@ -5751,12 +5765,15 @@ const sum = StyleSheet.create(withMisionFont({
   // screen) is required or the card's own bounds would clip the mascot.
   weiCardWrap:    { position: 'relative', overflow: 'visible', zIndex: 1 },
   // bottom:'100%' rests the mascot's own bottom edge exactly on the card's
-  // top edge; the negative marginBottom pulls it down ~14px so it "steps
-  // onto" the card by that much instead of floating just above it — small
-  // enough to clear the label/badge row inside the card.
-  weiMascot:      { position: 'absolute', right: -8, bottom: '100%', marginBottom: -40, width: 190, height: 190, zIndex: 5 },
+  // top edge; the negative marginBottom pulls it down so it "steps onto"
+  // the card by that much instead of floating just above it — small enough
+  // to clear the label/badge row inside the card. Shrunk from 190×190 (and
+  // the overlap trimmed to match) to reduce this slide's total vertical
+  // footprint — the ScrollView above is the real guarantee against
+  // clipping; this just makes the common case need less (or no) scrolling.
+  weiMascot:      { position: 'absolute', right: -8, bottom: '100%', marginBottom: -32, width: 150, height: 150, zIndex: 5 },
 
-  weiExerciseCard:  { backgroundColor: 'rgba(22,119,242,0.06)', borderWidth: 1, borderColor: 'rgba(22,119,242,0.20)', borderRadius: 18, padding: SM ? 14 : 18, paddingTop: 34, marginBottom: 12 },
+  weiExerciseCard:  { backgroundColor: 'rgba(22,119,242,0.06)', borderWidth: 1, borderColor: 'rgba(22,119,242,0.20)', borderRadius: 18, padding: SM ? 14 : 18, paddingTop: 28, marginBottom: 10 },
   weiExerciseTop:   { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 },
   weiExerciseLabel: { fontSize: 12, fontWeight: '800', color: palette.azul, letterSpacing: 0.8 },
   weiBadge:         { width: 34, height: 34, borderRadius: 10, backgroundColor: palette.azulClaro, alignItems: 'center', justifyContent: 'center' },
@@ -5765,13 +5782,13 @@ const sum = StyleSheet.create(withMisionFont({
   weiExprBox:       { backgroundColor: palette.blanco, borderRadius: 14, borderWidth: 1, borderColor: palette.bordeClaro, paddingVertical: SM ? 16 : 22, paddingHorizontal: 12, alignItems: 'center' },
   weiExpr:          { fontSize: SM ? 22 : 26, fontWeight: '700', color: semantic.textPrimary, textAlign: 'center' },
 
-  weiLearnCard:   { flexDirection: 'row', gap: 12, backgroundColor: 'rgba(22,119,242,0.06)', borderRadius: 16, padding: 14, marginBottom: 12 },
-  weiLearnIcon:   { width: 40, height: 40, borderRadius: 12, backgroundColor: palette.azul, alignItems: 'center', justifyContent: 'center' },
+  weiLearnCard:   { flexDirection: 'row', gap: 10, backgroundColor: 'rgba(22,119,242,0.06)', borderRadius: 16, padding: 12, marginBottom: 10 },
+  weiLearnIcon:   { width: 36, height: 36, borderRadius: 11, backgroundColor: palette.azul, alignItems: 'center', justifyContent: 'center' },
   weiLearnTitle:  { fontSize: 14, fontWeight: '800', color: palette.azul, marginBottom: 3 },
   weiLearnText:   { fontSize: 13, color: semantic.textPrimary, lineHeight: 19 },
 
-  weiCheerCard:   { flexDirection: 'row', gap: 12, backgroundColor: 'rgba(50,215,75,0.10)', borderRadius: 16, padding: 14 },
-  weiCheerIcon:   { width: 40, height: 40, borderRadius: 12, backgroundColor: palette.verdeXP, alignItems: 'center', justifyContent: 'center' },
+  weiCheerCard:   { flexDirection: 'row', gap: 10, backgroundColor: 'rgba(50,215,75,0.10)', borderRadius: 16, padding: 12 },
+  weiCheerIcon:   { width: 36, height: 36, borderRadius: 11, backgroundColor: palette.verdeXP, alignItems: 'center', justifyContent: 'center' },
   weiCheerTitle:  { fontSize: 14, fontWeight: '800', color: palette.verde, marginBottom: 3 },
   weiCheerText:   { fontSize: 13, color: semantic.textPrimary, lineHeight: 19 },
 
@@ -6115,7 +6132,7 @@ const sum = StyleSheet.create(withMisionFont({
   // student has already answered.
   findErrorProblemBox:  { backgroundColor: palette.blanco, borderRadius: 16, borderWidth: 1, borderColor: palette.bordeClaro, paddingVertical: SM ? 10 : 12, paddingHorizontal: SM ? 12 : 14, marginBottom: 10 },
   findErrorProblemLabel:{ fontSize: 12, fontWeight: '700', color: semantic.textSecondary, marginBottom: 4 },
-  findErrorProblemText: { fontSize: SM ? 16 : 18, fontWeight: '700', color: semantic.textPrimary },
+  findErrorProblemText: { fontSize: SM ? 16 : 18, fontWeight: '700', color: semantic.textPrimary, textAlign: 'center' },
   findErrorAttemptBox:  { backgroundColor: paletteExtras.grisFondoDone, borderRadius: 16, borderWidth: 1, borderColor: palette.bordeClaro, paddingVertical: SM ? 10 : 12, paddingHorizontal: SM ? 12 : 14, marginBottom: 16 },
   findErrorAttemptLabel:{ fontSize: 12, fontWeight: '700', color: semantic.textSecondary, marginBottom: 4 },
   findErrorAttemptText: { fontSize: SM ? 16 : 18, fontWeight: '700', color: semantic.textPrimary },

@@ -45,7 +45,13 @@ export function formatMath(input: string | null | undefined): string {
     .replace(LETTER_DIGIT_MULT_RE, '$1·$2')
     .replace(/\s*\*\s*/g, '')
     .replace(/-\s*-/g, '+ ')
-    .replace(/\+\s*-/g, '- ');
+    .replace(/\+\s*-/g, '- ')
+    // A leading minus (ASCII "-" or unicode "−") shouldn't have a space
+    // before its term — "− 21x" should read "−21x", same adjacency
+    // convention as everywhere else. Only the very start of the string
+    // (`^`): a mid-string " - " is a real subtraction between two terms and
+    // must keep its spacing.
+    .replace(/^([-−])\s+/, '$1');
 }
 
 // Denominator restricted to digits (plain or superscript) — NOT letters —
