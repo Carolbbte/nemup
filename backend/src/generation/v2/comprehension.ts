@@ -3,6 +3,7 @@ import { config } from '../../config.js';
 import { withOpenAIRetry } from '../../services/openaiRetry.js';
 import { recordUsage } from '../../services/usageTracking.js';
 import { knowledgeObjectSchema } from './schemas.js';
+import { validateConceptFormula } from './exerciseValidator.js';
 import type { KnowledgeObject } from './types.js';
 
 const openai = new OpenAI({ apiKey: config.openai_api_key });
@@ -143,6 +144,18 @@ ${buildTeacherExplanationInstruction()}
       → keyPhrase="responder preguntas como esa" (substring literal, presente palabra por palabra).
     ✗ keyPhrase="resolver esas dudas" (no es substring literal — está parafraseado, INVÁLIDO).
 3. definition: formal y precisa, tomada del material — no inventes contenido ajeno a él.
+3a. formula: si el concepto tiene una FÓRMULA, REGLA o RELACIÓN general (de CUALQUIER materia:
+    matemática, física, química, etc.), escribila en notación plana (usa * para multiplicar y ^ para
+    potencias; el frontend la formatea). Es la fórmula que el estudiante necesita ver, tomada del
+    material.
+      ✓ Matemática — "Diferencia de cuadrados" → "a^2 - b^2 = (a + b)(a - b)"
+      ✓ Matemática — "Trinomio cuadrado perfecto" → "a^2 + 2*a*b + b^2 = (a + b)^2"
+      ✓ Física — "Segunda ley de Newton" → "F = m*a"
+      ✓ Física — "Velocidad" → "v = d/t"
+      ✓ Química — "Densidad" → "densidad = m/V"
+    Si el concepto NO tiene una fórmula/relación general (vocabulario, un concepto conceptual de
+    biología/historia, o un procedimiento sin fórmula cerrada como "factor común"), devuelve null.
+    No inventes una fórmula que no exista ni fuerces una.
 4. example: un ejemplo concreto tomado o inferido del material, o null si no aplica. Máximo ~15
    palabras, UNA sola frase — concreto y directo, no una explicación adicional del concepto.
 4a. exampleShort: una etiqueta breve (3-6 palabras) que identifique ese mismo ejemplo, concreta y
@@ -333,5 +346,16 @@ export async function buildKnowledgeObject(
     throw new Error('[Comprehension] empty response from model');
   }
 
-  return JSON.parse(raw) as KnowledgeObject;
+  const ko = JSON.parse(raw) as KnowledgeObject;
+  // Never trust a model-authored formula as-is — validateConceptFormula
+  // rejects a parseable identity whose two sides don't actually match
+  // (LHS≡RHS check via expressionsEqual); everything else (a definitional
+  // formula like "F = m*a", or anything that doesn't parse at all — copied
+  // from the material, not invented) is shown unmodified. See that
+  // function's own comment for the full rationale.
+  ko.concepts = ko.concepts.map((c) => ({
+    ...c,
+    formula: c.formula ? validateConceptFormula(c.formula) : null,
+  }));
+  return ko;
 }

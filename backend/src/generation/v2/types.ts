@@ -33,6 +33,23 @@ export interface KnowledgeConcept {
   teacherExplanation: string;
   /** Formal definition — used for fill_blank and match_pairs exercises. */
   definition: string;
+  /**
+   * The concept's general formula/rule/relation, in plain mathjs-ish
+   * notation (`*` for multiplication, `^` for exponents — the frontend
+   * formats it), e.g. "a^2 - b^2 = (a + b)(a - b)" for "Diferencia de
+   * cuadrados" or "F = m*a" for "Segunda ley de Newton". Null for concepts
+   * with no general formula (vocabulary, taxonomy, a procedure with no
+   * closed-form rule like "factor común"). Validated by
+   * exerciseValidator.ts's `validateConceptFormula` before this ever reaches
+   * a slide — see that function's own comment for what gets rejected (only
+   * a parseable IDENTITY whose two sides are mathematically unequal) vs.
+   * shown as-is (a definitional formula like `F = m*a`, or anything that
+   * doesn't parse at all — subscripts, Greek letters — since it was copied
+   * from the material, not invented). Optional (unlike the other extraction
+   * fields) so existing code/fixtures built before this field existed don't
+   * need updating — same convention as `exampleEmoji`/`role`.
+   */
+  formula?: string | null;
   /** A concrete example illustrating the concept, or null if none applies. */
   example: string | null;
   /**

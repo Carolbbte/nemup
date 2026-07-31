@@ -22,6 +22,7 @@ const knowledgeConceptSchema: JsonSchema = {
     'simpleExplanation',
     'teacherExplanation',
     'definition',
+    'formula',
     'example',
     'exampleShort',
     'hook',
@@ -55,6 +56,10 @@ const knowledgeConceptSchema: JsonSchema = {
     definition: {
       type: 'string',
       description: 'Formal definition — used for fill_blank and match_pairs exercises.',
+    },
+    formula: {
+      type: ['string', 'null'],
+      description: 'This concept\'s general formula/rule/relation (any subject: math, physics, chemistry), in plain notation ("*" for multiplication, "^" for exponents) — e.g. "a^2 - b^2 = (a + b)(a - b)" or "F = m*a". Null if this concept has no general formula (vocabulary, taxonomy, a procedure with no closed-form rule).',
     },
     example: {
       type: ['string', 'null'],

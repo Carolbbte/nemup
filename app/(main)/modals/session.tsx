@@ -2871,6 +2871,18 @@ export default function SessionPlayerScreen() {
                       {slide.title}
                       {!!slide?.emoji && <Text style={sum.conceptTitleEmoji}> {slide.emoji}</Text>}
                     </Text>
+                    {/* Always visible (never collapsed, unlike "Ver definición
+                        formal" below) — for procedimental/math content the
+                        formula IS the content a student needs to see first.
+                        Only rendered when comprehension.ts found one AND
+                        exerciseValidator.ts's validateConceptFormula didn't
+                        reject it (a demonstrably wrong identity) — null/absent
+                        on non-math concepts and on older cached sessions. */}
+                    {!!slide.formula && (
+                      <View style={[sum.conceptFormulaBox, { borderColor: pal.accent }]}>
+                        <MathText style={[sum.conceptFormulaText, { color: pal.accent }]}>{slide.formula}</MathText>
+                      </View>
+                    )}
                     {hasConnector ? (
                       <>
                         <View style={sum.chainContainer}>
@@ -5737,6 +5749,12 @@ const sum = StyleSheet.create(withMisionFont({
   // (title uses a plain Text, not MathText, specifically so this can scale
   // independently; see that render's own comment).
   conceptTitleEmoji: { fontSize: SM ? 26 : 29 },
+  // Formula callout — always visible (unlike formalDefBox below, which stays
+  // collapsed behind a toggle). Same visual language as weiExprBox (white
+  // card, bordered, centered) but tinted with the concept's own rotating
+  // accent color instead of a fixed blue, so it reads as part of THIS card.
+  conceptFormulaBox:  { backgroundColor: palette.blanco, borderRadius: 14, borderWidth: 1.5, paddingVertical: 14, paddingHorizontal: 16, alignItems: 'center', marginBottom: 14 },
+  conceptFormulaText: { fontSize: SM ? 20 : 24, fontWeight: '800', textAlign: 'center' },
   mainCardDef:      { fontSize: SM ? 14 : 15, color: semantic.textPrimary, lineHeight: SM ? 21 : 24, fontWeight: '500' },
   workedExBox:      { backgroundColor: 'rgba(22,119,242,0.05)', borderRadius: 14, borderWidth: 1.5, borderColor: 'rgba(22,119,242,0.15)', padding: SM ? 14 : 16, marginBottom: SM ? 10 : 12 },
   workedExText:     { fontSize: SM ? 18 : 22, fontWeight: '800', color: BRAND, textAlign: 'center', letterSpacing: -0.3, lineHeight: SM ? 26 : 30 },

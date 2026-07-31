@@ -1165,6 +1165,7 @@ export function buildSummarySlides(
       teacherExplanation: concept.teacherExplanation,
       keyPhrase: concept.keyPhrase,
       formalDefinition: concept.definition,
+      formula: concept.formula ?? null,
       ...(concept.tips[0] ? { tip: concept.tips[0] } : {}),
     };
 

@@ -513,6 +513,82 @@ export function expressionsEqual(
   return true;
 }
 
+// ── Concept formula validation (main_concept card) ──────────────────────────
+
+/**
+ * Validates a `KnowledgeConcept.formula` string ("LHS = RHS") before it's
+ * ever shown on a concept card. NOT every formula is an identity: an
+ * algebraic identity like "a^2 - b^2 = (a+b)(a-b)" has the SAME variables on
+ * both sides and both sides are the same expression written differently —
+ * `expressionsEqual` is the right, meaningful check there. A definitional
+ * formula like "F = m*a" or "v = d/t" defines ONE quantity in terms of
+ * OTHERS — the left side's variable never appears on the right, so
+ * `expressionsEqual("F", "m*a")` would (correctly) report "not equal" and
+ * wrongly reject a perfectly good formula. The two are told apart by
+ * comparing each side's free-variable SET (via `extractFreeSymbols`): the
+ * same set on both sides means identity (apply the equivalence check); any
+ * difference means definitional (skip it — there's nothing to numerically
+ * compare, the formula IS the definition).
+ *
+ * A formula that doesn't even parse (physics/chemistry notation this
+ * codebase's tokenizer doesn't handle — subscripts like `v₀`, Greek letters
+ * like `ρ`/`Δ`, reaction arrows) is NOT discarded either — it was copied
+ * from the material, not invented, so showing it unverified is low-risk,
+ * and discarding everything unparseable would silently lose every valid
+ * physics/chemistry formula this app doesn't have notation support for yet.
+ *
+ * The ONLY thing this ever rejects (returns `null`) is a parseable IDENTITY
+ * whose two sides are mathematically unequal — a demonstrably wrong formula.
+ * Every other case (definitional, unparseable, or a confirmed-equal
+ * identity) returns the trimmed formula unchanged.
+ */
+export function validateConceptFormula(raw: string): string | null {
+  const trimmed = raw.trim();
+  if (!trimmed) return null;
+
+  const eqIdx = trimmed.indexOf('=');
+  if (eqIdx === -1) {
+    // Not "LHS = RHS" shaped at all — nothing to compare, show as-is
+    // (same "copied from material, low risk" reasoning as the unparseable
+    // case below).
+    return trimmed;
+  }
+  const lhsRaw = trimmed.slice(0, eqIdx);
+  const rhsRaw = trimmed.slice(eqIdx + 1);
+
+  let lhsMathjs: string;
+  let rhsMathjs: string;
+  let lhsVars: string[];
+  let rhsVars: string[];
+  try {
+    lhsMathjs = toMathjsSyntax(lhsRaw);
+    rhsMathjs = toMathjsSyntax(rhsRaw);
+    parse(lhsMathjs);
+    parse(rhsMathjs);
+    lhsVars = extractFreeSymbols(lhsMathjs);
+    rhsVars = extractFreeSymbols(rhsMathjs);
+  } catch {
+    console.warn(`[Formula] no verificada (no parsea) — se muestra igual: "${raw}"`);
+    return trimmed;
+  }
+
+  const sameVars = lhsVars.length === rhsVars.length && lhsVars.every((v) => rhsVars.includes(v));
+  if (!sameVars) {
+    // Definitional (e.g. "F = m*a") — no numeric equivalence to check.
+    return trimmed;
+  }
+
+  const eq = expressionsEqual(lhsMathjs, rhsMathjs, {});
+  if (eq === false) {
+    console.warn(`[Formula] descartada (identidad LHS≠RHS): "${raw}"`);
+    return null;
+  }
+  // eq === true, or eq === null (unverifiable trial evaluation) — never
+  // discarded on "unverifiable" alone, same discipline as the unparseable
+  // branch above: only a CONFIRMED mismatch is a real rejection.
+  return trimmed;
+}
+
 // ── Unit stripping ───────────────────────────────────────────────────────
 
 // Only matches when the ENTIRE trimmed string is a bare number followed by

@@ -104,6 +104,13 @@ export interface SummarySlide {
   // `definition` on this slide holds simpleExplanation instead, see
   // assemble.ts). Shown behind a collapsed "Ver definición formal" toggle.
   formalDefinition?: string;
+  // main_concept only, from KnowledgeConcept.formula — a canonical LHS = RHS
+  // formula/rule for this concept, shown prominently (always visible, not
+  // collapsed) on the card. Null/absent on older cached sessions or when
+  // comprehension.ts had no formula to extract, or exerciseValidator.ts's
+  // validateConceptFormula rejected it (a parseable identity whose sides
+  // don't match).
+  formula?: string | null;
   // main_concept only, first of KnowledgeConcept.tips when non-empty.
   tip?: string;
   // fill_blank only — same builders buildDesafio already uses

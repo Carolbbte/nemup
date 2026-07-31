@@ -17,7 +17,7 @@
 
 import { describe, it, expect } from 'vitest';
 import { evaluate } from 'mathjs';
-import { toMathjsSyntax, toDisplayMath, extractFreeSymbols, expressionsEqual, validateCalculationExercise, stripUnitSuffix, combineLikeTerms, isAdditiveTermOf } from '../exerciseValidator.js';
+import { toMathjsSyntax, toDisplayMath, extractFreeSymbols, expressionsEqual, validateCalculationExercise, stripUnitSuffix, combineLikeTerms, isAdditiveTermOf, validateConceptFormula } from '../exerciseValidator.js';
 import type { GeneratedExercise } from '../exerciseGenerator.js';
 
 describe('toMathjsSyntax (preprocessor — the fragile piece)', () => {
@@ -421,5 +421,40 @@ describe('stripUnitSuffix', () => {
 
   it('leaves a string with no recognizable unit untouched', () => {
     expect(stripUnitSuffix('10x + 24')).toBe('10x + 24');
+  });
+});
+
+describe('validateConceptFormula', () => {
+  it('accepts a valid algebraic identity (LHS ≡ RHS)', () => {
+    expect(validateConceptFormula('a^2 - b^2 = (a+b)(a-b)')).toBe('a^2 - b^2 = (a+b)(a-b)');
+  });
+
+  it('rejects an invalid identity whose sides do not actually match', () => {
+    expect(validateConceptFormula('a^2 - b^2 = (a+b)(a+b)')).toBeNull();
+  });
+
+  it('accepts a definitional formula (different variables on each side) without an equivalence check', () => {
+    // expressionsEqual("F", "m*a") would report "not equal" — the bug this
+    // avoids by never applying the identity check to a definitional formula.
+    expect(validateConceptFormula('F = m*a')).toBe('F = m*a');
+    expect(validateConceptFormula('v = d/t')).toBe('v = d/t');
+    expect(validateConceptFormula('densidad = m/V')).toBe('densidad = m/V');
+  });
+
+  it('accepts and shows an unparseable formula (subscripts) without validating it', () => {
+    expect(validateConceptFormula('v = v₀ + a*t')).toBe('v = v₀ + a*t');
+  });
+
+  it('accepts a formula with no "=" at all — nothing to compare, shown as-is', () => {
+    expect(validateConceptFormula('a^2 + 2*a*b + b^2')).toBe('a^2 + 2*a*b + b^2');
+  });
+
+  it('returns null for empty/whitespace-only input', () => {
+    expect(validateConceptFormula('')).toBeNull();
+    expect(validateConceptFormula('   ')).toBeNull();
+  });
+
+  it('trims the returned formula', () => {
+    expect(validateConceptFormula('  F = m*a  ')).toBe('F = m*a');
   });
 });
