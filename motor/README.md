@@ -74,52 +74,73 @@ node .motor-build/simulacion.js
 La simulación corre 3 estudiantes sobre el mismo concepto ("Factor común",
 escalera `procedimental`) y demuestra:
 
-- **(a)** Ana, Beto y Caro reciben recorridos DISTINTOS con el mismo
+- **(a)** el primer paso de CADA estudiante es `pregunta_conceptual` — nunca
+  `repaso_espaciado`. Un concepto nuevo abre enseñando, no "repasando" algo
+  que el estudiante nunca vio (ver "Estabilidad y Fluidez..." más abajo).
+- **(b)** un peldaño llega a `DOMINADO` (85) en ~3 aciertos buenos
+  (`0 → 30 → 65 → 95` con `GANANCIA.sinAyuda`), no ~10 — coherente con una
+  micro-misión de 2-4 minutos.
+- **(c)** Ana, Beto y Caro reciben recorridos DISTINTOS con el mismo
   material — el motor reacciona al patrón de evidencia de cada uno, no a un
   guion fijo.
-- **(b)** un error de `distraccion` casi no mueve el perfil — el escenario de
+- **(d)** un error de `distraccion` casi no mueve el perfil — el escenario de
   Caro deja el eje `aplicar` en un valor > 0 (no en el piso 0) antes del
   descuido, específicamente para que el contraste sea visible en el log:
-  `distraccion` lo mueve −2, los dos `procedimiento` siguientes lo mueven −8
+  `distraccion` lo mueve −3, los dos `procedimiento` siguientes lo mueven −12
   cada uno (bastante más).
-- **(c)** al adelantar el reloj varias semanas sin actividad,
-  `estabilidadEfectiva` cae y `decidirProximaMision` devuelve
-  `repaso_espaciado`.
+- **(e)** una vez el concepto está COMPLETAMENTE dominado (los 5 peldaños),
+  al adelantar el reloj varias semanas sin actividad, `estabilidadEfectiva`
+  cae y recién ahí `decidirProximaMision` devuelve `repaso_espaciado` — sobre
+  algo ya aprendido, no sobre un concepto nuevo.
 
-## Hallazgo a tener en cuenta: el piso de Estabilidad vs. el umbral de repaso
+## Estabilidad y Fluidez son cualidades de lo YA aprendido (resuelto)
 
-Con los valores calibrados actuales, `ESTABILIDAD_PISO = 40` y
-`UMBRAL_REPASO = 60` — **el piso queda por debajo del umbral de repaso**.
+Versión anterior de este módulo evaluaba Estabilidad (Regla de repaso) ANTES
+de mirar los peldaños — con `ESTABILIDAD_PISO = 40` por debajo de
+`UMBRAL_REPASO = 60`, un `PerfilConcepto` recién creado (`ejes.estabilidad =
+0`, que se lee como el piso) disparaba `repaso_espaciado` en TODAS las
+misiones de un concepto nunca visto, hasta que suficientes aciertos subieran
+el valor crudo por encima del umbral. No tenía sentido "repasar" algo que el
+estudiante nunca vio.
 
-Consecuencia observada en la simulación: un `PerfilConcepto` recién creado
-tiene `ejes.estabilidad = 0`, que se LEE como el piso (40) — por debajo de 60.
-Como la Regla 1 (repaso) se evalúa siempre primero, en este orden exacto, el
-motor devuelve `repaso_espaciado` en TODAS las misiones de un concepto hasta
-que suficientes aciertos suben el valor CRUDO de estabilidad por encima de 60
-(con `GANANCIA_ESTABILIDAD = +3` por acierto, son ~7 aciertos). Recién
-entonces empieza a subir peldaño por peldaño.
+**Corrección conceptual, no un parche de números**: Estabilidad y Fluidez son
+cualidades de un concepto YA dominado (qué tan durable/fluido es lo
+aprendido) — `decidirProximaMision` (`decidir.ts`) ahora las evalúa DESPUÉS
+del bucle de peldaños, nunca antes:
 
-Esto significa que, tal como está calibrado hoy, un concepto NUEVO (nunca
-tocado) abre con varias vueltas de "repaso" antes de enseñar nada — lo cual
-no calza con el sentido de "repaso" (revisar algo ya visto). Se ve
-literalmente en la simulación: los tres estudiantes, sin excepción, arrancan
-con 7 pasos idénticos de `repaso_espaciado` antes de que aparezca la primera
-`pregunta_conceptual`.
+1. El peldaño más bajo no dominado (si existe, gana siempre — prerrequisito).
+2. Solo si los 5 peldaños están dominados: repaso (Estabilidad) → práctica de
+   ritmo (Fluidez) → simulación final.
 
-No lo "arreglé" en `decidir.ts` — implementé la Regla 1 exactamente como la
-especifica el prompt (repaso antes que cualquier peldaño, sin excepción para
-un perfil nuevo), porque no me corresponde rediseñar la calibración
-pedagógica sin que ustedes lo decidan. Opciones a considerar, sin implementar
-ninguna todavía:
+Los umbrales (`UMBRAL_REPASO`, `ESTABILIDAD_PISO`, etc.) no cambiaron — el
+arranque en falso era de ORDEN, no de calibración. Confirmado en la
+simulación: los tres estudiantes abren con `pregunta_conceptual`, y
+`repaso_espaciado` solo aparece en la demostración final, sobre un concepto
+ya completamente dominado.
 
-- Subir `ESTABILIDAD_PISO` por encima de `UMBRAL_REPASO` (o bajar
-  `UMBRAL_REPASO` por debajo del piso) — así el piso nunca dispara repaso por
-  sí solo.
-- Que la Regla 1 solo aplique si el perfil ya tuvo AL MENOS una actividad
-  real (`ultimaActividadMs !== momento de creación`, o algún peldaño con
-  confianza > 0) — un concepto nunca tocado nunca puede "necesitar repaso".
-- Inicializar `ejes.estabilidad` en un valor que, tras `estabilidadEfectiva`,
-  ya quede por encima de `UMBRAL_REPASO` desde el arranque.
+## Ritmo de progreso (2ª calibración)
+
+Con las ganancias/pesos originales (`GANANCIA.sinAyuda = 7`, errores
+`-2..-25`), un peldaño tardaba ~10 aciertos en llegar a `DOMINADO` (85) — un
+concepto de 5 peldaños tomaba ~50 misiones, demasiado para el ritmo de
+micro-misión de 2-4 minutos. Recalibrado en `config.ts` (única fuente de
+verdad, sin tocar lógica) para que:
+
+- Un peldaño llegue a `DOMINADO` en ~3 aciertos sin ayuda (`85 / 30 ≈ 3`).
+- Con ayuda cueste más (`GANANCIA.conAyuda = 18` < `sinAyuda = 30` —
+  autonomía = más crédito).
+- Un error conceptual deshaga aproximadamente UN acierto bueno
+  (`PESO_ERROR.conceptual = -30` vs `GANANCIA.sinAyuda = +30`).
+- `distraccion` (`-3`) siga siendo despreciable frente a cualquier ganancia.
+
+`GANANCIA_ESTABILIDAD` (3 → 12) y el efecto secundario de un acierto rápido
+sobre Fluidez (+6 → +20) subieron en la misma proporción. Ese último valor
+vivía como un número mágico dentro de `confianza.ts` en vez de en
+`config.ts` — se agregó `GANANCIA_FLUIDEZ_RAPIDA` ahí y se cambió la línea en
+`confianza.ts` que lo usa (import + una palabra), la única razón por la que
+este ajuste tocó un archivo fuera de la lista pedida — es un cambio de
+valor/parametrización, no de lógica: `confianza.ts` ya importaba las demás
+constantes de `config.ts` de la misma forma.
 
 ## TODO (fuera de alcance de esta tarea)
 

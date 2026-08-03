@@ -44,13 +44,17 @@ function tipoMisionDeRol(rol: RolCognitivo, confianza: number): TipoMision {
 /**
  * Elige la próxima misión para UN concepto. Algoritmo, siempre en este
  * orden:
- *   1. Repaso (Estabilidad) — si está por debajo del umbral, gana siempre,
- *      antes de mirar ningún peldaño.
- *   2. El peldaño más bajo (menor índice) con confianza < DOMINADO — es
+ *   1. El peldaño más bajo (menor índice) con confianza < DOMINADO — es
  *      prerrequisito: nunca se trabaja un peldaño alto antes de dominar
- *      el anterior.
- *   3. Si todos los peldaños están dominados: Fluidez si falta, si no,
- *      simulación final.
+ *      el anterior. Esto va PRIMERO porque Estabilidad y Fluidez son
+ *      cualidades de un concepto YA dominado (qué tan durable/fluido es
+ *      lo aprendido) — no tiene sentido medirlas, y mucho menos disparar
+ *      un "repaso", sobre algo que el estudiante todavía no subió.
+ *   2. Solo si TODOS los peldaños están dominados, se evalúan las
+ *      cualidades, en este orden:
+ *      a. Repaso (Estabilidad) — si perdió solidez con el tiempo.
+ *      b. Fluidez — si falta ritmo/soltura.
+ *      c. Simulación final — perfil sólido en todo.
  *
  * TODO: cuando esto se extienda para elegir entre VARIOS conceptos a la
  * vez, usar el `peso` del peldaño (ver escaleras.ts) para priorizar la
@@ -61,21 +65,8 @@ export function decidirProximaMision(
   ahoraMs: number,
   opts?: { evaluacionCercana?: boolean },
 ): Mision {
-  // 1. Repaso — Estabilidad.
-  const umbralRepaso = opts?.evaluacionCercana ? UMBRAL_REPASO_EVALUACION_CERCANA : UMBRAL_REPASO;
-  const estabilidad = estabilidadEfectiva(perfil, ahoraMs);
-  if (estabilidad < umbralRepaso) {
-    return {
-      conceptoId: perfil.conceptoId,
-      ejeObjetivo: 'estabilidad',
-      rolObjetivo: 'cualidad',
-      tipo: 'repaso_espaciado',
-      motivo: `estabilidad efectiva ${estabilidad} < umbral ${umbralRepaso}`
-        + (opts?.evaluacionCercana ? ' (adelantado por evaluación cercana)' : ''),
-    };
-  }
-
-  // 2. Peldaño objetivo — el más bajo no dominado.
+  // 1. Peldaño objetivo — el más bajo no dominado. Prerrequisito de TODO
+  // lo demás: mientras exista uno, ni Estabilidad ni Fluidez se miran.
   const escalera = escaleraDe(perfil.escalera);
   for (const peldano of escalera.peldanos) {
     const confianza = perfil.ejes[peldano.id] ?? 0;
@@ -90,7 +81,22 @@ export function decidirProximaMision(
     }
   }
 
-  // 3. Todo peldaño dominado.
+  // 2a. Todo peldaño dominado — recién ahora Estabilidad entra en juego:
+  // ¿lo que ya se dominó sigue siendo sólido, o se desgastó con el tiempo?
+  const umbralRepaso = opts?.evaluacionCercana ? UMBRAL_REPASO_EVALUACION_CERCANA : UMBRAL_REPASO;
+  const estabilidad = estabilidadEfectiva(perfil, ahoraMs);
+  if (estabilidad < umbralRepaso) {
+    return {
+      conceptoId: perfil.conceptoId,
+      ejeObjetivo: 'estabilidad',
+      rolObjetivo: 'cualidad',
+      tipo: 'repaso_espaciado',
+      motivo: `estabilidad efectiva ${estabilidad} < umbral ${umbralRepaso}`
+        + (opts?.evaluacionCercana ? ' (adelantado por evaluación cercana)' : ''),
+    };
+  }
+
+  // 2b. Fluidez.
   const fluidez = perfil.ejes.fluidez ?? 0;
   if (fluidez < DOMINADO) {
     return {
@@ -102,6 +108,7 @@ export function decidirProximaMision(
     };
   }
 
+  // 2c. Simulación final.
   return {
     conceptoId: perfil.conceptoId,
     // No hay un eje "global" real en el perfil — el objetivo es el

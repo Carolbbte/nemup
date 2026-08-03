@@ -12,7 +12,7 @@
 import type { PerfilConcepto, Mision, Evidencia, RolCognitivo } from './tipos';
 import { escaleraDe } from './escaleras';
 import { estabilidadEfectiva } from './perfil';
-import { GANANCIA, GANANCIA_ESTABILIDAD, PESO_ERROR } from './config';
+import { GANANCIA, GANANCIA_ESTABILIDAD, GANANCIA_FLUIDEZ_RAPIDA, PESO_ERROR } from './config';
 
 function clamp(valor: number): number {
   return Math.max(0, Math.min(100, valor));
@@ -64,7 +64,7 @@ export function aplicarEvidencia(
     // Efectos independientes de la ganancia principal — pueden darse a la
     // vez que un conAyuda topó la ganancia del eje objetivo.
     if (ev.rapida) {
-      ejes.fluidez = clamp((ejes.fluidez ?? 0) + 6);
+      ejes.fluidez = clamp((ejes.fluidez ?? 0) + GANANCIA_FLUIDEZ_RAPIDA);
     }
     if (ev.contextoNuevo) {
       const ejeTransferencia = ejeDeRol(perfil, 'transferencia');

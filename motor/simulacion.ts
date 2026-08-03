@@ -6,11 +6,16 @@
  * `ahoraMs` explícito). Este archivo es el ARNÉS que la ejercita con
  * 3 estudiantes simulados sobre el mismo concepto, y prueba:
  *
- *   (a) que Ana / Beto / Caro reciben recorridos DISTINTOS con el mismo
- *       material — el motor reacciona al patrón de evidencia de cada uno.
- *   (b) que un error de "distraccion" casi no mueve el perfil.
- *   (c) que al avanzar el reloj varias semanas sin actividad, la
- *       estabilidad efectiva cae y aparece un repaso_espaciado.
+ *   (a) que el primer paso de cada estudiante es pregunta_conceptual — NO
+ *       repaso_espaciado (Ajuste 1: los peldaños van antes que las
+ *       cualidades de Estabilidad/Fluidez, que solo se miden sobre un
+ *       concepto ya dominado).
+ *   (b) que un peldaño llega a DOMINADO en ~3 aciertos buenos.
+ *   (c) que un error de "distraccion" casi no mueve el perfil, y uno de
+ *       procedimiento/conceptual sí (contraste visible en el log).
+ *   (d) que, YA con el concepto dominado, al avanzar el reloj varias
+ *       semanas sin actividad, la estabilidad efectiva cae y recién ahí
+ *       aparece un repaso_espaciado.
  *
  * Ver "cómo ejecutar" en motor/README.md.
  */
@@ -42,7 +47,10 @@ function crearAna(): Estudiante {
 /**
  * Beto falla al reconocer: acierta todo lo demás, pero las dos primeras
  * veces que el motor le pide una misión de rol "reconocimiento" falla con
- * tipoError:'reconocimiento' — la tercera vez, acierta y avanza.
+ * tipoError:'reconocimiento' — la tercera vez, acierta y avanza. Con el eje
+ * en 0, ambos fallos quedan clampeados en 0 (PESO_ERROR.reconocimiento=-20
+ * contra un piso de 0 no puede bajar más) — visible en el log como "no se
+ * mueve", coherente con "un error no significa nada por sí solo".
  */
 function crearBeto(): Estudiante {
   let fallosReconocimiento = 0;
@@ -57,20 +65,20 @@ function crearBeto(): Estudiante {
 
 /**
  * Caro falla al aplicar: acierta comprensión/reconocimiento. En "aplicar"
- * primero acumula 3 aciertos (para tener una base > 0 desde la que se note
- * el contraste — con el eje en 0, tanto -2 como -8 quedan idénticamente
- * clampeados en 0 y la comparación no se vería), luego comete UN descuido
- * (distraccion — debe apenas moverla) y DOS errores reales de procedimiento
- * (deben notarse mucho más), antes de finalmente acertar y avanzar.
+ * primero acierta UNA vez (para tener una base > 0 desde la que se note el
+ * contraste — con el eje en 0, cualquier baja queda clampeada en 0 y no se
+ * ve nada), luego comete UN descuido (distraccion, -3 — debe apenas
+ * moverla) y DOS errores reales de procedimiento (-12 cada uno — deben
+ * notarse mucho más), antes de recuperarse y dominar el peldaño.
  */
 function crearCaro(): Estudiante {
   let pasoEnAplicar = 0;
   return (mision) => {
     if (mision.rolObjetivo === 'aplicacion') {
       pasoEnAplicar++;
-      if (pasoEnAplicar <= 3) return { correcto: true };
-      if (pasoEnAplicar === 4) return { correcto: false, tipoError: 'distraccion' };
-      if (pasoEnAplicar <= 6) return { correcto: false, tipoError: 'procedimiento' };
+      if (pasoEnAplicar === 1) return { correcto: true };
+      if (pasoEnAplicar === 2) return { correcto: false, tipoError: 'distraccion' };
+      if (pasoEnAplicar <= 4) return { correcto: false, tipoError: 'procedimiento' };
       return { correcto: true };
     }
     return { correcto: true };
@@ -111,45 +119,54 @@ function correrEstudiante(nombre: string, estudiante: Estudiante, pasos: number)
 }
 
 /**
- * Demuestra (c): practica un poco, adelanta el reloj varias semanas SIN
- * actividad, y confirma que estabilidadEfectiva cayó y que la próxima
- * misión sugerida es un repaso_espaciado.
+ * Demuestra (d): domina TODA la escalera a fuerza de aciertos (con
+ * Ajuste 1, repaso_espaciado solo puede aparecer una vez que ningún
+ * peldaño queda por debajo de DOMINADO — ya no alcanza con levantar
+ * Estabilidad sola), adelanta el reloj varias semanas SIN actividad, y
+ * confirma que estabilidadEfectiva cayó y que la próxima misión sugerida
+ * es un repaso_espaciado — ahora sí, sobre un concepto ya aprendido.
  */
 function demostrarRepasoPorDesgaste(): void {
-  console.log('\n=== Repaso espaciado (reloj adelantado 6 semanas sin actividad) ===');
+  console.log('\n=== Repaso espaciado (concepto YA dominado, reloj +10 semanas sin actividad) ===');
   const inicioMs = Date.UTC(2026, 0, 1);
   let perfil = crearPerfil(CONCEPTO_ID, CONCEPTO_NOMBRE, 'procedimental', inicioMs);
-
-  // Practica lo suficiente para levantar Estabilidad por encima del umbral
-  // de repaso (60) antes de dejarla desgastarse.
   let ahoraMs = inicioMs;
-  while (estabilidadEfectiva(perfil, ahoraMs) < 70) {
+
+  // Tope generoso (5 peldaños × ~3 aciertos c/u): se corta apenas
+  // decidirProximaMision deja de pedir un peldaño, es decir, apenas los 5
+  // están dominados (la próxima misión pasa a ser sobre una cualidad).
+  for (let i = 0; i < 20; i++) {
     const mision = decidirProximaMision(perfil, ahoraMs);
+    if (mision.rolObjetivo === 'cualidad' || mision.rolObjetivo === 'global') break;
     perfil = aplicarEvidencia(perfil, mision, { correcto: true }, ahoraMs);
     ahoraMs += DIA_MS;
   }
-  console.log(`  Estabilidad tras practicar: ${estabilidadEfectiva(perfil, ahoraMs)}`);
+  console.log(`  Perfil tras dominar todos los peldaños: ${formatoPerfil(perfil, ahoraMs)}`);
 
-  const seisSemanasDespues = perfil.ultimaActividadMs + 6 * SEMANA_MS;
-  const estabilidadDesgastada = estabilidadEfectiva(perfil, seisSemanasDespues);
-  console.log(`  Estabilidad efectiva 6 semanas después: ${estabilidadDesgastada}`);
+  // Practicar dejó estabilidad cruda en 100 (tope) — desgasteEstabilidad
+  // necesita 9+ semanas completas para bajarla por debajo de
+  // UMBRAL_REPASO (60): a la semana 8 el desgaste acumulado es exactamente
+  // 40 (100-40=60, todavía NO queda por debajo), recién en la semana 9
+  // acumula 45 (100-45=55, ahí sí). 10 semanas deja margen cómodo.
+  const diezSemanasDespues = perfil.ultimaActividadMs + 10 * SEMANA_MS;
+  const estabilidadDesgastada = estabilidadEfectiva(perfil, diezSemanasDespues);
+  console.log(`  Estabilidad efectiva 10 semanas después: ${estabilidadDesgastada}`);
 
-  const mision = decidirProximaMision(perfil, seisSemanasDespues);
+  const mision = decidirProximaMision(perfil, diezSemanasDespues);
   console.log(`  Misión sugerida: ${mision.tipo} — ${mision.motivo}`);
 }
 
 function main(): void {
   console.log('Motor Pedagógico NEMUP — Simulación');
   console.log(`Concepto: ${CONCEPTO_NOMBRE} (procedimental)`);
-  console.log('NOTA: un Perfil recién creado empieza con estabilidad cruda en 0, que');
-  console.log('efectiva se lee como el PISO (40) — por debajo del umbral de repaso (60).');
-  console.log('Por diseño (Regla 1 corre siempre primero), el primer paso de cada');
-  console.log('estudiante es un repaso_espaciado hasta que unos aciertos levanten la');
-  console.log('estabilidad cruda por encima de 60 — ver motor/README.md.');
+  console.log('Con Ajuste 1, un concepto nuevo abre SIEMPRE con el peldaño más bajo');
+  console.log('(pregunta_conceptual) — Estabilidad/Fluidez solo se miran una vez que');
+  console.log('toda la escalera está dominada. Con Ajuste 2, cada peldaño domina en');
+  console.log('~3 aciertos buenos.');
 
-  correrEstudiante('Ana (domina todo)', crearAna(), 45);
-  correrEstudiante('Beto (falla al reconocer)', crearBeto(), 45);
-  correrEstudiante('Caro (falla al aplicar + un descuido)', crearCaro(), 45);
+  correrEstudiante('Ana (domina todo)', crearAna(), 22);
+  correrEstudiante('Beto (falla al reconocer)', crearBeto(), 22);
+  correrEstudiante('Caro (falla al aplicar + un descuido)', crearCaro(), 22);
   demostrarRepasoPorDesgaste();
 }
 

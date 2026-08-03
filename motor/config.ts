@@ -27,26 +27,47 @@ export const UMBRAL_REFORZAR = 55;
 /** Estabilidad por debajo de esto dispara un repaso (si el concepto se necesita). */
 export const UMBRAL_REPASO = 60;
 
-/** Cuánto BAJA la confianza según el tipo de error (negativo). */
+/**
+ * Cuánto BAJA la confianza según el tipo de error (negativo). Calibrado
+ * (2ª pasada) para que un error conceptual deshaga aproximadamente UN
+ * acierto bueno (-30 vs GANANCIA.sinAyuda +30) — fuerte, pero no un pozo
+ * del que haga falta media escalera de aciertos para salir. distraccion
+ * se mantiene despreciable frente a cualquier ganancia.
+ */
 export const PESO_ERROR: Record<TipoError, number> = {
-  distraccion: -2,
-  procedimiento: -8,
-  transferencia: -12,
-  reconocimiento: -15,
-  conceptual: -25,
+  distraccion: -3,
+  procedimiento: -12,
+  transferencia: -18,
+  reconocimiento: -20,
+  conceptual: -30,
 };
 
-/** Cuánto SUBE la confianza según la calidad del acierto.
- *  No todo acierto vale igual: premia la autonomía y la transferencia. */
+/**
+ * Cuánto SUBE la confianza según la calidad del acierto. Calibrado (2ª
+ * pasada) para que un peldaño pase de 0 a DOMINADO (85) en ~3 aciertos
+ * sin ayuda (85/30 ≈ 3), con margen para llegar antes si son rápidos o en
+ * contexto nuevo — el diseño original ("≈2 aciertos = logrado") tomaba
+ * ~10 con los valores anteriores (+7), demasiado para una micro-misión de
+ * 2-4 minutos. No todo acierto vale igual: premia la autonomía y la
+ * transferencia (conAyuda sigue siendo el más bajo — necesitar ayuda debe
+ * costar más pasos que resolver solo).
+ */
 export const GANANCIA = {
-  conAyuda: 4,
-  sinAyuda: 7,
-  rapida: 10,
-  contextoNuevo: 12,
+  conAyuda: 18,
+  sinAyuda: 30,
+  rapida: 35,
+  contextoNuevo: 40,
 };
 
-/** Un acierto refuerza un poco la Estabilidad (retención). */
-export const GANANCIA_ESTABILIDAD = 3;
+/** Un acierto refuerza un poco la Estabilidad (retención). Calibrado (2ª
+ *  pasada) en proporción a GANANCIA — con +3 (valor original) hacían falta
+ *  ~7 aciertos solo para cruzar UMBRAL_REPASO (60) desde 0. */
+export const GANANCIA_ESTABILIDAD = 12;
+
+/** Efecto secundario de un acierto RÁPIDO sobre Fluidez (confianza.ts).
+ *  Calibrado (2ª pasada) en proporción a GANANCIA — con +6 (valor original)
+ *  hacían falta ~15 aciertos rápidos para que Fluidez llegara a DOMINADO. */
+export const GANANCIA_FLUIDEZ_RAPIDA = 20;
 
 /** Desgaste temporal de la Estabilidad. El conocimiento no desaparece,
  *  solo pierde solidez. Nunca baja del piso. */
