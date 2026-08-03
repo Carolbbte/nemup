@@ -35,3 +35,9 @@ export const ADAPTIVE_REQUEUE              = false;
 // Same Record<itemId, category> answer shape either way — scoring/streak/
 // requeue don't change, only the render + its own feedback panel.
 export const CLASSIFY_BUCKETS_UI           = true;
+// MOTOR_MODE = true → enables the new Motor-driven "Study Journey" flow
+// (current-objective.tsx + experience/), reached only via a temp dev access
+// in home.tsx while it's being built out phase by phase (see
+// PROMPT_motor_integracion.md). false (default) → the app is EXACTLY as
+// today; nothing under this flag is reachable at all.
+export const MOTOR_MODE                    = false;

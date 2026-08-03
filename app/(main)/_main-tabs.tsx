@@ -25,7 +25,7 @@ const TAB_LABELS: Record<string, string> = {
 };
 
 const VISIBLE  = new Set(['home', 'misiones', 'perfil']);
-const HIDE_BAR = new Set(['modals/first-session', 'modals/upload', 'modals/session', 'modals/desafio', 'session-complete']);
+const HIDE_BAR = new Set(['modals/first-session', 'modals/upload', 'modals/session', 'modals/desafio', 'session-complete', 'current-objective']);
 
 // ── Floating tab bar ─────────────────────────────────────────────
 function FloatingTabBar({ state, navigation }: BottomTabBarProps) {
@@ -153,6 +153,7 @@ export default function MainTabs() {
       <Tabs.Screen name="modals/first-session" options={{ href: null }} />
       <Tabs.Screen name="modals/desafio"       options={{ href: null }} />
       <Tabs.Screen name="session-complete"     options={{ href: null }} />
+      <Tabs.Screen name="current-objective"    options={{ href: null }} />
     </Tabs>
   );
 }
