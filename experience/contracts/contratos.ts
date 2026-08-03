@@ -72,17 +72,25 @@ export interface ExperienceBlock {
 
 export interface Experiencia {
   objetivo: Objetivo;
-  /**
-   * La receta que generó estos bloques. Guardarla acá NO cambia ningún
-   * comportamiento — es pura trazabilidad: al depurar una Experiencia se
-   * puede ver POR QUÉ se construyó así (qué receta la originó), sin tener
-   * que adivinarlo a partir de los bloques resultantes.
-   */
-  receta: Receta;
   bloques: ExperienceBlock[];
+  /**
+   * Solo para debug/trazabilidad — NO es un objeto de negocio, ningún
+   * consumidor debe depender de esto. Guardar la receta que originó estos
+   * bloques permite, al depurar una Experiencia, ver POR QUÉ se construyó
+   * así sin tener que adivinarlo a partir de los bloques resultantes.
+   */
+  metadata?: { recipe?: Receta };
 }
 
 // ── 4. Receta — DATA, no código ─────────────────────────────────────────────
+
+/**
+ * Alias — hoy un paso de la receta es exactamente un tipo de bloque (1:1).
+ * Deja espacio para que en el futuro un paso genere más de un
+ * `ExperienceBlock` sin tener que romper el contrato — no implementado
+ * todavía, `PasoReceta` y `TipoBloque` son intercambiables por ahora.
+ */
+export type PasoReceta = TipoBloque;
 
 /**
  * La receta es un objeto (una secuencia de tipos de bloque), NUNCA una
@@ -91,6 +99,15 @@ export interface Experiencia {
  * bloque) sin tocar el Builder que la interpreta.
  */
 export interface Receta {
+  /**
+   * Identifica la EXPERIENCIA (cómo se vive la misión), nunca la
+   * pedagogía — p.ej. `'question-first'`, nunca algo como
+   * `'verificacion-conceptual'`. La decisión de qué receta/estrategia usar
+   * (guiado vs. directo, etc.) es del motor, no de este id: a futuro el
+   * motor devolverá una `estrategia` en el `Objetivo` y el Builder solo la
+   * ejecutará — este id solo nombra la forma resultante, no decide nada.
+   */
+  id: string;
   tipo: TipoObjetivo;
   /**
    * Los PASOS del plan, en orden — tipos de bloque, no bloques concretos.
@@ -98,5 +115,5 @@ export interface Receta {
    * Builder rellena estos pasos con contenido real del concepto: la receta
    * es el plan, los bloques son el resultado.
    */
-  steps: TipoBloque[];
+  steps: PasoReceta[];
 }
