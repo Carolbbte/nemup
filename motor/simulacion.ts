@@ -23,22 +23,22 @@
 import {
   crearPerfil,
   aplicarEvidencia,
-  decidirProximaMision,
+  tomarDecisionPedagogica,
   estabilidadEfectiva,
   bandaDe,
 } from './index';
-import type { Mision, Evidencia, PerfilConcepto } from './tipos';
+import type { DecisionPedagogica, Evidencia, PerfilConcepto } from './tipos';
 
 const CONCEPTO_ID = 'factor-comun';
 const CONCEPTO_NOMBRE = 'Factor común';
 const DIA_MS = 24 * 60 * 60 * 1000;
 const SEMANA_MS = 7 * DIA_MS;
 
-type Estudiante = (mision: Mision, paso: number) => Evidencia;
+type Estudiante = (decision: DecisionPedagogica, paso: number) => Evidencia;
 
 /** Ana domina todo: siempre correcta, sin ayuda, y rápida cada dos pasos. */
 function crearAna(): Estudiante {
-  return (_mision, paso) => ({
+  return (_decision, paso) => ({
     correcto: true,
     rapida: paso % 2 === 0,
   });
@@ -54,8 +54,8 @@ function crearAna(): Estudiante {
  */
 function crearBeto(): Estudiante {
   let fallosReconocimiento = 0;
-  return (mision) => {
-    if (mision.rolObjetivo === 'reconocimiento' && fallosReconocimiento < 2) {
+  return (decision) => {
+    if (decision.rolObjetivo === 'reconocimiento' && fallosReconocimiento < 2) {
       fallosReconocimiento++;
       return { correcto: false, tipoError: 'reconocimiento' };
     }
@@ -73,8 +73,8 @@ function crearBeto(): Estudiante {
  */
 function crearCaro(): Estudiante {
   let pasoEnAplicar = 0;
-  return (mision) => {
-    if (mision.rolObjetivo === 'aplicacion') {
+  return (decision) => {
+    if (decision.rolObjetivo === 'aplicacion') {
       pasoEnAplicar++;
       if (pasoEnAplicar === 1) return { correcto: true };
       if (pasoEnAplicar === 2) return { correcto: false, tipoError: 'distraccion' };
@@ -100,16 +100,16 @@ function correrEstudiante(nombre: string, estudiante: Estudiante, pasos: number)
   let perfil = crearPerfil(CONCEPTO_ID, CONCEPTO_NOMBRE, 'procedimental', ahoraMs);
 
   for (let paso = 1; paso <= pasos; paso++) {
-    const mision = decidirProximaMision(perfil, ahoraMs);
-    const antes = perfil.ejes[mision.ejeObjetivo] ?? 0;
-    const evidencia = estudiante(mision, paso);
-    perfil = aplicarEvidencia(perfil, mision, evidencia, ahoraMs);
-    const despues = perfil.ejes[mision.ejeObjetivo] ?? 0;
+    const decision = tomarDecisionPedagogica(perfil, ahoraMs);
+    const antes = perfil.ejes[decision.ejeObjetivo] ?? 0;
+    const evidencia = estudiante(decision, paso);
+    perfil = aplicarEvidencia(perfil, decision, evidencia, ahoraMs);
+    const despues = perfil.ejes[decision.ejeObjetivo] ?? 0;
     const resultado = evidencia.correcto ? 'OK' : `ERROR(${evidencia.tipoError ?? 'sin tipo'})`;
     console.log(
-      `  [${String(paso).padStart(2, ' ')}] ${mision.tipo.padEnd(22, ' ')} `
-      + `eje=${mision.ejeObjetivo}(${mision.rolObjetivo}) → ${resultado}  `
-      + `${mision.ejeObjetivo}: ${antes} → ${despues}  — ${mision.motivo}`,
+      `  [${String(paso).padStart(2, ' ')}] ${decision.tipo.padEnd(22, ' ')} `
+      + `eje=${decision.ejeObjetivo}(${decision.rolObjetivo}) → ${resultado}  `
+      + `${decision.ejeObjetivo}: ${antes} → ${despues}  — ${decision.motivo}`,
     );
     ahoraMs += DIA_MS;
   }
@@ -133,12 +133,12 @@ function demostrarRepasoPorDesgaste(): void {
   let ahoraMs = inicioMs;
 
   // Tope generoso (5 peldaños × ~3 aciertos c/u): se corta apenas
-  // decidirProximaMision deja de pedir un peldaño, es decir, apenas los 5
-  // están dominados (la próxima misión pasa a ser sobre una cualidad).
+  // tomarDecisionPedagogica deja de pedir un peldaño, es decir, apenas los
+  // 5 están dominados (la próxima misión pasa a ser sobre una cualidad).
   for (let i = 0; i < 20; i++) {
-    const mision = decidirProximaMision(perfil, ahoraMs);
-    if (mision.rolObjetivo === 'cualidad' || mision.rolObjetivo === 'global') break;
-    perfil = aplicarEvidencia(perfil, mision, { correcto: true }, ahoraMs);
+    const decision = tomarDecisionPedagogica(perfil, ahoraMs);
+    if (decision.rolObjetivo === 'cualidad' || decision.rolObjetivo === 'global') break;
+    perfil = aplicarEvidencia(perfil, decision, { correcto: true }, ahoraMs);
     ahoraMs += DIA_MS;
   }
   console.log(`  Perfil tras dominar todos los peldaños: ${formatoPerfil(perfil, ahoraMs)}`);
@@ -152,8 +152,8 @@ function demostrarRepasoPorDesgaste(): void {
   const estabilidadDesgastada = estabilidadEfectiva(perfil, diezSemanasDespues);
   console.log(`  Estabilidad efectiva 10 semanas después: ${estabilidadDesgastada}`);
 
-  const mision = decidirProximaMision(perfil, diezSemanasDespues);
-  console.log(`  Misión sugerida: ${mision.tipo} — ${mision.motivo}`);
+  const decision = tomarDecisionPedagogica(perfil, diezSemanasDespues);
+  console.log(`  Misión sugerida: ${decision.tipo} — ${decision.motivo}`);
 }
 
 function main(): void {

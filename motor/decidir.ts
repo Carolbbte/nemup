@@ -1,18 +1,18 @@
 /**
  * Motor Pedagógico NEMUP — Decisión (el corazón)
  * =================================================================
- * `decidirProximaMision` es la única función de este archivo: dado un
+ * `tomarDecisionPedagogica` es la única función de este archivo: dado un
  * Perfil de Dominio, elige la próxima misión siguiendo siempre el mismo
  * orden de reglas, sin importar la escalera. La etapa decide la
  * herramienta, no la materia.
  *
  * `motivo` es un string interno para debugging / Mago de Oz — nunca se
- * muestra al estudiante (ver Mision en tipos.ts).
+ * muestra al estudiante (ver DecisionPedagogica en tipos.ts).
  *
  * Ver la especificación en pedagogia/Reglas_del_Motor_NEMUP.md.
  */
 
-import type { Mision, PerfilConcepto, RolCognitivo, TipoMision } from './tipos';
+import type { DecisionPedagogica, PerfilConcepto, RolCognitivo, TipoMision } from './tipos';
 import { escaleraDe } from './escaleras';
 import { estabilidadEfectiva } from './perfil';
 import { DOMINADO, UMBRAL_OBSERVAR, UMBRAL_REFORZAR, UMBRAL_REPASO } from './config';
@@ -60,11 +60,11 @@ function tipoMisionDeRol(rol: RolCognitivo, confianza: number): TipoMision {
  * vez, usar el `peso` del peldaño (ver escaleras.ts) para priorizar la
  * "misión de mayor impacto" — hoy solo decide dentro de UN perfil.
  */
-export function decidirProximaMision(
+export function tomarDecisionPedagogica(
   perfil: PerfilConcepto,
   ahoraMs: number,
   opts?: { evaluacionCercana?: boolean },
-): Mision {
+): DecisionPedagogica {
   // 1. Peldaño objetivo — el más bajo no dominado. Prerrequisito de TODO
   // lo demás: mientras exista uno, ni Estabilidad ni Fluidez se miran.
   const escalera = escaleraDe(perfil.escalera);

@@ -9,7 +9,7 @@
  * Ver la especificación en pedagogia/Reglas_del_Motor_NEMUP.md.
  */
 
-import type { PerfilConcepto, Mision, Evidencia, RolCognitivo } from './tipos';
+import type { PerfilConcepto, DecisionPedagogica, Evidencia, RolCognitivo } from './tipos';
 import { escaleraDe } from './escaleras';
 import { estabilidadEfectiva } from './perfil';
 import { GANANCIA, GANANCIA_ESTABILIDAD, GANANCIA_FLUIDEZ_RAPIDA, PESO_ERROR } from './config';
@@ -33,7 +33,7 @@ function ejeDeRol(perfil: PerfilConcepto, rol: RolCognitivo): string | null {
 
 export function aplicarEvidencia(
   perfil: PerfilConcepto,
-  mision: Mision,
+  decision: DecisionPedagogica,
   ev: Evidencia,
   ahoraMs: number,
 ): PerfilConcepto {
@@ -51,7 +51,7 @@ export function aplicarEvidencia(
     else if (ev.rapida) ganancia = GANANCIA.rapida;
     else ganancia = GANANCIA.sinAyuda;
 
-    ejes[mision.ejeObjetivo] = clamp((ejes[mision.ejeObjetivo] ?? 0) + ganancia);
+    ejes[decision.ejeObjetivo] = clamp((ejes[decision.ejeObjetivo] ?? 0) + ganancia);
 
     // Practicar refuerza retención. "Consolida": guarda el valor EFECTIVO
     // (ya con el desgaste de las semanas transcurridas aplicado) como el
@@ -89,20 +89,20 @@ export function aplicarEvidencia(
   let ejeAfectado: string;
   switch (tipoError) {
     case 'conceptual':
-      ejeAfectado = ejeDeRol(perfil, 'comprension') ?? mision.ejeObjetivo;
+      ejeAfectado = ejeDeRol(perfil, 'comprension') ?? decision.ejeObjetivo;
       break;
     case 'reconocimiento':
-      ejeAfectado = ejeDeRol(perfil, 'reconocimiento') ?? mision.ejeObjetivo;
+      ejeAfectado = ejeDeRol(perfil, 'reconocimiento') ?? decision.ejeObjetivo;
       break;
     case 'procedimiento':
-      ejeAfectado = ejeDeRol(perfil, 'aplicacion') ?? mision.ejeObjetivo;
+      ejeAfectado = ejeDeRol(perfil, 'aplicacion') ?? decision.ejeObjetivo;
       break;
     case 'transferencia':
-      ejeAfectado = ejeDeRol(perfil, 'transferencia') ?? mision.ejeObjetivo;
+      ejeAfectado = ejeDeRol(perfil, 'transferencia') ?? decision.ejeObjetivo;
       break;
     case 'distraccion':
     default:
-      ejeAfectado = mision.ejeObjetivo;
+      ejeAfectado = decision.ejeObjetivo;
       break;
   }
 

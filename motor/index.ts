@@ -18,7 +18,7 @@ export type {
   TipoMision,
   TipoError,
   PerfilConcepto,
-  Mision,
+  DecisionPedagogica,
   Evidencia,
   Banda,
 } from './tipos';
@@ -26,5 +26,5 @@ export type {
 export { ESCALERAS, escaleraDe } from './escaleras';
 export { crearPerfil, estabilidadEfectiva } from './perfil';
 export { aplicarEvidencia } from './confianza';
-export { decidirProximaMision } from './decidir';
+export { tomarDecisionPedagogica } from './decidir';
 export { bandaDe } from './config';

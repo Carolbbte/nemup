@@ -22,7 +22,8 @@ export type { Evidencia };
 /**
  * Proyección limpia de a qué le apunta la próxima misión, en vocabulario
  * de producto (nunca en vocabulario interno del motor — ver
- * `objetivoDeMision` en `objetivo.ts`, el único traductor `Mision → Objetivo`).
+ * `objetivoDeDecision` en `objetivo.ts`, el único traductor
+ * `DecisionPedagogica → Objetivo`).
  */
 export type TipoObjetivo =
   | 'comprender'  // understand
@@ -36,9 +37,10 @@ export interface Objetivo {
   conceptoId: string;
   conceptoNombre: string;
   tipo: TipoObjetivo;
-  /** Confianza 0–100 del eje objetivo (`motor/tipos.ts`'s `Mision.ejeObjetivo`)
-   *  — permite que el Builder/las recetas eligan variantes según qué tan
-   *  lejos o cerca está el estudiante de dominar ese eje. */
+  /** Confianza 0–100 del eje objetivo (`motor/tipos.ts`'s
+   *  `DecisionPedagogica.ejeObjetivo`) — permite que el Builder/las
+   *  recetas eligan variantes según qué tan lejos o cerca está el
+   *  estudiante de dominar ese eje. */
   confianza: number;
   /** Minutos estimados de la próxima misión (p.ej. 2–4), por TipoObjetivo. */
   minutosEstimados: number;

@@ -86,7 +86,7 @@ export interface PerfilConcepto {
 }
 
 /** La decisión del motor: qué hacer a continuación. */
-export interface Mision {
+export interface DecisionPedagogica {
   conceptoId: string;
   /** Eje que la misión intenta mejorar. */
   ejeObjetivo: EjeId;
