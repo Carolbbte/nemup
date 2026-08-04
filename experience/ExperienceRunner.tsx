@@ -45,8 +45,8 @@ const ETIQUETA_POR_BLOQUE: Record<TipoBloque, string> = {
 // solo se lee/mira — avanza con "Siguiente".
 const BLOQUES_INTERACTIVOS = new Set<TipoBloque>(['pregunta', 'ejercicio']);
 
-export function ExperienceRunner({ onFinish }: { onFinish: () => void }) {
-  const { iniciarExperiencia, registrarEvidencia } = useMotor();
+export function ExperienceRunner({ onFinish }: { onFinish: (avanzo: boolean) => void }) {
+  const { objetivo, iniciarExperiencia, registrarEvidencia } = useMotor();
   // Inicializador perezoso — iniciarExperiencia() (congela la decisión)
   // corre UNA sola vez, al montar, no en cada re-render.
   const [experiencia] = useState(() => {
@@ -61,8 +61,16 @@ export function ExperienceRunner({ onFinish }: { onFinish: () => void }) {
   const esInteractivo = BLOQUES_INTERACTIVOS.has(bloque.tipo);
 
   const avanzar = () => {
-    if (esUltimo) onFinish();
-    else setIndice(indice + 1);
+    if (esUltimo) {
+      // `objetivo` viene del contexto y ya refleja TODA la evidencia
+      // registrada durante esta experiencia — comparar contra el objetivo
+      // con el que arrancó (`experiencia.objetivo`, congelado al montar)
+      // dice si el motor avanzó a otro peldaño/cualidad, para que la
+      // celebración elija el tono.
+      onFinish(experiencia.objetivo.tipo !== objetivo.tipo);
+    } else {
+      setIndice(indice + 1);
+    }
   };
 
   const responder = (correcto: boolean) => {

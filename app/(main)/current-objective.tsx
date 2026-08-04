@@ -4,15 +4,18 @@
 import { useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useRouter } from 'expo-router';
 import { palette, semantic } from '@/theme/colors';
 import { MOTOR_MODE } from '@/config/features';
 import { MotorProvider, useMotor } from '@/contexts/MotorContext';
 import { ExperienceRunner } from '@/experience/ExperienceRunner';
+import { CelebrationBeat } from '@/experience/CelebrationBeat';
+import { copyCelebracion } from '@/experience/celebracionCopy';
 import { fraseObjetivo } from '@/experience/fraseObjetivo';
 import { perfilNuevo, perfilAplicar, perfilDominado } from '@/experience/dev/perfilesFalsos';
 import type { PerfilConcepto } from '@/motor';
 
-type Phase = 'intro'; // se ampliará en fases siguientes (mission, celebrate…)
+type Phase = 'intro' | 'running' | 'celebrate';
 
 // TEMP — perfiles semilla para el control dev de abajo (ver su propio
 // comentario). Desaparece cuando el motor decida sobre perfiles reales.
@@ -33,18 +36,42 @@ export default function CurrentObjectiveScreen() {
 }
 
 function CurrentObjectiveInner() {
-  const [phase] = useState<Phase>('intro');
-  // true = hay una experiencia en curso, se muestra el ExperienceRunner.
-  // false = vista intro (objetivo + WOW + chips dev). Al terminar la
-  // experiencia se vuelve a la intro, que ya lee el objetivo AVANZADO
-  // (Fase 6 agregará celebración + "¿Continuamos?" en el medio).
-  const [enExperiencia, setEnExperiencia] = useState(false);
+  const router = useRouter();
+  const [phase, setPhase] = useState<Phase>('intro');
+  // Si el objetivo avanzó tras la última misión — decide el tono de la
+  // celebración (ver ExperienceRunner.onFinish). Solo tiene sentido
+  // mientras phase === 'celebrate'.
+  const [avanzo, setAvanzo] = useState(false);
   const { objetivo, reiniciarPerfil } = useMotor();
 
-  if (enExperiencia) {
+  if (phase === 'running') {
     return (
       <SafeAreaView style={s.page} edges={['top', 'bottom']}>
-        <ExperienceRunner onFinish={() => setEnExperiencia(false)} />
+        <ExperienceRunner
+          onFinish={(avanzoAhora) => {
+            setAvanzo(avanzoAhora);
+            setPhase('celebrate');
+          }}
+        />
+      </SafeAreaView>
+    );
+  }
+
+  if (phase === 'celebrate') {
+    const copy = copyCelebracion(avanzo);
+    return (
+      <SafeAreaView style={s.page} edges={['top', 'bottom']}>
+        <CelebrationBeat
+          title={copy.title}
+          subtitle={copy.subtitle}
+          // Vuelve a 'running': monta un ExperienceRunner NUEVO, que llama
+          // iniciarExperiencia() y arma la siguiente misión sobre el
+          // objetivo ya avanzado — así se cierra el loop.
+          onContinuar={() => setPhase('running')}
+          // Siempre decide el estudiante — sale del flujo sin fricción,
+          // nunca un regaño por no seguir.
+          onDejar={() => router.back()}
+        />
       </SafeAreaView>
     );
   }
@@ -82,7 +109,7 @@ function CurrentObjectiveInner() {
       </View>
       <View style={s.bottom}>
         <Pressable
-          onPress={() => setEnExperiencia(true)}
+          onPress={() => setPhase('running')}
           style={({ pressed }) => [s.cta, pressed && { opacity: 0.88 }]}
         >
           <Text style={s.ctaTxt}>Comenzar</Text>
