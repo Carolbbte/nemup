@@ -4,6 +4,7 @@ import { tomarDecisionPedagogica, aplicarEvidencia } from '@/motor';
 import type { PerfilConcepto, DecisionPedagogica, Evidencia } from '@/motor';
 import { objetivoDeDecision } from '@/experience/contracts/objetivo';
 import { crearExperiencia } from '@/experience/builder/builder';
+import { rellenarContenido } from '@/experience/content/rellenar';
 import type { Objetivo, Experiencia } from '@/experience/contracts/contratos';
 import { perfilNuevo } from '@/experience/dev/perfilesFalsos';
 
@@ -96,7 +97,12 @@ export const MotorProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const iniciarExperiencia = useCallback((): Experiencia => {
     const decision = tomarDecisionPedagogica(perfilRef.current, Date.now());
     decisionEnCursoRef.current = decision;
-    return crearExperiencia(objetivoDeDecision(decision, perfilRef.current));
+    const objetivoDeEstaExperiencia = objetivoDeDecision(decision, perfilRef.current);
+    // El Builder arma la ESTRUCTURA (tonto, sin contenido); rellenarContenido
+    // es un paso APARTE que la completa con contenido real del banco del
+    // concepto — ver el comentario de esa función sobre por qué está
+    // separado del Builder.
+    return rellenarContenido(crearExperiencia(objetivoDeEstaExperiencia), objetivoDeEstaExperiencia);
   }, []);
 
   const registrarEvidencia = useCallback((ev: Evidencia) => {

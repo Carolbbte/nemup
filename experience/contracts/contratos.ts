@@ -14,7 +14,7 @@
 
 // ── 1. Evidencia — NO se redefine, se reexporta desde el motor ─────────────
 
-import type { Evidencia } from '../../motor';
+import type { Evidencia, TipoError } from '../../motor';
 export type { Evidencia };
 
 // ── 2. Objetivo — el "Goal" que consumen Builder y UI ──────────────────────
@@ -57,6 +57,40 @@ export type TipoBloque =
   | 'memoria'
   | 'celebracion';
 
+// ── 3a. Contenido — lo que trae CADA bloque, tipado por forma (no por
+// TipoBloque directamente: `pregunta`/`ejercicio` usan ContenidoPregunta,
+// `contexto`/`ejemplo`/`insight` usan ContenidoTexto — el runner decide
+// cuál renderizar haciendo narrowing sobre la forma real del objeto, ver
+// ExperienceRunner.tsx) ──────────────────────────────────────────────────
+
+export interface OpcionPregunta {
+  id: string;
+  texto: string;
+  correcta: boolean;
+  /**
+   * Si es incorrecta: QUÉ error representa — respuesta con significado
+   * (ver Parte C de pedagogia/Reglas_del_Motor_NEMUP.md). Es la fuente
+   * REAL del `tipoError` de la `Evidencia` cuando el estudiante elige esta
+   * opción — no una inferencia por el tipo de misión (esa,
+   * `inferirTipoError` en experience/evidencia.ts, queda solo como
+   * fallback defensivo si una opción no trae `tipoError`).
+   */
+  tipoError?: TipoError;
+}
+
+export interface ContenidoPregunta {
+  enunciado: string;
+  opciones: OpcionPregunta[];
+}
+
+export interface ContenidoTexto {
+  titulo?: string;
+  cuerpo: string;
+  pasos?: string[];
+}
+
+export type Contenido = ContenidoPregunta | ContenidoTexto;
+
 export interface ExperienceBlock {
   /** Identificador único del bloque DENTRO de una Experiencia — necesario
    *  porque los bloques van a tener estado (respondido, en progreso…) y
@@ -64,12 +98,13 @@ export interface ExperienceBlock {
   id: string;
   tipo: TipoBloque;
   /**
-   * Contenido a renderizar, rellenado por el Builder desde el contenido
-   * del concepto. `unknown` es intencional y temporal: se tipará por
-   * bloque en la Fase 3 (Experience Builder), cuando exista contenido real
-   * para tipar contra. Ningún consumidor de esta fase lee `contenido`.
+   * Contenido a renderizar. El Builder (experience/builder/builder.ts)
+   * arma la ESTRUCTURA del bloque sin contenido; un paso aparte
+   * (experience/content/rellenar.ts) lo completa desde el banco de
+   * contenido del concepto — puede quedar `undefined` si no hay contenido
+   * para esa casilla (el runner cae a un placeholder, nunca rompe).
    */
-  contenido?: unknown;
+  contenido?: Contenido;
 }
 
 export interface Experiencia {
