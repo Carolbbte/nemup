@@ -2,6 +2,8 @@
  * Backend-local type definitions for session generation.
  */
 
+import type { MotorContent } from './generation/v2/motorAdapter.js';
+
 export type SessionFormat = 'quizzes' | 'flashcards' | 'summary' | 'mindmap';
 
 export interface DetectedSkill {
@@ -215,6 +217,13 @@ export interface GeneratedSession {
   xpReward: number;       // max possible XP (earned at 100% score)
   baseXpReward: number;   // XP awarded just for attempting (20% of max)
   gemReward: number;      // max gems (awarded only if score ≥ 70%)
+  /**
+   * Contenido del documento subido, adaptado a la forma que consume el
+   * Motor Pedagógico del front (ver generation/v2/motorAdapter.ts) — solo
+   * poblado por generateSessionV2. Aditivo: el flujo viejo (MOTOR_MODE
+   * apagado) lo ignora por completo.
+   */
+  motorContent?: MotorContent;
 }
 
 export type MasteryLevel = 'needs_practice' | 'in_progress' | 'good_mastery' | 'mastered';

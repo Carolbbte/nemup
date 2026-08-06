@@ -7,6 +7,7 @@ import { buildGeneratedSession, validateGrounding, type GenerationResult } from 
 import type { GeneratedSession, SessionConfig } from '../../types.js';
 import { buildKnowledgeObject } from './comprehension.js';
 import { generateDistractors } from './distractors.js';
+import { adaptarAMotor } from './motorAdapter.js';
 import { buildWorkedExampleSteps } from './procedural.js';
 import { generateFindError, selectPoolCandidatesForFindError, removeConsumedPoolExercise, type FindErrorResult } from './findError.js';
 import { generateExercises, isExercisableSubject } from './exerciseGenerator.js';
@@ -232,6 +233,11 @@ export async function generateSessionV2(
   }
 
   const session = buildGeneratedSession('', '', transcription, wordCount, config, generation);
+
+  // Adaptador puro (sin llamadas a IA nuevas) de lo que ya se generó arriba
+  // (ko + distractors) a la forma que consume el Motor Pedagógico del
+  // front — aditivo, el flujo viejo no lo lee.
+  session.motorContent = adaptarAMotor(ko, distractors, classification.type);
 
   // `desafio` is not part of the typed `GeneratedSession` interface today —
   // this mirrors the exact same runtime shape the legacy path already
