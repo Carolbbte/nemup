@@ -16,8 +16,20 @@ export interface CopyCelebracion {
   subtitle: string;
 }
 
-export function copyCelebracion(avanzo: boolean): CopyCelebracion {
-  return avanzo
-    ? { title: '🔥 ¡Lo dominaste!', subtitle: 'Vas avanzando.' }
-    : { title: '💪 ¡Buen trabajo!', subtitle: 'Sigamos un poco más.' };
+/** Resultado de la misión, para elegir el tono —siempre positivo:
+ *  - `dominado`: avanzó al siguiente objetivo.
+ *  - `avance`:   respondió bien, pero el peldaño necesita más práctica.
+ *  - `refuerzo`: le costó (hubo errores) — en clave de "reforcemos", nunca
+ *    "te equivocaste". */
+export type ResultadoMision = 'dominado' | 'avance' | 'refuerzo';
+
+export function copyCelebracion(resultado: ResultadoMision): CopyCelebracion {
+  switch (resultado) {
+    case 'dominado':
+      return { title: '🔥 ¡Lo dominaste!', subtitle: 'Vas avanzando.' };
+    case 'avance':
+      return { title: '💪 ¡Bien ahí!', subtitle: 'Sigamos un poco más.' };
+    case 'refuerzo':
+      return { title: '🧠 Casi.', subtitle: 'Reforcemos esto un momento y sigue.' };
+  }
 }

@@ -59,6 +59,18 @@ export const GANANCIA = {
   contextoNuevo: 40,
 };
 
+/** Rols de DIAGNÓSTICO: comprender/reconocer son un chequeo rápido, no
+ *  práctica — un buen acierto (sin ayuda) basta para darlos por dominados
+ *  ("una pregunta bien respondida y avanzas"). Aplicar/Transferir NO están
+ *  aquí a propósito: ahí la repetición ES el punto (práctica). */
+export const ROLES_DIAGNOSTICO = ['comprension', 'reconocimiento'] as const;
+
+/** Ganancia de un acierto SIN AYUDA en un rol de diagnóstico: cruza DOMINADO
+ *  de una. Con ayuda se usa la GANANCIA normal — necesitar pistas no "domina"
+ *  al toque. La válvula de seguridad sigue vigente: un error conceptual
+ *  posterior reabre el peldaño. */
+export const GANANCIA_DIAGNOSTICO = 100;
+
 /** Un acierto refuerza un poco la Estabilidad (retención). Calibrado (2ª
  *  pasada) en proporción a GANANCIA — con +3 (valor original) hacían falta
  *  ~7 aciertos solo para cruzar UMBRAL_REPASO (60) desde 0. */

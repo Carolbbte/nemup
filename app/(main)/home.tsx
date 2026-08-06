@@ -318,6 +318,15 @@ export default function HomeScreen() {
           {lastSession !== null && (
             <UploadApuntesButton onPress={() => router.push('/modals/upload' as any)} />
           )}
+
+          {/* TEMP: acceso de prueba al nuevo flujo (también en el dashboard
+              rediseñado). NO es un botón de producto — ver comentario en la
+              versión legacy más abajo. */}
+          {MOTOR_MODE && (
+            <Pressable onPress={startObjective} style={s.devMotorButton}>
+              <Text style={s.devMotorButtonText}>[dev] Probar flujo del Motor</Text>
+            </Pressable>
+          )}
         </ScrollView>
       </SafeAreaView>
     );

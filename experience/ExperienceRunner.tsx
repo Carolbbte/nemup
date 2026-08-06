@@ -18,11 +18,12 @@
  * como fallback) — nunca rompe el runner.
  */
 
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { palette, semantic } from '@/theme/colors';
 import { useMotor } from '@/contexts/MotorContext';
 import { inferirTipoError } from './evidencia';
+import type { ResultadoMision } from './celebracionCopy';
 import type { ContenidoPregunta, ContenidoTexto, OpcionPregunta, TipoBloque } from './contracts/contratos';
 
 const ICONO_POR_BLOQUE: Record<TipoBloque, string> = {
@@ -50,7 +51,7 @@ const ETIQUETA_POR_BLOQUE: Record<TipoBloque, string> = {
 // solo se lee/mira (ContenidoTexto) — avanza con "Siguiente".
 const BLOQUES_INTERACTIVOS = new Set<TipoBloque>(['pregunta', 'ejercicio']);
 
-export function ExperienceRunner({ onFinish }: { onFinish: (avanzo: boolean) => void }) {
+export function ExperienceRunner({ onFinish }: { onFinish: (resultado: ResultadoMision) => void }) {
   const { objetivo, iniciarExperiencia, registrarEvidencia } = useMotor();
   // Inicializador perezoso — iniciarExperiencia() (congela la decisión,
   // rellena contenido) corre UNA sola vez, al montar, no en cada re-render.
@@ -63,6 +64,9 @@ export function ExperienceRunner({ onFinish }: { onFinish: (avanzo: boolean) => 
   // Opción elegida en el bloque interactivo ACTUAL — null hasta que el
   // estudiante toca una. Se resetea al pasar de bloque (avanzar()).
   const [seleccionId, setSeleccionId] = useState<string | null>(null);
+  // ¿Hubo algún error en la misión? (ref, no state: se lee sincrónicamente al
+  // finalizar y se reinicia solo al remontar el runner en la próxima misión).
+  const huboErrorRef = useRef(false);
 
   const bloque = experiencia.bloques[indice];
   const esUltimo = indice + 1 >= experiencia.bloques.length;
@@ -79,9 +83,16 @@ export function ExperienceRunner({ onFinish }: { onFinish: (avanzo: boolean) => 
       // `objetivo` viene del contexto y ya refleja TODA la evidencia
       // registrada durante esta experiencia — comparar contra el objetivo
       // con el que arrancó (`experiencia.objetivo`, congelado al montar)
-      // dice si el motor avanzó a otro peldaño/cualidad, para que la
-      // celebración elija el tono.
-      onFinish(experiencia.objetivo.tipo !== objetivo.tipo);
+      // dice si el motor avanzó a otro peldaño/cualidad.
+      const avanzo = experiencia.objetivo.tipo !== objetivo.tipo;
+      // Tono de la celebración: dominó (avanzó) / le costó (hubo errores) /
+      // bien pero falta práctica.
+      const resultado: ResultadoMision = avanzo
+        ? 'dominado'
+        : huboErrorRef.current
+          ? 'refuerzo'
+          : 'avance';
+      onFinish(resultado);
     } else {
       setIndice(indice + 1);
     }
@@ -89,6 +100,7 @@ export function ExperienceRunner({ onFinish }: { onFinish: (avanzo: boolean) => 
 
   // Placeholder — casilla sin contenido todavía en el banco.
   const responderPlaceholder = (correcto: boolean) => {
+    if (!correcto) huboErrorRef.current = true;
     registrarEvidencia(
       correcto ? { correcto: true } : { correcto: false, tipoError: inferirTipoError(experiencia.objetivo) },
     );
@@ -100,6 +112,7 @@ export function ExperienceRunner({ onFinish }: { onFinish: (avanzo: boolean) => 
   // inferirTipoError queda solo de fallback si una opción no lo trae.
   const responderOpcion = (opcion: OpcionPregunta) => {
     if (seleccionId !== null) return; // ya respondida — ignora taps repetidos.
+    if (!opcion.correcta) huboErrorRef.current = true;
     setSeleccionId(opcion.id);
     registrarEvidencia({
       correcto: opcion.correcta,

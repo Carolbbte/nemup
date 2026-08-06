@@ -10,7 +10,7 @@ import { MOTOR_MODE } from '@/config/features';
 import { MotorProvider, useMotor } from '@/contexts/MotorContext';
 import { ExperienceRunner } from '@/experience/ExperienceRunner';
 import { CelebrationBeat } from '@/experience/CelebrationBeat';
-import { copyCelebracion } from '@/experience/celebracionCopy';
+import { copyCelebracion, type ResultadoMision } from '@/experience/celebracionCopy';
 import { fraseObjetivo } from '@/experience/fraseObjetivo';
 import { perfilNuevo, perfilAplicar, perfilDominado } from '@/experience/dev/perfilesFalsos';
 import type { PerfilConcepto } from '@/motor';
@@ -38,18 +38,17 @@ export default function CurrentObjectiveScreen() {
 function CurrentObjectiveInner() {
   const router = useRouter();
   const [phase, setPhase] = useState<Phase>('intro');
-  // Si el objetivo avanzó tras la última misión — decide el tono de la
-  // celebración (ver ExperienceRunner.onFinish). Solo tiene sentido
-  // mientras phase === 'celebrate'.
-  const [avanzo, setAvanzo] = useState(false);
+  // Resultado de la última misión — decide el tono de la celebración (ver
+  // ExperienceRunner.onFinish). Solo tiene sentido mientras phase === 'celebrate'.
+  const [resultado, setResultado] = useState<ResultadoMision>('avance');
   const { objetivo, reiniciarPerfil } = useMotor();
 
   if (phase === 'running') {
     return (
       <SafeAreaView style={s.page} edges={['top', 'bottom']}>
         <ExperienceRunner
-          onFinish={(avanzoAhora) => {
-            setAvanzo(avanzoAhora);
+          onFinish={(resultadoAhora) => {
+            setResultado(resultadoAhora);
             setPhase('celebrate');
           }}
         />
@@ -58,7 +57,7 @@ function CurrentObjectiveInner() {
   }
 
   if (phase === 'celebrate') {
-    const copy = copyCelebracion(avanzo);
+    const copy = copyCelebracion(resultado);
     return (
       <SafeAreaView style={s.page} edges={['top', 'bottom']}>
         <CelebrationBeat

@@ -29,6 +29,19 @@ export const BANCO: Record<string, BancoPorObjetivo> = {
           cuerpo: 'Factorizar es lo contrario de multiplicar: en vez de expandir, buscas qué se multiplicó para llegar a la expresión.',
         },
       ],
+      // Ejercicio simple para aterrizar la comprensión (en mate, entender se
+      // demuestra haciendo). Los errores acá bajan Comprensión (tipoError
+      // 'conceptual'), para que el motor siga en este peldaño si no la agarró.
+      ejercicio: [
+        {
+          enunciado: 'Factoriza 2x + 4.',
+          opciones: [
+            { id: 'a', texto: '2(x + 2)', correcta: true },
+            { id: 'b', texto: '2(x + 4)', correcta: false, tipoError: 'conceptual' },
+            { id: 'c', texto: 'x(2 + 4)', correcta: false, tipoError: 'conceptual' },
+          ],
+        },
+      ],
     },
     reconocer: {
       contexto: [

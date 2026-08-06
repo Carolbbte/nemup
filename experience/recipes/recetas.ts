@@ -21,7 +21,11 @@ import type { Receta, TipoObjetivo } from '../contracts/contratos';
 
 export const RECETAS: Record<TipoObjetivo, Receta[]> = {
   comprender: [
-    { id: 'question-first', tipo: 'comprender', steps: ['pregunta', 'insight'] },
+    // En mate, comprender se aterriza HACIENDO: pregunta (chequeo) → insight
+    // (la idea) → ejercicio (aplícala). Si prefieres sin explicación, borra
+    // 'insight'. (Nota: hoy las recetas son globales; esto aplica a todo
+    // concepto, pero solo se ve donde hay contenido — Factor Común.)
+    { id: 'question-then-apply', tipo: 'comprender', steps: ['pregunta', 'insight', 'ejercicio'] },
   ],
   reconocer: [
     { id: 'context-then-question', tipo: 'reconocer', steps: ['contexto', 'pregunta'] },

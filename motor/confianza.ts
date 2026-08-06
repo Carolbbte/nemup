@@ -12,7 +12,7 @@
 import type { PerfilConcepto, DecisionPedagogica, Evidencia, RolCognitivo } from './tipos';
 import { escaleraDe } from './escaleras';
 import { estabilidadEfectiva } from './perfil';
-import { GANANCIA, GANANCIA_ESTABILIDAD, GANANCIA_FLUIDEZ_RAPIDA, PESO_ERROR } from './config';
+import { GANANCIA, GANANCIA_DIAGNOSTICO, GANANCIA_ESTABILIDAD, GANANCIA_FLUIDEZ_RAPIDA, PESO_ERROR, ROLES_DIAGNOSTICO } from './config';
 
 function clamp(valor: number): number {
   return Math.max(0, Math.min(100, valor));
@@ -50,6 +50,14 @@ export function aplicarEvidencia(
     else if (ev.contextoNuevo) ganancia = GANANCIA.contextoNuevo;
     else if (ev.rapida) ganancia = GANANCIA.rapida;
     else ganancia = GANANCIA.sinAyuda;
+
+    // Diagnóstico (comprender/reconocer): un acierto SIN ayuda basta para
+    // dominar de una — es un chequeo, no práctica. Con ayuda se mantiene la
+    // ganancia normal (necesitar pistas no domina al toque). Aplicar/
+    // Transferir NO entran acá: ahí la repetición es el punto.
+    if (!ev.conAyuda && (ROLES_DIAGNOSTICO as readonly string[]).includes(decision.rolObjetivo)) {
+      ganancia = GANANCIA_DIAGNOSTICO;
+    }
 
     ejes[decision.ejeObjetivo] = clamp((ejes[decision.ejeObjetivo] ?? 0) + ganancia);
 
