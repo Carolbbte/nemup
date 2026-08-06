@@ -1,17 +1,19 @@
 // BORRADOR de contenido — redactado por IA, PENDIENTE de revisión pedagógica humana.
 //
-// Banco de contenido a mano para UN concepto (Factor Común), indexado
-// conceptoId → TipoObjetivo → TipoBloque → Contenido[]. Transcrito TAL
+// Banco de contenido a mano para UN concepto (Factor Común). Transcrito TAL
 // CUAL del prompt que lo especificó — no se agregó, cambió ni "mejoró"
 // ninguna pregunta, opción ni distractor. Carol/un profesor debe revisarlo
 // antes de usarlo con estudiantes reales.
+//
+// YA NO es la fuente en runtime (ver PROMPT_contenido_desde_documento.md):
+// el banco real ahora sale del documento subido vía `motorContent` del
+// backend (MotorContext lo siembra con `sembrarMotor`). Este archivo queda
+// como FIXTURE de prueba/desarrollo — útil para tests o para probar la
+// UI sin depender de una sesión generada.
 
-import type { TipoObjetivo, TipoBloque, Contenido } from '../contracts/contratos';
+import type { Banco } from '../contracts/contratos';
 
-type BancoPorTipoBloque = Partial<Record<TipoBloque, Contenido[]>>;
-type BancoPorObjetivo = Partial<Record<TipoObjetivo, BancoPorTipoBloque>>;
-
-export const BANCO: Record<string, BancoPorObjetivo> = {
+export const BANCO: Banco = {
   'factor-comun': {
     comprender: {
       pregunta: [

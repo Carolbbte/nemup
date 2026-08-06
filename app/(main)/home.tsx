@@ -1,5 +1,4 @@
-import { DASHBOARD_REDESIGN, DESAFIO_MODE, MOTOR_MODE, SHOW_GEMS } from '@/config/features';
-import { startObjective } from '@/experience/startObjective';
+import { DASHBOARD_REDESIGN, DESAFIO_MODE, SHOW_GEMS } from '@/config/features';
 import DashboardHeader from '@/components/dashboard/DashboardHeader';
 import ProgressStartCard from '@/components/dashboard/ProgressStartCard';
 import UnlocksCard from '@/components/dashboard/UnlocksCard';
@@ -318,15 +317,6 @@ export default function HomeScreen() {
           {lastSession !== null && (
             <UploadApuntesButton onPress={() => router.push('/modals/upload' as any)} />
           )}
-
-          {/* TEMP: acceso de prueba al nuevo flujo (también en el dashboard
-              rediseñado). NO es un botón de producto — ver comentario en la
-              versión legacy más abajo. */}
-          {MOTOR_MODE && (
-            <Pressable onPress={startObjective} style={s.devMotorButton}>
-              <Text style={s.devMotorButtonText}>[dev] Probar flujo del Motor</Text>
-            </Pressable>
-          )}
         </ScrollView>
       </SafeAreaView>
     );
@@ -548,18 +538,6 @@ export default function HomeScreen() {
             )}
           </View>
         </FadeUp>
-
-        {/* TEMP: acceso de prueba al nuevo flujo — NO es un botón de
-            producto. En el producto real el estudiante llega a
-            current-objective por Subir → Analizar → WOW, nunca desde el
-            Dashboard. Solo existe mientras MOTOR_MODE se construye por
-            fases (ver PROMPT_motor_integracion.md). */}
-        {MOTOR_MODE && (
-          <Pressable onPress={startObjective} style={s.devMotorButton}>
-            <Text style={s.devMotorButtonText}>[dev] Probar flujo del Motor</Text>
-          </Pressable>
-        )}
-
       </ScrollView>
     </SafeAreaView>
   );
@@ -572,10 +550,6 @@ const s = StyleSheet.create({
   container: { flex: 1, backgroundColor: BG },
   scroll:    { flex: 1 },
   content:   { paddingHorizontal: 20, paddingTop: 10 },
-
-  // ── TEMP: acceso de prueba al Motor (ver home.tsx's own comment) ──
-  devMotorButton:     { marginTop: 16, alignSelf: 'center', paddingHorizontal: 14, paddingVertical: 8, borderRadius: 10, borderWidth: 1, borderStyle: 'dashed', borderColor: semantic.textTertiary },
-  devMotorButtonText: { fontSize: 12, fontWeight: '700', color: semantic.textTertiary },
 
   // ── Header ──────────────────────────────────────────────────
   header:       { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16 },

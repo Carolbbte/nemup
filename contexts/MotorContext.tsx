@@ -1,12 +1,13 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
-import { tomarDecisionPedagogica, aplicarEvidencia } from '@/motor';
+import { tomarDecisionPedagogica, aplicarEvidencia, crearPerfil } from '@/motor';
 import type { PerfilConcepto, DecisionPedagogica, Evidencia } from '@/motor';
 import { objetivoDeDecision } from '@/experience/contracts/objetivo';
 import { crearExperiencia } from '@/experience/builder/builder';
 import { rellenarContenido } from '@/experience/content/rellenar';
-import type { Objetivo, Experiencia } from '@/experience/contracts/contratos';
+import type { Banco, Objetivo, Experiencia } from '@/experience/contracts/contratos';
 import { perfilNuevo } from '@/experience/dev/perfilesFalsos';
+import type { MotorContent } from '@/shared/types';
 
 /**
  * MotorContext — local-first (AsyncStorage como fuente de verdad), mismo
@@ -16,13 +17,40 @@ import { perfilNuevo } from '@/experience/dev/perfilesFalsos';
  * `DecisionPedagogica` ni llama al motor directamente, solo `Objetivo` y
  * `Experiencia`.
  *
- * TEMP: hoy hay UN solo `PerfilConcepto` activo, sembrado con
- * `perfilNuevo` de experience/dev/perfilesFalsos.ts si no hay nada
- * persistido — se reemplaza por la inicialización de un concepto real en
- * un hito futuro (no hoy).
+ * TEMP: hoy hay UN solo `PerfilConcepto` activo — sembrado con
+ * `perfilNuevo` si no hay nada persistido, o con `sembrarMotor` (abajo)
+ * cuando una sesión real trae `motorContent`. Varios conceptos activos a
+ * la vez es soporte futuro, no de este hito.
  */
 
 const PERFIL_KEY = 'nemup_motor_perfil_v1';
+const BANCO_KEY = 'nemup_motor_banco_v1';
+
+/**
+ * Siembra el Motor con el contenido REAL de una sesión recién generada —
+ * se llama ANTES de navegar a current-objective (ver
+ * experience/startObjective.ts) para que `MotorProvider` hidrate este
+ * estado apenas monte. Elige el PRIMER concepto de `seed.conceptos` (ya
+ * viene ordenado por dificultad, ver motorAdapter.ts) como el activo.
+ *
+ * Si el perfil ya persistido es del MISMO concepto, no lo reinicia —
+ * preserva el progreso de una sesión a medio hacer. Si es un concepto
+ * nuevo (o no hay nada persistido), crea un Perfil de Dominio fresco.
+ */
+export async function sembrarMotor(seed: MotorContent): Promise<void> {
+  const primero = seed.conceptos[0];
+  if (!primero) return;
+  try {
+    const rawPerfil = await AsyncStorage.getItem(PERFIL_KEY);
+    const actual = rawPerfil ? (JSON.parse(rawPerfil) as PerfilConcepto) : null;
+    const writes: [string, string][] = [[BANCO_KEY, JSON.stringify(seed.banco)]];
+    if (!actual || actual.conceptoId !== primero.id) {
+      const nuevo = crearPerfil(primero.id, primero.nombre, primero.escalera, Date.now());
+      writes.push([PERFIL_KEY, JSON.stringify(nuevo)]);
+    }
+    await AsyncStorage.multiSet(writes);
+  } catch {}
+}
 
 interface MotorContextType {
   hydrated: boolean;
@@ -52,6 +80,10 @@ export const MotorProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   // registrarEvidencia son callbacks estables (deps mínimas) y necesitan
   // el perfil más fresco, no uno de un closure viejo.
   const perfilRef = useRef<PerfilConcepto>(perfilNuevo);
+  // El banco activo — sembrado por `sembrarMotor` (contenido real de una
+  // sesión) o vacío si no hay nada (el runner ya sabe degradar a
+  // placeholder cuando una casilla no tiene contenido).
+  const bancoRef = useRef<Banco>({});
   // La decisión CONGELADA al llamar iniciarExperiencia — ver el
   // comentario de esa función sobre por qué no se recalcula.
   const decisionEnCursoRef = useRef<DecisionPedagogica | null>(null);
@@ -65,12 +97,20 @@ export const MotorProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   useEffect(() => {
     (async () => {
       try {
-        const raw = await AsyncStorage.getItem(PERFIL_KEY);
-        if (raw) {
-          const parsed = JSON.parse(raw);
+        const [rawPerfil, rawBanco] = await AsyncStorage.multiGet([PERFIL_KEY, BANCO_KEY]);
+        const perfilGuardado = rawPerfil[1];
+        if (perfilGuardado) {
+          const parsed = JSON.parse(perfilGuardado);
           if (parsed && typeof parsed === 'object') {
             perfilRef.current = parsed;
             setPerfil(parsed);
+          }
+        }
+        const bancoGuardado = rawBanco[1];
+        if (bancoGuardado) {
+          const parsed = JSON.parse(bancoGuardado);
+          if (parsed && typeof parsed === 'object') {
+            bancoRef.current = parsed;
           }
         }
       } catch {}
@@ -102,7 +142,7 @@ export const MotorProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     // es un paso APARTE que la completa con contenido real del banco del
     // concepto — ver el comentario de esa función sobre por qué está
     // separado del Builder.
-    return rellenarContenido(crearExperiencia(objetivoDeEstaExperiencia), objetivoDeEstaExperiencia);
+    return rellenarContenido(crearExperiencia(objetivoDeEstaExperiencia), objetivoDeEstaExperiencia, bancoRef.current);
   }, []);
 
   const registrarEvidencia = useCallback((ev: Evidencia) => {

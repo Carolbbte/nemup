@@ -4,6 +4,8 @@
  */
 
 import type { DesafioSession } from './desafio.js';
+import type { TipoEscalera } from '../motor';
+import type { Banco } from '../experience/contracts/contratos';
 
 // ============================================================================
 // 1. CONTENIDO GENERADO
@@ -51,6 +53,28 @@ export interface Summary {
 }
 
 // ============================================================================
+// 1b. CONTENIDO ADAPTADO PARA EL MOTOR PEDAGÓGICO
+// ============================================================================
+
+/** Semilla para crear el `PerfilConcepto` activo (ver motor/perfil.ts's
+ *  `crearPerfil`) — el primero de la lista es el concepto de menor
+ *  dificultad (ya ordenado por el backend, ver motorAdapter.ts). */
+export interface MotorConceptoSeed {
+  id: string;
+  nombre: string;
+  escalera: TipoEscalera;
+}
+
+/** El `motorContent` que arma `backend/src/generation/v2/motorAdapter.ts`
+ *  a partir de lo que la generación v2 ya produjo para el documento
+ *  subido — `banco` es la misma forma que consume `rellenarContenido`
+ *  (experience/content/rellenar.ts). */
+export interface MotorContent {
+  conceptos: MotorConceptoSeed[];
+  banco: Banco;
+}
+
+// ============================================================================
 // 2. SESIÓN COMPLETA
 // ============================================================================
 
@@ -77,6 +101,10 @@ export interface GeneratedSession {
   xpReward: number;
   gemReward: number;
   desafio?: DesafioSession;
+  /** Contenido del documento, adaptado para el Motor Pedagógico — solo
+   *  presente cuando la generación v2 lo produjo. Aditivo: el flujo viejo
+   *  (MOTOR_MODE apagado) lo ignora. */
+  motorContent?: MotorContent;
 }
 
 export type SessionFormat = 'quizzes' | 'flashcards' | 'summary' | 'mindmap';

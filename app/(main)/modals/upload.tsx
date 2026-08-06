@@ -1,5 +1,9 @@
 import { useMissions } from '@/contexts/MissionsContext';
+import { sembrarMotor } from '@/contexts/MotorContext';
 import { useOnboarding } from '@/contexts/OnboardingContext';
+import { MOTOR_MODE } from '@/config/features';
+import { startObjective } from '@/experience/startObjective';
+import type { GeneratedSession } from '@/shared/types';
 import { palette, paletteExtras, semantic } from '@/theme/colors';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as DocumentPicker from 'expo-document-picker';
@@ -580,6 +584,19 @@ export default function UploadFlowScreen() {
   const handleBack  = () => { if (step > 0) setStep(step - 1); else router.back(); };
   const handleStart = async () => {
     if (!completedSession) return;
+
+    // Flujo nuevo guiado por el Motor: en vez del dashboard/reproductor
+    // viejo, siembra el Motor con el contenido REAL de este documento
+    // (ver contexts/MotorContext.tsx's sembrarMotor) y navega directo a
+    // current-objective. Con MOTOR_MODE apagado, el resto de esta función
+    // sigue exactamente igual que siempre.
+    const motorContent = (completedSession as GeneratedSession).motorContent;
+    if (MOTOR_MODE && motorContent) {
+      await sembrarMotor(motorContent);
+      startObjective();
+      return;
+    }
+
     const sessionKey = Date.now().toString();
     const payload = sessionResult;
     const writes: [string, string][] = [

@@ -154,3 +154,16 @@ export interface Receta {
    */
   steps: PasoReceta[];
 }
+
+// ── 5. Banco de contenido — la fuente que consume rellenarContenido ────────
+//
+// conceptoId → TipoObjetivo → TipoBloque → Contenido[] (un pool: se elige
+// uno al azar). Vive acá (no en `content/factorComun.ts`, donde nació)
+// porque ya no es específico de un concepto a mano — también es la forma
+// que produce `motorContent` del backend (ver
+// backend/src/generation/v2/motorAdapter.ts, que espeja esta forma a mano
+// del lado del backend) y la que persiste `MotorContext`.
+
+export type BancoPorBloque = Partial<Record<TipoBloque, Contenido[]>>;
+export type BancoPorObjetivo = Partial<Record<TipoObjetivo, BancoPorBloque>>;
+export type Banco = Record<string, BancoPorObjetivo>;
